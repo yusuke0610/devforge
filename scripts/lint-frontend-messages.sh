@@ -12,7 +12,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../frontend"
 
 # Rust regex (ripgrep -P) で Unicode プロパティを使って ひらがな・カタカナ・漢字 を検出する。
-# シングルクォート文字列とバッククォート文字列の両方をカバー。
+# ダブルクォート文字列とバッククォート文字列の両方をカバー（フロントエンドはダブルクォート慣習）。
 PATTERN='(set\w*Error\w*|toast\.error|alert)\(\s*["`][^"`]*[\p{Hiragana}\p{Katakana}\p{Han}]'
 
 # 検出。一致が無くても exit 1 にならないよう `|| true`。
