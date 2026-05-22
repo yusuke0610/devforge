@@ -11,6 +11,7 @@ import {
 } from "../../api";
 import { createInitialCareerForm, mapCareerResumeToForm } from "../../formMappers";
 import { useCareerDirty } from "../../hooks/career/useCareerDirty";
+import { useResumeImport } from "../../hooks/career/useResumeImport";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
 import { buildCareerPayload } from "../../payloadBuilders";
 import type { CareerTextFieldKey } from "../../formTypes";
@@ -19,7 +20,9 @@ import { usePdfActions } from "../../hooks/usePdfActions";
 import shared from "../../styles/shared.module.css";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { Skeleton } from "../ui/Skeleton";
+import { ImportResumeButton } from "./ImportResumeButton";
 import { PdfPreviewModal } from "./PdfPreviewModal";
+import { ResumeImportConfirmModal } from "./ResumeImportConfirmModal";
 import { CareerBasicInfoSection } from "./sections/CareerBasicInfoSection";
 import { CareerExperienceSection } from "./sections/CareerExperienceSection";
 import { CareerQualificationsSection } from "./sections/CareerQualificationsSection";
@@ -27,6 +30,7 @@ import { CareerSelfPrSection } from "./sections/CareerSelfPrSection";
 
 export function CareerResumeForm() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const importState = useResumeImport();
   const {
     form,
     setForm,
@@ -75,7 +79,7 @@ export function CareerResumeForm() {
   });
 
   /** PDF アクションまたはフォーム保存のエラー・成功メッセージを統合して表示する */
-  const error = pdfError ?? formError;
+  const error = pdfError ?? formError ?? importState.error?.message ?? null;
   const success = pdfSuccess ?? formSuccess;
 
   /** フォームデータ・技術スタック・資格の3つが揃ってから送信可能 */
@@ -107,10 +111,23 @@ export function CareerResumeForm() {
         />
       )}
       {previewUrl && <PdfPreviewModal previewUrl={previewUrl} onClose={closePreview} />}
+      {importState.phase === "ready" && importState.parsedData && (
+        <ResumeImportConfirmModal
+          parsedData={importState.parsedData.result}
+          existingForm={form}
+          isDirty={Object.values(dirty).some(Boolean)}
+          onConfirm={(merged) => {
+            setForm(merged);
+            importState.reset();
+          }}
+          onCancel={() => importState.reset()}
+        />
+      )}
       <form onSubmit={onSubmit}>
         <div className={shared.pageHeader}>
           <h1>職務経歴書</h1>
           <div className={shared.pageHeaderActions}>
+            <ImportResumeButton importState={importState} />
             <button type="submit" className="primary" disabled={!canSubmit || saving}>
               {saveButtonText}
             </button>

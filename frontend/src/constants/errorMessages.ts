@@ -47,6 +47,14 @@ export const ERROR_CONFIG: Record<
     message: "Qiita API の制限に達しました",
     recovery: { label: "1時間後に再試行", fn: null },
   },
+  RESUME_IMPORT_INVALID: {
+    message: "PDF をアップロードできませんでした（形式・サイズ・ページ数、またはテキスト抽出不可）",
+    recovery: { label: "別のファイルで再試行", fn: null },
+  },
+  RESUME_IMPORT_NOT_A_RESUME: {
+    message: "職務経歴書として認識できませんでした",
+    recovery: { label: "別のファイルで再試行", fn: null },
+  },
   RATE_LIMITED: {
     message: "リクエストが集中しています",
     recovery: { label: "少し待って再試行", fn: null },

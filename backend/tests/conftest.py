@@ -83,6 +83,7 @@ from app.models import (  # noqa: F401,E402 — ensure models registered
     MQualification,
     MTechnologyStack,
     Resume,
+    ResumeImport,
     User,
 )
 from app.repositories import UserRepository  # noqa: E402
