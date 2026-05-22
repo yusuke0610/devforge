@@ -17,8 +17,6 @@ paths:
 - 認証 Cookie 属性は `COOKIE_SECURE` / `COOKIE_SAMESITE` で制御する
 
 ## 暗号化
-
-- 履歴書（Rirekisho）の個人情報フィールド（email / phone / postal_code / address）は `app/core/encryption.py` で暗号化保存
 - 鍵は `FIELD_ENCRYPTION_KEY` 環境変数（Fernet）
 
 ## セキュリティ

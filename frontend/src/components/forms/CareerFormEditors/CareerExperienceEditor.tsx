@@ -1,4 +1,5 @@
 import type { CareerClientFieldKey, CareerExperienceFieldKey } from "../../../formTypes";
+import type { ExperienceDirty } from "../../../hooks/career/useCareerDirty";
 import {
   validateDateRange,
   type CareerExperienceForm,
@@ -6,6 +7,7 @@ import {
 } from "../../../payloadBuilders";
 import shared from "../../../styles/shared.module.css";
 import styles from "../CareerResumeForm.module.css";
+import { DirtyDot } from "../../ui/DirtyDot";
 
 /** CareerExperienceEditor のプロパティ型 */
 type CareerExperienceEditorProps = {
@@ -40,6 +42,8 @@ type CareerExperienceEditorProps = {
   onRemoveExperience: (index: number) => void;
   /** プロジェクトサマリーテキストを生成する関数 */
   projectSummary: (proj: CareerProjectForm) => string;
+  /** この経歴の dirty 情報。未指定なら 🔴 表示なし。 */
+  dirty?: ExperienceDirty;
 };
 
 /**
@@ -58,12 +62,17 @@ export function CareerExperienceEditor({
   onOpenProjectModal,
   onRemoveExperience,
   projectSummary,
+  dirty,
 }: CareerExperienceEditorProps) {
+  const fieldDirty = dirty?.fields;
   return (
     <div className={shared.entry}>
+      {/* この経歴ブロック全体の未保存マーク（配下のクライアント・プロジェクトを含めて集約） */}
+      <DirtyDot visible={Boolean(dirty?.any)} title="この経歴に未保存の変更があります" />
       <div className={shared.inline}>
         <label>
           会社名
+          <DirtyDot visible={Boolean(fieldDirty?.company)} />
           <input
             type="text"
             value={exp.company}
@@ -72,6 +81,7 @@ export function CareerExperienceEditor({
         </label>
         <label>
           事業内容
+          <DirtyDot visible={Boolean(fieldDirty?.business_description)} />
           <input
             type="text"
             value={exp.business_description}
@@ -86,6 +96,7 @@ export function CareerExperienceEditor({
       <div className={shared.inline}>
         <label>
           開始
+          <DirtyDot visible={Boolean(fieldDirty?.start_date)} />
           <input
             type="month"
             value={exp.start_date}
@@ -94,6 +105,7 @@ export function CareerExperienceEditor({
         </label>
         <label>
           在職の有無
+          <DirtyDot visible={Boolean(fieldDirty?.is_current)} />
           <select
             value={exp.is_current ? "current" : "ended"}
             onChange={(e) =>
@@ -107,6 +119,7 @@ export function CareerExperienceEditor({
         {!exp.is_current && (
           <label>
             離職年月
+            <DirtyDot visible={Boolean(fieldDirty?.end_date)} />
             <input
               type="month"
               value={exp.end_date}
@@ -124,6 +137,7 @@ export function CareerExperienceEditor({
       <div className={shared.inline}>
         <label>
           従業員数
+          <DirtyDot visible={Boolean(fieldDirty?.employee_count)} />
           <div className={styles.inputWithUnit}>
             <input
               type="number"
@@ -138,6 +152,7 @@ export function CareerExperienceEditor({
         </label>
         <label>
           資本金
+          <DirtyDot visible={Boolean(fieldDirty?.capital)} />
           <div className={styles.inputWithUnit}>
             <input
               type="number"
@@ -153,79 +168,94 @@ export function CareerExperienceEditor({
       {/* 取引先 */}
       <div className={styles.stackSection}>
         <h3>取引先</h3>
-        {exp.clients.map((client, clientIndex) => (
-          <div key={`client-${expIndex}-${clientIndex}`} className={shared.entry}>
-            <div className={styles.clientHeader}>
-              {client.has_client && (
-                <label className={styles.clientNameLabel}>
-                  取引先名（呼称）
+        {exp.clients.map((client, clientIndex) => {
+          const clientDirty = dirty?.clients?.[clientIndex];
+          return (
+            <div key={`client-${expIndex}-${clientIndex}`} className={shared.entry}>
+              {/* クライアント単位の未保存集約（配下プロジェクト含む） */}
+              <DirtyDot
+                visible={Boolean(clientDirty?.any)}
+                title="この取引先に未保存の変更があります"
+              />
+              <div className={styles.clientHeader}>
+                {client.has_client && (
+                  <label className={styles.clientNameLabel}>
+                    取引先名（呼称）
+                    <DirtyDot visible={Boolean(clientDirty?.self)} />
+                    <input
+                      type="text"
+                      value={client.name}
+                      onChange={(e) =>
+                        onUpdateClientField(expIndex, clientIndex, "name", e.target.value)
+                      }
+                      placeholder="例: 〇〇社（略称）"
+                    />
+                  </label>
+                )}
+                <label className={styles.clientCheckbox}>
                   <input
-                    type="text"
-                    value={client.name}
+                    type="checkbox"
+                    checked={!client.has_client}
                     onChange={(e) =>
-                      onUpdateClientField(expIndex, clientIndex, "name", e.target.value)
+                      onUpdateClientHasClient(expIndex, clientIndex, !e.target.checked)
                     }
-                    placeholder="例: 〇〇社（略称）"
                   />
+                  取引先なし
                 </label>
-              )}
-              <label className={styles.clientCheckbox}>
-                <input
-                  type="checkbox"
-                  checked={!client.has_client}
-                  onChange={(e) =>
-                    onUpdateClientHasClient(expIndex, clientIndex, !e.target.checked)
-                  }
-                />
-                取引先なし
-              </label>
-            </div>
+              </div>
 
-            {/* プロジェクト一覧（サマリー表示） */}
-            <div className={styles.stackSection}>
-              <h3>プロジェクト</h3>
-              {client.projects.map((proj, projIndex) => (
-                <div
-                  key={`proj-${expIndex}-${clientIndex}-${projIndex}`}
-                  className={styles.projectSummaryRow}
+              {/* プロジェクト一覧（サマリー表示） */}
+              <div className={styles.stackSection}>
+                <h3>プロジェクト</h3>
+                {client.projects.map((proj, projIndex) => {
+                  const projDirty = clientDirty?.projects?.[projIndex];
+                  return (
+                    <div
+                      key={`proj-${expIndex}-${clientIndex}-${projIndex}`}
+                      className={styles.projectSummaryRow}
+                    >
+                      <span className={styles.projectName}>
+                        {proj.name || "(未入力)"}
+                        <DirtyDot visible={Boolean(projDirty?.any)} />
+                      </span>
+                      <span className={styles.projectPeriod}>{projectSummary(proj)}</span>
+                      <div className={styles.projectActions}>
+                        <button
+                          type="button"
+                          onClick={() => onOpenProjectModal(expIndex, clientIndex, projIndex)}
+                        >
+                          編集
+                        </button>
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => onRemoveProject(expIndex, clientIndex, projIndex)}
+                        >
+                          削除
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => onOpenProjectModal(expIndex, clientIndex, null)}
                 >
-                  <span className={styles.projectName}>{proj.name || "(未入力)"}</span>
-                  <span className={styles.projectPeriod}>{projectSummary(proj)}</span>
-                  <div className={styles.projectActions}>
-                    <button
-                      type="button"
-                      onClick={() => onOpenProjectModal(expIndex, clientIndex, projIndex)}
-                    >
-                      編集
-                    </button>
-                    <button
-                      type="button"
-                      className="danger"
-                      onClick={() => onRemoveProject(expIndex, clientIndex, projIndex)}
-                    >
-                      削除
-                    </button>
-                  </div>
-                </div>
-              ))}
+                  プロジェクトを追加
+                </button>
+              </div>
+
               <button
                 type="button"
-                className="ghost"
-                onClick={() => onOpenProjectModal(expIndex, clientIndex, null)}
+                className="danger"
+                onClick={() => onRemoveClient(expIndex, clientIndex)}
               >
-                プロジェクトを追加
+                取引先を削除
               </button>
             </div>
-
-            <button
-              type="button"
-              className="danger"
-              onClick={() => onRemoveClient(expIndex, clientIndex)}
-            >
-              取引先を削除
-            </button>
-          </div>
-        ))}
+          );
+        })}
         <button type="button" className="ghost" onClick={() => onAddClient(expIndex)}>
           取引先を追加
         </button>

@@ -10,6 +10,7 @@ import {
   updateCareerResume,
 } from "../../api";
 import { createInitialCareerForm, mapCareerResumeToForm } from "../../formMappers";
+import { useCareerDirty } from "../../hooks/career/useCareerDirty";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
 import { buildCareerPayload } from "../../payloadBuilders";
 import type { CareerTextFieldKey } from "../../formTypes";
@@ -17,6 +18,7 @@ import { useQualifications, useTechnologyStacks } from "../../hooks/useMasterDat
 import { usePdfActions } from "../../hooks/usePdfActions";
 import shared from "../../styles/shared.module.css";
 import { ConfirmDialog } from "../ConfirmDialog";
+import { DirtyDot } from "../ui/DirtyDot";
 import { Skeleton } from "../ui/Skeleton";
 import { PdfPreviewModal } from "./PdfPreviewModal";
 import { CareerBasicInfoSection } from "./sections/CareerBasicInfoSection";
@@ -29,6 +31,7 @@ export function CareerResumeForm() {
   const {
     form,
     setForm,
+    baseline,
     documentId: resumeId,
     loading,
     saving,
@@ -53,6 +56,9 @@ export function CareerResumeForm() {
   const { items: techStackOptions, loading: techLoading } = useTechnologyStacks();
   const { items: qualificationOptions, loading: qualLoading } = useQualifications();
   const qualificationNames = qualificationOptions.map((item) => item.name);
+
+  /** 未保存マーク（🔴）の表示判定に使う dirty マップ */
+  const dirty = useCareerDirty(form, baseline);
 
   const {
     downloading,
@@ -108,6 +114,7 @@ export function CareerResumeForm() {
           <div className={shared.pageHeaderActions}>
             <button type="submit" className="primary" disabled={!canSubmit || saving}>
               {saveButtonText}
+              <DirtyDot visible={dirty.any} title="未保存の変更があります" />
             </button>
             <button
               type="button"
@@ -155,6 +162,8 @@ export function CareerResumeForm() {
               careerSummary={form.career_summary}
               loading={loading}
               onChange={onChangeField}
+              fullNameDirty={dirty.full_name}
+              careerSummaryDirty={dirty.career_summary}
             />
 
             {/* 職務経歴セクション */}
@@ -173,6 +182,8 @@ export function CareerResumeForm() {
                 experiences={form.experiences}
                 setForm={setForm}
                 techStackOptions={techStackOptions}
+                experiencesDirty={dirty.experiences}
+                sectionDirty={dirty.experiencesAny}
               />
             )}
 
@@ -182,6 +193,8 @@ export function CareerResumeForm() {
               qualificationNames={qualificationNames}
               loading={loading}
               setForm={setForm}
+              qualificationsDirty={dirty.qualifications}
+              sectionDirty={dirty.qualificationsAny}
             />
 
             {/* 自己PR */}
@@ -189,6 +202,7 @@ export function CareerResumeForm() {
               selfPr={form.self_pr}
               loading={loading}
               onChange={(v) => onChangeField("self_pr", v)}
+              dirty={dirty.self_pr}
             />
           </div>
         </div>

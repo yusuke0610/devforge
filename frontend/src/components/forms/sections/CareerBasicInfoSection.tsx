@@ -1,4 +1,5 @@
 import shared from "../../../styles/shared.module.css";
+import { DirtyDot } from "../../ui/DirtyDot";
 import { Skeleton } from "../../ui/Skeleton";
 import { MarkdownTextarea } from "../MarkdownTextarea";
 
@@ -12,18 +13,30 @@ type Props = {
   loading: boolean;
   /** フィールド変更ハンドラ */
   onChange: (key: "full_name" | "career_summary", value: string) => void;
+  /** 氏名フィールドが未保存か */
+  fullNameDirty?: boolean;
+  /** 職務要約フィールドが未保存か */
+  careerSummaryDirty?: boolean;
 };
 
 /**
  * 職務経歴書の「基本情報」セクション。氏名と職務要約を表示する。
  * CareerResumeForm の JSX をセクション単位で読みやすくするための切り出し。
  */
-export function CareerBasicInfoSection({ fullName, careerSummary, loading, onChange }: Props) {
+export function CareerBasicInfoSection({
+  fullName,
+  careerSummary,
+  loading,
+  onChange,
+  fullNameDirty = false,
+  careerSummaryDirty = false,
+}: Props) {
   return (
     <section className={shared.section}>
       <label>
         <span className={shared.labelText}>
           氏名<span className={shared.requiredBadge}>必須</span>
+          <DirtyDot visible={fullNameDirty} />
         </span>
         {loading ? (
           <Skeleton height="38px" />
@@ -46,6 +59,7 @@ export function CareerBasicInfoSection({ fullName, careerSummary, loading, onCha
           onChange={(v) => onChange("career_summary", v)}
           rows={4}
           required
+          labelAdornment={<DirtyDot visible={careerSummaryDirty} />}
         />
       )}
     </section>

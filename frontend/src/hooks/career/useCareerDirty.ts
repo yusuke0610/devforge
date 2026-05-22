@@ -1,0 +1,264 @@
+import { useMemo } from "react";
+
+import type {
+  CareerClientForm,
+  CareerExperienceForm,
+  CareerFormState,
+  CareerProjectForm,
+} from "../../payloadBuilders";
+import type { ResumeQualification } from "../../types";
+
+/** プロジェクト単位の dirty 情報。`any` は配下含めた未保存有無。 */
+export type ProjectDirty = {
+  any: boolean;
+};
+
+/** クライアント単位の dirty 情報。 */
+export type ClientDirty = {
+  /** クライアント自身またはその配下プロジェクトのいずれかが未保存 */
+  any: boolean;
+  /** クライアント直下のフィールド（name / has_client）が未保存 */
+  self: boolean;
+  projects: ProjectDirty[];
+};
+
+/** 職務経歴1件分の dirty 情報。 */
+export type ExperienceDirty = {
+  /** 経歴自身または配下クライアント／プロジェクトのいずれかが未保存 */
+  any: boolean;
+  /** 経歴直下のフィールド（company 等）が未保存 */
+  self: boolean;
+  fields: {
+    company: boolean;
+    business_description: boolean;
+    start_date: boolean;
+    end_date: boolean;
+    is_current: boolean;
+    employee_count: boolean;
+    capital: boolean;
+  };
+  clients: ClientDirty[];
+};
+
+/** 資格1件分の dirty 情報。 */
+export type QualificationDirty = {
+  /** 資格行のいずれかのフィールドが未保存 */
+  self: boolean;
+  fields: {
+    name: boolean;
+    acquired_date: boolean;
+  };
+};
+
+/** 職務経歴書全体の dirty マップ。 */
+export type CareerDirtyMap = {
+  /** 全体で何か未保存があるか（保存ボタン横用） */
+  any: boolean;
+  full_name: boolean;
+  career_summary: boolean;
+  self_pr: boolean;
+  experiences: ExperienceDirty[];
+  /** 「職務経歴」h2 用集約 */
+  experiencesAny: boolean;
+  qualifications: QualificationDirty[];
+  /** 「資格」h2 用集約 */
+  qualificationsAny: boolean;
+};
+
+/**
+ * 値が等しいかを判定する。プリミティブと配列・プレーンオブジェクトを再帰比較する。
+ * フォーム値はプリミティブ／配列／プレーンオブジェクトのみで構成されている前提。
+ */
+function isDeepEqual(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (a === null || b === null) return false;
+  if (typeof a !== "object" || typeof b !== "object") return false;
+
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!isDeepEqual(a[i], b[i])) return false;
+    }
+    return true;
+  }
+
+  const objA = a as Record<string, unknown>;
+  const objB = b as Record<string, unknown>;
+  const keysA = Object.keys(objA);
+  const keysB = Object.keys(objB);
+  if (keysA.length !== keysB.length) return false;
+  for (const k of keysA) {
+    if (!Object.prototype.hasOwnProperty.call(objB, k)) return false;
+    if (!isDeepEqual(objA[k], objB[k])) return false;
+  }
+  return true;
+}
+
+/** dirty なしの経歴 1 件分のテンプレート。配下クライアントは form を見て埋める。 */
+function buildCleanExperience(experience: { clients: unknown[] }): ExperienceDirty {
+  return {
+    any: false,
+    self: false,
+    fields: {
+      company: false,
+      business_description: false,
+      start_date: false,
+      end_date: false,
+      is_current: false,
+      employee_count: false,
+      capital: false,
+    },
+    clients: experience.clients.map(() => ({ any: false, self: false, projects: [] })),
+  };
+}
+
+const emptyQualification: QualificationDirty = {
+  self: false,
+  fields: { name: false, acquired_date: false },
+};
+
+/** baseline が null のとき（未ロード）に返す「全 false」のマップ。 */
+function buildClean(form: CareerFormState): CareerDirtyMap {
+  return {
+    any: false,
+    full_name: false,
+    career_summary: false,
+    self_pr: false,
+    experiences: form.experiences.map((exp) => buildCleanExperience(exp)),
+    experiencesAny: false,
+    qualifications: form.qualifications.map(() => emptyQualification),
+    qualificationsAny: false,
+  };
+}
+
+function diffProject(
+  current: CareerProjectForm,
+  base: CareerProjectForm | undefined,
+): ProjectDirty {
+  if (!base) return { any: true };
+  return { any: !isDeepEqual(current, base) };
+}
+
+function diffClient(
+  current: CareerClientForm,
+  base: CareerClientForm | undefined,
+): ClientDirty {
+  if (!base) {
+    // 追加されたクライアント丸ごと dirty。配下プロジェクトもすべて dirty 扱いにする。
+    return {
+      any: true,
+      self: true,
+      projects: current.projects.map(() => ({ any: true })),
+    };
+  }
+  const selfFieldsDirty =
+    current.name !== base.name || current.has_client !== base.has_client;
+  const projects = current.projects.map((p, i) => diffProject(p, base.projects[i]));
+  const removedProjects = current.projects.length !== base.projects.length;
+  const any =
+    selfFieldsDirty ||
+    removedProjects ||
+    projects.some((p) => p.any);
+  return { any, self: selfFieldsDirty, projects };
+}
+
+function diffExperience(
+  current: CareerExperienceForm,
+  base: CareerExperienceForm | undefined,
+): ExperienceDirty {
+  if (!base) {
+    return {
+      any: true,
+      self: true,
+      fields: {
+        company: true,
+        business_description: true,
+        start_date: true,
+        end_date: true,
+        is_current: true,
+        employee_count: true,
+        capital: true,
+      },
+      clients: current.clients.map((c) => ({
+        any: true,
+        self: true,
+        projects: c.projects.map(() => ({ any: true })),
+      })),
+    };
+  }
+  const fields: ExperienceDirty["fields"] = {
+    company: current.company !== base.company,
+    business_description: current.business_description !== base.business_description,
+    start_date: current.start_date !== base.start_date,
+    end_date: current.end_date !== base.end_date,
+    is_current: current.is_current !== base.is_current,
+    employee_count: current.employee_count !== base.employee_count,
+    capital: current.capital !== base.capital,
+  };
+  const self = Object.values(fields).some(Boolean);
+  const clients = current.clients.map((c, i) => diffClient(c, base.clients[i]));
+  const removedClients = current.clients.length !== base.clients.length;
+  const any = self || removedClients || clients.some((c) => c.any);
+  return { any, self, fields, clients };
+}
+
+function diffQualification(
+  current: ResumeQualification,
+  base: ResumeQualification | undefined,
+): QualificationDirty {
+  if (!base) {
+    return { self: true, fields: { name: true, acquired_date: true } };
+  }
+  const fields = {
+    name: current.name !== base.name,
+    acquired_date: current.acquired_date !== base.acquired_date,
+  };
+  return { self: fields.name || fields.acquired_date, fields };
+}
+
+/**
+ * 職務経歴書フォームの dirty マップを算出するフック。
+ * baseline が null（未ロード）のときはすべて false を返し、誤検出を避ける。
+ */
+export function useCareerDirty(
+  form: CareerFormState,
+  baseline: CareerFormState | null,
+): CareerDirtyMap {
+  return useMemo(() => {
+    if (!baseline) return buildClean(form);
+
+    const full_name = form.full_name !== baseline.full_name;
+    const career_summary = form.career_summary !== baseline.career_summary;
+    const self_pr = form.self_pr !== baseline.self_pr;
+
+    const experiences = form.experiences.map((exp, i) =>
+      diffExperience(exp, baseline.experiences[i]),
+    );
+    const removedExperiences =
+      form.experiences.length !== baseline.experiences.length;
+    const experiencesAny = removedExperiences || experiences.some((e) => e.any);
+
+    const qualifications = form.qualifications.map((q, i) =>
+      diffQualification(q, baseline.qualifications[i]),
+    );
+    const removedQualifications =
+      form.qualifications.length !== baseline.qualifications.length;
+    const qualificationsAny =
+      removedQualifications || qualifications.some((q) => q.self);
+
+    const any =
+      full_name || career_summary || self_pr || experiencesAny || qualificationsAny;
+
+    return {
+      any,
+      full_name,
+      career_summary,
+      self_pr,
+      experiences,
+      experiencesAny,
+      qualifications,
+      qualificationsAny,
+    };
+  }, [form, baseline]);
+}

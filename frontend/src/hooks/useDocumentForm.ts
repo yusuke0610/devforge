@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
 import { useAppDispatch, useAppSelector } from "../store";
-import { clearCache, setCache, type FormCacheKey } from "../store/formCacheSlice";
+import {
+  clearCache,
+  setBaseline,
+  setCache,
+  type FormCacheKey,
+} from "../store/formCacheSlice";
 
 export type UseDocumentFormOptions<FormState, Payload, Response extends { id: string }> = {
   createInitialForm: () => FormState;
@@ -39,6 +44,14 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
     if (cached?.form) return cached.form as FormState;
     return createInitialForm();
   });
+  /**
+   * dirty 判定の基準値となるサーバ最新スナップショット。
+   * loadLatest / save 成功時にのみ更新し、編集中の setForm では変えない。
+   * 未ロード状態では null（dirty 判定側で null は「すべて未変更」として扱う）。
+   */
+  const [baseline, setBaselineState] = useState<FormState | null>(
+    (cached?.baseline as FormState | null) ?? null,
+  );
   const [documentId, setDocumentId] = useState<string | null>(
     cached?.documentId ?? null,
   );
@@ -52,19 +65,25 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
   const cacheKeyRef = useRef(cacheKey);
   cacheKeyRef.current = cacheKey;
 
+  /**
+   * documentId を ref で保持しておく。setForm 経由で setCache を発火するとき、
+   * 「documentId は今 null」と誤って書き込むと、ページ再マウント時に POST にフォールバックして
+   * UPDATE のはずが CREATE になる事故が起きる。ローカル state と同期する。
+   */
+  const documentIdRef = useRef<string | null>(documentId);
+  documentIdRef.current = documentId;
+
   /** setForm のラッパー: Redux キャッシュも同時更新する */
   const setForm: Dispatch<SetStateAction<FormState>> = useCallback(
     (action) => {
       setFormRaw((prev) => {
         const next = typeof action === "function" ? (action as (prev: FormState) => FormState)(prev) : action;
         if (cacheKeyRef.current) {
-          // documentId は現在の state から直接取れないため ref 不要、
-          // setDocumentId は setForm と同タイミングで呼ばれるので後続の updateCache で上書きされる
           dispatch(
             setCache({
               key: cacheKeyRef.current,
               form: next,
-              documentId: null, // 後で updateCache で正確な値に上書き
+              documentId: documentIdRef.current,
             }),
           );
         }
@@ -86,6 +105,17 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
     [dispatch],
   );
 
+  /** baseline をローカル state と Redux キャッシュ両方に反映する（サーバ同期完了時のみ呼ぶ）。 */
+  const commitBaseline = useCallback(
+    (snapshot: FormState) => {
+      setBaselineState(snapshot);
+      if (cacheKeyRef.current) {
+        dispatch(setBaseline({ key: cacheKeyRef.current, baseline: snapshot }));
+      }
+    },
+    [dispatch],
+  );
+
   useEffect(() => {
     // キャッシュが既にある場合は API ロードをスキップ
     if (cached) return;
@@ -101,6 +131,7 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
         const mapped = mapResponseToForm(latest);
         setFormRaw(mapped);
         updateCache(mapped, latest.id);
+        commitBaseline(mapped);
       } catch {
         if (!active) return;
       } finally {
@@ -113,7 +144,7 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
     };
     // cached を依存配列に含めないことで、キャッシュ更新のたびに再 fetch しない
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadLatest, mapResponseToForm, updateCache]);
+  }, [loadLatest, mapResponseToForm, updateCache, commitBaseline]);
 
   const saveButtonText = useMemo(() => {
     if (saving) return "保存中...";
@@ -135,6 +166,7 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
       setDocumentId(saved.id);
       setFormRaw(mapped);
       updateCache(mapped, saved.id);
+      commitBaseline(mapped);
       setSuccess(successMessage);
     } catch (submitError) {
       const message =
@@ -157,6 +189,7 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
       setDocumentId(null);
       const initial = createInitialForm();
       setFormRaw(initial);
+      setBaselineState(null);
       if (cacheKeyRef.current) {
         dispatch(clearCache(cacheKeyRef.current));
       }
@@ -175,6 +208,7 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
   return {
     form,
     setForm,
+    baseline,
     documentId,
     loading,
     saving,

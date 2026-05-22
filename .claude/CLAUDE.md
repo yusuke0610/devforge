@@ -103,9 +103,6 @@ CI 定義: `.github/workflows/ci.yml`
 | 種別 | 名前 |
 |---|---|
 | 職務経歴書（career history） | `Resume` / `resumes` テーブル |
-| 履歴書（personal CV） | `Rirekisho` / `rirekisho` テーブル |
-
-> `rirekisho` は日本語ローマ字のため cSpell の警告が出るが無視してよい。
 
 ## 環境変数
 

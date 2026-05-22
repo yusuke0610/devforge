@@ -6,6 +6,12 @@ export type FormCacheKey = "career";
 interface FormCacheEntry {
   /** フォーム状態（型は各フォームに依存するため unknown） */
   form: unknown;
+  /**
+   * サーバの最新スナップショット（dirty 判定の基準値）。
+   * loadLatest 成功時 / save 成功時にのみ更新する。
+   * 未ロード状態（load 前）は null。
+   */
+  baseline: unknown;
   /** 保存済みドキュメント ID（未保存なら null） */
   documentId: string | null;
 }
@@ -25,7 +31,24 @@ const formCacheSlice = createSlice({
       }>,
     ) {
       const { key, form, documentId } = action.payload;
-      state[key] = { form, documentId };
+      const prevBaseline = state[key]?.baseline ?? null;
+      state[key] = { form, baseline: prevBaseline, documentId };
+    },
+    /** baseline を更新する。サーバ同期（load / save）成功時のみ呼ぶこと。 */
+    setBaseline(
+      state,
+      action: PayloadAction<{
+        key: FormCacheKey;
+        baseline: unknown;
+      }>,
+    ) {
+      const { key, baseline } = action.payload;
+      const existing = state[key];
+      if (existing) {
+        existing.baseline = baseline;
+      } else {
+        state[key] = { form: baseline, baseline, documentId: null };
+      }
     },
     clearCache(state, action: PayloadAction<FormCacheKey>) {
       delete state[action.payload];
@@ -33,5 +56,5 @@ const formCacheSlice = createSlice({
   },
 });
 
-export const { setCache, clearCache } = formCacheSlice.actions;
+export const { setCache, setBaseline, clearCache } = formCacheSlice.actions;
 export default formCacheSlice.reducer;
