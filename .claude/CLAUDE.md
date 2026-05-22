@@ -55,6 +55,7 @@ error: opening lock file "~/.cache/nix/fetcher-locks/...lock": Operation not per
 
 - **コメント・ドキュメント**: コード内コメント・docstring・JSDoc はすべて**日本語**で記述する。
 - **エラーメッセージ**: HTTPException の `detail` 等、ユーザーに返すメッセージはすべて**日本語**。
+- **エラーメッセージのハードコード禁止**: ts/tsx でリテラル日本語を直接書かない（`throw new Error("...")` / `setError("...")` / `toast.error("...")` 等）。frontend 完結のメッセージは `frontend/src/constants/messages.ts` の定数を参照、API 経由のエラーは backend の `messages.json` 由来の `AppErrorResponse.message` を表示する。詳細: `.claude/rules/frontend/messages.md`
 - **例外の握りつぶし禁止**: `except SomeException: pass` は禁止。最低でも `logger.debug/warning/error` でログを残す。補助処理（通知生成など）で抑制する場合も `logger.warning` でログを出すこと。
 - **過剰な抽象化を避ける**: PEP8 を守るな、PEP8 を理解した上で抽象化しろ。
 

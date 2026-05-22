@@ -30,17 +30,21 @@ def extract_text(pdf_bytes: bytes, max_pages: int = MAX_PAGES) -> ExtractedText:
         pages = pdf.pages[:max_pages]
         page_count = len(pdf.pages)
 
-        texts: list[str] = []
-        sparse_pages = 0
-        for page in pages:
-            page_text = page.extract_text() or ""
-            texts.append(page_text)
-            if len(page_text.strip()) < _MIN_CHARS_PER_PAGE:
-                sparse_pages += 1
+        if not pages:
+            full_text = ""
+            has_text_layer = False
+        else:
+            texts: list[str] = []
+            sparse_pages = 0
+            for page in pages:
+                page_text = page.extract_text() or ""
+                texts.append(page_text)
+                if len(page_text.strip()) < _MIN_CHARS_PER_PAGE:
+                    sparse_pages += 1
 
-        full_text = "\n".join(texts).strip()
-        # 半数以上のページがテキスト希薄ならスキャン PDF と判定
-        has_text_layer = sparse_pages < max(1, len(pages) / 2)
+            full_text = "\n".join(texts).strip()
+            # 半数以上のページがテキスト希薄ならスキャン PDF と判定
+            has_text_layer = sparse_pages < max(1, len(pages) / 2)
 
         logger.info(
             "PDF テキスト抽出完了",

@@ -5,7 +5,11 @@ import {
   blankCareerTechnologyStack,
   blankResumeQualification,
 } from "./constants";
-import type { CareerFormState, CareerExperienceForm } from "./payloadBuilders";
+import type {
+  CareerExperienceForm,
+  CareerFormState,
+  CareerProjectForm,
+} from "./payloadBuilders";
 import type { CareerResumePayload, CareerResumeResponse } from "./types";
 
 export function createInitialCareerForm(): CareerFormState {
@@ -18,15 +22,45 @@ export function createInitialCareerForm(): CareerFormState {
   };
 }
 
+/** プロジェクト 1 件が入力空（既定の blank 構造のまま）かどうか。 */
+function _isProjectEmpty(p: CareerProjectForm): boolean {
+  if (p.is_current) return false;
+  if (p.team.members.length !== 0 || p.phases.length !== 0) return false;
+  return (
+    !p.name.trim() &&
+    !p.start_date.trim() &&
+    !p.end_date.trim() &&
+    !p.role.trim() &&
+    !p.description.trim() &&
+    !p.challenge.trim() &&
+    !p.action.trim() &&
+    !p.result.trim() &&
+    !p.team.total.trim()
+  );
+}
+
+/** experience 1 件が入力空（既定の blank 構造のまま）かどうかを判定する。
+ *  上書き判定で使うため、ネストしたクライアント／プロジェクトも含めて検査する。
+ */
+function _isExperienceEmpty(e: CareerExperienceForm): boolean {
+  if (e.is_current) return false;
+  if (
+    e.company.trim() ||
+    e.business_description.trim() ||
+    e.start_date.trim() ||
+    e.end_date.trim() ||
+    e.employee_count.trim() ||
+    e.capital.trim()
+  ) {
+    return false;
+  }
+  return e.clients.every((c) => !c.name.trim() && c.projects.every(_isProjectEmpty));
+}
+
 /** experiences が初期 blank 1件のみかどうかを判定する。 */
 function _isBlankExperiences(experiences: CareerExperienceForm[]): boolean {
   if (experiences.length !== 1) return false;
-  const e = experiences[0];
-  return (
-    !e.company.trim() &&
-    !e.business_description.trim() &&
-    !e.start_date.trim()
-  );
+  return _isExperienceEmpty(experiences[0]);
 }
 
 /**
@@ -56,7 +90,7 @@ export function mergeImportedResume(
   const self_pr = existing.self_pr.trim() ? existing.self_pr : importedForm.self_pr;
 
   let experiences: CareerExperienceForm[];
-  if (importedForm.experiences.length === 0 || importedForm.experiences.every((e) => !e.company.trim())) {
+  if (importedForm.experiences.length === 0 || importedForm.experiences.every(_isExperienceEmpty)) {
     experiences = existing.experiences;
   } else if (_isBlankExperiences(existing.experiences)) {
     experiences = importedForm.experiences;

@@ -64,6 +64,7 @@ class ResumeImportHandler(TaskHandler):
             record.judge_reason = "テキストレイヤーのない PDF です"
             record.error_message = "スキャン PDF のためテキスト抽出不可"
             record.pdf_blob = None
+            record.status = "dead_letter"
             record.completed_at = _now()
             db.commit()
             raise NonRetryableError("スキャン PDF のためテキスト抽出不可")
@@ -77,6 +78,7 @@ class ResumeImportHandler(TaskHandler):
             record.judge_reason = judge_result.reason
             record.error_message = f"not_a_resume: {judge_result.reason}"
             record.pdf_blob = None
+            record.status = "dead_letter"
             record.completed_at = _now()
             db.commit()
             raise NonRetryableError(f"not_a_resume: {judge_result.reason}")

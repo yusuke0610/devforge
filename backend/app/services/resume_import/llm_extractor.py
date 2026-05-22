@@ -60,7 +60,9 @@ async def judge_is_resume(text: str, llm_client: LLMClient) -> JudgeResult:
         confidence = float(data.get("confidence", 0.0))
         reason = str(data.get("reason", ""))
     except (json.JSONDecodeError, ValueError, TypeError) as exc:
-        logger.warning("LLM 判定レスポンスのパースに失敗しました: %s", raw[:200])
+        logger.warning(
+            "LLM 判定レスポンスのパースに失敗しました (response length=%d)", len(raw)
+        )
         raise NonRetryableError(f"LLM 判定レスポンスのパースに失敗しました: {exc}") from exc
 
     if confidence < _CONFIDENCE_THRESHOLD:
@@ -88,7 +90,9 @@ async def extract_structured(text: str, llm_client: LLMClient) -> dict:
     try:
         data = json.loads(_strip_code_block(raw))
     except (json.JSONDecodeError, ValueError) as exc:
-        logger.warning("LLM 抽出レスポンスのパースに失敗しました: %s", raw[:200])
+        logger.warning(
+            "LLM 抽出レスポンスのパースに失敗しました (response length=%d)", len(raw)
+        )
         raise NonRetryableError(f"LLM 抽出レスポンスのパースに失敗しました: {exc}") from exc
 
     # 必須フィールドの存在確認

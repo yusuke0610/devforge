@@ -33,6 +33,7 @@ router = APIRouter(prefix="/api/resumes/import", tags=["resume-imports"])
 
 _MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 _MAX_PAGES = 20
+_UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MB ずつ読み込み、サイズ超過を早期検知する
 
 
 @router.post("", response_model=ResumeImportStartResponse, status_code=202)
@@ -53,15 +54,21 @@ async def start_import(
             action="ファイル種別を確認して再試行してください",
         )
 
-    pdf_bytes = await file.read()
-
-    if len(pdf_bytes) > _MAX_FILE_SIZE:
-        raise_app_error(
-            status_code=422,
-            code=ErrorCode.RESUME_IMPORT_INVALID,
-            message="ファイルサイズは 10 MB 以下にしてください。",
-            action="ファイルを圧縮するか別の PDF をお試しください",
-        )
+    buffer = bytearray()
+    while True:
+        chunk = await file.read(_UPLOAD_CHUNK_SIZE)
+        if not chunk:
+            break
+        buffer.extend(chunk)
+        if len(buffer) > _MAX_FILE_SIZE:
+            await file.close()
+            raise_app_error(
+                status_code=422,
+                code=ErrorCode.RESUME_IMPORT_INVALID,
+                message="ファイルサイズは 10 MB 以下にしてください。",
+                action="ファイルを圧縮するか別の PDF をお試しください",
+            )
+    pdf_bytes = bytes(buffer)
 
     # ページ数チェック（pdfplumber は純粋 Python のため router 内で使用可能）
     try:
@@ -104,6 +111,21 @@ async def start_import(
             logger=logger,
         )
     except Exception:
+        # dispatch 失敗時、service 側で status=dead_letter / error_message は設定済み。
+        # ここでは加えて pdf_blob をクリアし、機微データを残さない。
+        try:
+            record.pdf_blob = None
+            db.commit()
+            logger.info(
+                "ResumeImport の pdf_blob をクリアしました (dispatch 失敗)",
+                extra={"import_id": record.id},
+            )
+        except Exception:
+            logger.warning(
+                "pdf_blob のクリアに失敗しました (無視)",
+                exc_info=True,
+                extra={"import_id": record.id},
+            )
         raise_app_error(
             status_code=500,
             code=ErrorCode.INTERNAL_ERROR,

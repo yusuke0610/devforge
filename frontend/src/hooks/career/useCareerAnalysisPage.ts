@@ -8,6 +8,7 @@ import {
   toAppError,
   type CareerAnalysisResponse,
 } from "../../api";
+import { FALLBACK_MESSAGES } from "../../constants/messages";
 import type { AppErrorState } from "../../utils/appError";
 import { isInProgressStatus } from "../../utils/taskStatus";
 import { useTaskPolling } from "../useTaskPolling";
@@ -94,7 +95,7 @@ export function useCareerAnalysisPage() {
       setPollingId(result.id);
       setPhase("polling");
     } catch (e) {
-      setError(toAppError(e, "分析に失敗しました"));
+      setError(toAppError(e, FALLBACK_MESSAGES.ANALYSIS));
       setPhase("input");
     }
   };
@@ -110,7 +111,7 @@ export function useCareerAnalysisPage() {
       setAnalyses(updated);
       return updated;
     } catch (e) {
-      setError(toAppError(e, "削除に失敗しました"));
+      setError(toAppError(e, FALLBACK_MESSAGES.ANALYSIS_DELETE));
       return null;
     }
   };
@@ -126,7 +127,7 @@ export function useCareerAnalysisPage() {
       setPollingId(id);
       setPhase("polling");
     } catch (e) {
-      setError(toAppError(e, "再実行に失敗しました"));
+      setError(toAppError(e, FALLBACK_MESSAGES.ANALYSIS_RERUN));
     }
   };
 

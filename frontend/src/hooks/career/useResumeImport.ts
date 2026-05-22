@@ -6,6 +6,11 @@ import {
   startResumeImport,
   type ResumeImportResultResponse,
 } from "../../api/resumeImports";
+import {
+  FALLBACK_MESSAGES,
+  INTERNAL_MESSAGES,
+  VALIDATION_MESSAGES,
+} from "../../constants/messages";
 import { type AppErrorState, toAppError } from "../../utils/appError";
 import { generateErrorId } from "../../utils/errorId";
 import { useTaskPolling } from "../useTaskPolling";
@@ -33,7 +38,7 @@ export function useResumeImport(): UseResumeImportReturn {
 
   const { startPolling } = useTaskPolling({
     checkStatus: async () => {
-      if (!importId) throw new Error("import_id が未設定です");
+      if (!importId) throw new Error(INTERNAL_MESSAGES.RESUME_IMPORT_NO_ID);
       return getResumeImportStatus(importId);
     },
     onCompleted: async () => {
@@ -44,7 +49,7 @@ export function useResumeImport(): UseResumeImportReturn {
         setPhase("ready");
       } catch {
         setError({
-          message: "抽出結果の取得に失敗しました。",
+          message: FALLBACK_MESSAGES.RESUME_EXTRACT,
           code: "INTERNAL_ERROR",
           action: null,
           retryAfter: null,
@@ -65,7 +70,7 @@ export function useResumeImport(): UseResumeImportReturn {
       // フロントエンド側の事前バリデーション
       if (file.type !== "application/pdf") {
         setError({
-          message: "PDF をアップロードしてください。",
+          message: VALIDATION_MESSAGES.RESUME_PDF_REQUIRED,
           code: "RESUME_IMPORT_INVALID",
           action: null,
           retryAfter: null,
@@ -76,7 +81,7 @@ export function useResumeImport(): UseResumeImportReturn {
       }
       if (file.size > MAX_FILE_SIZE) {
         setError({
-          message: "10 MB 以下の PDF をアップロードしてください。",
+          message: VALIDATION_MESSAGES.RESUME_PDF_SIZE_EXCEEDED,
           code: "RESUME_IMPORT_INVALID",
           action: null,
           retryAfter: null,

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
+import { FALLBACK_MESSAGES } from "../constants/messages";
 import { useAppDispatch, useAppSelector } from "../store";
 import {
   clearCache,
@@ -189,7 +190,7 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
       const message =
         submitError instanceof Error
           ? submitError.message
-          : "保存中に不明なエラーが発生しました。";
+          : FALLBACK_MESSAGES.SAVE;
       setError(message);
     } finally {
       setSaving(false);
@@ -215,7 +216,7 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
       const message =
         deleteError instanceof Error
           ? deleteError.message
-          : "削除中に不明なエラーが発生しました。";
+          : FALLBACK_MESSAGES.DELETE;
       setError(message);
     } finally {
       setDeleting(false);

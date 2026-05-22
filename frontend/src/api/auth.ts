@@ -1,3 +1,4 @@
+import { FALLBACK_MESSAGES } from "../constants/messages";
 import { API_BASE_URL, request } from "./client";
 import { PATHS } from "./paths";
 
@@ -11,7 +12,7 @@ export async function getCurrentUser(): Promise<AuthResponse | null> {
     return null;
   }
   if (!response.ok) {
-    throw new Error("ログイン状態の確認に失敗しました。");
+    throw new Error(FALLBACK_MESSAGES.AUTH_CHECK);
   }
   return (await response.json()) as AuthResponse;
 }
@@ -34,7 +35,7 @@ export async function initiateGitHubLogin(returnTo: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}${PATHS.auth.githubLoginUrl}?${params.toString()}`, {
     credentials: "include",
   });
-  if (!response.ok) throw new Error("GitHub OAuth の開始に失敗しました");
+  if (!response.ok) throw new Error(FALLBACK_MESSAGES.GITHUB_OAUTH_START);
   const data = (await response.json()) as { authorization_url: string; state: string };
   // CSRF 検証用に state を sessionStorage へ保存する（コールバックで照合）
   sessionStorage.setItem(GITHUB_OAUTH_STATE_STORAGE_KEY, data.state);

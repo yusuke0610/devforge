@@ -115,7 +115,7 @@ export function CareerResumeForm() {
         <ResumeImportConfirmModal
           parsedData={importState.parsedData.result}
           existingForm={form}
-          isDirty={Object.values(dirty).some(Boolean)}
+          isDirty={dirty.any}
           onConfirm={(merged) => {
             setForm(merged);
             importState.reset();

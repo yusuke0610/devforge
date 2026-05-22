@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { FALLBACK_MESSAGES } from "../constants/messages";
+
 /**
  * PDF・Markdown のダウンロードおよびプレビュー操作を提供するカスタムフック。
  * error / success はフック内部で管理し、呼び出し元で setError / setSuccess を渡す必要はない。
@@ -45,7 +47,7 @@ export function usePdfActions({
       await downloadPdf(id);
       setSuccess(successMessage);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "PDFダウンロード中に不明なエラーが発生しました。");
+      setError(e instanceof Error ? e.message : FALLBACK_MESSAGES.PDF_DOWNLOAD);
     } finally {
       setDownloading(false);
     }
@@ -60,7 +62,7 @@ export function usePdfActions({
     try {
       await downloadMarkdown(id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Markdownダウンロードに失敗しました。");
+      setError(e instanceof Error ? e.message : FALLBACK_MESSAGES.MARKDOWN_DOWNLOAD);
     }
   };
 
@@ -74,7 +76,7 @@ export function usePdfActions({
       const url = await getPdfBlobUrl(id);
       setPreviewUrl(url);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "プレビューに失敗しました。");
+      setError(e instanceof Error ? e.message : FALLBACK_MESSAGES.PREVIEW);
     }
   };
 
