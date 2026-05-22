@@ -18,7 +18,6 @@ import { useQualifications, useTechnologyStacks } from "../../hooks/useMasterDat
 import { usePdfActions } from "../../hooks/usePdfActions";
 import shared from "../../styles/shared.module.css";
 import { ConfirmDialog } from "../ConfirmDialog";
-import { DirtyDot } from "../ui/DirtyDot";
 import { Skeleton } from "../ui/Skeleton";
 import { PdfPreviewModal } from "./PdfPreviewModal";
 import { CareerBasicInfoSection } from "./sections/CareerBasicInfoSection";
@@ -114,7 +113,6 @@ export function CareerResumeForm() {
           <div className={shared.pageHeaderActions}>
             <button type="submit" className="primary" disabled={!canSubmit || saving}>
               {saveButtonText}
-              <DirtyDot visible={dirty.any} title="未保存の変更があります" />
             </button>
             <button
               type="button"

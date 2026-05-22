@@ -73,19 +73,30 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
   const documentIdRef = useRef<string | null>(documentId);
   documentIdRef.current = documentId;
 
-  /** setForm のラッパー: Redux キャッシュも同時更新する */
+  /**
+   * setForm のラッパー: Redux キャッシュも同時更新する。
+   *
+   * setFormRaw の updater は React の render phase 内で実行されるため、
+   * その中で同期 dispatch すると useAppSelector が render 中に自身を更新する形になり、
+   * 「Cannot update a component while rendering a different component」警告が出る。
+   * これを避けるため、dispatch は queueMicrotask で render phase の外に逃がす。
+   * 結果として Redux への書き込みは現在の render commit 直後（次の microtask）に行われる。
+   */
   const setForm: Dispatch<SetStateAction<FormState>> = useCallback(
     (action) => {
       setFormRaw((prev) => {
         const next = typeof action === "function" ? (action as (prev: FormState) => FormState)(prev) : action;
         if (cacheKeyRef.current) {
-          dispatch(
-            setCache({
-              key: cacheKeyRef.current,
-              form: next,
-              documentId: documentIdRef.current,
-            }),
-          );
+          const key = cacheKeyRef.current;
+          queueMicrotask(() => {
+            dispatch(
+              setCache({
+                key,
+                form: next,
+                documentId: documentIdRef.current,
+              }),
+            );
+          });
         }
         return next;
       });
@@ -134,6 +145,10 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
         commitBaseline(mapped);
       } catch {
         if (!active) return;
+        // DB に未登録（404）のユーザー向け: 初期空フォームを baseline として確定する。
+        // これにより以後のユーザー編集はすべて baseline との差分として検出され、
+        // 各フィールド・配下要素（プロジェクト等）の未保存マークが正しく表示される。
+        commitBaseline(createInitialForm());
       } finally {
         if (active) setLoading(false);
       }
@@ -142,7 +157,9 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
     return () => {
       active = false;
     };
-    // cached を依存配列に含めないことで、キャッシュ更新のたびに再 fetch しない
+    // cached / createInitialForm を依存配列に含めないことで、キャッシュ更新や呼び出し側の
+    // インライン関数生成のたびに再 fetch しない（無限ループの原因になる）。
+    // createInitialForm は catch 経路でしか参照されないため、最新値を見る必要は実用上ない。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadLatest, mapResponseToForm, updateCache, commitBaseline]);
 

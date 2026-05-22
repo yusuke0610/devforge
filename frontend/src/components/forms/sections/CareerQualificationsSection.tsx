@@ -83,8 +83,10 @@ export function CareerQualificationsSection({
               <div key={`qualification-${index}`} className={shared.entry}>
                 <div className={shared.inline}>
                   <label>
-                    資格名 ※プルダウンにないものはテキストで入力できます。
-                    <DirtyDot visible={Boolean(rowDirty?.fields.name)} />
+                    <span>
+                      資格名 ※プルダウンにないものはテキストで入力できます。
+                      <DirtyDot visible={Boolean(rowDirty?.fields.name)} />
+                    </span>
                     <Combobox
                       value={qualification.name}
                       onChange={(val) => updateField(index, "name", val)}
@@ -94,8 +96,10 @@ export function CareerQualificationsSection({
                     />
                   </label>
                   <label>
-                    取得日
-                    <DirtyDot visible={Boolean(rowDirty?.fields.acquired_date)} />
+                    <span>
+                      取得日
+                      <DirtyDot visible={Boolean(rowDirty?.fields.acquired_date)} />
+                    </span>
                     <input
                       type="date"
                       value={qualification.acquired_date}

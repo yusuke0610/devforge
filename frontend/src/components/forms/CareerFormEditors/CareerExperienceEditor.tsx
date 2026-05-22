@@ -67,12 +67,14 @@ export function CareerExperienceEditor({
   const fieldDirty = dirty?.fields;
   return (
     <div className={shared.entry}>
-      {/* この経歴ブロック全体の未保存マーク（配下のクライアント・プロジェクトを含めて集約） */}
-      <DirtyDot visible={Boolean(dirty?.any)} title="この経歴に未保存の変更があります" />
       <div className={shared.inline}>
         <label>
-          会社名
-          <DirtyDot visible={Boolean(fieldDirty?.company)} />
+          {/* グローバル CSS で label { display: grid } のため、テキストと DirtyDot を span で
+              束ねないと別々の行になる。span で 1 グリッド行に束ねることでラベル右側に並べる。 */}
+          <span>
+            会社名
+            <DirtyDot visible={Boolean(fieldDirty?.company)} />
+          </span>
           <input
             type="text"
             value={exp.company}
@@ -80,8 +82,10 @@ export function CareerExperienceEditor({
           />
         </label>
         <label>
-          事業内容
-          <DirtyDot visible={Boolean(fieldDirty?.business_description)} />
+          <span>
+            事業内容
+            <DirtyDot visible={Boolean(fieldDirty?.business_description)} />
+          </span>
           <input
             type="text"
             value={exp.business_description}
@@ -95,8 +99,10 @@ export function CareerExperienceEditor({
 
       <div className={shared.inline}>
         <label>
-          開始
-          <DirtyDot visible={Boolean(fieldDirty?.start_date)} />
+          <span>
+            開始
+            <DirtyDot visible={Boolean(fieldDirty?.start_date)} />
+          </span>
           <input
             type="month"
             value={exp.start_date}
@@ -104,8 +110,10 @@ export function CareerExperienceEditor({
           />
         </label>
         <label>
-          在職の有無
-          <DirtyDot visible={Boolean(fieldDirty?.is_current)} />
+          <span>
+            在職の有無
+            <DirtyDot visible={Boolean(fieldDirty?.is_current)} />
+          </span>
           <select
             value={exp.is_current ? "current" : "ended"}
             onChange={(e) =>
@@ -118,8 +126,10 @@ export function CareerExperienceEditor({
         </label>
         {!exp.is_current && (
           <label>
-            離職年月
-            <DirtyDot visible={Boolean(fieldDirty?.end_date)} />
+            <span>
+              離職年月
+              <DirtyDot visible={Boolean(fieldDirty?.end_date)} />
+            </span>
             <input
               type="month"
               value={exp.end_date}
@@ -136,8 +146,10 @@ export function CareerExperienceEditor({
 
       <div className={shared.inline}>
         <label>
-          従業員数
-          <DirtyDot visible={Boolean(fieldDirty?.employee_count)} />
+          <span>
+            従業員数
+            <DirtyDot visible={Boolean(fieldDirty?.employee_count)} />
+          </span>
           <div className={styles.inputWithUnit}>
             <input
               type="number"
@@ -151,8 +163,10 @@ export function CareerExperienceEditor({
           </div>
         </label>
         <label>
-          資本金
-          <DirtyDot visible={Boolean(fieldDirty?.capital)} />
+          <span>
+            資本金
+            <DirtyDot visible={Boolean(fieldDirty?.capital)} />
+          </span>
           <div className={styles.inputWithUnit}>
             <input
               type="number"
@@ -172,16 +186,13 @@ export function CareerExperienceEditor({
           const clientDirty = dirty?.clients?.[clientIndex];
           return (
             <div key={`client-${expIndex}-${clientIndex}`} className={shared.entry}>
-              {/* クライアント単位の未保存集約（配下プロジェクト含む） */}
-              <DirtyDot
-                visible={Boolean(clientDirty?.any)}
-                title="この取引先に未保存の変更があります"
-              />
               <div className={styles.clientHeader}>
                 {client.has_client && (
                   <label className={styles.clientNameLabel}>
-                    取引先名（呼称）
-                    <DirtyDot visible={Boolean(clientDirty?.self)} />
+                    <span>
+                      取引先名（呼称）
+                      <DirtyDot visible={Boolean(clientDirty?.self)} />
+                    </span>
                     <input
                       type="text"
                       value={client.name}

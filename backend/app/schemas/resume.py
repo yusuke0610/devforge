@@ -57,7 +57,10 @@ class ProjectTeam(BaseModel):
 class Project(BaseModel):
     name: str = Field(max_length=200, default="")
     start_date: str = Field(max_length=30, default="")
-    end_date: str = Field(max_length=30, default="")
+    # 参画中（is_current=True）のプロジェクトは DB 上 end_date が NULL となり、
+    # ResumeProject.end_date プロパティが None を返す。
+    # Experience.end_date と同様に str | None を許容することでレスポンスの整合性を取る。
+    end_date: str | None = Field(default=None, max_length=30)
     is_current: bool = False
     role: str = Field(max_length=200, default="")
     description: str = Field(max_length=1500, default="")

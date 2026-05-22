@@ -202,14 +202,39 @@ def test_project_end_date_after_start_date_is_accepted() -> None:
 
 
 def test_project_null_end_date_is_accepted() -> None:
-    """プロジェクト: 終了日が空（参画中）は正常に保存されること。"""
+    """プロジェクト: 参画中（is_current=True）は end_date 未指定または None を許容すること。
+
+    DB 側は end_date が NULL で保存され、ResumeProject.end_date プロパティは None を返す。
+    Experience.end_date と同様にスキーマも str | None を許容し、レスポンス検証が失敗しないようにする。
+    """
+    # 未指定（デフォルト）
     proj = Project(
         name="テスト",
         start_date="2021-04",
         is_current=True,
         technology_stacks=[],
     )
-    assert proj.end_date == ""
+    assert proj.end_date is None
+
+    # 明示的に None
+    proj_none = Project(
+        name="テスト",
+        start_date="2021-04",
+        end_date=None,
+        is_current=True,
+        technology_stacks=[],
+    )
+    assert proj_none.end_date is None
+
+    # 空文字列も受け付ける（フロントエンドが is_current=True の時に "" を送る経路）
+    proj_empty = Project(
+        name="テスト",
+        start_date="2021-04",
+        end_date="",
+        is_current=True,
+        technology_stacks=[],
+    )
+    assert proj_empty.end_date == ""
 
 
 def test_blog_summary_request_limits_article_count() -> None:
