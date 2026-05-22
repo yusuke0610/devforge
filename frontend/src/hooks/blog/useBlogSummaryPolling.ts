@@ -4,6 +4,7 @@ import {
   getBlogSummaryCache,
   getBlogSummaryCacheStatus,
 } from "../../api";
+import { FALLBACK_MESSAGES } from "../../constants/messages";
 import type { BlogArticle } from "../../types";
 import { isInProgressStatus } from "../../utils/taskStatus";
 import { useTaskPolling } from "../useTaskPolling";
@@ -27,7 +28,7 @@ export function useBlogSummaryPolling(articles: BlogArticle[]) {
       setSummaryLoading(false);
     },
     onFailed: (err) => {
-      setSummaryError(err.message || "AI分析に失敗しました");
+      setSummaryError(err.message || FALLBACK_MESSAGES.BLOG_SUMMARY_FAILED);
       setSummaryLoading(false);
     },
   });
@@ -59,7 +60,7 @@ export function useBlogSummaryPolling(articles: BlogArticle[]) {
     try {
       const result = await summarizeBlogArticles();
       if (!result.available && result.status !== "pending") {
-        setSummaryError("AI分析サーバーに接続できません");
+        setSummaryError(FALLBACK_MESSAGES.BLOG_SUMMARY_UNAVAILABLE);
         setSummaryLoading(false);
         return;
       }
@@ -67,7 +68,7 @@ export function useBlogSummaryPolling(articles: BlogArticle[]) {
         startPolling();
       }
     } catch (e) {
-      setSummaryError(e instanceof Error ? e.message : "AI分析に失敗しました");
+      setSummaryError(e instanceof Error ? e.message : FALLBACK_MESSAGES.BLOG_SUMMARY_FAILED);
       setSummaryLoading(false);
     }
   }, [articles, isPolling, startPolling]);

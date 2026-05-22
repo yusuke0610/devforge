@@ -5,9 +5,11 @@ import {
   phaseOptions,
   teamRoleOptions,
 } from "../../constants";
+import { useProjectFormDirty } from "../../hooks/career/useProjectFormDirty";
 import { useProjectModalForm } from "../../hooks/career/useProjectModalForm";
 import { Combobox } from "./Combobox";
 import { MarkdownTextarea } from "./MarkdownTextarea";
+import { DirtyDot } from "../ui/DirtyDot";
 import styles from "./ProjectModal.module.css";
 
 type ProjectModalProps = {
@@ -41,11 +43,17 @@ export function ProjectModal({
     togglePhase,
   } = useProjectModalForm(project);
 
+  /** モーダル内編集の dirty 判定（元データとの差分） */
+  const dirty = useProjectFormDirty(local, project);
+
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
-          <span>{project ? "プロジェクト編集" : "プロジェクト追加"}</span>
+          <span>
+            {project ? "プロジェクト編集" : "プロジェクト追加"}
+            <DirtyDot visible={dirty.any} />
+          </span>
           <div className={styles.headerActions}>
             <button type="button" className="primary" onClick={() => onSave(local)} disabled={!!dateError}>
               保存
@@ -58,7 +66,12 @@ export function ProjectModal({
 
         <div className={styles.body}>
           <label>
-            プロジェクト名
+            {/* グローバル CSS の label { display: grid } により、
+                テキスト + DirtyDot を span でひとつのグリッド行にまとめる。 */}
+            <span>
+              プロジェクト名
+              <DirtyDot visible={dirty.fields.name} />
+            </span>
             <input
               type="text"
               value={local.name}
@@ -69,7 +82,10 @@ export function ProjectModal({
 
           <div className={styles.inline}>
             <label>
-              開始
+              <span>
+                開始
+                <DirtyDot visible={dirty.fields.start_date} />
+              </span>
               <input
                 type="month"
                 value={local.start_date}
@@ -77,7 +93,10 @@ export function ProjectModal({
               />
             </label>
             <label>
-              参画状況
+              <span>
+                参画状況
+                <DirtyDot visible={dirty.fields.is_current} />
+              </span>
               <select
                 value={local.is_current ? "current" : "ended"}
                 onChange={(e) => updateField("is_current", e.target.value === "current")}
@@ -88,7 +107,10 @@ export function ProjectModal({
             </label>
             {!local.is_current && (
               <label>
-                終了
+                <span>
+                  終了
+                  <DirtyDot visible={dirty.fields.end_date} />
+                </span>
                 <input
                   type="month"
                   value={local.end_date}
@@ -104,7 +126,10 @@ export function ProjectModal({
           )}
 
           <label>
-            役割
+            <span>
+              役割
+              <DirtyDot visible={dirty.fields.role} />
+            </span>
             <input
               type="text"
               value={local.role}
@@ -115,7 +140,10 @@ export function ProjectModal({
 
           {/* 体制 */}
           <div className={styles.stackSection}>
-            <h3>体制</h3>
+            <h3>
+              体制
+              <DirtyDot visible={dirty.team} />
+            </h3>
             <div className={styles.teamLayout}>
               <label className={styles.teamTotal}>
                 <span>全体人数</span>
@@ -174,7 +202,10 @@ export function ProjectModal({
           </div>
 
           <label>
-            プロジェクト概要
+            <span>
+              プロジェクト概要
+              <DirtyDot visible={dirty.fields.description} />
+            </span>
             <input
               type="text"
               value={local.description}
@@ -187,6 +218,7 @@ export function ProjectModal({
             value={local.challenge}
             onChange={(v) => updateField("challenge", v)}
             rows={2}
+            labelAdornment={<DirtyDot visible={dirty.fields.challenge} />}
           />
 
           <MarkdownTextarea
@@ -194,6 +226,7 @@ export function ProjectModal({
             value={local.action}
             onChange={(v) => updateField("action", v)}
             rows={2}
+            labelAdornment={<DirtyDot visible={dirty.fields.action} />}
           />
 
           <MarkdownTextarea
@@ -201,11 +234,15 @@ export function ProjectModal({
             value={local.result}
             onChange={(v) => updateField("result", v)}
             rows={2}
+            labelAdornment={<DirtyDot visible={dirty.fields.result} />}
           />
 
           {/* 技術スタック */}
           <div className={styles.stackSection}>
-            <h3>技術スタック ※プルダウンにないものはテキストで入力できます。</h3>
+            <h3>
+              技術スタック ※プルダウンにないものはテキストで入力できます。
+              <DirtyDot visible={dirty.technology_stacks} />
+            </h3>
             <div className={styles.stackGrid}>
               {local.technology_stacks.map((stack, stackIndex) => (
                 <div key={`stack-${stackIndex}`} className={styles.stackChip}>
@@ -249,7 +286,10 @@ export function ProjectModal({
 
           {/* 工程 */}
           <div className={styles.stackSection}>
-            <h3>工程</h3>
+            <h3>
+              工程
+              <DirtyDot visible={dirty.phases} />
+            </h3>
             <div className={styles.phaseList}>
               {phaseOptions.map((phase) => (
                 <label

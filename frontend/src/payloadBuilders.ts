@@ -1,3 +1,4 @@
+import { VALIDATION_MESSAGES } from "./constants/messages";
 import type {
   CareerClient,
   CareerExperience,
@@ -64,7 +65,7 @@ export function hasAnyText(values: Array<string | null | undefined>): boolean {
 /** 終了日が開始日より前の場合にエラーメッセージを返す */
 export function validateDateRange(startDate: string, endDate: string, isCurrent: boolean): string | null {
   if (isCurrent || !startDate || !endDate) return null;
-  if (endDate < startDate) return "開始日は終了日より前に設定してください。";
+  if (endDate < startDate) return VALIDATION_MESSAGES.DATE_RANGE_INVALID;
   return null;
 }
 
@@ -113,17 +114,17 @@ function buildClient(client: CareerClientForm): CareerClient {
 export function buildCareerPayload(state: CareerFormState): CareerResumePayload {
   const full_name = state.full_name.trim();
   if (!full_name) {
-    throw new Error("氏名を入力してください。");
+    throw new Error(VALIDATION_MESSAGES.FULL_NAME_REQUIRED);
   }
 
   const career_summary = state.career_summary.trim();
   if (!career_summary) {
-    throw new Error("職務要約を入力してください。");
+    throw new Error(VALIDATION_MESSAGES.CAREER_SUMMARY_REQUIRED);
   }
 
   const self_pr = state.self_pr.trim();
   if (!self_pr) {
-    throw new Error("自己PRを入力してください。");
+    throw new Error(VALIDATION_MESSAGES.SELF_PR_REQUIRED);
   }
 
   const experiences: CareerExperience[] = state.experiences
@@ -145,18 +146,18 @@ export function buildCareerPayload(state: CareerFormState): CareerResumePayload 
 
   for (const exp of experiences) {
     if (!exp.company || !exp.business_description || !exp.start_date) {
-      throw new Error("職務経歴は会社名、事業内容、開始年月を入力してください。");
+      throw new Error(VALIDATION_MESSAGES.EXPERIENCE_REQUIRED_FIELDS);
     }
     if (!exp.is_current && !exp.end_date) {
-      throw new Error("職務経歴の離職年月を入力するか、在職を選択してください。");
+      throw new Error(VALIDATION_MESSAGES.EXPERIENCE_END_DATE_REQUIRED);
     }
     if (!exp.is_current && exp.start_date && exp.end_date && exp.end_date < exp.start_date) {
-      throw new Error("開始日は終了日より前に設定してください。");
+      throw new Error(VALIDATION_MESSAGES.DATE_RANGE_INVALID);
     }
     for (const client of exp.clients) {
       for (const proj of client.projects) {
         if (!proj.is_current && proj.start_date && proj.end_date && proj.end_date < proj.start_date) {
-          throw new Error("開始日は終了日より前に設定してください。");
+          throw new Error(VALIDATION_MESSAGES.DATE_RANGE_INVALID);
         }
       }
     }
@@ -171,7 +172,7 @@ export function buildCareerPayload(state: CareerFormState): CareerResumePayload 
 
   for (const q of qualifications) {
     if (!q.acquired_date || !q.name) {
-      throw new Error("資格は取得日と名称を両方入力してください。");
+      throw new Error(VALIDATION_MESSAGES.QUALIFICATION_REQUIRED_FIELDS);
     }
   }
 

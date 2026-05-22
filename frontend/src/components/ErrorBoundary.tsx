@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
+import { UI_MESSAGES } from "../constants/messages";
 import { generateErrorId } from "../utils/errorId";
 import styles from "./ErrorBoundary.module.css";
 
@@ -24,10 +25,8 @@ export default class ErrorBoundary extends Component<Props, State> {
         <div className={styles.root}>
           <div className={styles.card}>
             <p className={styles.eyebrow}>Application Error</p>
-            <h1 className={styles.title}>予期しないエラーが発生しました</h1>
-            <p className={styles.description}>
-              ページの表示中に問題が発生しました。再読み込みするか、ホームへ戻ってください。
-            </p>
+            <h1 className={styles.title}>{UI_MESSAGES.ERROR_BOUNDARY_TITLE}</h1>
+            <p className={styles.description}>{UI_MESSAGES.ERROR_BOUNDARY_BODY}</p>
             <div className={styles.actions}>
               <button
                 type="button"

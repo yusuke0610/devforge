@@ -5,7 +5,7 @@ paths:
 
 # DB設計ルール
 
-- `basic_info` / `resumes` / `rirekisho` は **1ユーザー1件** を前提にし、`user_id` を一意制約で縛ること
+- `basic_info` / `resumes` は **1ユーザー1件** を前提にし、`user_id` を一意制約で縛ること
 - 可変長データを JSON カラムへ増やさないこと。資格・学歴・職歴・職務経歴の明細・ブログタグは子テーブルへ正規化すること
 - 日付は可能な限り DB の `DATE` / `TIMESTAMP` を使うこと
 - `blog_articles` は `account_id` 起点で管理し、`user_id` や `platform` を冗長保持しないこと

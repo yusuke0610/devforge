@@ -15,10 +15,12 @@ from .resume import (
     ResumeProjectTechnologyStack,
     ResumeQualification,
 )
+from .resume_import import ResumeImport
 from .user import User
 
 __all__ = [
     "CareerAnalysis",
+    "ResumeImport",
     "BlogAccount",
     "BlogArticle",
     "BlogArticleTag",

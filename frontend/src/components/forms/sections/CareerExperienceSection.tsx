@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
+import type { ExperienceDirty } from "../../../hooks/career/useCareerDirty";
 import type { CareerExperienceForm, CareerFormState, CareerProjectForm } from "../../../payloadBuilders";
 import type { TechStackMasterItem } from "../../../types";
 import { useCareerExperienceMutators } from "../../../hooks/career/useCareerExperienceMutators";
@@ -8,6 +9,7 @@ import { useProjectModalState } from "../../../hooks/career/useProjectModalState
 import shared from "../../../styles/shared.module.css";
 import { CareerExperienceEditor } from "../CareerFormEditors/CareerExperienceEditor";
 import { ProjectModal } from "../ProjectModal";
+import { DirtyDot } from "../../ui/DirtyDot";
 
 /** CareerExperienceSection のプロパティ型 */
 type CareerExperienceSectionProps = {
@@ -17,6 +19,10 @@ type CareerExperienceSectionProps = {
   setForm: Dispatch<SetStateAction<CareerFormState>>;
   /** 技術スタックのマスタデータ */
   techStackOptions: TechStackMasterItem[];
+  /** 各経歴の dirty 情報。要素数は experiences と一致する想定。 */
+  experiencesDirty?: ExperienceDirty[];
+  /** 「職務経歴」セクション全体の未保存集約フラグ */
+  sectionDirty?: boolean;
 };
 
 /**
@@ -28,6 +34,8 @@ export function CareerExperienceSection({
   experiences,
   setForm,
   techStackOptions,
+  experiencesDirty,
+  sectionDirty = false,
 }: CareerExperienceSectionProps) {
   /** カテゴリごとの技術スタック名称マップを生成する */
   const techStackNamesByCategory = useMemo(() => {
@@ -78,7 +86,10 @@ export function CareerExperienceSection({
         />
       )}
 
-      <h2>職務経歴</h2>
+      <h2>
+        職務経歴
+        <DirtyDot visible={sectionDirty} />
+      </h2>
       {experiences.map((exp, expIndex) => (
         <CareerExperienceEditor
           key={`exp-${expIndex}`}
@@ -93,6 +104,7 @@ export function CareerExperienceSection({
           onOpenProjectModal={handleOpenProjectModal}
           onRemoveExperience={mutators.removeExperience}
           projectSummary={projectSummary}
+          dirty={experiencesDirty?.[expIndex]}
         />
       ))}
 

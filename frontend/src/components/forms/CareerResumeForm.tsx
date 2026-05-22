@@ -10,6 +10,8 @@ import {
   updateCareerResume,
 } from "../../api";
 import { createInitialCareerForm, mapCareerResumeToForm } from "../../formMappers";
+import { useCareerDirty } from "../../hooks/career/useCareerDirty";
+import { useResumeImport } from "../../hooks/career/useResumeImport";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
 import { buildCareerPayload } from "../../payloadBuilders";
 import type { CareerTextFieldKey } from "../../formTypes";
@@ -18,7 +20,9 @@ import { usePdfActions } from "../../hooks/usePdfActions";
 import shared from "../../styles/shared.module.css";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { Skeleton } from "../ui/Skeleton";
+import { ImportResumeButton } from "./ImportResumeButton";
 import { PdfPreviewModal } from "./PdfPreviewModal";
+import { ResumeImportConfirmModal } from "./ResumeImportConfirmModal";
 import { CareerBasicInfoSection } from "./sections/CareerBasicInfoSection";
 import { CareerExperienceSection } from "./sections/CareerExperienceSection";
 import { CareerQualificationsSection } from "./sections/CareerQualificationsSection";
@@ -26,9 +30,11 @@ import { CareerSelfPrSection } from "./sections/CareerSelfPrSection";
 
 export function CareerResumeForm() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const importState = useResumeImport();
   const {
     form,
     setForm,
+    baseline,
     documentId: resumeId,
     loading,
     saving,
@@ -54,6 +60,9 @@ export function CareerResumeForm() {
   const { items: qualificationOptions, loading: qualLoading } = useQualifications();
   const qualificationNames = qualificationOptions.map((item) => item.name);
 
+  /** 未保存マーク（🔴）の表示判定に使う dirty マップ */
+  const dirty = useCareerDirty(form, baseline);
+
   const {
     downloading,
     previewUrl,
@@ -70,7 +79,7 @@ export function CareerResumeForm() {
   });
 
   /** PDF アクションまたはフォーム保存のエラー・成功メッセージを統合して表示する */
-  const error = pdfError ?? formError;
+  const error = pdfError ?? formError ?? importState.error?.message ?? null;
   const success = pdfSuccess ?? formSuccess;
 
   /** フォームデータ・技術スタック・資格の3つが揃ってから送信可能 */
@@ -102,10 +111,23 @@ export function CareerResumeForm() {
         />
       )}
       {previewUrl && <PdfPreviewModal previewUrl={previewUrl} onClose={closePreview} />}
+      {importState.phase === "ready" && importState.parsedData && (
+        <ResumeImportConfirmModal
+          parsedData={importState.parsedData.result}
+          existingForm={form}
+          isDirty={dirty.any}
+          onConfirm={(merged) => {
+            setForm(merged);
+            importState.reset();
+          }}
+          onCancel={() => importState.reset()}
+        />
+      )}
       <form onSubmit={onSubmit}>
         <div className={shared.pageHeader}>
           <h1>職務経歴書</h1>
           <div className={shared.pageHeaderActions}>
+            <ImportResumeButton importState={importState} />
             <button type="submit" className="primary" disabled={!canSubmit || saving}>
               {saveButtonText}
             </button>
@@ -155,6 +177,8 @@ export function CareerResumeForm() {
               careerSummary={form.career_summary}
               loading={loading}
               onChange={onChangeField}
+              fullNameDirty={dirty.full_name}
+              careerSummaryDirty={dirty.career_summary}
             />
 
             {/* 職務経歴セクション */}
@@ -173,6 +197,8 @@ export function CareerResumeForm() {
                 experiences={form.experiences}
                 setForm={setForm}
                 techStackOptions={techStackOptions}
+                experiencesDirty={dirty.experiences}
+                sectionDirty={dirty.experiencesAny}
               />
             )}
 
@@ -182,6 +208,8 @@ export function CareerResumeForm() {
               qualificationNames={qualificationNames}
               loading={loading}
               setForm={setForm}
+              qualificationsDirty={dirty.qualifications}
+              sectionDirty={dirty.qualificationsAny}
             />
 
             {/* 自己PR */}
@@ -189,6 +217,7 @@ export function CareerResumeForm() {
               selfPr={form.self_pr}
               loading={loading}
               onChange={(v) => onChangeField("self_pr", v)}
+              dirty={dirty.self_pr}
             />
           </div>
         </div>

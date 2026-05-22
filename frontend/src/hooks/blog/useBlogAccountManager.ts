@@ -8,6 +8,7 @@ import {
   getBlogArticles,
   syncBlogAccount,
 } from "../../api";
+import { FALLBACK_MESSAGES } from "../../constants/messages";
 import type { BlogAccount, BlogArticle } from "../../types";
 import { useBlogSummaryPolling } from "./useBlogSummaryPolling";
 
@@ -106,7 +107,7 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
         setArticles([]);
       }
     } catch (e) {
-      setAccountError(e instanceof Error ? e.message : "データの取得に失敗しました");
+      setAccountError(e instanceof Error ? e.message : FALLBACK_MESSAGES.BLOG_FETCH);
     } finally {
       setLoading(false);
     }
@@ -135,9 +136,7 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
     } catch (syncErr) {
       setSuccess(fallbackMessage);
       setAccountError(
-        syncErr instanceof Error
-          ? syncErr.message
-          : "記事の同期に失敗しました。「同期」ボタンで再試行してください。",
+        syncErr instanceof Error ? syncErr.message : FALLBACK_MESSAGES.BLOG_SYNC,
       );
     }
   };
@@ -161,7 +160,7 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
         "アカウントを連携しました",
       );
     } catch (e) {
-      setAccountError(e instanceof Error ? e.message : "アカウントの連携に失敗しました");
+      setAccountError(e instanceof Error ? e.message : FALLBACK_MESSAGES.BLOG_LINK);
     } finally {
       setAction(platform, null, "saving");
     }
@@ -183,7 +182,7 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
         `${result.synced_count}件の新しい記事を取得しました（合計: ${result.total_count}件）`,
       );
     } catch (e) {
-      setAccountError(e instanceof Error ? e.message : "同期に失敗しました");
+      setAccountError(e instanceof Error ? e.message : FALLBACK_MESSAGES.BLOG_SYNC_SIMPLE);
     } finally {
       setAction(platform, null, "syncing");
     }
@@ -203,7 +202,7 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
       await loadData();
       setSuccess("アカウントを解除しました");
     } catch (e) {
-      setAccountError(e instanceof Error ? e.message : "アカウントの解除に失敗しました");
+      setAccountError(e instanceof Error ? e.message : FALLBACK_MESSAGES.BLOG_UNLINK);
     } finally {
       setAction(platform, null, "deleting");
     }
@@ -232,7 +231,7 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
       );
       return true;
     } catch (e) {
-      setAccountError(e instanceof Error ? e.message : "usernameの更新に失敗しました");
+      setAccountError(e instanceof Error ? e.message : FALLBACK_MESSAGES.BLOG_USERNAME_UPDATE);
       return false;
     } finally {
       setAction(platform, null, "updating");

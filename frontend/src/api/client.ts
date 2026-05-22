@@ -1,5 +1,6 @@
 import { isErrorCode } from "../constants/errorCodes";
 import { ERROR_CONFIG } from "../constants/errorMessages";
+import { NETWORK_MESSAGES } from "../constants/messages";
 import { ApiError } from "../utils/appError";
 import { generateErrorId } from "../utils/errorId";
 
@@ -73,7 +74,7 @@ function buildUnauthorizedError(): ApiError {
   _onUnauthorized?.();
   return new ApiError({
     code: "AUTH_REQUIRED",
-    message: "認証が必要です。再度ログインしてください。",
+    message: NETWORK_MESSAGES.AUTH_REQUIRED,
     action: "ログインし直してください",
   });
 }
@@ -133,7 +134,7 @@ export async function request<T>(
   } catch {
     throw new ApiError({
       code: "INTERNAL_ERROR",
-      message: "サーバーに接続できません。ネットワーク接続を確認してください。",
+      message: NETWORK_MESSAGES.CONNECTION_FAILED,
     });
   }
 
@@ -154,8 +155,8 @@ export async function request<T>(
     const body = await getErrorBody(response);
     const fallbackMessage =
       response.status >= 500
-        ? "サーバーエラーが発生しました。しばらくしてから再度お試しください。"
-        : "リクエストの処理に失敗しました。";
+        ? NETWORK_MESSAGES.SERVER_ERROR
+        : NETWORK_MESSAGES.REQUEST_FAILED;
     const apiError = buildApiError(response, body, fallbackMessage);
 
     if (apiError.code === "AUTH_EXPIRED" || apiError.code === "AUTH_REQUIRED") {
