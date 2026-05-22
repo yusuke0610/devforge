@@ -84,8 +84,11 @@ class Project(BaseModel):
 
     @model_validator(mode="after")
     def validate_date_range(self) -> "Project":
-        """終了日が開始日より前でないことを検証する。"""
-        if self.start_date and self.end_date and not self.is_current:
+        """参画中なら end_date を None に正規化し、そうでなければ日付範囲を検証する。"""
+        if self.is_current:
+            self.end_date = None
+            return self
+        if self.start_date and self.end_date:
             if self.end_date < self.start_date:
                 raise ValueError(get_error("validation.date_range_invalid"))
         return self

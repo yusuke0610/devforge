@@ -6,7 +6,8 @@ import {
   startResumeImport,
   type ResumeImportResultResponse,
 } from "../../api/resumeImports";
-import type { AppErrorState } from "../../utils/appError";
+import { type AppErrorState, toAppError } from "../../utils/appError";
+import { generateErrorId } from "../../utils/errorId";
 import { useTaskPolling } from "../useTaskPolling";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -42,7 +43,13 @@ export function useResumeImport(): UseResumeImportReturn {
         setParsedData(result);
         setPhase("ready");
       } catch {
-        setError({ message: "抽出結果の取得に失敗しました。", code: "INTERNAL_ERROR", action: null });
+        setError({
+          message: "抽出結果の取得に失敗しました。",
+          code: "INTERNAL_ERROR",
+          action: null,
+          retryAfter: null,
+          errorId: generateErrorId(),
+        });
         setPhase("error");
       }
     },
@@ -57,12 +64,24 @@ export function useResumeImport(): UseResumeImportReturn {
     async (file: File) => {
       // フロントエンド側の事前バリデーション
       if (file.type !== "application/pdf") {
-        setError({ message: "PDF をアップロードしてください。", code: "RESUME_IMPORT_INVALID", action: null });
+        setError({
+          message: "PDF をアップロードしてください。",
+          code: "RESUME_IMPORT_INVALID",
+          action: null,
+          retryAfter: null,
+          errorId: generateErrorId(),
+        });
         setPhase("error");
         return;
       }
       if (file.size > MAX_FILE_SIZE) {
-        setError({ message: "10 MB 以下の PDF をアップロードしてください。", code: "RESUME_IMPORT_INVALID", action: null });
+        setError({
+          message: "10 MB 以下の PDF をアップロードしてください。",
+          code: "RESUME_IMPORT_INVALID",
+          action: null,
+          retryAfter: null,
+          errorId: generateErrorId(),
+        });
         setPhase("error");
         return;
       }
@@ -77,7 +96,6 @@ export function useResumeImport(): UseResumeImportReturn {
         setPhase("polling");
         startPolling();
       } catch (err) {
-        const { toAppError } = await import("../../utils/appError");
         setError(toAppError(err));
         setPhase("error");
       }

@@ -51,6 +51,11 @@ describe("useCareerDirty", () => {
     expect(result.current.any).toBe(false);
     expect(result.current.experiencesAny).toBe(false);
     expect(result.current.qualificationsAny).toBe(false);
+    // 配下クライアントとプロジェクトも form と同じ shape を保ち、各 any は false
+    expect(result.current.experiences[0].clients[0].projects).toHaveLength(
+      form.experiences[0].clients[0].projects.length,
+    );
+    expect(result.current.experiences[0].clients[0].projects[0].any).toBe(false);
   });
 
   it("form と baseline が同一なら dirty なし", () => {

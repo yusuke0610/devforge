@@ -211,7 +211,12 @@ export function CareerExperienceEditor({
                       onUpdateClientHasClient(expIndex, clientIndex, !e.target.checked)
                     }
                   />
-                  取引先なし
+                  {/* has_client=false で name 入力（と同じ行の DirtyDot）が消えた時にも
+                      未保存状態を可視化するため、常時表示のチェックボックス側にも dot を出す。 */}
+                  <span>
+                    取引先なし
+                    <DirtyDot visible={Boolean(clientDirty?.self)} />
+                  </span>
                 </label>
               </div>
 

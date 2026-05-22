@@ -95,8 +95,10 @@ function isDeepEqual(a: unknown, b: unknown): boolean {
   return true;
 }
 
-/** dirty なしの経歴 1 件分のテンプレート。配下クライアントは form を見て埋める。 */
-function buildCleanExperience(experience: { clients: unknown[] }): ExperienceDirty {
+/** dirty なしの経歴 1 件分のテンプレート。配下クライアントとプロジェクトは form の shape を踏襲する。 */
+function buildCleanExperience(
+  experience: { clients: { projects: unknown[] }[] },
+): ExperienceDirty {
   return {
     any: false,
     self: false,
@@ -109,7 +111,11 @@ function buildCleanExperience(experience: { clients: unknown[] }): ExperienceDir
       employee_count: false,
       capital: false,
     },
-    clients: experience.clients.map(() => ({ any: false, self: false, projects: [] })),
+    clients: experience.clients.map((c) => ({
+      any: false,
+      self: false,
+      projects: c.projects.map(() => ({ any: false })),
+    })),
   };
 }
 

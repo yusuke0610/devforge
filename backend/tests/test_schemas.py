@@ -226,7 +226,7 @@ def test_project_null_end_date_is_accepted() -> None:
     )
     assert proj_none.end_date is None
 
-    # 空文字列も受け付ける（フロントエンドが is_current=True の時に "" を送る経路）
+    # 空文字列も受け付け、is_current=True なら None に正規化する（Experience と同じ挙動）
     proj_empty = Project(
         name="テスト",
         start_date="2021-04",
@@ -234,7 +234,7 @@ def test_project_null_end_date_is_accepted() -> None:
         is_current=True,
         technology_stacks=[],
     )
-    assert proj_empty.end_date == ""
+    assert proj_empty.end_date is None
 
 
 def test_blog_summary_request_limits_article_count() -> None:
