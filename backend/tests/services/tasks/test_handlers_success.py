@@ -37,7 +37,9 @@ def _make_user(db: Session, username: str):
 class TestBlogSummarizeHandlerSuccess:
     """BlogSummarizeHandler.run を直接呼び出す正常系。"""
 
-    def test_run_completes_and_persists_summary(self, db_session: Session) -> None:
+    def test_run_completes_and_persists_summary(
+        self, db_session: Session, session_factory
+    ) -> None:
         user = _make_user(db_session, "handler-blog-success")
         cache = BlogSummaryCache(user_id=user.id, status="pending")
         db_session.add(cache)
@@ -71,8 +73,9 @@ class TestBlogSummarizeHandlerSuccess:
             ),
         ):
             handler = BlogSummarizeHandler()
-            _run(handler.run(db_session, {"user_id": user.id}))
+            _run(handler.run(session_factory, {"user_id": user.id}))
 
+        db_session.expire_all()
         db_session.refresh(cache)
         assert cache.status == "completed"
         assert cache.summary == "完成版サマリ"
@@ -83,7 +86,9 @@ class TestBlogSummarizeHandlerSuccess:
 class TestCareerAnalysisHandlerSuccess:
     """CareerAnalysisHandler.run を直接呼び出す正常系。"""
 
-    def test_run_completes_and_persists_result(self, db_session: Session) -> None:
+    def test_run_completes_and_persists_result(
+        self, db_session: Session, session_factory
+    ) -> None:
         user = _make_user(db_session, "handler-career-success")
         analysis = CareerAnalysis(
             user_id=user.id,
@@ -103,10 +108,11 @@ class TestCareerAnalysisHandlerSuccess:
             "action_items": [],
         }
 
+        # 新ハンドラは collect_career_inputs + generate_career_analysis を分けて呼ぶ
         with (
             patch("app.services.intelligence.llm.get_llm_client", return_value=mock_llm),
             patch(
-                "app.services.career_analysis.builder.build_career_analysis",
+                "app.services.career_analysis.builder.generate_career_analysis",
                 new_callable=AsyncMock,
                 return_value=fake_result,
             ),
@@ -114,7 +120,7 @@ class TestCareerAnalysisHandlerSuccess:
             handler = CareerAnalysisHandler()
             _run(
                 handler.run(
-                    db_session,
+                    session_factory,
                     {
                         "user_id": user.id,
                         "record_id": analysis.id,
@@ -123,6 +129,7 @@ class TestCareerAnalysisHandlerSuccess:
                 )
             )
 
+        db_session.expire_all()
         db_session.refresh(analysis)
         assert analysis.status == "completed"
         assert analysis.result_json is not None

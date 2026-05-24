@@ -25,6 +25,7 @@ from ..schemas.resume_import import (
     ResumeImportStartResponse,
     ResumeImportStatusResponse,
 )
+from ..schemas.shared import ProgressResponse
 from ..services.tasks import AsyncTaskCacheService, TaskType
 
 logger = logging.getLogger(__name__)
@@ -158,6 +159,28 @@ def get_import_status(
         error_code=resolve_async_error_code(record.error_message),
         judge_reason=record.judge_reason,
     )
+
+
+@router.get("/{import_id}/progress", response_model=ProgressResponse)
+async def get_import_progress(
+    import_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """インポートタスクの進捗（ステップ）情報を返す。Redis にデータが無い場合は step_index=0 のデフォルト。"""
+    from ..services.progress_service import get_progress
+
+    record = db.query(ResumeImport).filter_by(id=import_id, user_id=current_user.id).first()
+    if not record:
+        raise_app_error(
+            status_code=404,
+            code=ErrorCode.VALIDATION_ERROR,
+            message="インポートレコードが見つかりません。",
+            action="インポートをやり直してください",
+        )
+
+    data = await get_progress(record.id, default_total_steps=3)
+    return ProgressResponse(**data)
 
 
 @router.get("/{import_id}/result", response_model=ResumeImportResultResponse)

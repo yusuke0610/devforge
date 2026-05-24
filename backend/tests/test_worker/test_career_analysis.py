@@ -32,23 +32,25 @@ class TestRunCareerAnalysis:
         db.commit()
         return user, analysis
 
-    def test_success_status_completed(self, db_session: Session):
+    def test_success_status_completed(self, db_session: Session, session_factory):
         """正常系: キャリア分析が完了し status が completed になること。"""
         user, analysis = self._make_user_and_analysis(db_session)
         mock_llm = MagicMock()
         fake_result = {"strengths": [], "career_paths": [], "action_items": []}
 
+        # ハンドラは collect_career_inputs + generate_career_analysis を分けて呼ぶ。
+        # ここでは LLM 部分の generate_career_analysis をモックする。
         with (
             patch("app.services.intelligence.llm.get_llm_client", return_value=mock_llm),
             patch(
-                "app.services.career_analysis.builder.build_career_analysis",
+                "app.services.career_analysis.builder.generate_career_analysis",
                 new_callable=AsyncMock,
                 return_value=fake_result,
             ),
         ):
             _run(
                 _run_career_analysis(
-                    db_session,
+                    session_factory,
                     {
                         "user_id": user.id,
                         "record_id": analysis.id,
@@ -62,15 +64,15 @@ class TestRunCareerAnalysis:
         assert analysis.result_json is not None
         assert analysis.completed_at is not None
 
-    def test_value_error_sets_dead_letter(self, db_session: Session):
-        """build_career_analysis が ValueError を送出した場合 status が dead_letter になること。"""
+    def test_value_error_sets_dead_letter(self, db_session: Session, session_factory):
+        """generate_career_analysis が ValueError を送出した場合 status が dead_letter になること。"""
         user, analysis = self._make_user_and_analysis(db_session, "career-err")
         mock_llm = MagicMock()
 
         with (
             patch("app.services.intelligence.llm.get_llm_client", return_value=mock_llm),
             patch(
-                "app.services.career_analysis.builder.build_career_analysis",
+                "app.services.career_analysis.builder.generate_career_analysis",
                 new_callable=AsyncMock,
                 side_effect=ValueError("必要なデータが不足しています"),
             ),
@@ -78,7 +80,7 @@ class TestRunCareerAnalysis:
             with pytest.raises(ValueError):
                 _run(
                     _run_career_analysis(
-                        db_session,
+                        session_factory,
                         {
                             "user_id": user.id,
                             "record_id": analysis.id,
@@ -92,7 +94,7 @@ class TestRunCareerAnalysis:
         assert analysis.error_message is not None
         assert "不足" in analysis.error_message
 
-    def test_no_record_raises_non_retryable(self, db_session: Session):
+    def test_no_record_raises_non_retryable(self, session_factory):
         """レコードが見つからない場合、NonRetryableError が送出されること。
 
         旧契約（silent return）は worker から completed と誤って観測される回帰を招くため、
@@ -103,7 +105,7 @@ class TestRunCareerAnalysis:
         with pytest.raises(NonRetryableError):
             _run(
                 _run_career_analysis(
-                    db_session,
+                    session_factory,
                     {
                         "user_id": "ghost",
                         "record_id": 99999,

@@ -1,6 +1,14 @@
 """AI キャリアパス分析の生成エントリポイント。
 
 tech_stack_merger / prompt_builder に委譲し、LLM 呼び出しとレスポンス解析を担う。
+
+セッション分離のため以下の 2 段構成で公開する:
+  - ``collect_career_inputs(db, user_id, target_position)``: DB から入力データを集めて
+    ユーザープロンプト文字列を返す。短命セッション内で呼ぶ前提。
+  - ``generate_career_analysis(user_prompt, llm_client)``: DB を介さず LLM 呼び出しと
+    レスポンスパースのみを行う。
+
+``build_career_analysis`` は両者をまとめた後方互換シム（既存テスト・呼び出し用）。
 """
 
 import json
@@ -65,6 +73,45 @@ def _parse_llm_response(raw: str) -> dict:
     return data
 
 
+def collect_career_inputs(db: Session, user_id: str, target_position: str) -> str:
+    """DB から resume / GitHub 分析 / ブログサマリを集め、ユーザープロンプトを組み立てる。
+
+    短命セッション内で呼ぶこと（LLM 呼び出し前にプロンプト文字列まで作り切る目的）。
+    """
+    resume = db.query(Resume).filter_by(user_id=user_id).first()
+    analysis_cache = db.query(GitHubAnalysisCache).filter_by(user_id=user_id).first()
+    blog_cache = db.query(BlogSummaryCache).filter_by(user_id=user_id).first()
+
+    resume_techs = collect_resume_tech_stacks(resume) if resume else set()
+    github_skills = collect_github_skills(analysis_cache)
+    qualification_names = collect_qualification_names(resume)
+    merged_stacks_text = merge_tech_stacks(resume_techs, github_skills, qualification_names)
+
+    return build_user_prompt(
+        target_position, resume, analysis_cache, blog_cache, merged_stacks_text,
+    )
+
+
+async def generate_career_analysis(user_prompt: str, llm_client: LLMClient) -> dict:
+    """LLM を呼び出して CareerAnalysisResult 構造の dict を返す。
+
+    DB セッションを保持しないため、長時間処理中の Hrana stream 失効を回避できる。
+
+    Raises:
+        ValueError: LLM からの応答が空、またはパースに失敗した場合。
+    """
+    system_prompt = load_prompt("career_analysis.md")
+    raw_response = await llm_client.generate(system_prompt, user_prompt)
+    if not raw_response:
+        raise ValueError("LLM からの応答が空です")
+
+    try:
+        return _parse_llm_response(raw_response)
+    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        logger.error("LLM レスポンスのパースに失敗: %s", exc)
+        raise ValueError("LLM レスポンスの解析に失敗しました") from exc
+
+
 async def build_career_analysis(
     db: Session,
     user_id: str,
@@ -73,36 +120,11 @@ async def build_career_analysis(
 ) -> dict:
     """AI キャリアパス分析を実行し、CareerAnalysisResult 構造の dict を返す。
 
+    後方互換シム: 入力収集と LLM 呼び出しを直列に行う。新規ハンドラは
+    ``collect_career_inputs`` と ``generate_career_analysis`` を分けて呼ぶこと。
+
     Raises:
         ValueError: LLM レスポンスのパースに失敗した場合。
     """
-    # 入力データ収集
-    resume = db.query(Resume).filter_by(user_id=user_id).first()
-    analysis_cache = db.query(GitHubAnalysisCache).filter_by(user_id=user_id).first()
-    blog_cache = db.query(BlogSummaryCache).filter_by(user_id=user_id).first()
-
-    # 3ソースの技術スタックをマージ
-    resume_techs = collect_resume_tech_stacks(resume) if resume else set()
-    github_skills = collect_github_skills(analysis_cache)
-    qualification_names = collect_qualification_names(resume)
-    merged_stacks_text = merge_tech_stacks(resume_techs, github_skills, qualification_names)
-
-    # プロンプト組み立て（氏名は渡さない・企業名はマスキング）
-    user_prompt = build_user_prompt(
-        target_position, resume, analysis_cache, blog_cache, merged_stacks_text,
-    )
-
-    # LLM 呼び出し
-    system_prompt = load_prompt("career_analysis.md")
-    raw_response = await llm_client.generate(system_prompt, user_prompt)
-    if not raw_response:
-        raise ValueError("LLM からの応答が空です")
-
-    # パースとバリデーション
-    try:
-        result = _parse_llm_response(raw_response)
-    except (json.JSONDecodeError, KeyError, TypeError) as exc:
-        logger.error("LLM レスポンスのパースに失敗: %s", exc)
-        raise ValueError("LLM レスポンスの解析に失敗しました") from exc
-
-    return result
+    user_prompt = collect_career_inputs(db, user_id, target_position)
+    return await generate_career_analysis(user_prompt, llm_client)

@@ -74,6 +74,7 @@ export const PATHS = {
   resumeImports: {
     start: "/api/resumes/import",
     status: (id: string) => `/api/resumes/import/${id}/status`,
+    progress: (id: string) => `/api/resumes/import/${id}/progress`,
     result: (id: string) => `/api/resumes/import/${id}/result`,
   },
   aiResume: {

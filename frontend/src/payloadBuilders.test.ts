@@ -127,7 +127,7 @@ describe("buildCareerPayload (basic validation)", () => {
 // ── experiences の境界 ────────────────────────────────────────
 
 describe("buildCareerPayload (experiences)", () => {
-  it("is_current=true の experience は end_date が null に正規化される", () => {
+  it("is_current=true の experience は end_date が空文字に正規化される", () => {
     const payload = buildCareerPayload(
       baseState({
         experiences: [
@@ -135,7 +135,7 @@ describe("buildCareerPayload (experiences)", () => {
         ],
       }),
     );
-    expect(payload.experiences[0].end_date).toBeNull();
+    expect(payload.experiences[0].end_date).toBe("");
     expect(payload.experiences[0].is_current).toBe(true);
   });
 

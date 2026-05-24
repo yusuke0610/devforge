@@ -4,17 +4,19 @@
 LLM が利用可能であれば学習アドバイスも併せて生成する。
 
 worker は本サービスを呼ぶだけで、状態遷移・進捗・LLM 失敗ラベルなどは本モジュールに集約する。
+
+libSQL (Hrana over HTTP) の idle stream timeout を避けるため、GitHub API 収集と
+LLM 呼び出しの前後でセッションを開閉する。
 """
 
 from datetime import datetime, timezone
-
-from sqlalchemy.orm import Session
 
 from ...core.encryption import decrypt_field
 from ...core.logging_utils import get_logger
 from ...models import GitHubAnalysisCache
 from ..progress_service import set_progress
 from ..tasks.exceptions import NonRetryableError, RetryableError
+from ..tasks.handlers.base import SessionFactory
 from .github_collector import GitHubUserNotFoundError, collect_repos
 from .llm import get_llm_client
 from .llm_summarizer import generate_learning_advice
@@ -30,8 +32,14 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-async def run_github_analysis(db: Session, payload: dict) -> None:
-    """GitHub 分析パイプラインを実行し、AI 学習アドバイスまで一括生成してキャッシュに保存する。"""
+async def run_github_analysis(session_factory: SessionFactory, payload: dict) -> None:
+    """GitHub 分析パイプラインを実行し、AI 学習アドバイスまで一括生成してキャッシュに保存する。
+
+    フェーズ構成:
+      - A: payload 検証 + processing マーク（短命セッション）
+      - B: GitHub API 取得 + スキル集計 + LLM アドバイス（DB セッション無し）
+      - C: 結果書き戻し（新セッション）
+    """
     user_id = payload.get("user_id")
     # 必須キー欠落・キャッシュ不在はいずれもディスパッチ側のバグであり、
     # リトライしても回復しないため NonRetryableError で worker に dead_letter を委ねる。
@@ -41,18 +49,21 @@ async def run_github_analysis(db: Session, payload: dict) -> None:
         raise NonRetryableError(f"{message} (payload_keys={list(payload.keys())})")
     task_id = user_id
 
-    cache = db.query(GitHubAnalysisCache).filter_by(user_id=user_id).first()
-    if not cache:
-        message = "GitHub 分析キャッシュが見つかりません"
-        logger.error(message, extra={"user_id": user_id})
-        raise NonRetryableError(f"{message} (user_id={user_id})")
+    # ── フェーズA: 検証 + processing マーク ─────────────────────────────────
+    with session_factory() as db:
+        cache = db.query(GitHubAnalysisCache).filter_by(user_id=user_id).first()
+        if not cache:
+            message = "GitHub 分析キャッシュが見つかりません"
+            logger.error(message, extra={"user_id": user_id})
+            raise NonRetryableError(f"{message} (user_id={user_id})")
 
-    cache.status = "processing"
-    cache.started_at = _now()
-    # 前回実行の警告が残らないようリセット（error_message はディスパッチ時点でリセット済み）
-    cache.warning_message = None
-    db.commit()
+        cache.status = "processing"
+        cache.started_at = _now()
+        # 前回実行の警告が残らないようリセット（error_message はディスパッチ時点でリセット済み）
+        cache.warning_message = None
+        db.commit()
 
+    # ── フェーズB: GitHub 取得 + 集計 + LLM アドバイス（DB セッション無し）──
     token = decrypt_field(payload["github_token"]) if payload.get("github_token") else None
 
     try:
@@ -75,10 +86,15 @@ async def run_github_analysis(db: Session, payload: dict) -> None:
             on_repo_fetched=_on_repo_fetched,
         )
     except GitHubUserNotFoundError as exc:
-        cache.status = "dead_letter"
-        cache.error_message = f"GitHubユーザーが見つかりません: {payload['github_username']}"
-        cache.completed_at = _now()
-        db.commit()
+        with session_factory() as db:
+            cache = db.query(GitHubAnalysisCache).filter_by(user_id=user_id).first()
+            if cache:
+                cache.status = "dead_letter"
+                cache.error_message = (
+                    f"GitHubユーザーが見つかりません: {payload['github_username']}"
+                )
+                cache.completed_at = _now()
+                db.commit()
         raise exc
 
     # ステップ 3: スキル抽出 + スコア算出（同一の集計関数で一括処理）
@@ -87,20 +103,29 @@ async def run_github_analysis(db: Session, payload: dict) -> None:
 
     response = map_pipeline_result(result)
     analysis_dict = response.model_dump()
-    cache.analysis_result = analysis_dict
 
     # LLM が利用可能なら学習アドバイスも自動生成する
     advice, llm_failed = await _generate_advice_if_available(analysis_dict)
-    cache.position_advice = advice
 
+    # ── フェーズC: 結果書き戻し（新セッション）─────────────────────────────
     # ステップ 4: DB 保存
     await set_progress(task_id, 4, _TOTAL_STEPS, "結果を保存中...")
-    cache.status = "completed"
-    cache.error_message = None
-    # LLM 失敗は分析自体は成功しているため warning_message に分けて記録する
-    cache.warning_message = "LLM処理が利用できません" if llm_failed else None
-    cache.completed_at = _now()
-    db.commit()
+    with session_factory() as db:
+        cache = db.query(GitHubAnalysisCache).filter_by(user_id=user_id).first()
+        if not cache:
+            logger.warning(
+                "結果書き戻し時にキャッシュが見つかりません",
+                extra={"user_id": user_id},
+            )
+            return
+        cache.analysis_result = analysis_dict
+        cache.position_advice = advice
+        cache.status = "completed"
+        cache.error_message = None
+        # LLM 失敗は分析自体は成功しているため warning_message に分けて記録する
+        cache.warning_message = "LLM処理が利用できません" if llm_failed else None
+        cache.completed_at = _now()
+        db.commit()
 
     # ステップ 5: 完了
     await set_progress(task_id, 5, _TOTAL_STEPS, "完了")

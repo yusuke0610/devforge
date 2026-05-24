@@ -132,7 +132,7 @@ export function buildCareerPayload(state: CareerFormState): CareerResumePayload 
       company: exp.company.trim(),
       business_description: exp.business_description.trim(),
       start_date: exp.start_date.trim(),
-      end_date: exp.is_current ? null : exp.end_date.trim(),
+      end_date: exp.is_current ? "" : exp.end_date.trim(),
       is_current: exp.is_current,
       employee_count: exp.employee_count.trim(),
       capital: exp.capital.trim(),
@@ -141,7 +141,7 @@ export function buildCareerPayload(state: CareerFormState): CareerResumePayload 
         .filter((c) => !c.has_client || c.name.trim() || c.projects.length > 0),
     }))
     .filter((exp) =>
-      hasAnyText([exp.company, exp.business_description, exp.start_date, exp.end_date ?? ""]),
+      hasAnyText([exp.company, exp.business_description, exp.start_date, exp.end_date]),
     );
 
   for (const exp of experiences) {

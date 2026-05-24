@@ -1,4 +1,6 @@
 import { marked } from "marked";
+import { AsyncTaskLoading } from "../ui/AsyncTaskLoading";
+import { LOADING_MESSAGES } from "../../constants/messages";
 import styles from "./BlogPage.module.css";
 
 /** BlogAnalysisSection のプロパティ型 */
@@ -22,12 +24,7 @@ export function BlogAnalysisSection({ summaryLoading, summary }: BlogAnalysisSec
     <div className={styles.aiSection}>
       <h2>AI 分析結果</h2>
       {summaryLoading ? (
-        <>
-          <p className={styles.summaryLoading}>分析中...</p>
-          <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-            他の画面に移動しても処理は継続されます
-          </p>
-        </>
+        <AsyncTaskLoading label={LOADING_MESSAGES.BLOG_ANALYSIS} />
       ) : (
         <div className={styles.summaryText} dangerouslySetInnerHTML={{ __html: summaryHtml }} />
       )}

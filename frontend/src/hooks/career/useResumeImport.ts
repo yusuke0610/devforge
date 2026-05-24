@@ -1,119 +1,139 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   getResumeImportResult,
-  getResumeImportStatus,
   startResumeImport,
   type ResumeImportResultResponse,
 } from "../../api/resumeImports";
 import {
   FALLBACK_MESSAGES,
-  INTERNAL_MESSAGES,
   VALIDATION_MESSAGES,
 } from "../../constants/messages";
+import {
+  beginPolling,
+  beginUpload,
+  clearImport,
+  setError,
+  type ResumeImportPhase,
+} from "../../store/resumeImportSlice";
+import { useAppDispatch, useAppSelector } from "../../store";
 import { type AppErrorState, toAppError } from "../../utils/appError";
 import { generateErrorId } from "../../utils/errorId";
-import { useTaskPolling } from "../useTaskPolling";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
-export type ResumeImportPhase = "idle" | "uploading" | "polling" | "ready" | "error";
+export type { ResumeImportPhase };
 
-type UseResumeImportState = {
+export type UseResumeImportReturn = {
+  /** 進行フェーズ（Redux 由来） */
   phase: ResumeImportPhase;
+  /** プレビュー用に取得した解析結果（コンポーネントローカル） */
   parsedData: ResumeImportResultResponse | null;
+  /** エラー情報（Redux 由来） */
   error: AppErrorState | null;
-};
-
-export type UseResumeImportReturn = UseResumeImportState & {
+  /** PDF アップロードを開始する */
   start: (file: File) => Promise<void>;
+  /** import 状態を初期化する */
   reset: () => void;
 };
 
+/**
+ * 職務経歴書 PDF インポートのフロント側エントリーポイント。
+ *
+ * - 進行フェーズ・importId・エラーは Redux + redux-persist に置く
+ *   （他タブ遷移・ページリロードを跨いで保持される）。
+ * - 実際のポーリングは `ResumeImportPoller`（AuthenticatedLayout 配下）が行う。
+ *   本フックはアップロード開始と結果取得・モーダル制御のみを担う。
+ */
 export function useResumeImport(): UseResumeImportReturn {
-  const [phase, setPhase] = useState<ResumeImportPhase>("idle");
-  const [parsedData, setParsedData] = useState<ResumeImportResultResponse | null>(null);
-  const [error, setError] = useState<AppErrorState | null>(null);
-  const [importId, setImportId] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const phase = useAppSelector((s) => s.resumeImport.phase);
+  const importId = useAppSelector((s) => s.resumeImport.importId);
+  const error = useAppSelector((s) => s.resumeImport.error);
+  // parsedData は importId と紐付けて保持する。importId が変わったり null になったりすると
+  // 自動的に「parsedData は無い」扱いになり、別 effect でクリアする必要がない。
+  const [parsedSnapshot, setParsedSnapshot] = useState<{
+    importId: string;
+    data: ResumeImportResultResponse;
+  } | null>(null);
+  const parsedData =
+    parsedSnapshot && parsedSnapshot.importId === importId
+      ? parsedSnapshot.data
+      : null;
 
-  const { startPolling } = useTaskPolling({
-    checkStatus: async () => {
-      if (!importId) throw new Error(INTERNAL_MESSAGES.RESUME_IMPORT_NO_ID);
-      return getResumeImportStatus(importId);
-    },
-    onCompleted: async () => {
-      if (!importId) return;
+  // phase が "ready" になったら、解析結果を API から取得してローカルに保持する。
+  // PII を含むため Redux には置かない。
+  useEffect(() => {
+    if (phase !== "ready" || !importId) return;
+    let cancelled = false;
+    (async () => {
       try {
         const result = await getResumeImportResult(importId);
-        setParsedData(result);
-        setPhase("ready");
+        if (!cancelled) setParsedSnapshot({ importId, data: result });
       } catch {
-        setError({
-          message: FALLBACK_MESSAGES.RESUME_EXTRACT,
-          code: "INTERNAL_ERROR",
-          action: null,
-          retryAfter: null,
-          errorId: generateErrorId(),
-        });
-        setPhase("error");
+        if (!cancelled) {
+          dispatch(
+            setError({
+              code: "INTERNAL_ERROR",
+              message: FALLBACK_MESSAGES.RESUME_EXTRACT,
+              action: null,
+              retryAfter: null,
+              errorId: generateErrorId(),
+            }),
+          );
+        }
       }
-    },
-    onFailed: (err) => {
-      setError(err);
-      setPhase("error");
-    },
-    intervalMs: 3000,
-  });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, importId, dispatch]);
 
   const start = useCallback(
     async (file: File) => {
       // フロントエンド側の事前バリデーション
       if (file.type !== "application/pdf") {
-        setError({
-          message: VALIDATION_MESSAGES.RESUME_PDF_REQUIRED,
-          code: "RESUME_IMPORT_INVALID",
-          action: null,
-          retryAfter: null,
-          errorId: generateErrorId(),
-        });
-        setPhase("error");
+        dispatch(
+          setError({
+            code: "RESUME_IMPORT_INVALID",
+            message: VALIDATION_MESSAGES.RESUME_PDF_REQUIRED,
+            action: null,
+            retryAfter: null,
+            errorId: generateErrorId(),
+          }),
+        );
         return;
       }
       if (file.size > MAX_FILE_SIZE) {
-        setError({
-          message: VALIDATION_MESSAGES.RESUME_PDF_SIZE_EXCEEDED,
-          code: "RESUME_IMPORT_INVALID",
-          action: null,
-          retryAfter: null,
-          errorId: generateErrorId(),
-        });
-        setPhase("error");
+        dispatch(
+          setError({
+            code: "RESUME_IMPORT_INVALID",
+            message: VALIDATION_MESSAGES.RESUME_PDF_SIZE_EXCEEDED,
+            action: null,
+            retryAfter: null,
+            errorId: generateErrorId(),
+          }),
+        );
         return;
       }
 
-      setPhase("uploading");
-      setError(null);
-      setParsedData(null);
+      dispatch(beginUpload());
 
       try {
         const { import_id } = await startResumeImport(file);
-        setImportId(import_id);
-        setPhase("polling");
-        startPolling();
+        dispatch(beginPolling({ importId: import_id }));
       } catch (err) {
-        setError(toAppError(err));
-        setPhase("error");
+        const appError = toAppError(err);
+        dispatch(setError(appError));
       }
     },
-    [startPolling],
+    [dispatch],
   );
 
   const reset = useCallback(() => {
-    setPhase("idle");
-    setParsedData(null);
-    setError(null);
-    setImportId(null);
-  }, []);
+    dispatch(clearImport());
+  }, [dispatch]);
 
+  // Redux state の error は plain object。AppErrorState 互換なのでそのまま返す。
   return { phase, parsedData, error, start, reset };
 }

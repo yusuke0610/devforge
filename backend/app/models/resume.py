@@ -115,8 +115,9 @@ class ResumeExperience(Base):
         return format_year_month(self.start_date_value) or ""
 
     @property
-    def end_date(self) -> str | None:
-        return format_year_month(self.end_date_value)
+    def end_date(self) -> str:
+        """DB の end_date が NULL（在籍中）の場合は "" を返す（schema 契約と一致）。"""
+        return format_year_month(self.end_date_value) or ""
 
     @property
     def clients(self) -> list["ResumeClient"]:
@@ -192,8 +193,9 @@ class ResumeProject(Base):
         return format_year_month(self.start_date_value) or ""
 
     @property
-    def end_date(self) -> str | None:
-        return format_year_month(self.end_date_value)
+    def end_date(self) -> str:
+        """DB の end_date が NULL（参画中）の場合は "" を返す（schema 契約と一致）。"""
+        return format_year_month(self.end_date_value) or ""
 
     @property
     def team(self) -> dict:

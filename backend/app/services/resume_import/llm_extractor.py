@@ -16,6 +16,11 @@ _JUDGE_TEXT_MAX_CHARS = 3000
 # LLM 判定で is_resume=True かつ confidence がこれ以上のときのみ次のステップへ進む
 _CONFIDENCE_THRESHOLD = 0.6
 
+# ResumeBase 系スキーマは null を受け付けない（在籍中も end_date は ""）。
+# LLM が規約違反で返した null は **キーごと削除** して Pydantic の default
+# ("" / []) を効かせる。None を "" に置換しないのは int/bool フィールドの
+# validation を逆に壊すため、削除の方が安全だから。
+
 
 @dataclass
 class JudgeResult:
@@ -39,6 +44,26 @@ def _strip_code_block(text: str) -> str:
         lines = [ln for ln in lines if not ln.strip().startswith("```")]
         text = "\n".join(lines).strip()
     return text
+
+
+def _sanitize_nulls(value):
+    """LLM 出力の None を再帰的に正規化する。
+
+    frontend payload は未入力の str を `""` で送る契約だが、LLM は指示に反して
+    `null` を返すことがある。ResumeBase 系スキーマは None を一切受け付けないため、
+    None のキーは **キーごと削除** して `default=""` / `default_factory=list` を効かせる。
+    """
+    if isinstance(value, dict):
+        cleaned: dict = {}
+        for k, v in value.items():
+            if v is None:
+                # キーごと落として Pydantic の default を効かせる
+                continue
+            cleaned[k] = _sanitize_nulls(v)
+        return cleaned
+    if isinstance(value, list):
+        return [_sanitize_nulls(item) for item in value]
+    return value
 
 
 async def judge_is_resume(text: str, llm_client: LLMClient) -> JudgeResult:
@@ -94,6 +119,11 @@ async def extract_structured(text: str, llm_client: LLMClient) -> dict:
             "LLM 抽出レスポンスのパースに失敗しました (response length=%d)", len(raw)
         )
         raise NonRetryableError(f"LLM 抽出レスポンスのパースに失敗しました: {exc}") from exc
+
+    # 規約違反の null をスキーマ default に丸める（end_date 含む全フィールド）。
+    # 後段の必須キー補完より前に行う（補完で `""` を入れた値が再び落ちないように、
+    # 補完は「キーが存在しないとき」のみ行う設計）。
+    data = _sanitize_nulls(data)
 
     # 必須フィールドの存在確認
     for key in ("full_name", "career_summary", "self_pr", "experiences", "qualifications"):

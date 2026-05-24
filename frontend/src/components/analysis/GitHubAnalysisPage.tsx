@@ -9,8 +9,9 @@ import {
 } from "../../api";
 import { ErrorToast } from "../ui/ErrorToast";
 import { InlineSpinner } from "../ui/InlineSpinner";
+import { AsyncTaskLoading } from "../ui/AsyncTaskLoading";
+import { LOADING_MESSAGES } from "../../constants/messages";
 import { useAsyncAnalysisPage } from "../../hooks/analysis/useAsyncAnalysisPage";
-import { TaskProgressStepper } from "../TaskProgressStepper";
 import { LanguageBar } from "./LanguageBar";
 import { TechBar } from "./TechBar";
 import { PositionRadarChart } from "./PositionRadarChart";
@@ -21,6 +22,9 @@ import styles from "./GitHubAnalysisPage.module.css";
  * GitHub 分析結果を表示するダッシュボードコンポーネント。
  * 初回表示時にDBキャッシュを読み込み、保存済みの結果があればそのまま表示する。
  * 「再分析」ボタン押下時のみパイプラインを再実行する。
+ *
+ * 職務経歴書ページと同様に、フェーズ（読み込み/入力/ポーリング/結果）に関わらず
+ * `shared.pageHeader` のタイトルバーを常時表示する。
  */
 export function GitHubAnalysisPage() {
   const [includeForks, setIncludeForks] = useState(false);
@@ -37,7 +41,6 @@ export function GitHubAnalysisPage() {
     setError,
     transitionToPolling,
     backToInput,
-    progress,
   } = useAsyncAnalysisPage<AnalysisResponse>({
     loadCache: async () => {
       const cache = await getAnalysisCache();
@@ -78,21 +81,20 @@ export function GitHubAnalysisPage() {
     backToInput();
   };
 
-  // ── フェーズ: キャッシュ読み込み中 ──────────────────────────────
-  if (phase === "loading-cache") {
-    return (
-      <div className={shared.pageBody}>
-        <InlineSpinner label="読み込み中..." />
-      </div>
-    );
-  }
+  /**
+   * フェーズごとの本体を描画する。
+   * ヘッダーは常時表示するため、ここでは pageBody に収める中身のみを返す。
+   */
+  const renderBody = () => {
+    // ── フェーズ: キャッシュ読み込み中 ──────────────────────────────
+    if (phase === "loading-cache") {
+      return <InlineSpinner label="読み込み中..." />;
+    }
 
-  // ── フェーズ: 入力 ──────────────────────────────────────────
-  if (phase === "input") {
-    return (
-      <div className={shared.pageBody}>
+    // ── フェーズ: 入力 ──────────────────────────────────────────
+    if (phase === "input") {
+      return (
         <div className={styles.inputCard}>
-          <h2>GitHub分析</h2>
           <p>あなたのGitHubアクティビティからスキルとキャリアを分析します</p>
 
           <div className={styles.advancedOptions}>
@@ -106,7 +108,6 @@ export function GitHubAnalysisPage() {
               <label htmlFor="includeForks">フォークしたリポジトリを含む</label>
             </div>
           </div>
-
 
           <button
             type="button"
@@ -126,33 +127,22 @@ export function GitHubAnalysisPage() {
             />
           )}
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  // ── フェーズ: ポーリング中 ────────────────────────────────────────
-  if (phase === "polling") {
+    // ── フェーズ: ポーリング中 ────────────────────────────────────────
+    if (phase === "polling") {
+      return <AsyncTaskLoading label={LOADING_MESSAGES.GITHUB_ANALYSIS} />;
+    }
+
+    // ── フェーズ: 分析結果ダッシュボード ───────────────────────────────
+    if (!result) return null;
+
     return (
-      <div className={shared.pageBody}>
-        <TaskProgressStepper progress={progress} />
-      </div>
-    );
-  }
-
-  // ── フェーズ: 分析結果ダッシュボード ───────────────────────────────
-  if (!result) return null;
-
-  return (
-    <div className={shared.pageBody}>
       <div className={styles.dashboard}>
-        {/* ヘッダー */}
+        {/* ユーザー名見出し（再分析ボタンはページヘッダーへ移設済み） */}
         <div className={styles.dashboardHeader}>
           <h1>{result.username} の分析結果</h1>
-          <div className={styles.headerActions}>
-            <button type="button" className={styles.backButton} onClick={handleBack}>
-              再分析
-            </button>
-          </div>
         </div>
 
         {error && (
@@ -228,6 +218,22 @@ export function GitHubAnalysisPage() {
           </div>
         )}
       </div>
-    </div>
+    );
+  };
+
+  return (
+    <>
+      <div className={shared.pageHeader}>
+        <h1>GitHub分析</h1>
+        {phase === "result" && result && (
+          <div className={shared.pageHeaderActions}>
+            <button type="button" onClick={handleBack}>
+              再分析
+            </button>
+          </div>
+        )}
+      </div>
+      <div className={shared.pageBody}>{renderBody()}</div>
+    </>
   );
 }

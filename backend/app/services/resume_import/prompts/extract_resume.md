@@ -13,7 +13,7 @@
       "company": "会社名（必須）",
       "business_description": "事業内容・業種（必須）",
       "start_date": "入社年月 YYYY-MM 形式",
-      "end_date": "退社年月 YYYY-MM 形式（在籍中は null）",
+      "end_date": "退社年月 YYYY-MM 形式（在籍中は \"\"）",
       "is_current": false,
       "employee_count": "従業員数（文字列、例: '100名'）",
       "capital": "資本金（文字列、例: '1億円'）",
@@ -25,7 +25,7 @@
             {
               "name": "案件名・プロジェクト名",
               "start_date": "開始年月 YYYY-MM 形式",
-              "end_date": "終了年月 YYYY-MM 形式（進行中は null）",
+              "end_date": "終了年月 YYYY-MM 形式（進行中は \"\"）",
               "is_current": false,
               "role": "担当役割（例: バックエンドエンジニア）",
               "description": "案件概要・業務内容",
@@ -63,9 +63,9 @@
 ## 抽出ルール
 
 - 日付は YYYY-MM 形式（例: 2022-04）。年のみの場合は YYYY-01 とする
-- 不明な項目は空文字列 "" または空配列 [] とする（null は end_date / is_current: true の場合のみ）
-- クライアント名が不明な場合、has_client=false・name="" で1件作成する
-- プロジェクトが職務経歴に直接記載されている場合（常駐先なし）は has_client=false で包む
+- 不明な項目は空文字列 "" または空配列 [] とする（null は使用しない）
+- クライアント名（取引先名・呼称）が読み取れない場合でも、取引先の存在自体は否定できないため has_client=true・name="" とする（「取引先なし」にはせず、項目を空欄にする）
+- 自社開発・社内案件など、明確に取引先が存在しないと判断できる場合のみ has_client=false で包む
 - technology_stacks の category は最も近いカテゴリを選択する
 - phases の値は「要件定義」「基本設計」「詳細設計」「開発」「テスト」「リリース」「保守運用」から選ぶ
 - career_summary と self_pr が区別できない場合、同じ内容を両方に入れてよい

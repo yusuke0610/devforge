@@ -27,14 +27,14 @@ def _md(text: str) -> str:
 
 def _format_period(
     start: str,
-    end: str | None,
+    end: str,
     is_current: bool,
 ) -> str:
-    """期間表示をフォーマットする"""
+    """期間表示をフォーマットする。在籍中は end を "" で受ける契約。"""
     s = start.replace("-", " 年 ") + " 月" if "-" in start else start
     if is_current:
         return f"{s}〜現在"
-    e = end.replace("-", " 年 ") + " 月" if end and "-" in end else (end or "")
+    e = end.replace("-", " 年 ") + " 月" if "-" in end else end
     return f"{s}〜{e}"
 
 
@@ -165,7 +165,7 @@ def _build_html(resume: dict) -> str:
         for exp in experiences:
             period = _format_period(
                 _a(exp, "start_date"),
-                _a(exp, "end_date", None),
+                _a(exp, "end_date", ""),
                 _a(exp, "is_current", False),
             )
             company = _esc(_a(exp, "company"))

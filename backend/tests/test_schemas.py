@@ -43,14 +43,15 @@ def experience_payload() -> dict:
     }
 
 
-def test_current_experience_forces_end_date_none() -> None:
+def test_current_experience_forces_end_date_empty() -> None:
+    """在籍中（is_current=True）なら end_date は "" に正規化される。"""
     payload = experience_payload()
     payload["is_current"] = True
     payload["end_date"] = "2024-03"
 
     experience = Experience(**payload)
 
-    assert experience.end_date is None
+    assert experience.end_date == ""
 
 
 def test_end_date_is_required_when_not_current() -> None:
@@ -155,14 +156,27 @@ def test_experience_end_date_after_start_date_is_accepted() -> None:
     assert exp.end_date == "2024-03"
 
 
-def test_experience_null_end_date_is_accepted() -> None:
-    """経歴: 終了日がNULL（在職中）は正常に保存されること。"""
+def test_experience_in_progress_end_date_is_normalized_to_empty() -> None:
+    """経歴: 在職中（is_current=True）は end_date が "" に正規化されること。
+
+    schema 上は str 必須・None 不可。在籍中なら値が入っていても "" に丸める。
+    """
     payload = experience_payload()
     payload["is_current"] = True
     payload["end_date"] = "2024-03"
 
     exp = Experience(**payload)
-    assert exp.end_date is None
+    assert exp.end_date == ""
+
+
+def test_experience_end_date_none_is_rejected() -> None:
+    """経歴: end_date に None を渡すと ValidationError になる（str 必須契約）。"""
+    payload = experience_payload()
+    payload["is_current"] = True
+    payload["end_date"] = None
+
+    with pytest.raises(ValidationError):
+        Experience(**payload)
 
 
 def test_project_end_date_before_start_date_is_rejected() -> None:
@@ -201,32 +215,32 @@ def test_project_end_date_after_start_date_is_accepted() -> None:
     assert proj.end_date == "2024-03"
 
 
-def test_project_null_end_date_is_accepted() -> None:
-    """プロジェクト: 参画中（is_current=True）は end_date 未指定または None を許容すること。
+def test_project_in_progress_end_date_is_normalized_to_empty() -> None:
+    """プロジェクト: 参画中（is_current=True）は end_date が "" に正規化されること。
 
-    DB 側は end_date が NULL で保存され、ResumeProject.end_date プロパティは None を返す。
-    Experience.end_date と同様にスキーマも str | None を許容し、レスポンス検証が失敗しないようにする。
+    DB 側は end_date が NULL で保存され、ResumeProject.end_date プロパティは "" を返す。
+    Experience.end_date と同じ契約で、schema は str 必須・None 不可。
     """
-    # 未指定（デフォルト）
+    # 未指定（デフォルト ""）
     proj = Project(
         name="テスト",
         start_date="2021-04",
         is_current=True,
         technology_stacks=[],
     )
-    assert proj.end_date is None
+    assert proj.end_date == ""
 
-    # 明示的に None
-    proj_none = Project(
+    # 値が入っていても is_current=True なら "" に正規化される
+    proj_overridden = Project(
         name="テスト",
         start_date="2021-04",
-        end_date=None,
+        end_date="2024-03",
         is_current=True,
         technology_stacks=[],
     )
-    assert proj_none.end_date is None
+    assert proj_overridden.end_date == ""
 
-    # 空文字列も受け付け、is_current=True なら None に正規化する（Experience と同じ挙動）
+    # 空文字列も当然 OK
     proj_empty = Project(
         name="テスト",
         start_date="2021-04",
@@ -234,7 +248,19 @@ def test_project_null_end_date_is_accepted() -> None:
         is_current=True,
         technology_stacks=[],
     )
-    assert proj_empty.end_date is None
+    assert proj_empty.end_date == ""
+
+
+def test_project_end_date_none_is_rejected() -> None:
+    """プロジェクト: end_date に None を渡すと ValidationError になる。"""
+    with pytest.raises(ValidationError):
+        Project(
+            name="テスト",
+            start_date="2021-04",
+            end_date=None,
+            is_current=True,
+            technology_stacks=[],
+        )
 
 
 def test_blog_summary_request_limits_article_count() -> None:

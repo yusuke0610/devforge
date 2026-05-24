@@ -9,6 +9,7 @@ import {
   getLatestCareerResume,
   updateCareerResume,
 } from "../../api";
+import { LOADING_MESSAGES } from "../../constants/messages";
 import { createInitialCareerForm, mapCareerResumeToForm } from "../../formMappers";
 import { useCareerDirty } from "../../hooks/career/useCareerDirty";
 import { useResumeImport } from "../../hooks/career/useResumeImport";
@@ -20,6 +21,7 @@ import { usePdfActions } from "../../hooks/usePdfActions";
 import shared from "../../styles/shared.module.css";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { Skeleton } from "../ui/Skeleton";
+import { AsyncTaskLoading } from "../ui/AsyncTaskLoading";
 import { ImportResumeButton } from "./ImportResumeButton";
 import { PdfPreviewModal } from "./PdfPreviewModal";
 import { ResumeImportConfirmModal } from "./ResumeImportConfirmModal";
@@ -82,8 +84,15 @@ export function CareerResumeForm() {
   const error = pdfError ?? formError ?? importState.error?.message ?? null;
   const success = pdfSuccess ?? formSuccess;
 
-  /** フォームデータ・技術スタック・資格の3つが揃ってから送信可能 */
-  const canSubmit = !loading && !techLoading && !qualLoading;
+  /** PDF アップロード〜解析中はフォーム入力をロックする */
+  const isImporting =
+    importState.phase === "uploading" || importState.phase === "polling";
+
+  /** Skeleton 表示・入力ロックの統合フラグ */
+  const formLocked = loading || isImporting;
+
+  /** フォームデータ・技術スタック・資格の3つが揃い、import 中でない時に送信可能 */
+  const canSubmit = !loading && !techLoading && !qualLoading && !isImporting;
 
   const onChangeField = (key: CareerTextFieldKey, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -134,7 +143,7 @@ export function CareerResumeForm() {
             <button
               type="button"
               onClick={() => resumeId && onPreviewPdf(resumeId)}
-              disabled={!resumeId || loading}
+              disabled={!resumeId || formLocked}
             >
               プレビュー
             </button>
@@ -144,14 +153,14 @@ export function CareerResumeForm() {
                 resumeId &&
                 onDownloadPdf(resumeId, "職務経歴書PDFをダウンロードしました。")
               }
-              disabled={!resumeId || downloading || loading}
+              disabled={!resumeId || downloading || formLocked}
             >
               {downloading ? "ダウンロード中..." : "PDF出力"}
             </button>
             <button
               type="button"
               onClick={() => resumeId && onDownloadMarkdown(resumeId)}
-              disabled={!resumeId || loading}
+              disabled={!resumeId || formLocked}
             >
               Markdown出力
             </button>
@@ -159,7 +168,7 @@ export function CareerResumeForm() {
               type="button"
               className="danger"
               onClick={() => setShowDeleteConfirm(true)}
-              disabled={!resumeId || loading}
+              disabled={!resumeId || formLocked}
             >
               データを削除
             </button>
@@ -171,54 +180,61 @@ export function CareerResumeForm() {
             {error && <p className={shared.error}>{error}</p>}
             {success && <p className={shared.success}>{success}</p>}
 
-            {/* 基本情報: 氏名・職務要約 */}
-            <CareerBasicInfoSection
-              fullName={form.full_name}
-              careerSummary={form.career_summary}
-              loading={loading}
-              onChange={onChangeField}
-              fullNameDirty={dirty.full_name}
-              careerSummaryDirty={dirty.career_summary}
-            />
-
-            {/* 職務経歴セクション */}
-            {loading ? (
-              <section className={shared.section}>
-                <Skeleton height="20px" width="80px" borderRadius="4px" />
-                <div className={shared.entry} style={{ marginTop: "0.8rem" }}>
-                  <Skeleton height="120px" />
-                </div>
-                <div className={shared.entry}>
-                  <Skeleton height="120px" />
-                </div>
-              </section>
+            {isImporting ? (
+              /* PDF 解析中はフォーム本体を退避し、中央にローディングを表示する */
+              <AsyncTaskLoading label={LOADING_MESSAGES.RESUME_IMPORT} />
             ) : (
-              <CareerExperienceSection
-                experiences={form.experiences}
-                setForm={setForm}
-                techStackOptions={techStackOptions}
-                experiencesDirty={dirty.experiences}
-                sectionDirty={dirty.experiencesAny}
-              />
+              <>
+                {/* 基本情報: 氏名・職務要約 */}
+                <CareerBasicInfoSection
+                  fullName={form.full_name}
+                  careerSummary={form.career_summary}
+                  loading={loading}
+                  onChange={onChangeField}
+                  fullNameDirty={dirty.full_name}
+                  careerSummaryDirty={dirty.career_summary}
+                />
+
+                {/* 職務経歴セクション */}
+                {loading ? (
+                  <section className={shared.section}>
+                    <Skeleton height="20px" width="80px" borderRadius="4px" />
+                    <div className={shared.entry} style={{ marginTop: "0.8rem" }}>
+                      <Skeleton height="120px" />
+                    </div>
+                    <div className={shared.entry}>
+                      <Skeleton height="120px" />
+                    </div>
+                  </section>
+                ) : (
+                  <CareerExperienceSection
+                    experiences={form.experiences}
+                    setForm={setForm}
+                    techStackOptions={techStackOptions}
+                    experiencesDirty={dirty.experiences}
+                    sectionDirty={dirty.experiencesAny}
+                  />
+                )}
+
+                {/* 資格セクション */}
+                <CareerQualificationsSection
+                  qualifications={form.qualifications}
+                  qualificationNames={qualificationNames}
+                  loading={loading}
+                  setForm={setForm}
+                  qualificationsDirty={dirty.qualifications}
+                  sectionDirty={dirty.qualificationsAny}
+                />
+
+                {/* 自己PR */}
+                <CareerSelfPrSection
+                  selfPr={form.self_pr}
+                  loading={loading}
+                  onChange={(v) => onChangeField("self_pr", v)}
+                  dirty={dirty.self_pr}
+                />
+              </>
             )}
-
-            {/* 資格セクション */}
-            <CareerQualificationsSection
-              qualifications={form.qualifications}
-              qualificationNames={qualificationNames}
-              loading={loading}
-              setForm={setForm}
-              qualificationsDirty={dirty.qualifications}
-              sectionDirty={dirty.qualificationsAny}
-            />
-
-            {/* 自己PR */}
-            <CareerSelfPrSection
-              selfPr={form.self_pr}
-              loading={loading}
-              onChange={(v) => onChangeField("self_pr", v)}
-              dirty={dirty.self_pr}
-            />
           </div>
         </div>
       </form>

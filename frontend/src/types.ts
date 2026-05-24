@@ -58,7 +58,7 @@ export type CareerExperience = {
   company: string;
   business_description: string;
   start_date: string;
-  end_date: string | null;
+  end_date: string;
   is_current: boolean;
   employee_count: string;
   capital: string;

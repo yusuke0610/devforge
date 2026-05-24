@@ -1,6 +1,7 @@
 import type { CareerFormState } from "../../payloadBuilders";
 import type { CareerResumePayload } from "../../types";
 import { mergeImportedResume } from "../../formMappers";
+import { UI_MESSAGES } from "../../constants/messages";
 import styles from "./ResumeImportConfirmModal.module.css";
 
 type Props = {
@@ -61,16 +62,8 @@ export function ResumeImportConfirmModal({
           )}
         </div>
 
-        {isDirty && (
-          <p className={styles.warning}>
-            現在の入力は空欄部分のみ上書きされます。既に入力された項目は保持されます。
-          </p>
-        )}
-        {!isDirty && (
-          <p className={styles.info}>
-            空欄を PDF の内容で埋めます（既存の入力がある項目は保持されます）。
-          </p>
-        )}
+        {isDirty && <p className={styles.warning}>{UI_MESSAGES.RESUME_IMPORT_OVERWRITE_WARNING}</p>}
+        {!isDirty && <p className={styles.info}>{UI_MESSAGES.RESUME_IMPORT_APPLY_INFO}</p>}
 
         <div className={styles.actions}>
           <button type="button" className="primary" onClick={handleConfirm}>

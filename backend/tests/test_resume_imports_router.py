@@ -178,3 +178,62 @@ def test_get_result_returns_200_when_completed(client: TestClient, db_session) -
     data = result_resp.json()
     assert data["result"]["full_name"] == "山田 太郎"
     assert data["is_resume"] is True
+
+
+# ── GET /api/resumes/import/{id}/progress ───────────────────────────────
+
+
+def test_get_progress_returns_default_when_no_redis_data(client: TestClient) -> None:
+    """Redis にデータが無い場合は step_index=0 / total_steps=3 のデフォルトが返る。"""
+    headers = auth_header(client, "import-progress-user-1")
+    pdf_bytes = _make_pdf_bytes()
+
+    resp = _upload_pdf(client, headers, pdf_bytes)
+    import_id = resp.json()["import_id"]
+
+    progress_resp = client.get(f"/api/resumes/import/{import_id}/progress", headers=headers)
+    assert progress_resp.status_code == 200
+    data = progress_resp.json()
+    assert data["task_id"] == import_id
+    # Redis 未書き込みのデフォルト（resume_import は 3 ステップ）
+    assert data["step_index"] == 0
+    assert data["total_steps"] == 3
+    assert data["step_label"] is None
+
+
+def test_get_progress_returns_404_for_unknown(client: TestClient) -> None:
+    """存在しない import_id → 404。"""
+    headers = auth_header(client, "import-progress-user-2")
+    resp = client.get("/api/resumes/import/nonexistent-id/progress", headers=headers)
+    assert resp.status_code == 404
+
+
+def test_get_progress_user_isolation(client: TestClient, db_session) -> None:
+    """他ユーザーのレコードの progress は取得できない（404）。"""
+    from datetime import datetime, timedelta, timezone
+
+    from app.models.resume_import import ResumeImport
+    from app.repositories import UserRepository
+
+    repo = UserRepository(db_session)
+    if not repo.get_by_username("import-progress-isolation-a"):
+        repo.create(
+            "import-progress-isolation-a",
+            hashed_password=None,
+            email="import-progress-isolation-a@example.com",
+        )
+    user_a = repo.get_by_username("import-progress-isolation-a")
+
+    record = ResumeImport(
+        user_id=user_a.id,
+        status="pending",
+        expires_at=datetime.now(timezone.utc) + timedelta(days=1),
+    )
+    db_session.add(record)
+    db_session.commit()
+    db_session.refresh(record)
+    import_id = record.id
+
+    headers_b = auth_header(client, "import-progress-isolation-b")
+    progress_resp = client.get(f"/api/resumes/import/{import_id}/progress", headers=headers_b)
+    assert progress_resp.status_code == 404

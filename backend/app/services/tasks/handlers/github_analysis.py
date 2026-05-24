@@ -3,7 +3,7 @@
 from sqlalchemy.orm import Session
 
 from ....models import GitHubAnalysisCache
-from .base import TaskHandler
+from .base import SessionFactory, TaskHandler
 
 
 class GitHubAnalysisHandler(TaskHandler):
@@ -15,8 +15,8 @@ class GitHubAnalysisHandler(TaskHandler):
             return None
         return db.query(GitHubAnalysisCache).filter_by(user_id=user_id).first()
 
-    async def run(self, db: Session, payload: dict) -> None:
+    async def run(self, session_factory: SessionFactory, payload: dict) -> None:
         # 循環インポート回避のため遅延 import する
         from ...intelligence.github_analysis_service import run_github_analysis
 
-        await run_github_analysis(db, payload)
+        await run_github_analysis(session_factory, payload)

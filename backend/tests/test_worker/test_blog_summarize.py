@@ -37,7 +37,7 @@ class TestRunBlogSummarize:
         mock_repo.list_by_user.return_value = articles if articles is not None else [art]
         return mock_repo
 
-    def test_success_status_completed(self, db_session: Session):
+    def test_success_status_completed(self, db_session: Session, session_factory):
         """正常系: LLM が要約を返し、status が completed になること。"""
         user, cache = self._make_user_and_cache(db_session)
         mock_llm = MagicMock()
@@ -57,7 +57,7 @@ class TestRunBlogSummarize:
         ):
             _run(
                 _run_blog_summarize(
-                    db_session,
+                    session_factory,
                     {"user_id": user.id},
                 )
             )
@@ -68,7 +68,7 @@ class TestRunBlogSummarize:
         assert cache.completed_at is not None
         assert cache.expires_at is not None
 
-    def test_llm_unavailable_sets_dead_letter(self, db_session: Session):
+    def test_llm_unavailable_sets_dead_letter(self, db_session: Session, session_factory):
         """LLM が利用不可の場合に status が dead_letter になること。"""
         user, cache = self._make_user_and_cache(db_session, "blog-nollm")
         mock_llm = MagicMock()
@@ -83,7 +83,7 @@ class TestRunBlogSummarize:
         ):
             _run(
                 _run_blog_summarize(
-                    db_session,
+                    session_factory,
                     {"user_id": user.id},
                 )
             )
@@ -92,7 +92,7 @@ class TestRunBlogSummarize:
         assert cache.status == "dead_letter"
         assert cache.error_message is not None
 
-    def test_empty_summary_sets_dead_letter(self, db_session: Session):
+    def test_empty_summary_sets_dead_letter(self, db_session: Session, session_factory):
         """LLM が空文字を返した場合に status が dead_letter になること。"""
         user, cache = self._make_user_and_cache(db_session, "blog-empty")
         mock_llm = MagicMock()
@@ -112,7 +112,7 @@ class TestRunBlogSummarize:
         ):
             _run(
                 _run_blog_summarize(
-                    db_session,
+                    session_factory,
                     {"user_id": user.id},
                 )
             )
@@ -120,7 +120,7 @@ class TestRunBlogSummarize:
         db_session.refresh(cache)
         assert cache.status == "dead_letter"
 
-    def test_no_articles_sets_dead_letter(self, db_session: Session):
+    def test_no_articles_sets_dead_letter(self, db_session: Session, session_factory):
         """記事が 0 件の場合に status が dead_letter になること。"""
         user, cache = self._make_user_and_cache(db_session, "blog-no-articles")
 
@@ -130,7 +130,7 @@ class TestRunBlogSummarize:
         ):
             _run(
                 _run_blog_summarize(
-                    db_session,
+                    session_factory,
                     {"user_id": user.id},
                 )
             )
@@ -139,25 +139,28 @@ class TestRunBlogSummarize:
         assert cache.status == "dead_letter"
         assert cache.error_message == "分析対象の記事がありません"
 
-    def test_no_cache_raises_non_retryable(self, db_session: Session):
+    def test_no_cache_raises_non_retryable(self, session_factory):
         """キャッシュが見つからない場合、NonRetryableError を送出すること。"""
         from app.services.tasks.exceptions import NonRetryableError
 
         with pytest.raises(NonRetryableError):
             _run(
                 _run_blog_summarize(
-                    db_session,
+                    session_factory,
                     {"user_id": "ghost-user"},
                 )
             )
 
-    def test_status_set_to_processing_before_llm_call(self, db_session: Session):
+    def test_status_set_to_processing_before_llm_call(
+        self, db_session: Session, session_factory
+    ):
         """LLM 呼び出し前に status が processing に更新されること。"""
         user, cache = self._make_user_and_cache(db_session, "blog-processing")
         processing_status = []
         mock_llm = MagicMock()
 
         async def _fake_check_available():
+            db_session.expire_all()
             db_session.refresh(cache)
             processing_status.append(cache.status)
             return False
@@ -173,7 +176,7 @@ class TestRunBlogSummarize:
         ):
             _run(
                 _run_blog_summarize(
-                    db_session,
+                    session_factory,
                     {"user_id": user.id},
                 )
             )

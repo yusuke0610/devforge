@@ -57,19 +57,16 @@ function _isExperienceEmpty(e: CareerExperienceForm): boolean {
   return e.clients.every((c) => !c.name.trim() && c.projects.every(_isProjectEmpty));
 }
 
-/** experiences が初期 blank 1件のみかどうかを判定する。 */
-function _isBlankExperiences(experiences: CareerExperienceForm[]): boolean {
-  if (experiences.length !== 1) return false;
-  return _isExperienceEmpty(experiences[0]);
-}
-
 /**
- * PDF インポート結果をフォームにマージする（非破壊オーバーレイ）。
+ * PDF インポート結果をフォームに反映する（上書き）。
  *
- * マージルール:
- * - string フィールド: existing が空文字なら imported で埋める
- * - experiences: existing が初期 blank 1件のみなら imported で置換、それ以外は imported を追記
- * - qualifications: existing が初期 blank 1件のみなら imported で置換、それ以外は imported を追記
+ * インポート内容を優先してフォームを上書きする。ただし PDF から値が取得できなかった
+ * （imported が空の）項目については、既存の入力を消さずに維持する。
+ *
+ * マージルール（imported 優先）:
+ * - string フィールド: imported に値があれば上書き、無ければ existing を維持
+ * - experiences: imported に有効な経歴が1件でもあれば imported で置換、無ければ existing を維持
+ * - qualifications: imported に有効な資格が1件でもあれば imported で置換、無ければ existing を維持
  */
 export function mergeImportedResume(
   existing: CareerFormState,
@@ -83,31 +80,23 @@ export function mergeImportedResume(
     updated_at: "",
   });
 
-  const full_name = existing.full_name.trim() ? existing.full_name : importedForm.full_name;
-  const career_summary = existing.career_summary.trim()
-    ? existing.career_summary
-    : importedForm.career_summary;
-  const self_pr = existing.self_pr.trim() ? existing.self_pr : importedForm.self_pr;
+  const full_name = importedForm.full_name.trim() ? importedForm.full_name : existing.full_name;
+  const career_summary = importedForm.career_summary.trim()
+    ? importedForm.career_summary
+    : existing.career_summary;
+  const self_pr = importedForm.self_pr.trim() ? importedForm.self_pr : existing.self_pr;
 
-  let experiences: CareerExperienceForm[];
-  if (importedForm.experiences.length === 0 || importedForm.experiences.every(_isExperienceEmpty)) {
-    experiences = existing.experiences;
-  } else if (_isBlankExperiences(existing.experiences)) {
-    experiences = importedForm.experiences;
-  } else {
-    experiences = [...existing.experiences, ...importedForm.experiences];
-  }
+  // imported に有効な経歴が1件でもあれば丸ごと置換、無ければ既存を維持する
+  const hasImportedExperiences = importedForm.experiences.some((e) => !_isExperienceEmpty(e));
+  const experiences = hasImportedExperiences ? importedForm.experiences : existing.experiences;
 
-  const isBlankQualifications =
-    existing.qualifications.length === 1 && !existing.qualifications[0].name.trim();
-  let qualifications;
-  if (importedForm.qualifications.length === 0) {
-    qualifications = existing.qualifications;
-  } else if (isBlankQualifications) {
-    qualifications = importedForm.qualifications;
-  } else {
-    qualifications = [...existing.qualifications, ...importedForm.qualifications];
-  }
+  // imported に有効な資格が1件でもあれば丸ごと置換、無ければ既存を維持する
+  const hasImportedQualifications = importedForm.qualifications.some(
+    (q) => q.name.trim() || q.acquired_date.trim(),
+  );
+  const qualifications = hasImportedQualifications
+    ? importedForm.qualifications
+    : existing.qualifications;
 
   return { full_name, career_summary, self_pr, experiences, qualifications };
 }
@@ -121,7 +110,6 @@ export function mapCareerResumeToForm(response: CareerResumeResponse): CareerFor
       response.experiences.length > 0
         ? response.experiences.map((experience) => ({
           ...experience,
-          end_date: experience.end_date ?? "",
           clients:
             experience.clients.length > 0
               ? experience.clients.map((client) => ({
@@ -130,7 +118,6 @@ export function mapCareerResumeToForm(response: CareerResumeResponse): CareerFor
                   client.projects.length > 0
                     ? client.projects.map((project) => ({
                       ...project,
-                      end_date: project.end_date ?? "",
                       team: {
                         total: project.team.total ?? "",
                         members: project.team.members.map((member) => ({

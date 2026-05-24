@@ -49,7 +49,7 @@ class TestRunGithubAnalysis:
             )
         ]
 
-    def test_status_transitions_to_completed(self, db_session: Session):
+    def test_status_transitions_to_completed(self, db_session: Session, session_factory):
         """正常系: status が completed に遷移すること。"""
         user, cache = self._make_user_and_cache(db_session)
         repos = self._sample_repos()
@@ -75,7 +75,7 @@ class TestRunGithubAnalysis:
         ):
             _run(
                 _run_github_analysis(
-                    db_session,
+                    session_factory,
                     {
                         "user_id": user.id,
                         "github_username": "gh-user",
@@ -90,7 +90,9 @@ class TestRunGithubAnalysis:
         assert cache.analysis_result is not None
         assert cache.completed_at is not None
 
-    def test_status_transitions_to_processing_at_start(self, db_session: Session):
+    def test_status_transitions_to_processing_at_start(
+        self, db_session: Session, session_factory
+    ):
         """タスク開始時に status が processing に更新されること。"""
         user, cache = self._make_user_and_cache(db_session)
         repos = self._sample_repos()
@@ -98,6 +100,7 @@ class TestRunGithubAnalysis:
         processing_status = []
 
         async def _fake_collect(**kwargs):
+            db_session.expire_all()
             db_session.refresh(cache)
             processing_status.append(cache.status)
             return repos
@@ -119,7 +122,7 @@ class TestRunGithubAnalysis:
         ):
             _run(
                 _run_github_analysis(
-                    db_session,
+                    session_factory,
                     {
                         "user_id": user.id,
                         "github_username": "gh-user",
@@ -131,7 +134,9 @@ class TestRunGithubAnalysis:
 
         assert "processing" in processing_status
 
-    def test_github_user_not_found_sets_dead_letter(self, db_session: Session):
+    def test_github_user_not_found_sets_dead_letter(
+        self, db_session: Session, session_factory
+    ):
         """GitHubUserNotFoundError 発生時に status が dead_letter になること。"""
         from app.services.intelligence.github.api_client import GitHubUserNotFoundError
 
@@ -152,7 +157,7 @@ class TestRunGithubAnalysis:
             with pytest.raises(GitHubUserNotFoundError):
                 _run(
                     _run_github_analysis(
-                        db_session,
+                        session_factory,
                         {
                             "user_id": user.id,
                             "github_username": "notfound",
@@ -165,7 +170,7 @@ class TestRunGithubAnalysis:
         db_session.refresh(cache)
         assert cache.status == "dead_letter"
 
-    def test_no_cache_raises_non_retryable(self, db_session: Session):
+    def test_no_cache_raises_non_retryable(self, session_factory):
         """キャッシュが見つからない場合、NonRetryableError が送出されること。
 
         worker 側で ``dead_letter`` 遷移と通知発行を行わせる契約。
@@ -175,7 +180,7 @@ class TestRunGithubAnalysis:
         with pytest.raises(NonRetryableError):
             _run(
                 _run_github_analysis(
-                    db_session,
+                    session_factory,
                     {
                         "user_id": "nonexistent-user-id",
                         "github_username": "nobody",

@@ -1,6 +1,7 @@
 import type { CareerResumePayload } from "../types";
 import { ApiError } from "../utils/appError";
 import { API_BASE_URL, request } from "./client";
+import type { TaskProgress } from "./intelligence";
 import { PATHS } from "./paths";
 
 /** POST /api/resumes/import のレスポンス */
@@ -70,4 +71,12 @@ export async function getResumeImportResult(
   importId: string,
 ): Promise<ResumeImportResultResponse> {
   return request<ResumeImportResultResponse>(PATHS.resumeImports.result(importId));
+}
+
+/**
+ * インポートタスクの進捗（ステップ）情報を取得する。
+ * Redis にデータが無い場合は step_index=0 のデフォルトが返る。
+ */
+export async function getResumeImportProgress(importId: string): Promise<TaskProgress> {
+  return request<TaskProgress>(PATHS.resumeImports.progress(importId));
 }

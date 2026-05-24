@@ -4,6 +4,9 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+# 進捗関連のスキーマは shared.py に移動済み。既存 import 経路を保つため re-export する。
+from .shared import ProgressResponse, SubProgress  # noqa: F401
+
 
 class AnalyzeRequest(BaseModel):
     include_forks: bool = Field(
@@ -72,20 +75,3 @@ class CachedAnalysisResponse(BaseModel):
     warning_message: Optional[str] = None
 
 
-class SubProgress(BaseModel):
-    """ステップ内の細粒度な進捗（リポジトリ詳細取得ステップ専用）。"""
-
-    done: int
-    total: int
-
-
-class ProgressResponse(BaseModel):
-    """GitHub 分析タスクの進捗情報。"""
-
-    task_id: str
-    step_index: int = Field(0, description="現在のステップ番号（0 は未開始）")
-    total_steps: int = Field(5, description="全ステップ数")
-    step_label: Optional[str] = Field(None, description="現在のステップラベル")
-    sub_progress: Optional[SubProgress] = Field(
-        None, description="リポジトリ詳細取得ステップの細粒度進捗"
-    )

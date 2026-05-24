@@ -47,6 +47,52 @@ class TestExecuteTask:
         mock_blog.assert_not_called()
         mock_career.assert_not_called()
 
+    def test_resume_import_routes_to_resume_import_handler(self, db_session: Session):
+        """RESUME_IMPORT が _run_resume_import にディスパッチされること。
+
+        以前は execute_task の if/elif に RESUME_IMPORT 分岐が抜けていたため、
+        ハンドラが呼ばれないまま completed ログ／通知が発行されていた
+        （= フロントが永遠にポーリングを続ける不具合）。
+        """
+        with (
+            patch("app.services.tasks.worker.SessionLocal", return_value=db_session),
+            patch(
+                "app.services.tasks.worker._run_resume_import",
+                new_callable=AsyncMock,
+            ) as mock_ri,
+            patch(
+                "app.services.tasks.worker._run_github_analysis",
+                new_callable=AsyncMock,
+            ) as mock_gh,
+            patch("app.services.tasks.worker._create_notification"),
+        ):
+            _run(
+                execute_task(
+                    TaskType.RESUME_IMPORT,
+                    {"user_id": "test-user", "import_id": "imp-1"},
+                )
+            )
+
+        mock_ri.assert_called_once()
+        mock_gh.assert_not_called()
+
+    def test_all_task_types_have_dispatch_branch(self):
+        """TaskType に列挙された全種別に execute_task のディスパッチ分岐があること。
+
+        新しい TaskType を追加した際に worker.execute_task への分岐追加を
+        忘れて「黙って completed になる」事故を防ぐためのガード。
+        """
+        import inspect
+
+        from app.services.tasks import worker
+
+        source = inspect.getsource(worker.execute_task)
+        missing = [t.name for t in TaskType if f"TaskType.{t.name}" not in source]
+        assert not missing, (
+            f"execute_task に未対応の TaskType があります: {missing}。"
+            " 対応するハンドラシムを追加し if/elif に分岐を足してください。"
+        )
+
     def test_execute_task_marks_dead_letter_on_error(self, db_session: Session):
         """予期しない例外が発生した場合（max_attempts=1）、_mark_dead_letter が
         呼ばれ例外が再 raise されること。"""

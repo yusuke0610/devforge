@@ -25,7 +25,7 @@ def _run(coro):
         loop.close()
 
 
-def test_github_analysis_timeout_propagates(db_session: Session) -> None:
+def test_github_analysis_timeout_propagates(db_session: Session, session_factory) -> None:
     """collect_repos で asyncio.TimeoutError が発生した場合に例外が伝播することを確認する。"""
     user = UserRepository(db_session).create(
         "github:timeout-user",
@@ -50,7 +50,7 @@ def test_github_analysis_timeout_propagates(db_session: Session) -> None:
         with pytest.raises(asyncio.TimeoutError):
             _run(
                 _run_github_analysis(
-                    db_session,
+                    session_factory,
                     {
                         "user_id": user.id,
                         "github_username": "timeout-user",
@@ -60,12 +60,13 @@ def test_github_analysis_timeout_propagates(db_session: Session) -> None:
                 )
             )
 
+    db_session.expire_all()
     db_session.refresh(cache)
     # ハンドラは TimeoutError を再 raise するだけ（dead_letter 遷移は execute_task 層）
     assert cache.status == "processing"
 
 
-def test_blog_summarize_timeout_propagates(db_session: Session) -> None:
+def test_blog_summarize_timeout_propagates(db_session: Session, session_factory) -> None:
     """ブログサマリ生成で asyncio.TimeoutError が発生した場合に例外が伝播することを確認する。"""
     user = UserRepository(db_session).create(
         "blog-timeout-user",
@@ -105,10 +106,11 @@ def test_blog_summarize_timeout_propagates(db_session: Session) -> None:
                 with pytest.raises(asyncio.TimeoutError):
                     _run(
                         _run_blog_summarize(
-                            db_session,
+                            session_factory,
                             {"user_id": user.id},
                         )
                     )
 
+    db_session.expire_all()
     db_session.refresh(cache)
     assert cache.status == "processing"

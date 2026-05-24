@@ -57,10 +57,9 @@ class ProjectTeam(BaseModel):
 class Project(BaseModel):
     name: str = Field(max_length=200, default="")
     start_date: str = Field(max_length=30, default="")
-    # 参画中（is_current=True）のプロジェクトは DB 上 end_date が NULL となり、
-    # ResumeProject.end_date プロパティが None を返す。
-    # Experience.end_date と同様に str | None を許容することでレスポンスの整合性を取る。
-    end_date: str | None = Field(default=None, max_length=30)
+    # 参画中（is_current=True）の場合は "" を渡す契約。
+    # DB 上 end_date は NULL で保存され、ResumeProject.end_date プロパティが "" を返す。
+    end_date: str = Field(default="", max_length=30)
     is_current: bool = False
     role: str = Field(max_length=200, default="")
     description: str = Field(max_length=1500, default="")
@@ -84,9 +83,9 @@ class Project(BaseModel):
 
     @model_validator(mode="after")
     def validate_date_range(self) -> "Project":
-        """参画中なら end_date を None に正規化し、そうでなければ日付範囲を検証する。"""
+        """参画中なら end_date を "" に正規化し、そうでなければ日付範囲を検証する。"""
         if self.is_current:
-            self.end_date = None
+            self.end_date = ""
             return self
         if self.start_date and self.end_date:
             if self.end_date < self.start_date:
@@ -108,7 +107,7 @@ class Experience(BaseModel):
     company: str = Field(min_length=1, max_length=120)
     business_description: str = Field(min_length=1, max_length=200)
     start_date: str = Field(min_length=1, max_length=30)
-    end_date: str | None = Field(default=None, max_length=30)
+    end_date: str = Field(default="", max_length=30)
     is_current: bool = False
     employee_count: str = Field(max_length=60, default="")
     capital: str = Field(max_length=120, default="")
@@ -129,9 +128,9 @@ class Experience(BaseModel):
     def validate_end_date(self) -> "Experience":
         """終了日の必須チェックと日付範囲の検証を行う。"""
         if self.is_current:
-            self.end_date = None
+            self.end_date = ""
             return self
-        if not self.end_date or not self.end_date.strip():
+        if not self.end_date.strip():
             raise ValueError(get_error("validation.end_date_required"))
         if self.start_date and self.end_date < self.start_date:
             raise ValueError(get_error("validation.date_range_invalid"))

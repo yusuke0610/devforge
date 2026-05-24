@@ -67,6 +67,32 @@ export const UI_MESSAGES = {
   ERROR_BOUNDARY_TITLE: "予期しないエラーが発生しました",
   ERROR_BOUNDARY_BODY:
     "ページの表示中に問題が発生しました。再読み込みするか、ホームへ戻ってください。",
+  /** PDF インポート確認モーダル: 既存入力がある場合の上書き警告 */
+  RESUME_IMPORT_OVERWRITE_WARNING:
+    "反映すると、入力中の内容は PDF から読み取った内容で上書きされます（PDF から取得できなかった項目は維持されます）。AI による自動抽出のため、反映後に内容を必ずご確認ください。",
+  /** PDF インポート確認モーダル: 既存入力がない場合の反映案内 */
+  RESUME_IMPORT_APPLY_INFO:
+    "PDF から読み取った内容をフォームに反映します。AI による自動抽出のため、反映後に内容を必ずご確認ください。",
+} as const;
+
+/**
+ * 非同期バックグラウンドタスクのローディング UI 文言（AsyncTaskLoading で使用）。
+ * PDF アップロード / GitHub 分析 / ブログ分析 / キャリア分析 で共通の補足メッセージと、
+ * 機能ごとの処理内容ラベルを集約する。
+ */
+export const LOADING_MESSAGES = {
+  /** 補足: 画面遷移してもタスクが継続する旨 */
+  BACKGROUND_CONTINUES: "他の画面に移動しても処理は継続されます",
+  /** 補足: 処理に時間がかかる旨 */
+  TAKES_TIME: "この処理には時間がかかります",
+  /** 職務経歴書 PDF アップロードの解析中ラベル */
+  RESUME_IMPORT: "職務経歴書 PDF を解析中...",
+  /** GitHub 分析中ラベル */
+  GITHUB_ANALYSIS: "GitHubプロフィールを分析中...",
+  /** ブログ分析中ラベル */
+  BLOG_ANALYSIS: "ブログを分析中...",
+  /** キャリア分析中ラベル */
+  CAREER_ANALYSIS: "AI がキャリアを分析中です...",
 } as const;
 
 /** 開発者向け（通常はユーザーに表示されない）の内部エラーメッセージ */

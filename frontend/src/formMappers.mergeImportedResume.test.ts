@@ -35,7 +35,7 @@ const sampleImported: CareerResumePayload = {
 };
 
 describe("mergeImportedResume", () => {
-  it("初期フォームに対してインポートで完全に置換する", () => {
+  it("初期フォームに対してインポートで完全に反映する", () => {
     const existing = createInitialCareerForm();
     const result = mergeImportedResume(existing, sampleImported);
 
@@ -48,7 +48,7 @@ describe("mergeImportedResume", () => {
     expect(result.qualifications[0].name).toBe("AWS SAA");
   });
 
-  it("既存フォームの文字列フィールドは上書きされない", () => {
+  it("既存フォームの文字列フィールドも imported の値で上書きされる", () => {
     const existing: CareerFormState = {
       ...createInitialCareerForm(),
       full_name: "既存の名前",
@@ -57,12 +57,12 @@ describe("mergeImportedResume", () => {
     };
     const result = mergeImportedResume(existing, sampleImported);
 
-    expect(result.full_name).toBe("既存の名前");
-    expect(result.career_summary).toBe("既存サマリー");
-    expect(result.self_pr).toBe("既存自己PR");
+    expect(result.full_name).toBe("山田 太郎");
+    expect(result.career_summary).toBe("バックエンドエンジニア");
+    expect(result.self_pr).toBe("API 設計が得意");
   });
 
-  it("既存に職務経歴がある場合はインポートを追記する", () => {
+  it("既存に職務経歴があってもインポートで置換する（追記しない）", () => {
     const existing: CareerFormState = {
       ...createInitialCareerForm(),
       experiences: [
@@ -76,43 +76,49 @@ describe("mergeImportedResume", () => {
     };
     const result = mergeImportedResume(existing, sampleImported);
 
-    expect(result.experiences).toHaveLength(2);
-    expect(result.experiences[0].company).toBe("株式会社既存");
-    expect(result.experiences[1].company).toBe("株式会社A");
+    expect(result.experiences).toHaveLength(1);
+    expect(result.experiences[0].company).toBe("株式会社A");
   });
 
-  it("既存に資格がある場合はインポートを追記する", () => {
+  it("既存に資格があってもインポートで置換する（追記しない）", () => {
     const existing: CareerFormState = {
       ...createInitialCareerForm(),
       qualifications: [{ acquired_date: "2019-04", name: "基本情報技術者" }],
     };
     const result = mergeImportedResume(existing, sampleImported);
 
-    expect(result.qualifications).toHaveLength(2);
-    expect(result.qualifications[0].name).toBe("基本情報技術者");
-    expect(result.qualifications[1].name).toBe("AWS SAA");
+    expect(result.qualifications).toHaveLength(1);
+    expect(result.qualifications[0].name).toBe("AWS SAA");
   });
 
-  it("インポートデータが空の場合は既存フォームを返す", () => {
+  it("インポートデータが空の場合は既存フォームを維持する（消さない）", () => {
     const existing: CareerFormState = {
       ...createInitialCareerForm(),
       full_name: "既存の名前",
+      qualifications: [{ acquired_date: "2019-04", name: "基本情報技術者" }],
     };
     const result = mergeImportedResume(existing, blankImported);
 
     expect(result.full_name).toBe("既存の名前");
     expect(result.experiences).toEqual(existing.experiences);
+    expect(result.qualifications).toEqual(existing.qualifications);
   });
 
-  it("空フィールドはインポートで埋まる（非破壊）", () => {
+  it("imported が空の文字列フィールドは既存の入力を維持する（部分フォールバック）", () => {
     const existing: CareerFormState = {
       ...createInitialCareerForm(),
-      full_name: "",
-      career_summary: "",
+      career_summary: "既存サマリー",
+      self_pr: "既存自己PR",
     };
-    const result = mergeImportedResume(existing, sampleImported);
+    const partialImported: CareerResumePayload = {
+      ...blankImported,
+      full_name: "新しい名前",
+    };
+    const result = mergeImportedResume(existing, partialImported);
 
-    expect(result.full_name).toBe("山田 太郎");
-    expect(result.career_summary).toBe("バックエンドエンジニア");
+    // imported に値がある full_name は上書き、空の項目は既存を維持
+    expect(result.full_name).toBe("新しい名前");
+    expect(result.career_summary).toBe("既存サマリー");
+    expect(result.self_pr).toBe("既存自己PR");
   });
 });

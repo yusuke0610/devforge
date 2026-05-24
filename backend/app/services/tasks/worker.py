@@ -6,6 +6,14 @@ Cloud: /internal/tasks/{type} エンドポイント経由で呼ばれる（Cloud
 
 タスク種別ごとの実体は ``services/tasks/handlers/`` 配下に分離されている。worker は
 リトライ・dead_letter・通知などのタスク横断ロジックのみを担う。
+
+セッション管理ポリシー (libSQL Hrana 失効対策):
+  - ハンドラには ``SessionLocal`` (ファクトリ) をそのまま渡し、ハンドラ内で長時間
+    処理の前後にセッションを開閉する。
+  - worker の状態遷移更新（``_mark_dead_letter`` / ``_mark_retrying``）と通知
+    （``_create_notification``）は、ハンドラとは独立した新規セッションで実行する。
+    こうすることでハンドラ側のセッションが何らかの理由で失効していても、
+    終端ステータスを確実に DB へ永続化できる。
 """
 
 import time
@@ -20,6 +28,7 @@ from ...repositories.notification import NotificationRepository
 from .base import TaskType
 from .exceptions import NonRetryableError
 from .handlers import get_handler
+from .handlers.base import SessionFactory
 
 logger = get_logger(__name__)
 
@@ -40,7 +49,7 @@ async def execute_task(
     retry_count: int = 0,
     max_attempts: int = 1,
 ) -> None:
-    """タスクを実行する。自前で DB セッションを作成・管理する。
+    """タスクを実行する。各セクションごとに自前で DB セッションを作成・管理する。
 
     retry_count: Cloud Tasks の ``X-CloudTasks-TaskRetryCount`` ヘッダー値（0 始まり）。
     max_attempts: Cloud Tasks キューの ``retry_config.max_attempts``（総試行回数）。
@@ -69,16 +78,19 @@ async def execute_task(
         logger.error("不明なタスク種別: %s", task_type)
         return
 
-    db = SessionLocal()
     try:
         # 各 ``_run_*`` シムはテストからの patch ポイントとして残している。
         # 実体は ``services/tasks/handlers/`` 配下のハンドラ。
+        # ハンドラには SessionLocal (ファクトリ) を渡し、ハンドラ内で長時間処理の
+        # 前後にセッションを開閉させる。
         if task_type == TaskType.GITHUB_ANALYSIS:
-            await _run_github_analysis(db, payload)
+            await _run_github_analysis(SessionLocal, payload)
         elif task_type == TaskType.BLOG_SUMMARIZE:
-            await _run_blog_summarize(db, payload)
+            await _run_blog_summarize(SessionLocal, payload)
         elif task_type == TaskType.CAREER_ANALYSIS:
-            await _run_career_analysis(db, payload)
+            await _run_career_analysis(SessionLocal, payload)
+        elif task_type == TaskType.RESUME_IMPORT:
+            await _run_resume_import(SessionLocal, payload)
 
         duration_ms = _monotonic_ms_since(start)
         logger.info(
@@ -99,7 +111,11 @@ async def execute_task(
                 extra={"task_id": task_type.value, "user_id": user_id, "duration_ms": duration_ms},
             )
         if isinstance(user_id, str) and user_id != "unknown":
-            _create_notification(db, task_type, user_id, "completed")
+            db = SessionLocal()
+            try:
+                _create_notification(db, task_type, user_id, "completed")
+            finally:
+                _safe_close(db)
     except NonRetryableError as exc:
         duration_ms = _monotonic_ms_since(start)
         logger.warning(
@@ -115,10 +131,13 @@ async def execute_task(
             },
             exc_info=True,
         )
-        _safe_rollback(db)
-        _mark_dead_letter(db, task_type, payload, error=exc)
-        if isinstance(user_id, str) and user_id != "unknown":
-            _create_notification(db, task_type, user_id, "failed")
+        db = SessionLocal()
+        try:
+            _mark_dead_letter(db, task_type, payload, error=exc)
+            if isinstance(user_id, str) and user_id != "unknown":
+                _create_notification(db, task_type, user_id, "failed")
+        finally:
+            _safe_close(db)
         raise
     except Exception as exc:
         duration_ms = _monotonic_ms_since(start)
@@ -138,10 +157,13 @@ async def execute_task(
                 },
                 exc_info=True,
             )
-            _safe_rollback(db)
-            _mark_dead_letter(db, task_type, payload, error=exc)
-            if isinstance(user_id, str) and user_id != "unknown":
-                _create_notification(db, task_type, user_id, "failed")
+            db = SessionLocal()
+            try:
+                _mark_dead_letter(db, task_type, payload, error=exc)
+                if isinstance(user_id, str) and user_id != "unknown":
+                    _create_notification(db, task_type, user_id, "failed")
+            finally:
+                _safe_close(db)
         else:
             logger.warning(
                 "タスク失敗（リトライ予定）",
@@ -157,55 +179,72 @@ async def execute_task(
                 },
                 exc_info=True,
             )
-            _safe_rollback(db)
-            _mark_retrying(db, task_type, payload, retry_count, max_attempts, error=exc)
+            db = SessionLocal()
+            try:
+                _mark_retrying(db, task_type, payload, retry_count, max_attempts, error=exc)
+            finally:
+                _safe_close(db)
         raise
-    finally:
-        db.close()
 
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _safe_close(db: Session) -> None:
+    """セッションを best-effort で close する。失敗してもログだけ残して例外は外に出さない。"""
+    try:
+        db.close()
+    except Exception:
+        logger.warning("セッションのクローズに失敗しました", exc_info=True)
+
+
 # ---------- ハンドラ薄ラッパー（後方互換）----------
 # テストや既存呼び出しから ``_run_github_analysis`` / ``_run_blog_summarize`` /
-# ``_run_career_analysis`` を直接呼べるよう、ハンドラ実装への薄いシムを残す。
+# ``_run_career_analysis`` / ``_run_resume_import`` を直接呼べるよう、
+# ハンドラ実装への薄いシムを残す。引数は ``session_factory``。
 
 
-async def _run_github_analysis(db: Session, payload: dict) -> None:
+async def _run_github_analysis(session_factory: SessionFactory, payload: dict) -> None:
     """GitHub 分析ハンドラへのシム。"""
     handler = get_handler(TaskType.GITHUB_ANALYSIS)
     if handler is None:
         raise ValueError(f"ハンドラが登録されていません: {TaskType.GITHUB_ANALYSIS}")
-    await handler.run(db, payload)
+    await handler.run(session_factory, payload)
 
 
-async def _run_blog_summarize(db: Session, payload: dict) -> None:
+async def _run_blog_summarize(session_factory: SessionFactory, payload: dict) -> None:
     """ブログサマリハンドラへのシム。"""
     handler = get_handler(TaskType.BLOG_SUMMARIZE)
     if handler is None:
         raise ValueError(f"ハンドラが登録されていません: {TaskType.BLOG_SUMMARIZE}")
-    await handler.run(db, payload)
+    await handler.run(session_factory, payload)
 
 
-async def _run_career_analysis(db: Session, payload: dict) -> None:
+async def _run_career_analysis(session_factory: SessionFactory, payload: dict) -> None:
     """キャリア分析ハンドラへのシム。"""
     handler = get_handler(TaskType.CAREER_ANALYSIS)
     if handler is None:
         raise ValueError(f"ハンドラが登録されていません: {TaskType.CAREER_ANALYSIS}")
-    await handler.run(db, payload)
+    await handler.run(session_factory, payload)
+
+
+async def _run_resume_import(session_factory: SessionFactory, payload: dict) -> None:
+    """職務経歴書 PDF インポートハンドラへのシム。"""
+    handler = get_handler(TaskType.RESUME_IMPORT)
+    if handler is None:
+        raise ValueError(f"ハンドラが登録されていません: {TaskType.RESUME_IMPORT}")
+    await handler.run(session_factory, payload)
 
 
 # ---------- 共通 ----------
 
 
 def _safe_rollback(db: Session) -> None:
-    """タスク失敗時にセッションをロールバックする。
+    """セッションをロールバックする（例外を握りつぶす）。
 
-    DB コミット失敗後はセッションが PendingRollbackError 状態になり、
-    後続の _mark_dead_letter/_mark_retrying が commit できなくなる。
-    ロールバックで状態をリセットしてから status 更新を実行するために呼ぶ。
+    新セッション運用に移行した後も、テスト・既存呼び出し向けに残している。
+    DB commit 失敗後のセッション復旧が必要なケースで使用する。
     """
     try:
         db.rollback()
