@@ -72,10 +72,7 @@ export const PATHS = {
     score: "/api/blog/score",
   },
   resumeImports: {
-    start: "/api/resumes/import",
-    status: (id: string) => `/api/resumes/import/${id}/status`,
-    progress: (id: string) => `/api/resumes/import/${id}/progress`,
-    result: (id: string) => `/api/resumes/import/${id}/result`,
+    extract: "/api/resumes/import/extract",
   },
   aiResume: {
     generate: "/api/ai-resume/generate",

@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 
 import {
   createCareerResume,
@@ -9,10 +9,10 @@ import {
   getLatestCareerResume,
   updateCareerResume,
 } from "../../api";
-import { LOADING_MESSAGES } from "../../constants/messages";
+import { IMPORT_ASSIST_MESSAGES } from "../../constants/messages";
 import { createInitialCareerForm, mapCareerResumeToForm } from "../../formMappers";
 import { useCareerDirty } from "../../hooks/career/useCareerDirty";
-import { useResumeImport } from "../../hooks/career/useResumeImport";
+import { useResumeImportAssist } from "../../hooks/career/useResumeImportAssist";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
 import { buildCareerPayload } from "../../payloadBuilders";
 import type { CareerTextFieldKey } from "../../formTypes";
@@ -21,10 +21,8 @@ import { usePdfActions } from "../../hooks/usePdfActions";
 import shared from "../../styles/shared.module.css";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { Skeleton } from "../ui/Skeleton";
-import { AsyncTaskLoading } from "../ui/AsyncTaskLoading";
-import { ImportResumeButton } from "./ImportResumeButton";
 import { PdfPreviewModal } from "./PdfPreviewModal";
-import { ResumeImportConfirmModal } from "./ResumeImportConfirmModal";
+import { ResumeImportBlocksPanel } from "./ResumeImportBlocksPanel";
 import { CareerBasicInfoSection } from "./sections/CareerBasicInfoSection";
 import { CareerExperienceSection } from "./sections/CareerExperienceSection";
 import { CareerQualificationsSection } from "./sections/CareerQualificationsSection";
@@ -32,7 +30,8 @@ import { CareerSelfPrSection } from "./sections/CareerSelfPrSection";
 
 export function CareerResumeForm() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const importState = useResumeImport();
+  const assist = useResumeImportAssist();
+  const pdfInputRef = useRef<HTMLInputElement>(null);
   const {
     form,
     setForm,
@@ -81,18 +80,14 @@ export function CareerResumeForm() {
   });
 
   /** PDF アクションまたはフォーム保存のエラー・成功メッセージを統合して表示する */
-  const error = pdfError ?? formError ?? importState.error?.message ?? null;
+  const error = pdfError ?? formError ?? null;
   const success = pdfSuccess ?? formSuccess;
 
-  /** PDF アップロード〜解析中はフォーム入力をロックする */
-  const isImporting =
-    importState.phase === "uploading" || importState.phase === "polling";
-
   /** Skeleton 表示・入力ロックの統合フラグ */
-  const formLocked = loading || isImporting;
+  const formLocked = loading;
 
-  /** フォームデータ・技術スタック・資格の3つが揃い、import 中でない時に送信可能 */
-  const canSubmit = !loading && !techLoading && !qualLoading && !isImporting;
+  /** フォームデータ・技術スタック・資格の3つが揃った時に送信可能 */
+  const canSubmit = !loading && !techLoading && !qualLoading;
 
   const onChangeField = (key: CareerTextFieldKey, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -120,23 +115,29 @@ export function CareerResumeForm() {
         />
       )}
       {previewUrl && <PdfPreviewModal previewUrl={previewUrl} onClose={closePreview} />}
-      {importState.phase === "ready" && importState.parsedData && (
-        <ResumeImportConfirmModal
-          parsedData={importState.parsedData.result}
-          existingForm={form}
-          isDirty={dirty.any}
-          onConfirm={(merged) => {
-            setForm(merged);
-            importState.reset();
-          }}
-          onCancel={() => importState.reset()}
-        />
-      )}
       <form onSubmit={onSubmit}>
         <div className={shared.pageHeader}>
           <h1>職務経歴書</h1>
           <div className={shared.pageHeaderActions}>
-            <ImportResumeButton importState={importState} />
+            {/* PDF 取り込み（従来のヘッダー位置）。選択した PDF を右カラムにブロック表示する */}
+            <input
+              ref={pdfInputRef}
+              type="file"
+              accept="application/pdf"
+              style={{ display: "none" }}
+              onChange={assist.handleFileChange}
+              aria-label={IMPORT_ASSIST_MESSAGES.SELECT_FILE}
+            />
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => pdfInputRef.current?.click()}
+              disabled={assist.loading}
+            >
+              {assist.loading
+                ? IMPORT_ASSIST_MESSAGES.ANALYZING
+                : IMPORT_ASSIST_MESSAGES.SELECT_FILE}
+            </button>
             <button type="submit" className="primary" disabled={!canSubmit || saving}>
               {saveButtonText}
             </button>
@@ -150,8 +151,7 @@ export function CareerResumeForm() {
             <button
               type="button"
               onClick={() =>
-                resumeId &&
-                onDownloadPdf(resumeId, "職務経歴書PDFをダウンロードしました。")
+                resumeId && onDownloadPdf(resumeId, "職務経歴書PDFをダウンロードしました。")
               }
               disabled={!resumeId || downloading || formLocked}
             >
@@ -176,65 +176,80 @@ export function CareerResumeForm() {
         </div>
 
         <div className={shared.pageBody}>
-          <div className={shared.form}>
-            {error && <p className={shared.error}>{error}</p>}
-            {success && <p className={shared.success}>{success}</p>}
+          {/* 左右 2 カラム。各カラムが独立してスクロールする（#2） */}
+          <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start" }}>
+            {/* 左: 入力フォーム（選択中フィールドは緑枠 = import-assign-form の :focus CSS） */}
+            <div
+              className={`${shared.form} import-assign-form`}
+              style={{ flex: 1, minWidth: 0, maxHeight: "calc(100vh - 200px)", overflowY: "auto" }}
+            >
+              {error && <p className={shared.error}>{error}</p>}
+              {success && <p className={shared.success}>{success}</p>}
 
-            {isImporting ? (
-              /* PDF 解析中はフォーム本体を退避し、中央にローディングを表示する */
-              <AsyncTaskLoading label={LOADING_MESSAGES.RESUME_IMPORT} />
-            ) : (
-              <>
-                {/* 基本情報: 氏名・職務要約 */}
-                <CareerBasicInfoSection
-                  fullName={form.full_name}
-                  careerSummary={form.career_summary}
-                  loading={loading}
-                  onChange={onChangeField}
-                  fullNameDirty={dirty.full_name}
-                  careerSummaryDirty={dirty.career_summary}
-                />
+              {/* 基本情報: 氏名・職務要約 */}
+              <CareerBasicInfoSection
+                fullName={form.full_name}
+                careerSummary={form.career_summary}
+                loading={loading}
+                onChange={onChangeField}
+                fullNameDirty={dirty.full_name}
+                careerSummaryDirty={dirty.career_summary}
+              />
 
-                {/* 職務経歴セクション */}
-                {loading ? (
-                  <section className={shared.section}>
-                    <Skeleton height="20px" width="80px" borderRadius="4px" />
-                    <div className={shared.entry} style={{ marginTop: "0.8rem" }}>
-                      <Skeleton height="120px" />
-                    </div>
-                    <div className={shared.entry}>
-                      <Skeleton height="120px" />
-                    </div>
-                  </section>
-                ) : (
-                  <CareerExperienceSection
-                    experiences={form.experiences}
-                    setForm={setForm}
-                    techStackOptions={techStackOptions}
-                    experiencesDirty={dirty.experiences}
-                    sectionDirty={dirty.experiencesAny}
-                  />
-                )}
-
-                {/* 資格セクション */}
-                <CareerQualificationsSection
-                  qualifications={form.qualifications}
-                  qualificationNames={qualificationNames}
-                  loading={loading}
+              {/* 職務経歴セクション */}
+              {loading ? (
+                <section className={shared.section}>
+                  <Skeleton height="20px" width="80px" borderRadius="4px" />
+                  <div className={shared.entry} style={{ marginTop: "0.8rem" }}>
+                    <Skeleton height="120px" />
+                  </div>
+                  <div className={shared.entry}>
+                    <Skeleton height="120px" />
+                  </div>
+                </section>
+              ) : (
+                <CareerExperienceSection
+                  experiences={form.experiences}
                   setForm={setForm}
-                  qualificationsDirty={dirty.qualifications}
-                  sectionDirty={dirty.qualificationsAny}
+                  techStackOptions={techStackOptions}
+                  experiencesDirty={dirty.experiences}
+                  sectionDirty={dirty.experiencesAny}
+                  assist={assist}
                 />
+              )}
 
-                {/* 自己PR */}
-                <CareerSelfPrSection
-                  selfPr={form.self_pr}
-                  loading={loading}
-                  onChange={(v) => onChangeField("self_pr", v)}
-                  dirty={dirty.self_pr}
-                />
-              </>
-            )}
+              {/* 資格セクション */}
+              <CareerQualificationsSection
+                qualifications={form.qualifications}
+                qualificationNames={qualificationNames}
+                loading={loading}
+                setForm={setForm}
+                qualificationsDirty={dirty.qualifications}
+                sectionDirty={dirty.qualificationsAny}
+              />
+
+              {/* 自己PR */}
+              <CareerSelfPrSection
+                selfPr={form.self_pr}
+                loading={loading}
+                onChange={(v) => onChangeField("self_pr", v)}
+                dirty={dirty.self_pr}
+              />
+            </div>
+
+            {/* 右: PDF から抽出した割り当て候補ブロック（独立スクロール・LLM 不使用） */}
+            <aside
+              style={{
+                width: "340px",
+                flexShrink: 0,
+                maxHeight: "calc(100vh - 200px)",
+                overflowY: "auto",
+                borderLeft: "1px solid #e5e5e5",
+                paddingLeft: "1rem",
+              }}
+            >
+              <ResumeImportBlocksPanel assist={assist} />
+            </aside>
           </div>
         </div>
       </form>

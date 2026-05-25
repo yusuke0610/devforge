@@ -4,6 +4,7 @@ import type { QualificationDirty } from "../../../hooks/career/useCareerDirty";
 import type { CareerFormState } from "../../../payloadBuilders";
 import type { ResumeQualification } from "../../../types";
 import shared from "../../../styles/shared.module.css";
+import { Collapsible } from "../../ui/Collapsible";
 import { DirtyDot } from "../../ui/DirtyDot";
 import { Skeleton } from "../../ui/Skeleton";
 import { Combobox } from "../Combobox";
@@ -67,57 +68,63 @@ export function CareerQualificationsSection({
 
   return (
     <section className={shared.section}>
-      <h2>
-        資格
-        <DirtyDot visible={sectionDirty} />
-      </h2>
-      {loading ? (
-        <div className={shared.entry}>
-          <Skeleton height="56px" />
-        </div>
-      ) : (
-        <>
-          {qualifications.map((qualification, index) => {
-            const rowDirty = qualificationsDirty?.[index];
-            return (
-              <div key={`qualification-${index}`} className={shared.entry}>
-                <div className={shared.inline}>
-                  <label>
-                    <span>
-                      資格名 ※プルダウンにないものはテキストで入力できます。
-                      <DirtyDot visible={Boolean(rowDirty?.fields.name)} />
-                    </span>
-                    <Combobox
-                      value={qualification.name}
-                      onChange={(val) => updateField(index, "name", val)}
-                      options={qualificationNames}
-                      placeholder="例: 基本情報技術者試験"
-                      allowCustom
-                    />
-                  </label>
-                  <label>
-                    <span>
-                      取得日
-                      <DirtyDot visible={Boolean(rowDirty?.fields.acquired_date)} />
-                    </span>
-                    <input
-                      type="date"
-                      value={qualification.acquired_date}
-                      onChange={(e) => updateField(index, "acquired_date", e.target.value)}
-                    />
-                  </label>
+      <Collapsible
+        variant="section"
+        title={
+          <>
+            資格
+            <DirtyDot visible={sectionDirty} />
+          </>
+        }
+      >
+        {loading ? (
+          <div className={shared.entry}>
+            <Skeleton height="56px" />
+          </div>
+        ) : (
+          <>
+            {qualifications.map((qualification, index) => {
+              const rowDirty = qualificationsDirty?.[index];
+              return (
+                <div key={`qualification-${index}`} className={shared.entry}>
+                  <div className={shared.inline}>
+                    <label>
+                      <span>
+                        資格名 ※プルダウンにないものはテキストで入力できます。
+                        <DirtyDot visible={Boolean(rowDirty?.fields.name)} />
+                      </span>
+                      <Combobox
+                        value={qualification.name}
+                        onChange={(val) => updateField(index, "name", val)}
+                        options={qualificationNames}
+                        placeholder="例: 基本情報技術者試験"
+                        allowCustom
+                      />
+                    </label>
+                    <label>
+                      <span>
+                        取得日
+                        <DirtyDot visible={Boolean(rowDirty?.fields.acquired_date)} />
+                      </span>
+                      <input
+                        type="month"
+                        value={qualification.acquired_date}
+                        onChange={(e) => updateField(index, "acquired_date", e.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <button type="button" className="danger" onClick={() => removeRow(index)}>
+                    資格を削除
+                  </button>
                 </div>
-                <button type="button" className="danger" onClick={() => removeRow(index)}>
-                  資格を削除
-                </button>
-              </div>
-            );
-          })}
-          <button type="button" className="ghost" onClick={addRow}>
-            資格を追加
-          </button>
-        </>
-      )}
+              );
+            })}
+            <button type="button" className="ghost" onClick={addRow}>
+              資格を追加
+            </button>
+          </>
+        )}
+      </Collapsible>
     </section>
   );
 }

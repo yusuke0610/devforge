@@ -32,7 +32,7 @@ def test_resume_crud(client: TestClient) -> None:
             "career_summary": "キャリアサマリー",
             "self_pr": "自己PR",
             "experiences": [],
-            "qualifications": [{"acquired_date": "2020-04-01", "name": "応用情報技術者"}],
+            "qualifications": [{"acquired_date": "2020-04", "name": "応用情報技術者"}],
         },
         headers=headers,
     )
@@ -73,9 +73,9 @@ def test_resume_qualifications_sorted_asc(client: TestClient) -> None:
             "self_pr": "自己PR",
             "experiences": [],
             "qualifications": [
-                {"acquired_date": "2023-06-01", "name": "基本情報技術者"},
-                {"acquired_date": "2021-03-01", "name": "ITパスポート"},
-                {"acquired_date": "2025-01-01", "name": "応用情報技術者"},
+                {"acquired_date": "2023-06", "name": "基本情報技術者"},
+                {"acquired_date": "2021-03", "name": "ITパスポート"},
+                {"acquired_date": "2025-01", "name": "応用情報技術者"},
             ],
         },
         headers=headers,
@@ -86,6 +86,31 @@ def test_resume_qualifications_sorted_asc(client: TestClient) -> None:
     assert resp.status_code == 200
     dates = [q["acquired_date"] for q in resp.json()["qualifications"]]
     assert dates == sorted(dates), f"取得日昇順でない: {dates}"
+
+
+def test_resume_qualification_date_is_year_month(client: TestClient) -> None:
+    """資格取得日は在籍期間と同じ YYYY-MM で往復する（UI は type="month" に統一）。"""
+    headers = auth_header(client, "resume-qual-ym-user")
+
+    resp = client.post(
+        "/api/resumes",
+        json={
+            "full_name": "年月確認",
+            "career_summary": "要約",
+            "self_pr": "自己PR",
+            "experiences": [],
+            "qualifications": [
+                {"acquired_date": "2020-04", "name": "応用情報技術者"},
+            ],
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 201
+
+    resp = client.get("/api/resumes/latest", headers=headers)
+    assert resp.status_code == 200
+    quals = {q["name"]: q["acquired_date"] for q in resp.json()["qualifications"]}
+    assert quals["応用情報技術者"] == "2020-04"
 
 
 def test_resume_round_trips_nested_structure(client: TestClient) -> None:
@@ -115,7 +140,6 @@ def test_resume_round_trips_nested_structure(client: TestClient) -> None:
                                 "end_date": "2024-03",
                                 "is_current": False,
                                 "role": "SE",
-                                "description": "設計と実装",
                                 "challenge": "性能改善",
                                 "action": "非同期化",
                                 "result": "応答時間短縮",

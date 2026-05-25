@@ -2,10 +2,15 @@ import { useMemo } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
 import type { ExperienceDirty } from "../../../hooks/career/useCareerDirty";
-import type { CareerExperienceForm, CareerFormState, CareerProjectForm } from "../../../payloadBuilders";
+import type {
+  CareerExperienceForm,
+  CareerFormState,
+  CareerProjectForm,
+} from "../../../payloadBuilders";
 import type { TechStackMasterItem } from "../../../types";
 import { useCareerExperienceMutators } from "../../../hooks/career/useCareerExperienceMutators";
 import { useProjectModalState } from "../../../hooks/career/useProjectModalState";
+import type { UseResumeImportAssistReturn } from "../../../hooks/career/useResumeImportAssist";
 import shared from "../../../styles/shared.module.css";
 import { CareerExperienceEditor } from "../CareerFormEditors/CareerExperienceEditor";
 import { ProjectModal } from "../ProjectModal";
@@ -23,6 +28,8 @@ type CareerExperienceSectionProps = {
   experiencesDirty?: ExperienceDirty[];
   /** 「職務経歴」セクション全体の未保存集約フラグ */
   sectionDirty?: boolean;
+  /** PDF 取り込み補助。プロジェクトモーダル内に取り込みパネルを再掲するため受け渡す */
+  assist?: UseResumeImportAssistReturn;
 };
 
 /**
@@ -36,6 +43,7 @@ export function CareerExperienceSection({
   techStackOptions,
   experiencesDirty,
   sectionDirty = false,
+  assist,
 }: CareerExperienceSectionProps) {
   /** カテゴリごとの技術スタック名称マップを生成する */
   const techStackNamesByCategory = useMemo(() => {
@@ -50,13 +58,8 @@ export function CareerExperienceSection({
 
   const mutators = useCareerExperienceMutators(experiences, setForm);
 
-  const {
-    modalTarget,
-    setModalTarget,
-    modalProject,
-    handleProjectSave,
-    closeModal,
-  } = useProjectModalState(mutators.getProject, mutators.onProjectSave);
+  const { modalTarget, setModalTarget, modalProject, handleProjectSave, closeModal } =
+    useProjectModalState(mutators.getProject, mutators.onProjectSave);
 
   /** プロジェクトの期間サマリーテキストを生成する */
   const projectSummary = (proj: CareerProjectForm) => {
@@ -83,6 +86,7 @@ export function CareerExperienceSection({
           onSave={handleProjectSave}
           onClose={closeModal}
           techStackNamesByCategory={techStackNamesByCategory}
+          assist={assist}
         />
       )}
 

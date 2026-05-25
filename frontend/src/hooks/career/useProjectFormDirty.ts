@@ -14,7 +14,6 @@ export type ProjectFormDirty = {
     end_date: boolean;
     is_current: boolean;
     role: boolean;
-    description: boolean;
     challenge: boolean;
     action: boolean;
     result: boolean;
@@ -74,7 +73,6 @@ export function useProjectFormDirty(
       end_date: local.end_date !== base.end_date,
       is_current: local.is_current !== base.is_current,
       role: local.role !== base.role,
-      description: local.description !== base.description,
       challenge: local.challenge !== base.challenge,
       action: local.action !== base.action,
       result: local.result !== base.result,
@@ -84,8 +82,7 @@ export function useProjectFormDirty(
     const technology_stacks = !isDeepEqual(local.technology_stacks, base.technology_stacks);
     const phases = !isDeepEqual(local.phases, base.phases);
 
-    const any =
-      Object.values(fields).some(Boolean) || team || technology_stacks || phases;
+    const any = Object.values(fields).some(Boolean) || team || technology_stacks || phases;
 
     return { any, fields, team, technology_stacks, phases };
   }, [local, original]);

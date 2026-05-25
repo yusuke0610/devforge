@@ -23,6 +23,8 @@ export const VALIDATION_MESSAGES = {
   SELF_PR_REQUIRED: "自己PRを入力してください。",
   EXPERIENCE_REQUIRED_FIELDS: "職務経歴は会社名、事業内容、開始年月を入力してください。",
   EXPERIENCE_END_DATE_REQUIRED: "職務経歴の離職年月を入力するか、在職を選択してください。",
+  PROJECT_START_DATE_REQUIRED: "プロジェクトの開始年月を入力してください。",
+  PROJECT_END_DATE_REQUIRED: "プロジェクトの終了年月を入力するか、参画中を選択してください。",
   DATE_RANGE_INVALID: "開始日は終了日より前に設定してください。",
   QUALIFICATION_REQUIRED_FIELDS: "資格は取得日と名称を両方入力してください。",
   RESUME_PDF_REQUIRED: "PDF をアップロードしてください。",
@@ -47,7 +49,6 @@ export const FALLBACK_MESSAGES = {
   ANALYSIS: "分析に失敗しました",
   ANALYSIS_DELETE: "削除に失敗しました",
   ANALYSIS_RERUN: "再実行に失敗しました",
-  RESUME_EXTRACT: "抽出結果の取得に失敗しました。",
   BLOG_FETCH: "データの取得に失敗しました",
   BLOG_SYNC: "記事の同期に失敗しました。「同期」ボタンで再試行してください。",
   BLOG_LINK: "アカウントの連携に失敗しました",
@@ -67,12 +68,21 @@ export const UI_MESSAGES = {
   ERROR_BOUNDARY_TITLE: "予期しないエラーが発生しました",
   ERROR_BOUNDARY_BODY:
     "ページの表示中に問題が発生しました。再読み込みするか、ホームへ戻ってください。",
-  /** PDF インポート確認モーダル: 既存入力がある場合の上書き警告 */
-  RESUME_IMPORT_OVERWRITE_WARNING:
-    "反映すると、入力中の内容は PDF から読み取った内容で上書きされます（PDF から取得できなかった項目は維持されます）。AI による自動抽出のため、反映後に内容を必ずご確認ください。",
-  /** PDF インポート確認モーダル: 既存入力がない場合の反映案内 */
-  RESUME_IMPORT_APPLY_INFO:
-    "PDF から読み取った内容をフォームに反映します。AI による自動抽出のため、反映後に内容を必ずご確認ください。",
+} as const;
+
+/** PDF 取り込み補助（クリック流し込み）UI の文言 */
+export const IMPORT_ASSIST_MESSAGES = {
+  TITLE: "PDFから下書きを取り込む",
+  HINT: "フォームの入力欄をクリックして選ぶ（緑枠）と、右のブロックをクリックでその内容が流し込まれます。テキスト欄は続けてクリックで追記できます。",
+  SELECT_FILE: "PDFから取り込み",
+  ANALYZING: "解析中...",
+  EMPTY: "PDFを選ぶと、抽出したテキストがここにブロックで並びます。",
+  NO_BLOCKS: "抽出できるテキストが見つかりませんでした。",
+  NO_TARGET: "先にフォームの入力欄をクリックして、流し込み先を選んでください。",
+  KIND_LINE: "本文",
+  KIND_TABLE: "表",
+  USED: "使用済み",
+  CLEAR: "選択状態をリセット",
 } as const;
 
 /**
@@ -85,19 +95,12 @@ export const LOADING_MESSAGES = {
   BACKGROUND_CONTINUES: "他の画面に移動しても処理は継続されます",
   /** 補足: 処理に時間がかかる旨 */
   TAKES_TIME: "この処理には時間がかかります",
-  /** 職務経歴書 PDF アップロードの解析中ラベル */
-  RESUME_IMPORT: "職務経歴書 PDF を解析中...",
   /** GitHub 分析中ラベル */
   GITHUB_ANALYSIS: "GitHubプロフィールを分析中...",
   /** ブログ分析中ラベル */
   BLOG_ANALYSIS: "ブログを分析中...",
   /** キャリア分析中ラベル */
   CAREER_ANALYSIS: "AI がキャリアを分析中です...",
-} as const;
-
-/** 開発者向け（通常はユーザーに表示されない）の内部エラーメッセージ */
-export const INTERNAL_MESSAGES = {
-  RESUME_IMPORT_NO_ID: "import_id が未設定です",
 } as const;
 
 /** ダウンロード失敗時のメッセージにファイル名を付与する。 */

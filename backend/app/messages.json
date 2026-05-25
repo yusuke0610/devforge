@@ -46,6 +46,7 @@
       "required_field": "{field}は必須です。",
       "invalid_format": "{field}の形式が正しくありません。",
       "date_range_invalid": "開始日は終了日より前に設定してください。",
+      "start_date_required": "開始年月を入力してください。",
       "end_date_required": "在職中でない場合は終了年月を入力してください。"
     },
     "server": {

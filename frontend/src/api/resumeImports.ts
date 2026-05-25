@@ -1,43 +1,35 @@
-import type { CareerResumePayload } from "../types";
+import { NETWORK_MESSAGES } from "../constants/messages";
 import { ApiError } from "../utils/appError";
-import { API_BASE_URL, request } from "./client";
-import type { TaskProgress } from "./intelligence";
+import { API_BASE_URL } from "./client";
 import { PATHS } from "./paths";
 
-/** POST /api/resumes/import のレスポンス */
-type ResumeImportStartResponse = {
-  import_id: string;
+/** POST /api/resumes/import/extract が返す割り当て候補ブロック */
+export type ResumeImportBlock = {
+  id: number;
+  /** "line"（本文行）| "table"（表セル） */
+  kind: string;
+  text: string;
 };
 
-/** GET /api/resumes/import/{id}/status のレスポンス */
-export type ResumeImportStatusResponse = {
-  status: string;
-  error_message?: string;
-  error_code?: string;
-  judge_reason?: string;
+/** POST /api/resumes/import/extract のレスポンス */
+export type ResumeImportBlocksResponse = {
+  blocks: ResumeImportBlock[];
 };
 
-/** GET /api/resumes/import/{id}/result のレスポンス */
-export type ResumeImportResultResponse = {
-  result: CareerResumePayload;
-  is_resume: boolean;
-  judge_reason?: string;
-};
-
-/** PDF をアップロードしてインポートタスクを開始する。 */
-export async function startResumeImport(file: File): Promise<ResumeImportStartResponse> {
+/**
+ * PDF を割り当て候補ブロックに分解して取得する（同期・LLM 不使用）。
+ * 取り込み補助 UI が並べて、ユーザーがクリックで各フィールドへ流し込む。
+ */
+export async function extractResumeBlocks(file: File): Promise<ResumeImportBlocksResponse> {
   const formData = new FormData();
   formData.append("file", file);
-
-  // multipart/form-data は Content-Type を手動で指定しない（ブラウザが boundary 付きで設定する）
-  // CSRF トークンは Cookie から取得して X-CSRF-Token ヘッダに付与する
+  // multipart/form-data は Content-Type を手動指定しない（ブラウザが boundary 付きで設定する）。
+  // CSRF トークンは Cookie から取得して X-CSRF-Token ヘッダに付与する。
   const csrfToken = document.cookie.match(/csrf_token=([^;]+)/)?.[1] ?? "";
 
-  const response = await fetch(`${API_BASE_URL}${PATHS.resumeImports.start}`, {
+  const response = await fetch(`${API_BASE_URL}${PATHS.resumeImports.extract}`, {
     method: "POST",
-    headers: {
-      "X-CSRF-Token": csrfToken,
-    },
+    headers: { "X-CSRF-Token": csrfToken },
     credentials: "include",
     body: formData,
   });
@@ -47,36 +39,14 @@ export async function startResumeImport(file: File): Promise<ResumeImportStartRe
     try {
       body = await response.json();
     } catch {
-      // parse 失敗は無視
+      // parse 失敗は無視（下の fallback を使う）
     }
     throw new ApiError({
       code: body?.code ?? "INTERNAL_ERROR",
-      message: body?.message ?? "アップロードに失敗しました。",
+      message: body?.message ?? NETWORK_MESSAGES.REQUEST_FAILED,
       action: body?.action ?? null,
     });
   }
 
-  return response.json() as Promise<ResumeImportStartResponse>;
-}
-
-/** インポートタスクのステータスをポーリングする。 */
-export async function getResumeImportStatus(
-  importId: string,
-): Promise<ResumeImportStatusResponse> {
-  return request<ResumeImportStatusResponse>(PATHS.resumeImports.status(importId));
-}
-
-/** 抽出結果を取得する（completed のみ 200）。 */
-export async function getResumeImportResult(
-  importId: string,
-): Promise<ResumeImportResultResponse> {
-  return request<ResumeImportResultResponse>(PATHS.resumeImports.result(importId));
-}
-
-/**
- * インポートタスクの進捗（ステップ）情報を取得する。
- * Redis にデータが無い場合は step_index=0 のデフォルトが返る。
- */
-export async function getResumeImportProgress(importId: string): Promise<TaskProgress> {
-  return request<TaskProgress>(PATHS.resumeImports.progress(importId));
+  return response.json() as Promise<ResumeImportBlocksResponse>;
 }

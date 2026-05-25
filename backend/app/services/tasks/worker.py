@@ -89,8 +89,6 @@ async def execute_task(
             await _run_blog_summarize(SessionLocal, payload)
         elif task_type == TaskType.CAREER_ANALYSIS:
             await _run_career_analysis(SessionLocal, payload)
-        elif task_type == TaskType.RESUME_IMPORT:
-            await _run_resume_import(SessionLocal, payload)
 
         duration_ms = _monotonic_ms_since(start)
         logger.info(
@@ -201,7 +199,7 @@ def _safe_close(db: Session) -> None:
 
 # ---------- ハンドラ薄ラッパー（後方互換）----------
 # テストや既存呼び出しから ``_run_github_analysis`` / ``_run_blog_summarize`` /
-# ``_run_career_analysis`` / ``_run_resume_import`` を直接呼べるよう、
+# ``_run_career_analysis`` を直接呼べるよう、
 # ハンドラ実装への薄いシムを残す。引数は ``session_factory``。
 
 
@@ -226,14 +224,6 @@ async def _run_career_analysis(session_factory: SessionFactory, payload: dict) -
     handler = get_handler(TaskType.CAREER_ANALYSIS)
     if handler is None:
         raise ValueError(f"ハンドラが登録されていません: {TaskType.CAREER_ANALYSIS}")
-    await handler.run(session_factory, payload)
-
-
-async def _run_resume_import(session_factory: SessionFactory, payload: dict) -> None:
-    """職務経歴書 PDF インポートハンドラへのシム。"""
-    handler = get_handler(TaskType.RESUME_IMPORT)
-    if handler is None:
-        raise ValueError(f"ハンドラが登録されていません: {TaskType.RESUME_IMPORT}")
     await handler.run(session_factory, payload)
 
 

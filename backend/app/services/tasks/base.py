@@ -10,7 +10,6 @@ class TaskType(str, Enum):
     GITHUB_ANALYSIS = "github_analysis"
     BLOG_SUMMARIZE = "blog_summarize"
     CAREER_ANALYSIS = "career_analysis"
-    RESUME_IMPORT = "resume_import"
 
 
 # 手動再実行を許可するキャッシュレコードのステータス集合。

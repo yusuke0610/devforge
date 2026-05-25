@@ -23,6 +23,9 @@ def experience_payload() -> dict:
                 "projects": [
                     {
                         "name": "API開発",
+                        "start_date": "2021-04",
+                        "end_date": "2024-03",
+                        "is_current": False,
                         "role": "メンバー",
                         "description": "API開発",
                         "challenge": "課題",
@@ -113,12 +116,74 @@ def test_project_migrates_scale_to_team() -> None:
     proj = Project(
         **{
             "name": "テスト",
+            "start_date": "2021-04",
+            "end_date": "2024-03",
             "scale": "10",
             "technology_stacks": [],
         }
     )
     assert proj.team.total == "10"
     assert proj.team.members == []
+
+
+def test_project_requires_start_date() -> None:
+    """プロジェクト: 案件名があっても開始年月が空なら 422（日本語メッセージ）。
+
+    旧実装ではここを素通りし、repositories 層の parse_year_month("") で 500 になっていた。
+    """
+    with pytest.raises(ValidationError, match="開始年月を入力してください"):
+        Project(
+            name="API開発",
+            start_date="",
+            end_date="2024-03",
+            is_current=False,
+            technology_stacks=[],
+        )
+
+
+def test_project_requires_end_date_when_not_current() -> None:
+    """プロジェクト: 参画中でなければ終了年月が必須。"""
+    with pytest.raises(ValidationError, match="終了年月"):
+        Project(
+            name="API開発",
+            start_date="2021-04",
+            end_date="",
+            is_current=False,
+            technology_stacks=[],
+        )
+
+
+def test_project_current_without_end_date_is_accepted() -> None:
+    """プロジェクト: 参画中（is_current=True）なら終了年月が空でも OK。"""
+    proj = Project(
+        name="API開発",
+        start_date="2021-04",
+        end_date="",
+        is_current=True,
+        technology_stacks=[],
+    )
+    assert proj.start_date == "2021-04"
+    assert proj.end_date == ""
+
+
+def test_experience_requires_start_date_with_japanese_message() -> None:
+    """経歴: 会社名があっても開始年月が空なら 422（日本語メッセージ）。"""
+    payload = experience_payload()
+    payload["start_date"] = ""
+
+    with pytest.raises(ValidationError, match="開始年月を入力してください"):
+        Experience(**payload)
+
+
+def test_experience_allows_empty_employee_count_and_capital() -> None:
+    """経歴: 会社名・在籍期間があれば従業員数・資本金は空でも保存できる（任意入力）。"""
+    payload = experience_payload()
+    payload["employee_count"] = ""
+    payload["capital"] = ""
+
+    exp = Experience(**payload)
+    assert exp.employee_count == ""
+    assert exp.capital == ""
 
 
 def test_experience_end_date_before_start_date_is_rejected() -> None:

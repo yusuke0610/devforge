@@ -84,10 +84,6 @@ def build_user_prompt(
                     parts.append(f"  期間: {proj.start_date} 〜 {end}")
                     parts.append(f"  担当フェーズ: {phases}")
                     parts.append(f"  使用技術: {stacks}")
-                    if proj.description:
-                        parts.append(
-                            f"  概要: {sanitize_text(proj.description, context)}"
-                        )
     else:
         parts.append("（職務経歴書未入力）")
 

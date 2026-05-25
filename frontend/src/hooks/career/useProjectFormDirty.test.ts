@@ -13,7 +13,6 @@ function buildProject(overrides: Partial<CareerProjectForm> = {}): CareerProject
     end_date: "2022-03",
     is_current: false,
     role: "Eng",
-    description: "概要",
     challenge: "課題",
     action: "行動",
     result: "成果",
@@ -58,10 +57,7 @@ describe("useProjectFormDirty", () => {
   it("技術スタックを追加すると technology_stacks が true", () => {
     const original = buildProject();
     const local = buildProject({
-      technology_stacks: [
-        ...original.technology_stacks,
-        { ...blankCareerTechnologyStack },
-      ],
+      technology_stacks: [...original.technology_stacks, { ...blankCareerTechnologyStack }],
     });
     const { result } = renderHook(() => useProjectFormDirty(local, original));
     expect(result.current.technology_stacks).toBe(true);

@@ -2,12 +2,10 @@ import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import { persistReducer, persistStore } from "redux-persist";
 import { useDispatch, useSelector, type TypedUseSelectorHook } from "react-redux";
 import formCacheReducer from "./formCacheSlice";
-import resumeImportReducer from "./resumeImportSlice";
 import { persistConfig } from "./persistConfig";
 
 const rootReducer = combineReducers({
   formCache: formCacheReducer,
-  resumeImport: resumeImportReducer,
 });
 
 /** persistConfig の blacklist に基づき機密スライスを除外した永続化リデューサー */

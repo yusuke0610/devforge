@@ -29,7 +29,6 @@ _RESUME_PAYLOAD = {
                             "end_date": "2022-03",
                             "is_current": False,
                             "role": "SE",
-                            "description": "概要",
                             "challenge": "",
                             "action": "",
                             "result": "",
@@ -42,7 +41,7 @@ _RESUME_PAYLOAD = {
             ],
         }
     ],
-    "qualifications": [{"acquired_date": "2020-04-01", "name": "応用情報技術者"}],
+    "qualifications": [{"acquired_date": "2020-04", "name": "応用情報技術者"}],
 }
 
 

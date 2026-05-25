@@ -17,7 +17,6 @@ const blankProject = (overrides: Partial<CareerProjectForm> = {}): CareerProject
   end_date: "2024-06",
   is_current: false,
   role: "",
-  description: "業務内容",
   challenge: "",
   action: "",
   result: "",
@@ -130,9 +129,7 @@ describe("buildCareerPayload (experiences)", () => {
   it("is_current=true の experience は end_date が空文字に正規化される", () => {
     const payload = buildCareerPayload(
       baseState({
-        experiences: [
-          blankExperience({ is_current: true, end_date: "2024-12" }),
-        ],
+        experiences: [blankExperience({ is_current: true, end_date: "2024-12" })],
       }),
     );
     expect(payload.experiences[0].end_date).toBe("");
@@ -143,9 +140,7 @@ describe("buildCareerPayload (experiences)", () => {
     expect(() =>
       buildCareerPayload(
         baseState({
-          experiences: [
-            blankExperience({ is_current: false, end_date: "  " }),
-          ],
+          experiences: [blankExperience({ is_current: false, end_date: "  " })],
         }),
       ),
     ).toThrow(/離職年月/);
@@ -155,9 +150,7 @@ describe("buildCareerPayload (experiences)", () => {
     expect(() =>
       buildCareerPayload(
         baseState({
-          experiences: [
-            blankExperience({ start_date: "2024-06", end_date: "2024-01" }),
-          ],
+          experiences: [blankExperience({ start_date: "2024-06", end_date: "2024-01" })],
         }),
       ),
     ).toThrow(/開始日/);
@@ -219,6 +212,46 @@ describe("buildCareerPayload (projects/clients/team)", () => {
     expect(proj.is_current).toBe(true);
   });
 
+  it("内容のある project で開始年月が空ならエラー", () => {
+    expect(() =>
+      buildCareerPayload(
+        baseState({
+          experiences: [
+            blankExperience({
+              clients: [
+                {
+                  name: "顧客A",
+                  has_client: true,
+                  projects: [blankProject({ start_date: "" })],
+                },
+              ],
+            }),
+          ],
+        }),
+      ),
+    ).toThrow(/プロジェクトの開始年月/);
+  });
+
+  it("project が is_current=false で終了年月が空ならエラー", () => {
+    expect(() =>
+      buildCareerPayload(
+        baseState({
+          experiences: [
+            blankExperience({
+              clients: [
+                {
+                  name: "顧客A",
+                  has_client: true,
+                  projects: [blankProject({ is_current: false, end_date: "" })],
+                },
+              ],
+            }),
+          ],
+        }),
+      ),
+    ).toThrow(/プロジェクトの終了年月/);
+  });
+
   it("client.has_client=false なら name が空文字に正規化される", () => {
     const payload = buildCareerPayload(
       baseState({
@@ -228,7 +261,7 @@ describe("buildCareerPayload (projects/clients/team)", () => {
               {
                 name: "捨てられる",
                 has_client: false,
-                projects: [blankProject({ description: "内容" })],
+                projects: [blankProject()],
               },
             ],
           }),
@@ -267,9 +300,7 @@ describe("buildCareerPayload (projects/clients/team)", () => {
               {
                 name: "C",
                 has_client: true,
-                projects: [
-                  blankProject({ team: { total: "3", members: [] } }),
-                ],
+                projects: [blankProject({ team: { total: "3", members: [] } })],
               },
             ],
           }),
@@ -375,8 +406,6 @@ describe("buildCareerPayload (qualifications)", () => {
         qualifications: [{ acquired_date: " 2024-01-01 ", name: " 基本情報 " }],
       }),
     );
-    expect(payload.qualifications).toEqual([
-      { acquired_date: "2024-01-01", name: "基本情報" },
-    ]);
+    expect(payload.qualifications).toEqual([{ acquired_date: "2024-01-01", name: "基本情報" }]);
   });
 });

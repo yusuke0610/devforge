@@ -1,30 +1,17 @@
-"""職務経歴書 PDF インポートの API スキーマ。"""
-
-from uuid import UUID
+"""職務経歴書 PDF インポート（割り当て候補ブロック抽出）の API スキーマ。"""
 
 from pydantic import BaseModel
 
-from .resume import ResumeBase
+
+class ResumeImportBlock(BaseModel):
+    """インポート補助 UI に並べる割り当て候補ブロック。"""
+
+    id: int
+    kind: str  # "line"（本文行）| "table"（表セル）
+    text: str
 
 
-class ResumeImportStartResponse(BaseModel):
-    """POST /api/resumes/import の 202 レスポンス。"""
+class ResumeImportBlocksResponse(BaseModel):
+    """POST /api/resumes/import/extract のレスポンス（同期・LLM 不使用）。"""
 
-    import_id: UUID
-
-
-class ResumeImportStatusResponse(BaseModel):
-    """GET /api/resumes/import/{id}/status のレスポンス。"""
-
-    status: str
-    error_message: str | None = None
-    error_code: str | None = None
-    judge_reason: str | None = None
-
-
-class ResumeImportResultResponse(BaseModel):
-    """GET /api/resumes/import/{id}/result のレスポンス。"""
-
-    result: ResumeBase
-    is_resume: bool
-    judge_reason: str | None = None
+    blocks: list[ResumeImportBlock]

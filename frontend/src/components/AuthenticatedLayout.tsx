@@ -3,7 +3,6 @@ import { NavLink, Outlet } from "react-router-dom";
 import type { AuthUser } from "../router/guards";
 import type { Theme } from "../hooks/useTheme";
 import { NotificationBell } from "./NotificationBell";
-import { ResumeImportPoller } from "./ResumeImportPoller";
 import { UserMenu } from "./UserMenu";
 import shared from "../styles/shared.module.css";
 import styles from "../App.module.css";
@@ -25,8 +24,6 @@ export function AuthenticatedLayout({
 }) {
   return (
     <div className={shared.page}>
-      {/* 全タブ共通の PDF インポートポーラー（タブ切替でアンマウントされない） */}
-      <ResumeImportPoller />
       <div className={styles.appLayout}>
         <aside className={styles.sidebar}>
           <p className={styles.sidebarTitle}>DevForge</p>

@@ -71,11 +71,6 @@ def _build_project_html(project) -> str:
 
     # 左カラム: 業務内容
     left_parts: list[str] = []
-    desc = _a(project, "description")
-    if desc:
-        left_parts.append(
-            f"<strong>【プロジェクト概要】</strong>" f'<div class="desc-bold">{_md(desc)}</div>',
-        )
     challenge = _a(project, "challenge")
     if challenge:
         left_parts.append(f"<strong>【課題】</strong>{_md(challenge)}")

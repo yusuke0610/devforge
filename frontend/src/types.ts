@@ -39,7 +39,6 @@ export type CareerProject = {
   end_date: string;
   is_current: boolean;
   role: string;
-  description: string;
   challenge: string;
   action: string;
   result: string;
