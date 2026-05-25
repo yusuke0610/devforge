@@ -1,5 +1,5 @@
 export { setOnUnauthorized } from "./client";
-export * from "./career-analysis";
+export * from "./shared";
 export * from "./auth";
 export * from "./download";
 export * from "./resumes";

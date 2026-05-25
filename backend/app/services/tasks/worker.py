@@ -85,10 +85,6 @@ async def execute_task(
         # 前後にセッションを開閉させる。
         if task_type == TaskType.GITHUB_ANALYSIS:
             await _run_github_analysis(SessionLocal, payload)
-        elif task_type == TaskType.BLOG_SUMMARIZE:
-            await _run_blog_summarize(SessionLocal, payload)
-        elif task_type == TaskType.CAREER_ANALYSIS:
-            await _run_career_analysis(SessionLocal, payload)
 
         duration_ms = _monotonic_ms_since(start)
         logger.info(
@@ -198,8 +194,7 @@ def _safe_close(db: Session) -> None:
 
 
 # ---------- ハンドラ薄ラッパー（後方互換）----------
-# テストや既存呼び出しから ``_run_github_analysis`` / ``_run_blog_summarize`` /
-# ``_run_career_analysis`` を直接呼べるよう、
+# テストや既存呼び出しから ``_run_github_analysis`` を直接呼べるよう、
 # ハンドラ実装への薄いシムを残す。引数は ``session_factory``。
 
 
@@ -208,22 +203,6 @@ async def _run_github_analysis(session_factory: SessionFactory, payload: dict) -
     handler = get_handler(TaskType.GITHUB_ANALYSIS)
     if handler is None:
         raise ValueError(f"ハンドラが登録されていません: {TaskType.GITHUB_ANALYSIS}")
-    await handler.run(session_factory, payload)
-
-
-async def _run_blog_summarize(session_factory: SessionFactory, payload: dict) -> None:
-    """ブログサマリハンドラへのシム。"""
-    handler = get_handler(TaskType.BLOG_SUMMARIZE)
-    if handler is None:
-        raise ValueError(f"ハンドラが登録されていません: {TaskType.BLOG_SUMMARIZE}")
-    await handler.run(session_factory, payload)
-
-
-async def _run_career_analysis(session_factory: SessionFactory, payload: dict) -> None:
-    """キャリア分析ハンドラへのシム。"""
-    handler = get_handler(TaskType.CAREER_ANALYSIS)
-    if handler is None:
-        raise ValueError(f"ハンドラが登録されていません: {TaskType.CAREER_ANALYSIS}")
     await handler.run(session_factory, payload)
 
 

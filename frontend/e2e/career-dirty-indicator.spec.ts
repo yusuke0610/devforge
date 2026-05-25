@@ -7,7 +7,7 @@ import { setupAuth, waitForAuthenticatedLayout } from "./helpers/auth";
  * シナリオ:
  * 1. 職務経歴書を開く → 🔴 なし
  * 2. 氏名を編集 → 氏名横と保存ボタン横に 🔴
- * 3. キャリア分析タブへ遷移して職務経歴書に戻る → 🔴 が維持されている（Redux 保持）
+ * 3. ブログ連携タブへ遷移して職務経歴書に戻る → 🔴 が維持されている（Redux 保持）
  * 4. 保存（PUT /api/resumes/{id}）→ baseline 更新で 🔴 が全消失
  */
 
@@ -65,8 +65,8 @@ async function setupResumeApi(page: Page) {
     await route.fallback();
   });
 
-  // キャリア分析ページ用モック（タブ遷移先の 404 ループを避ける）
-  await page.route("**/api/career-analysis/**", (route) =>
+  // ブログ連携ページ用モック（タブ遷移先で連携アカウント空を返す）
+  await page.route("**/api/blog/accounts", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
   );
 }
@@ -220,9 +220,9 @@ test.describe("職務経歴書 未保存マーク", () => {
     const dirtyCountAfterEdit = await page.getByTestId("dirty-dot").count();
     expect(dirtyCountAfterEdit).toBeGreaterThanOrEqual(1);
 
-    // 3. キャリア分析タブへ遷移
-    await page.getByRole("link", { name: "キャリア分析" }).click();
-    await expect(page).toHaveURL(/\/career_analysis/);
+    // 3. ブログ連携タブへ遷移
+    await page.getByRole("link", { name: "ブログ連携" }).click();
+    await expect(page).toHaveURL(/\/blog/);
 
     // 職務経歴書に戻る
     await page.getByRole("link", { name: "職務経歴書" }).click();

@@ -10,7 +10,6 @@ import {
 } from "../../api";
 import { FALLBACK_MESSAGES } from "../../constants/messages";
 import type { BlogAccount, BlogArticle } from "../../types";
-import { useBlogSummaryPolling } from "./useBlogSummaryPolling";
 
 export type PlatformKey = "zenn" | "note" | "qiita";
 
@@ -47,7 +46,7 @@ export function reduceActions(
 }
 
 /**
- * BlogPage のブログアカウント管理・同期・AI分析ロジックを提供するカスタムフック。
+ * BlogPage のブログアカウント管理・同期ロジックを提供するカスタムフック。
  *
  * 4 種類の per-platform lifecycle（saving / syncing / updating / deleting）は
  * 単一の ``PlatformActionMap`` で集約管理する。外部には従来通り
@@ -116,9 +115,6 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  const { summary, summaryLoading, summaryError, handleSummarize } =
-    useBlogSummaryPolling(articles);
 
   /**
    * 保存/更新後の自動同期を試みる。成功時は formatSuccess の文言、
@@ -243,7 +239,6 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
     articles,
     loading,
     accountError,
-    summaryError,
     success,
     draftUsernames,
     setDraftUsernames,
@@ -251,13 +246,10 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
     syncingPlatform: findPlatformWithAction("syncing"),
     updatingPlatform: findPlatformWithAction("updating"),
     deletingPlatform: findPlatformWithAction("deleting"),
-    summary,
-    summaryLoading,
     accountMap,
     handleSave,
     handleSync,
     handleDelete,
     handleUpdate,
-    handleSummarize,
   };
 }

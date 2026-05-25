@@ -1,10 +1,9 @@
 """
 キャリアインテリジェンス API エンドポイント。
 
-POST /api/intelligence/analyze         — 全分析パイプラインをバックグラウンド実行（202）
-POST /api/intelligence/position-advice — 現状分析+学習アドバイスを生成
-GET  /api/intelligence/cache           — 保存済みの分析結果を取得
-GET  /api/intelligence/cache/status    — 分析ステータスポーリング用
+POST /api/intelligence/analyze      — 全分析パイプラインをバックグラウンド実行（202）
+GET  /api/intelligence/cache        — 保存済みの分析結果を取得
+GET  /api/intelligence/cache/status — 分析ステータスポーリング用
 """
 
 import logging
@@ -21,11 +20,9 @@ from ..models import GitHubAnalysisCache, User
 from ..schemas.intelligence import (
     AnalyzeRequest,
     CachedAnalysisResponse,
-    PositionAdviceResponse,
     ProgressResponse,
 )
 from ..schemas.shared import TaskStatusResponse
-from ..services.intelligence.llm_advice_service import LLMPositionAdviceService
 from ..services.tasks import AsyncTaskCacheService, TaskType
 
 logger = logging.getLogger(__name__)
@@ -48,13 +45,12 @@ def get_cache(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """保存済みの分析結果・学習アドバイスを取得する。"""
+    """保存済みの分析結果を取得する。"""
     cache = db.query(GitHubAnalysisCache).filter_by(user_id=user.id).first()
     if not cache:
         return CachedAnalysisResponse()
     return CachedAnalysisResponse(
         analysis_result=cache.analysis_result,
-        position_advice=cache.position_advice,
         status=cache.status,
         error_message=cache.error_message,
         error_code=resolve_async_error_code(cache.error_message),
@@ -217,39 +213,3 @@ async def retry_analyze(
         )
 
     return {"status": "pending"}
-
-
-@router.post("/position-advice", response_model=PositionAdviceResponse)
-@limiter.limit("10/minute")
-async def position_advice(
-    request: Request,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    分析結果とポジションスコアに基づく現状分析+学習アドバイスを LLM で生成します。
-    キャッシュ済みの分析結果からデータを取得し、統合プロンプトで生成します。
-    """
-    service = LLMPositionAdviceService(db, user.id)
-
-    if not service.has_analysis():
-        raise_app_error(
-            status_code=404,
-            code=ErrorCode.VALIDATION_ERROR,
-            message=get_error("intelligence.no_analysis_cache"),
-            action="先に GitHub 分析を実行してください",
-        )
-
-    if not service.has_position_scores():
-        raise_app_error(
-            status_code=404,
-            code=ErrorCode.VALIDATION_ERROR,
-            message=get_error("intelligence.no_position_scores"),
-            action="GitHub 分析を再実行してください",
-        )
-
-    advice = await service.generate_and_save()
-    if not advice:
-        return PositionAdviceResponse(advice="", available=False)
-
-    return PositionAdviceResponse(advice=advice, available=True)

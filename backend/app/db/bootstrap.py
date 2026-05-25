@@ -31,29 +31,12 @@ def _reset_orphaned_tasks(db) -> None:
     _mark_dead_letter() が呼ばれずに DB ステータスが pending/processing のまま残る。
     放置すると次回起動時にフロントエンドが無限ポーリングに陥るため、起動時に掃除する。
     """
-    from ..models.cache import BlogSummaryCache, GitHubAnalysisCache
-    from ..models.career_analysis import CareerAnalysis
+    from ..models.cache import GitHubAnalysisCache
 
     logger = logging.getLogger(__name__)
     now = datetime.now(timezone.utc)
     stale_statuses = ("pending", "processing")
     error_message = "サーバ再起動により処理が中断されました"
-
-    # CareerAnalysis
-    ca_rows = (
-        db.query(CareerAnalysis)
-        .filter(CareerAnalysis.status.in_(stale_statuses))
-        .all()
-    )
-    for row in ca_rows:
-        row.status = "dead_letter"
-        row.error_message = error_message
-        row.completed_at = now
-    if ca_rows:
-        logger.warning(
-            "孤立したキャリア分析タスクをリセットしました",
-            extra={"count": len(ca_rows)},
-        )
 
     # GitHubAnalysisCache
     gh_rows = (
@@ -69,22 +52,6 @@ def _reset_orphaned_tasks(db) -> None:
         logger.warning(
             "孤立した GitHub 分析タスクをリセットしました",
             extra={"count": len(gh_rows)},
-        )
-
-    # BlogSummaryCache
-    blog_rows = (
-        db.query(BlogSummaryCache)
-        .filter(BlogSummaryCache.status.in_(stale_statuses))
-        .all()
-    )
-    for row in blog_rows:
-        row.status = "dead_letter"
-        row.error_message = error_message
-        row.completed_at = now
-    if blog_rows:
-        logger.warning(
-            "孤立したブログ AI 分析タスクをリセットしました",
-            extra={"count": len(blog_rows)},
         )
 
     db.commit()

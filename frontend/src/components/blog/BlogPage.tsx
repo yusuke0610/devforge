@@ -2,7 +2,6 @@ import { useState } from "react";
 
 import { useBlogAccountManager } from "../../hooks/blog/useBlogAccountManager";
 import { BlogScoreCard } from "./BlogScoreCard";
-import { BlogAnalysisSection } from "./BlogAnalysisSection";
 import { BlogPlatformList } from "./BlogPlatformList";
 import { BlogArticleList } from "./BlogArticleList";
 import { InlineSpinner } from "../ui/InlineSpinner";
@@ -12,7 +11,7 @@ import styles from "./BlogPage.module.css";
 type PlatformFilter = "all" | "zenn" | "note" | "qiita";
 
 /**
- * ブログ連携ページ。固定プラットフォーム一覧でアカウント連携 → 記事一覧・AI分析。
+ * ブログ連携ページ。固定プラットフォーム一覧でアカウント連携 → 記事一覧・投稿サマリ。
  */
 export function BlogPage() {
   const [filter, setFilter] = useState<PlatformFilter>("all");
@@ -22,19 +21,15 @@ export function BlogPage() {
     articles,
     loading,
     accountError,
-    summaryError,
     success,
     draftUsernames,
     setDraftUsernames,
     savingPlatform,
     syncingPlatform,
-    summary,
-    summaryLoading,
     accountMap,
     handleSave,
     handleSync,
     handleDelete,
-    handleSummarize,
   } = useBlogAccountManager(filter);
 
   if (loading) {
@@ -54,20 +49,10 @@ export function BlogPage() {
     <>
       <div className={shared.pageHeader}>
         <h1>ブログ連携</h1>
-        <div className={shared.pageHeaderActions}>
-          <button
-            type="button"
-            onClick={handleSummarize}
-            disabled={articles.length === 0 || summaryLoading}
-          >
-            {summaryLoading ? "分析中..." : "AI分析"}
-          </button>
-        </div>
       </div>
 
       <div className={shared.pageBody}>
         {accountError && <p className={styles.errorMessage}>{accountError}</p>}
-        {summaryError && <p className={styles.errorMessage}>{summaryError}</p>}
         {success && <p className={styles.successMessage}>{success}</p>}
 
         <BlogPlatformList
@@ -90,8 +75,6 @@ export function BlogPage() {
             onFilterChange={setFilter}
           />
         )}
-
-        <BlogAnalysisSection summaryLoading={summaryLoading} summary={summary} />
       </div>
     </>
   );

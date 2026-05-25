@@ -1,6 +1,6 @@
 import { request } from "./client";
 import { PATHS } from "./paths";
-import type { TaskStatusResponse } from "./career-analysis";
+import type { TaskStatusResponse } from "./shared";
 
 export interface TaskProgress {
   task_id: string;
@@ -12,15 +12,6 @@ export interface TaskProgress {
 
 export interface AnalyzeGitHubPayload {
   include_forks?: boolean;
-}
-
-export interface PositionScores {
-  backend: number;
-  frontend: number;
-  fullstack: number;
-  sre: number;
-  cloud: number;
-  missing_skills: string[];
 }
 
 export interface AnalysisResponse {
@@ -35,16 +26,14 @@ export interface AnalysisResponse {
   detected_devtools: Record<string, number>;
   /** ルートファイルから検出したインフラツール名 → 使用リポジトリ数 */
   detected_infras: Record<string, number>;
-  position_scores: PositionScores | null;
 }
 
 export interface CachedAnalysisResponse {
   analysis_result: AnalysisResponse | null;
-  position_advice: string | null;
   status?: string;
   error_message?: string;
   error_code?: string;
-  /** LLM 不在など、分析自体は完了したが部分的に欠落した場合の警告 */
+  /** 分析自体は完了したが部分的に欠落した場合の警告 */
   warning_message?: string;
 }
 

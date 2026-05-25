@@ -19,6 +19,13 @@ type Options = {
   minWidth?: number;
   /** リサイズ時にフォーム側へ最低限残す幅(px) */
   minFormWidth?: number;
+  /**
+   * カラム間に存在しフォームにも PDF にも属さない固定幅(px)。
+   * `.split` の gap(1rem×2=32px) + スプリッター(6px) ≒ 38px。
+   * これを差し引いてクランプしないと、フォームの確保幅が gap 分だけ削られ
+   * 入力欄が PDF カラムに覆い被さって切れる。
+   */
+  reservedGap?: number;
 };
 
 export type UsePdfPanelLayoutReturn = {
@@ -36,7 +43,7 @@ export function usePdfPanelLayout(
   containerRef: RefObject<HTMLElement | null>,
   options: Options = {},
 ): UsePdfPanelLayoutReturn {
-  const { initialWidth = 360, minWidth = 280, minFormWidth = 360 } = options;
+  const { initialWidth = 360, minWidth = 280, minFormWidth = 360, reservedGap = 38 } = options;
 
   const [width, setWidth] = useState(initialWidth);
   const [maximized, setMaximized] = useState(false);
@@ -48,7 +55,7 @@ export function usePdfPanelLayout(
       const container = containerRef.current;
       if (!resizingRef.current || !container) return;
       const rect = container.getBoundingClientRect();
-      const maxWidth = Math.max(minWidth, rect.width - minFormWidth);
+      const maxWidth = Math.max(minWidth, rect.width - minFormWidth - reservedGap);
       const raw = rect.right - e.clientX;
       setWidth(Math.min(Math.max(raw, minWidth), maxWidth));
     };
@@ -64,7 +71,7 @@ export function usePdfPanelLayout(
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [containerRef, minWidth, minFormWidth]);
+  }, [containerRef, minWidth, minFormWidth, reservedGap]);
 
   const startResize = useCallback((e: ReactMouseEvent) => {
     e.preventDefault();

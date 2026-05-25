@@ -1,13 +1,10 @@
-"""_run_github_analysis と _generate_advice_if_available の単体テスト。"""
+"""_run_github_analysis の単体テスト。"""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from app.models import GitHubAnalysisCache
 from app.repositories import UserRepository
-from app.services.intelligence.github_analysis_service import (
-    _generate_advice_if_available,
-)
 from app.services.tasks.worker import _run_github_analysis
 from sqlalchemy.orm import Session
 
@@ -65,10 +62,6 @@ class TestRunGithubAnalysis:
                 new_callable=AsyncMock,
             ),
             patch(
-                "app.services.intelligence.github_analysis_service.get_llm_client",
-                return_value=MagicMock(check_available=AsyncMock(return_value=False)),
-            ),
-            patch(
                 "app.services.intelligence.github_analysis_service.decrypt_field",
                 return_value="token123",
             ),
@@ -111,10 +104,6 @@ class TestRunGithubAnalysis:
                 side_effect=_fake_collect,
             ),
             patch("app.services.progress_service.set_progress", new_callable=AsyncMock),
-            patch(
-                "app.services.intelligence.github_analysis_service.get_llm_client",
-                return_value=MagicMock(check_available=AsyncMock(return_value=False)),
-            ),
             patch(
                 "app.services.intelligence.github_analysis_service.decrypt_field",
                 return_value=None,
@@ -189,92 +178,3 @@ class TestRunGithubAnalysis:
                     },
                 )
             )
-
-
-class TestGenerateAdviceIfAvailable:
-    def _analysis(self):
-        return {
-            "repos_analyzed": 5,
-            "languages": {"Python": 50000},
-            "position_scores": {
-                "backend": 70,
-                "frontend": 20,
-                "fullstack": 45,
-                "sre": 25,
-                "cloud": 15,
-                "missing_skills": [],
-            },
-        }
-
-    def test_llm_unavailable_returns_none(self):
-        """LLM が利用不可の場合 (None, False) を返すこと。"""
-        mock_llm = MagicMock()
-        mock_llm.check_available = AsyncMock(return_value=False)
-
-        with patch(
-            "app.services.intelligence.github_analysis_service.get_llm_client",
-            return_value=mock_llm,
-        ):
-            result = _run(_generate_advice_if_available(self._analysis()))
-
-        assert result == (None, False)
-
-    def test_llm_available_returns_advice(self):
-        """LLM が利用可能の場合、(アドバイス文字列, False) を返すこと。"""
-        mock_llm = MagicMock()
-        mock_llm.check_available = AsyncMock(return_value=True)
-
-        with (
-            patch(
-                "app.services.intelligence.github_analysis_service.get_llm_client",
-                return_value=mock_llm,
-            ),
-            patch(
-                "app.services.intelligence.github_analysis_service.generate_learning_advice",
-                new_callable=AsyncMock,
-                return_value="学習アドバイスです",
-            ),
-        ):
-            result = _run(_generate_advice_if_available(self._analysis()))
-
-        assert result == ("学習アドバイスです", False)
-
-    def test_llm_retryable_error_returns_warning(self):
-        """LLM が想定内の RetryableError を送出した場合 (None, True) を返し例外を握りつぶすこと。"""
-        from app.services.tasks.exceptions import RetryableError
-
-        mock_llm = MagicMock()
-        mock_llm.check_available = AsyncMock(side_effect=RetryableError("LLM 一時障害"))
-
-        with patch(
-            "app.services.intelligence.github_analysis_service.get_llm_client",
-            return_value=mock_llm,
-        ):
-            result = _run(_generate_advice_if_available(self._analysis()))
-
-        assert result == (None, True)
-
-    def test_llm_unexpected_exception_propagates(self):
-        """LLM が予期しない例外を送出した場合は再送出されること（プログラミングエラー検知のため）。"""
-        mock_llm = MagicMock()
-        mock_llm.check_available = AsyncMock(side_effect=Exception("LLM クラッシュ"))
-
-        with patch(
-            "app.services.intelligence.github_analysis_service.get_llm_client",
-            return_value=mock_llm,
-        ):
-            with pytest.raises(Exception, match="LLM クラッシュ"):
-                _run(_generate_advice_if_available(self._analysis()))
-
-    def test_no_position_scores_returns_none(self):
-        """position_scores が None の場合 (None, False) を返すこと。"""
-        mock_llm = MagicMock()
-        mock_llm.check_available = AsyncMock(return_value=True)
-
-        with patch(
-            "app.services.intelligence.github_analysis_service.get_llm_client",
-            return_value=mock_llm,
-        ):
-            result = _run(_generate_advice_if_available({"repos_analyzed": 5}))
-
-        assert result == (None, False)

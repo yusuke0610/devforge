@@ -20,7 +20,6 @@ function mockEmptyCache() {
     http.get("*/api/intelligence/cache", () =>
       HttpResponse.json({
         analysis_result: null,
-        position_advice: null,
         status: null,
       }),
     ),
@@ -94,9 +93,7 @@ describe("GitHubAnalysisPage", () => {
             detected_frameworks: {},
             detected_devtools: {},
             detected_infras: {},
-            position_scores: null,
           },
-          position_advice: null,
         }),
       ),
     );

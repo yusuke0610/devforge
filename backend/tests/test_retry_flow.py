@@ -19,8 +19,7 @@ from contextlib import contextmanager
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from app.models import BlogSummaryCache, GitHubAnalysisCache
-from app.models.career_analysis import CareerAnalysis
+from app.models import GitHubAnalysisCache
 from app.repositories import UserRepository
 from app.services.tasks.base import TaskType
 from app.services.tasks.exceptions import NonRetryableError, RetryableError
@@ -316,62 +315,6 @@ class TestInternalRouterStatusMapping:
 class TestRetryEndpoints:
     """`POST /{resource}/retry` が失敗状態をリセットし再ディスパッチすること。"""
 
-    def test_career_retry_resets_and_dispatches(self, client: TestClient):
-        headers = auth_header(client, "retry-career-user")
-
-        # dead_letter のレコードを直接作る
-        db = client._db_session
-        user = UserRepository(db).get_by_username("retry-career-user")
-        analysis = CareerAnalysis(
-            user_id=user.id,
-            version=1,
-            target_position="SRE",
-            status="dead_letter",
-            error_message="old error",
-            retry_count=3,
-        )
-        db.add(analysis)
-        db.commit()
-
-        resp = client.post(
-            f"/api/career-analysis/{analysis.id}/retry",
-            headers=headers,
-        )
-        assert resp.status_code == 202
-        body = resp.json()
-        assert body["status"] == "pending"
-
-        db.refresh(analysis)
-        assert analysis.status == "pending"
-        assert analysis.retry_count == 0
-        assert analysis.error_message is None
-
-    def test_career_retry_rejects_non_terminal_status(self, client: TestClient):
-        """pending / processing / completed 状態は 409 を返す。"""
-        headers = auth_header(client, "retry-running-user")
-
-        db = client._db_session
-        user = UserRepository(db).get_by_username("retry-running-user")
-        analysis = CareerAnalysis(
-            user_id=user.id,
-            version=1,
-            target_position="SRE",
-            status="processing",
-        )
-        db.add(analysis)
-        db.commit()
-
-        resp = client.post(
-            f"/api/career-analysis/{analysis.id}/retry",
-            headers=headers,
-        )
-        assert resp.status_code == 409
-
-    def test_career_retry_returns_404_for_missing(self, client: TestClient):
-        headers = auth_header(client, "retry-404-user")
-        resp = client.post("/api/career-analysis/999999/retry", headers=headers)
-        assert resp.status_code == 404
-
     def test_intelligence_retry_requires_github_user(self, client: TestClient):
         """GitHub 以外のユーザーは GitHub 分析リトライを実行できない。"""
         headers = auth_header(client, "non-github-user")
@@ -400,33 +343,6 @@ class TestRetryEndpoints:
         assert cache.status == "pending"
         assert cache.retry_count == 0
         assert cache.error_message is None
-
-    def test_blog_retry_resets_dead_letter_cache(self, client: TestClient):
-        """ブログサマリ再実行で dead_letter キャッシュが pending にリセットされること。
-
-        記事は worker 側で BlogArticleRepository から取得するためボディ不要。
-        """
-        headers = auth_header(client, "retry-blog-user")
-        db = client._db_session
-        user = UserRepository(db).get_by_username("retry-blog-user")
-
-        cache = BlogSummaryCache(
-            user_id=user.id,
-            status="dead_letter",
-            error_message="old",
-            retry_count=3,
-        )
-        db.add(cache)
-        db.commit()
-
-        with patch(
-            "app.routers.blog.summarize.check_llm_available", new=AsyncMock(return_value=True),
-        ):
-            resp_ok = client.post("/api/blog/summarize/retry", headers=headers)
-        assert resp_ok.status_code == 202
-
-        db.refresh(cache)
-        assert cache.status == "pending"
         assert cache.retry_count == 0
         assert cache.error_message is None
 

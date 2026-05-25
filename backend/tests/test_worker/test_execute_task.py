@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from app.models import BlogSummaryCache
+from app.models import GitHubAnalysisCache
 from app.repositories import UserRepository
 from app.services.tasks.base import TaskType
 from app.services.tasks.worker import (
@@ -18,22 +18,13 @@ from ._helpers import run_sync as _run
 
 class TestExecuteTask:
     def test_known_task_type_routes_to_correct_handler(self, db_session: Session):
-        """GITHUB_ANALYSIS が _run_github_analysis に正しくディスパッチされ、
-        他のハンドラ関数は呼ばれないことを確認する。"""
+        """GITHUB_ANALYSIS が _run_github_analysis に正しくディスパッチされることを確認する。"""
         with (
             patch("app.services.tasks.worker.SessionLocal", return_value=db_session),
             patch(
                 "app.services.tasks.worker._run_github_analysis",
                 new_callable=AsyncMock,
             ) as mock_gh,
-            patch(
-                "app.services.tasks.worker._run_blog_summarize",
-                new_callable=AsyncMock,
-            ) as mock_blog,
-            patch(
-                "app.services.tasks.worker._run_career_analysis",
-                new_callable=AsyncMock,
-            ) as mock_career,
             patch("app.services.tasks.worker._create_notification"),
         ):
             _run(
@@ -44,8 +35,6 @@ class TestExecuteTask:
             )
 
         mock_gh.assert_called_once()
-        mock_blog.assert_not_called()
-        mock_career.assert_not_called()
 
     def test_all_task_types_have_dispatch_branch(self):
         """TaskType に列挙された全種別に execute_task のディスパッチ分岐があること。
@@ -105,7 +94,7 @@ class TestExecuteTask:
         with (
             patch("app.services.tasks.worker.SessionLocal", mock_session_local),
             patch(
-                "app.services.tasks.worker._run_blog_summarize",
+                "app.services.tasks.worker._run_github_analysis",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
@@ -113,13 +102,13 @@ class TestExecuteTask:
         ):
             _run(
                 execute_task(
-                    TaskType.BLOG_SUMMARIZE,
-                    {"user_id": "notif-test-user"},
+                    TaskType.GITHUB_ANALYSIS,
+                    {"user_id": "notif-test-user", "github_username": "u"},
                 )
             )
 
         mock_notify.assert_called_once_with(
-            mock_db, TaskType.BLOG_SUMMARIZE, "notif-test-user", "completed"
+            mock_db, TaskType.GITHUB_ANALYSIS, "notif-test-user", "completed"
         )
 
 
@@ -128,7 +117,7 @@ class TestSafeRollback:
         """DB commit 失敗で実際にエラー状態に陥ったあと、_safe_rollback で
         セッションが再利用可能になること。
 
-        `BlogSummaryCache.user_id` の unique 制約に違反させて IntegrityError を起こし、
+        `GitHubAnalysisCache.user_id` の unique 制約に違反させて IntegrityError を起こし、
         その後 `_safe_rollback` を呼ぶことで、ロールバックが効いて以降の commit が成功する
         という回復経路を実際に踏ませる。元実装は手動 `rollback()` のみで失敗状態を作らず、
         テストとして空回りしていた。
@@ -136,13 +125,13 @@ class TestSafeRollback:
         user = UserRepository(db_session).create(
             "rollback-test-user", hashed_password=None, email="rollback@test.com"
         )
-        first_cache = BlogSummaryCache(user_id=user.id, status="processing")
+        first_cache = GitHubAnalysisCache(user_id=user.id, status="processing")
         db_session.add(first_cache)
         db_session.commit()
 
         # 同じ user_id で 2 件目を追加 → unique 制約違反で commit が失敗し、
         # セッションは「次の操作で PendingRollbackError を投げる」状態になる
-        duplicate = BlogSummaryCache(user_id=user.id, status="processing")
+        duplicate = GitHubAnalysisCache(user_id=user.id, status="processing")
         db_session.add(duplicate)
         with pytest.raises(IntegrityError):
             db_session.commit()

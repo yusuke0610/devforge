@@ -18,7 +18,6 @@ test.describe("認証済みユーザーのナビゲーション", () => {
     await expect(page.getByRole("link", { name: "職務経歴書" })).toBeVisible();
     await expect(page.getByRole("link", { name: "GitHub分析" })).toBeVisible();
     await expect(page.getByRole("link", { name: "ブログ連携" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "キャリア分析" })).toBeVisible();
   });
 
   test("通知ベルがサイドバーに表示される", async ({ page }) => {
@@ -31,7 +30,7 @@ test.describe("認証済みユーザーのナビゲーション", () => {
     await page.goto("/career");
     await waitForAuthenticatedLayout(page);
 
-    await page.getByRole("link", { name: "キャリア分析" }).click();
-    await expect(page).toHaveURL(/\/career_analysis/);
+    await page.getByRole("link", { name: "ブログ連携" }).click();
+    await expect(page).toHaveURL(/\/blog/);
   });
 });

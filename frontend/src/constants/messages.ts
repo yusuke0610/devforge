@@ -55,8 +55,6 @@ export const FALLBACK_MESSAGES = {
   BLOG_SYNC_SIMPLE: "同期に失敗しました",
   BLOG_UNLINK: "アカウントの解除に失敗しました",
   BLOG_USERNAME_UPDATE: "usernameの更新に失敗しました",
-  BLOG_SUMMARY_FAILED: "AI分析に失敗しました",
-  BLOG_SUMMARY_UNAVAILABLE: "AI分析サーバーに接続できません",
   DOWNLOAD: "ダウンロードに失敗しました",
   PREVIEW_FETCH: "プレビューの取得に失敗しました",
   AUTH_CHECK: "ログイン状態の確認に失敗しました。",
@@ -92,7 +90,7 @@ export const IMPORT_ASSIST_MESSAGES = {
 
 /**
  * 非同期バックグラウンドタスクのローディング UI 文言（AsyncTaskLoading で使用）。
- * PDF アップロード / GitHub 分析 / ブログ分析 / キャリア分析 で共通の補足メッセージと、
+ * PDF アップロード / GitHub 分析 で共通の補足メッセージと、
  * 機能ごとの処理内容ラベルを集約する。
  */
 export const LOADING_MESSAGES = {
@@ -102,10 +100,6 @@ export const LOADING_MESSAGES = {
   TAKES_TIME: "この処理には時間がかかります",
   /** GitHub 分析中ラベル */
   GITHUB_ANALYSIS: "GitHubプロフィールを分析中...",
-  /** ブログ分析中ラベル */
-  BLOG_ANALYSIS: "ブログを分析中...",
-  /** キャリア分析中ラベル */
-  CAREER_ANALYSIS: "AI がキャリアを分析中です...",
 } as const;
 
 /** ダウンロード失敗時のメッセージにファイル名を付与する。 */

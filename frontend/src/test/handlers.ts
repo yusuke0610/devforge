@@ -33,9 +33,7 @@ const analysisCacheResult = http.get("*/api/intelligence/cache", () =>
       detected_frameworks: { React: 3, FastAPI: 2 },
       detected_devtools: { Docker: 4, "GitHub Actions": 3 },
       detected_infras: { Terraform: 1 },
-      position_scores: null,
     },
-    position_advice: null,
   }),
 );
 

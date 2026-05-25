@@ -26,7 +26,7 @@ from .factory import get_task_dispatcher
 class _AsyncTaskRecord(Protocol):
     """status / error_message / retry_count などを持つキャッシュレコードの構造的型。
 
-    GitHubAnalysisCache / BlogSummaryCache / CareerAnalysis が満たす。
+    GitHubAnalysisCache が満たす。
     """
 
     status: str

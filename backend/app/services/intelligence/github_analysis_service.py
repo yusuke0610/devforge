@@ -1,12 +1,11 @@
 """GitHub 分析タスクの実行サービス。
 
 進捗通知付きでパイプラインを駆動し、結果を ``GitHubAnalysisCache`` に保存する。
-LLM が利用可能であれば学習アドバイスも併せて生成する。
 
-worker は本サービスを呼ぶだけで、状態遷移・進捗・LLM 失敗ラベルなどは本モジュールに集約する。
+worker は本サービスを呼ぶだけで、状態遷移・進捗などは本モジュールに集約する。
 
-libSQL (Hrana over HTTP) の idle stream timeout を避けるため、GitHub API 収集と
-LLM 呼び出しの前後でセッションを開閉する。
+libSQL (Hrana over HTTP) の idle stream timeout を避けるため、GitHub API 収集の
+前後でセッションを開閉する。
 """
 
 from datetime import datetime, timezone
@@ -15,11 +14,9 @@ from ...core.encryption import decrypt_field
 from ...core.logging_utils import get_logger
 from ...models import GitHubAnalysisCache
 from ..progress_service import set_progress
-from ..tasks.exceptions import NonRetryableError, RetryableError
+from ..tasks.exceptions import NonRetryableError
 from ..tasks.handlers.base import SessionFactory
 from .github_collector import GitHubUserNotFoundError, collect_repos
-from .llm import get_llm_client
-from .llm_summarizer import generate_learning_advice
 from .pipeline import aggregate_intelligence
 from .response_mapper import map_pipeline_result
 
@@ -33,11 +30,11 @@ def _now() -> datetime:
 
 
 async def run_github_analysis(session_factory: SessionFactory, payload: dict) -> None:
-    """GitHub 分析パイプラインを実行し、AI 学習アドバイスまで一括生成してキャッシュに保存する。
+    """GitHub 分析パイプラインを実行し、結果をキャッシュに保存する。
 
     フェーズ構成:
       - A: payload 検証 + processing マーク（短命セッション）
-      - B: GitHub API 取得 + スキル集計 + LLM アドバイス（DB セッション無し）
+      - B: GitHub API 取得 + スキル集計（DB セッション無し）
       - C: 結果書き戻し（新セッション）
     """
     user_id = payload.get("user_id")
@@ -63,7 +60,7 @@ async def run_github_analysis(session_factory: SessionFactory, payload: dict) ->
         cache.warning_message = None
         db.commit()
 
-    # ── フェーズB: GitHub 取得 + 集計 + LLM アドバイス（DB セッション無し）──
+    # ── フェーズB: GitHub 取得 + 集計（DB セッション無し）──────────────────
     token = decrypt_field(payload["github_token"]) if payload.get("github_token") else None
 
     try:
@@ -97,15 +94,12 @@ async def run_github_analysis(session_factory: SessionFactory, payload: dict) ->
                 db.commit()
         raise exc
 
-    # ステップ 3: スキル抽出 + スコア算出（同一の集計関数で一括処理）
+    # ステップ 3: スキル抽出（集計関数で一括処理）
     await set_progress(task_id, 3, _TOTAL_STEPS, "スキル分析中...")
     result = aggregate_intelligence(payload["github_username"], repos)
 
     response = map_pipeline_result(result)
     analysis_dict = response.model_dump()
-
-    # LLM が利用可能なら学習アドバイスも自動生成する
-    advice, llm_failed = await _generate_advice_if_available(analysis_dict)
 
     # ── フェーズC: 結果書き戻し（新セッション）─────────────────────────────
     # ステップ 4: DB 保存
@@ -119,43 +113,11 @@ async def run_github_analysis(session_factory: SessionFactory, payload: dict) ->
             )
             return
         cache.analysis_result = analysis_dict
-        cache.position_advice = advice
         cache.status = "completed"
         cache.error_message = None
-        # LLM 失敗は分析自体は成功しているため warning_message に分けて記録する
-        cache.warning_message = "LLM処理が利用できません" if llm_failed else None
+        cache.warning_message = None
         cache.completed_at = _now()
         db.commit()
 
     # ステップ 5: 完了
     await set_progress(task_id, 5, _TOTAL_STEPS, "完了")
-
-
-async def _generate_advice_if_available(analysis: dict) -> tuple[str | None, bool]:
-    """LLM が利用可能であれば学習アドバイスを生成する。
-
-    戻り値は (advice, llm_failed) のタプル。
-    llm_failed=True は LLM の呼び出しを試みたが失敗したことを示す。
-    LLM が未設定またはスコア情報がない場合は llm_failed=False でスキップする。
-    """
-    try:
-        llm_client = get_llm_client()
-        if not await llm_client.check_available():
-            logger.info("LLM が利用できないため学習アドバイスの生成をスキップしました")
-            return None, False
-
-        scores = analysis.get("position_scores")
-        if not scores:
-            return None, False
-
-        advice = await generate_learning_advice(analysis, scores)
-        if advice is None:
-            logger.warning("LLM が学習アドバイスの生成に失敗しました")
-            return None, True
-        return advice, False
-    except (RetryableError, NonRetryableError):
-        logger.warning("学習アドバイスの生成に失敗しましたが、分析結果は保存します", exc_info=True)
-        return None, True
-    except Exception:
-        logger.exception("学習アドバイスの生成で予期しないエラーが発生しました")
-        raise

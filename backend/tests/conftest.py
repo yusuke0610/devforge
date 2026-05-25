@@ -77,8 +77,6 @@ from app.main import app, limiter  # noqa: E402
 from app.models import (  # noqa: F401,E402 — ensure models registered
     BlogAccount,
     BlogArticle,
-    BlogSummaryCache,
-    CareerAnalysis,
     GitHubAnalysisCache,
     MQualification,
     MTechnologyStack,

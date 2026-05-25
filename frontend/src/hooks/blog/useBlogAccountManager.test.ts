@@ -36,9 +36,6 @@ vi.mock("../../api", () => ({
   updateBlogAccount: vi.fn(),
   deleteBlogAccount: vi.fn(),
   syncBlogAccount: vi.fn(),
-  summarizeBlogArticles: vi.fn(),
-  getBlogSummaryCache: vi.fn(),
-  getBlogSummaryCacheStatus: vi.fn(),
 }));
 
 // ── reduceActions の単体テスト ────────────────────────────────
@@ -92,8 +89,6 @@ describe("useBlogAccountManager", () => {
     vi.clearAllMocks();
     api = await import("../../api");
     // デフォルトのモック戻り値を設定
-    api.getBlogSummaryCache.mockResolvedValue({ available: false, summary: null, status: "idle" });
-    api.getBlogSummaryCacheStatus.mockResolvedValue({ status: "idle" });
     api.getBlogAccounts.mockResolvedValue([]);
     api.getBlogArticles.mockResolvedValue([]);
   });

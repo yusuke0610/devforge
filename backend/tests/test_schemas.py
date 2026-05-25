@@ -1,6 +1,5 @@
 import pytest
 from app.schemas import (
-    BlogSummaryRequest,
     Experience,
     Project,
     ResumeCreate,
@@ -326,18 +325,3 @@ def test_project_end_date_none_is_rejected() -> None:
             is_current=True,
             technology_stacks=[],
         )
-
-
-def test_blog_summary_request_limits_article_count() -> None:
-    article = {
-        "platform": "zenn",
-        "title": "記事タイトル",
-        "url": "https://zenn.dev/example/articles/test",
-        "published_at": "2026-03-19",
-        "likes_count": 1,
-        "summary": "概要",
-        "tags": ["Python"],
-    }
-
-    with pytest.raises(ValidationError):
-        BlogSummaryRequest(articles=[article] * 51)

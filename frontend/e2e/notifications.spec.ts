@@ -52,9 +52,9 @@ test.describe("通知ベル", () => {
       },
       {
         id: "notif-2",
-        task_type: "career_analysis",
+        task_type: "github_analysis",
         status: "failed",
-        title: "キャリア分析に失敗しました",
+        title: "GitHub分析に失敗しました",
         message: null,
         is_read: false,
         created_at: new Date().toISOString(),
@@ -82,7 +82,7 @@ test.describe("通知ベル", () => {
 
     // パネルが開いてタイトルが見える
     await expect(page.getByText("GitHub分析が完了しました")).toBeVisible();
-    await expect(page.getByText("キャリア分析に失敗しました")).toBeVisible();
+    await expect(page.getByText("GitHub分析に失敗しました")).toBeVisible();
   });
 
   test("「全て既読」ボタンをクリックするとバッジが消える", async ({ page }) => {

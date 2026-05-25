@@ -26,10 +26,14 @@
   color: var(--text-secondary);
 }
 
+/* プロジェクト1件のサマリー行。フォームを狭めて深くネストした時（実効幅 ~250px）でも
+   編集/削除ボタンが見切れないよう折り返す。広い時は 1 行のまま、狭い時だけアクションが
+   名前+期間の下に回り込む（projectName が flex:1 で残り幅を埋めるため自然に分割される）。 */
 .projectSummaryRow {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.8rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -38,7 +42,8 @@
 }
 
 .projectName {
-  flex: 1;
+  /* 折り返し時も最低限の表示幅を確保しつつ、残り幅を埋める */
+  flex: 1 1 8rem;
   font-weight: 500;
   min-width: 0;
   overflow: hidden;
@@ -56,6 +61,8 @@
   display: flex;
   gap: 0.4rem;
   flex-shrink: 0;
+  /* 折り返した時は行内で右寄せにして収まりを良くする */
+  margin-left: auto;
 }
 
 .clientHeader {
@@ -82,6 +89,12 @@
   /* 入力欄の高さに合わせて調整 */
   height: 2.6rem;
   white-space: nowrap;
+}
+
+/* split の親。コンテナクエリの基準にする（split に実際に割り当てられる幅で縦積み判定）。
+   ビューポート幅ではなくこの幅で判定することで、サイドバー展開/折りたたみにも追従する。 */
+.splitWrap {
+  container-type: inline-size;
 }
 
 /* 左=入力フォーム / 右=PDF 原本ビューの 2 カラム。スプリッターで左右リサイズできる。 */
@@ -115,9 +128,11 @@
   background: #b7c5e0;
 }
 
-/* 右: PDF カラム（幅は inline style で可変。中の panel が縦に伸びる） */
+/* 右: PDF カラム（幅は CSS 変数 --pdf-col-width で可変。中の panel が縦に伸びる）。
+   inline style ではなく変数経由にすることで、縦積み時の全幅化を CSS 側で上書きできる。 */
 .pdfCol {
   flex-shrink: 0;
+  width: var(--pdf-col-width, 360px);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -134,4 +149,34 @@
 .maximized .pdfCol {
   flex: 1;
   width: auto;
+}
+
+/* 横幅が足りない時（2 カラムを並べると最小幅を割る幅）は縦積みに切り替える。
+   閾値 = PDF 最小(280) + フォーム最小(360) + gap/splitter(38) ≒ 680px。
+   これ未満では左右に並べず、フォームの下に PDF を全幅で積む（要素が切れない）。 */
+@container (max-width: 680px) {
+  .split {
+    flex-direction: column;
+    height: auto;
+  }
+
+  /* 縦積み時はページ全体スクロールに委ねる（カラム個別スクロールを解除） */
+  .formCol {
+    overflow-y: visible;
+  }
+
+  /* 縦積み時はドラッグでの左右リサイズは無効化 */
+  .splitter {
+    display: none;
+  }
+
+  /* インライン相当の幅指定を上書きして全幅。区切りは上ボーダーへ。 */
+  .pdfCol {
+    width: 100%;
+    min-height: 70vh;
+    border-left: none;
+    border-top: 1px solid var(--border, #e5e5e5);
+    padding-left: 0;
+    padding-top: 1rem;
+  }
 }

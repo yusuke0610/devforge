@@ -59,17 +59,29 @@ describe("usePdfPanelLayout", () => {
 
     act(() => result.current.startResize(noopMouseEvent));
 
-    // 幅 = right - clientX = 1000 - 550 = 450（max=900-360=540 内）
+    // 幅 = right - clientX = 1000 - 550 = 450（max=900-360-38=502 内）
     act(() => window.dispatchEvent(mouse("mousemove", 550)));
     expect(result.current.width).toBe(450);
 
-    // 左へ行き過ぎ → 最大 540 にクランプ
+    // 左へ行き過ぎ → 最大 502（= width - minFormWidth - reservedGap）にクランプ
     act(() => window.dispatchEvent(mouse("mousemove", 100)));
-    expect(result.current.width).toBe(540);
+    expect(result.current.width).toBe(502);
 
     // 右へ行き過ぎ → 最小 280 にクランプ
     act(() => window.dispatchEvent(mouse("mousemove", 900)));
     expect(result.current.width).toBe(280);
+  });
+
+  it("reservedGap を増やすと最大幅がその分だけ狭くなる", () => {
+    const ref = makeContainerRef(1000, 900);
+    const { result } = renderHook(() =>
+      usePdfPanelLayout(ref, { minWidth: 280, minFormWidth: 360, reservedGap: 100 }),
+    );
+
+    act(() => result.current.startResize(noopMouseEvent));
+    // 左端までドラッグ → max = width - minFormWidth - reservedGap = 900 - 360 - 100 = 440
+    act(() => window.dispatchEvent(mouse("mousemove", 0)));
+    expect(result.current.width).toBe(440);
   });
 
   it("mouseup 後の mousemove は幅に影響しない", () => {

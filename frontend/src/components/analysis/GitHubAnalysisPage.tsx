@@ -14,7 +14,6 @@ import { LOADING_MESSAGES } from "../../constants/messages";
 import { useAsyncAnalysisPage } from "../../hooks/analysis/useAsyncAnalysisPage";
 import { LanguageBar } from "./LanguageBar";
 import { TechBar } from "./TechBar";
-import { PositionRadarChart } from "./PositionRadarChart";
 import shared from "../../styles/shared.module.css";
 import styles from "./GitHubAnalysisPage.module.css";
 
@@ -28,10 +27,6 @@ import styles from "./GitHubAnalysisPage.module.css";
  */
 export function GitHubAnalysisPage() {
   const [includeForks, setIncludeForks] = useState(false);
-  /** ポジションアドバイス（GitHub 固有のキャッシュデータ） */
-  const [positionAdvice, setPositionAdvice] = useState<string | null>(null);
-  /** LLM 処理が失敗した場合のエラーコード（部分成功ケース） */
-  const [llmErrorCode, setLlmErrorCode] = useState<string | null>(null);
 
   const {
     phase,
@@ -44,12 +39,6 @@ export function GitHubAnalysisPage() {
   } = useAsyncAnalysisPage<AnalysisResponse>({
     loadCache: async () => {
       const cache = await getAnalysisCache();
-      // ポジションアドバイスをページ固有の状態として保持する
-      if (cache.position_advice) {
-        setPositionAdvice(cache.position_advice);
-      }
-      // LLM 処理失敗のエラーコードを保持する（部分成功ケース）
-      setLlmErrorCode(cache.error_code ?? null);
       return { result: cache.analysis_result, status: cache.status };
     },
     checkStatus: getAnalysisCacheStatus,
@@ -61,8 +50,6 @@ export function GitHubAnalysisPage() {
    */
   const handleAnalyze = async () => {
     setError(null);
-    setPositionAdvice(null);
-    setLlmErrorCode(null);
     try {
       await analyzeGitHub({ include_forks: includeForks });
       transitionToPolling();
@@ -75,8 +62,6 @@ export function GitHubAnalysisPage() {
    * 入力画面に戻ります（再分析用）。
    */
   const handleBack = () => {
-    setPositionAdvice(null);
-    setLlmErrorCode(null);
     setResult(null);
     backToInput();
   };
@@ -155,8 +140,6 @@ export function GitHubAnalysisPage() {
           />
         )}
 
-        {llmErrorCode && <ErrorToast code={llmErrorCode} />}
-
         {/* 概要 */}
         <div className={styles.section}>
           <h2>Overview</h2>
@@ -206,17 +189,6 @@ export function GitHubAnalysisPage() {
               <TechBar techs={result.detected_infras} />
             </div>
           )}
-
-        {/* ポジションスコア */}
-        {result.position_scores && (
-          <div className={styles.section}>
-            <h2>Position Score</h2>
-            <PositionRadarChart
-              scores={result.position_scores}
-              cachedAdvice={positionAdvice}
-            />
-          </div>
-        )}
       </div>
     );
   };
