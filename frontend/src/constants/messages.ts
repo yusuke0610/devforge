@@ -70,19 +70,24 @@ export const UI_MESSAGES = {
     "ページの表示中に問題が発生しました。再読み込みするか、ホームへ戻ってください。",
 } as const;
 
-/** PDF 取り込み補助（クリック流し込み）UI の文言 */
+/** PDF 取り込み補助（PDF ビュー上の選択 → 流し込み）UI の文言 */
 export const IMPORT_ASSIST_MESSAGES = {
   TITLE: "PDFから下書きを取り込む",
-  HINT: "フォームの入力欄をクリックして選ぶ（緑枠）と、右のブロックをクリックでその内容が流し込まれます。テキスト欄は続けてクリックで追記できます。",
+  HINT: "フォームの入力欄をクリックして選ぶ（緑枠）と、右のPDF上で選択した文字がその欄に流し込まれます。テキスト欄は続けて選択で追記できます。",
   SELECT_FILE: "PDFから取り込み",
-  ANALYZING: "解析中...",
-  EMPTY: "PDFを選ぶと、抽出したテキストがここにブロックで並びます。",
-  NO_BLOCKS: "抽出できるテキストが見つかりませんでした。",
+  RESELECT_FILE: "PDFを選び直す",
+  RENDERING: "PDFを表示中...",
+  EMPTY: "PDFを選ぶと、ここに原本が表示されます。文字をドラッグで選択して入力欄へ流し込めます。",
+  NO_TEXT:
+    "このPDFから文字を選択できませんでした（スキャンPDFの可能性があります）。文字を選択できるPDFをお試しください。",
+  RENDER_FAILED: "PDFの表示に失敗しました。別のファイルをお試しください。",
   NO_TARGET: "先にフォームの入力欄をクリックして、流し込み先を選んでください。",
-  KIND_LINE: "本文",
-  KIND_TABLE: "表",
-  USED: "使用済み",
-  CLEAR: "選択状態をリセット",
+  TAB_FALLBACK: "PDF",
+  MAXIMIZE: "最大化",
+  RESTORE: "元に戻す",
+  MAXIMIZE_HINT: "ダブルクリックで最大化／元に戻す",
+  ZOOM_IN: "拡大",
+  ZOOM_OUT: "縮小",
 } as const;
 
 /**

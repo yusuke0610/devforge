@@ -32,11 +32,14 @@
   overflow: hidden;
 }
 
-/* モーダル内に再掲する取り込みブロックパネル（独立スクロール） */
+/* モーダル内に再掲する PDF 原本ビュー（タブ固定・ページ部のみスクロール） */
 .blocksColumn {
   width: 320px;
   flex-shrink: 0;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   border-left: 1px solid var(--border);
   padding: 1rem;
 }

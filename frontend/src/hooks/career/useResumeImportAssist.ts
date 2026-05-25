@@ -1,22 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import {
-  extractResumeBlocks,
-  type ResumeImportBlock,
-} from "../../api/resumeImports";
-import { IMPORT_ASSIST_MESSAGES, NETWORK_MESSAGES } from "../../constants/messages";
+import { IMPORT_ASSIST_MESSAGES } from "../../constants/messages";
 
 /**
- * PDF 取り込み補助（クリック流し込み・LLM 不使用）の状態とハンドラを束ねるフック。
+ * PDF 取り込み補助（PDF ビュー上の選択 → 入力欄へ流し込み）の状態とハンドラを束ねるフック。
  *
- * バックエンドが PDF を「割り当て候補ブロック（本文行 / 表セル）」に分解して返す。
- * ユーザーはフォームの入力欄をクリックして流し込み先を選び、ブロックをクリックすると
- * その内容が選択中の入力欄へ流し込まれる（意味づけ・階層づけは人間が行う）。
+ * 選択した PDF は右カラム（{@link ResumePdfTracePanel}）に原本のまま描画される。
+ * ユーザーはフォームの入力欄をクリックして流し込み先を選び、PDF 上でテキストをドラッグ
+ * 選択すると、その文字列が選択中の入力欄へ流し込まれる（意味づけ・粒度は人間が決める）。
  *
  * 流し込み先は document の focusin で「最後にフォーカスした input/textarea」を覚える。
  * React 管理下の controlled input にも、ネイティブ value セッター経由で input イベントを
  * 発火させて反映する（既存フォームの各入力に手を入れずに済む）。流し込み後は対象へ
- * フォーカスを戻し、選択状態（:focus の緑枠）が維持され連続流し込みできるようにする。
+ * フォーカスを戻し、選択状態（:focus の緑枠）を維持して連続流し込みできるようにする。
  */
 
 /** controlled input/textarea に値を流し込み、React の onChange を発火させる。 */
@@ -25,7 +21,7 @@ function assignToElement(el: HTMLInputElement | HTMLTextAreaElement, text: strin
   const proto = isTextarea ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
   if (!setter) return;
-  // テキストエリアは追記（複数ブロックを続けて流し込めるように）、その他は置換
+  // テキストエリアは追記（複数箇所を続けて流し込めるように）、その他は置換
   const next = isTextarea && el.value.trim() ? `${el.value}\n${text}` : text;
   setter.call(el, next);
   el.dispatchEvent(new Event("input", { bubbles: true }));
@@ -44,21 +40,21 @@ const NON_FILLABLE_INPUT_TYPES = new Set([
 ]);
 
 export type UseResumeImportAssistReturn = {
-  blocks: ResumeImportBlock[];
-  usedIds: Set<number>;
-  loading: boolean;
-  error: string | null;
+  /** 描画対象として選択中の PDF（未選択時は null） */
+  file: File | null;
   fileName: string | null;
-  handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
-  handleBlockClick: (block: ResumeImportBlock) => void;
+  error: string | null;
+  handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  /** PDF 上で選択された文字列を、選択中（最後にフォーカスした）入力欄へ流し込む。 */
+  fillSelection: (text: string) => void;
+  /** PDF 描画/選択側で起きたエラーを表示するためのセッター。 */
+  setError: (message: string | null) => void;
 };
 
 export function useResumeImportAssist(): UseResumeImportAssistReturn {
-  const [blocks, setBlocks] = useState<ResumeImportBlock[]>([]);
-  const [usedIds, setUsedIds] = useState<Set<number>>(new Set());
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // 最後にフォーカスした「流し込み先」入力欄
   const lastFocusedRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
@@ -81,50 +77,35 @@ export function useResumeImportAssist(): UseResumeImportAssistReturn {
     return () => document.removeEventListener("focusin", onFocusIn);
   }, []);
 
-  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
     e.target.value = ""; // 同じファイルを再選択できるようにリセット
+    if (!selected) return;
     setError(null);
-    setLoading(true);
-    try {
-      const res = await extractResumeBlocks(file);
-      setBlocks(res.blocks);
-      setUsedIds(new Set());
-      setFileName(file.name);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : NETWORK_MESSAGES.REQUEST_FAILED);
-      setBlocks([]);
-      setFileName(null);
-    } finally {
-      setLoading(false);
-    }
+    setFile(selected);
+    setFileName(selected.name);
   }, []);
 
-  const handleBlockClick = useCallback((block: ResumeImportBlock) => {
+  const fillSelection = useCallback((text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
     const el = lastFocusedRef.current;
     if (!el) {
       setError(IMPORT_ASSIST_MESSAGES.NO_TARGET);
       return;
     }
     setError(null);
-    assignToElement(el, block.text);
-    // 流し込み先にフォーカスを戻す（緑枠を維持し、続けてブロックを流し込めるようにする）
+    assignToElement(el, trimmed);
+    // 流し込み先にフォーカスを戻す（緑枠を維持し、続けて流し込めるようにする）
     el.focus();
-    setUsedIds((prev) => {
-      const next = new Set(prev);
-      next.add(block.id);
-      return next;
-    });
   }, []);
 
   return {
-    blocks,
-    usedIds,
-    loading,
-    error,
+    file,
     fileName,
+    error,
     handleFileChange,
-    handleBlockClick,
+    fillSelection,
+    setError,
   };
 }

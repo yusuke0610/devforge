@@ -37,7 +37,6 @@ from .routers import (  # noqa: E402
     internal_router,
     master_data_router,
     notifications_router,
-    resume_imports_router,
     resumes_router,
 )
 
@@ -210,7 +209,6 @@ app.add_middleware(RequestIDMiddleware)
 app.include_router(health_router)
 app.include_router(career_analysis_router)
 app.include_router(auth_router)
-app.include_router(resume_imports_router)
 app.include_router(resumes_router)
 app.include_router(intelligence_router)
 app.include_router(blog_router)

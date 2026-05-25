@@ -30,9 +30,6 @@ export const ERROR_CODES = [
   "VALIDATION_ERROR",
   // 外部 API
   "QIITA_RATE_LIMITED",
-  // 職務経歴書インポート
-  "RESUME_IMPORT_INVALID",
-  "RESUME_IMPORT_NOT_A_RESUME",
   // アプリケーション全体
   "RATE_LIMITED",
   // サーバー

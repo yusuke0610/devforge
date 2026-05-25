@@ -10,7 +10,7 @@ import { useProjectModalForm } from "../../hooks/career/useProjectModalForm";
 import type { UseResumeImportAssistReturn } from "../../hooks/career/useResumeImportAssist";
 import { Combobox } from "./Combobox";
 import { MarkdownTextarea } from "./MarkdownTextarea";
-import { ResumeImportBlocksPanel } from "./ResumeImportBlocksPanel";
+import { ResumePdfTracePanel } from "./ResumePdfTracePanel";
 import { DirtyDot } from "../ui/DirtyDot";
 import styles from "./ProjectModal.module.css";
 
@@ -24,7 +24,7 @@ type ProjectModalProps = {
   /** カテゴリごとの技術スタック名称リスト */
   techStackNamesByCategory: Map<string, string[]>;
   /**
-   * PDF 取り込み補助。抽出ブロックがある時はモーダル内の右カラムに並べる。
+   * PDF 取り込み補助。PDF が選択されている時はモーダル内の右カラムに原本ビューを再掲する。
    * モーダルのオーバーレイ（position:fixed）が画面右の本体パネルを覆ってクリックを
    * 奪うため、子モーダルを開いている間でも流し込めるようモーダル内に再掲する。
    */
@@ -55,13 +55,13 @@ export function ProjectModal({
   /** モーダル内編集の dirty 判定（元データとの差分） */
   const dirty = useProjectFormDirty(local, project);
 
-  /** 抽出ブロックがある時だけモーダル内に取り込みパネルを表示する */
-  const showBlocks = !!assist && assist.blocks.length > 0;
+  /** PDF が選択されている時だけモーダル内に原本ビューを表示する */
+  const showPdf = !!assist && !!assist.file;
 
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div
-        className={`${styles.modal} ${showBlocks ? styles.modalWide : ""}`}
+        className={`${styles.modal} ${showPdf ? styles.modalWide : ""}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className={styles.header}>
@@ -309,9 +309,9 @@ export function ProjectModal({
               </div>
             </div>
           </div>
-          {showBlocks && assist && (
+          {showPdf && assist && (
             <aside className={styles.blocksColumn}>
-              <ResumeImportBlocksPanel assist={assist} />
+              <ResumePdfTracePanel assist={assist} />
             </aside>
           )}
         </div>

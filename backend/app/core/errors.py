@@ -33,9 +33,6 @@ class ErrorCode(str, Enum):
     VALIDATION_ERROR = "VALIDATION_ERROR"
     # 外部 API
     QIITA_RATE_LIMITED = "QIITA_RATE_LIMITED"
-    # 職務経歴書インポート
-    RESUME_IMPORT_INVALID = "RESUME_IMPORT_INVALID"
-    RESUME_IMPORT_NOT_A_RESUME = "RESUME_IMPORT_NOT_A_RESUME"
     # アプリケーション全体
     RATE_LIMITED = "RATE_LIMITED"
     # サーバー
@@ -110,10 +107,6 @@ def infer_error_code(status_code: int, detail: Any = None) -> ErrorCode:
     elif isinstance(detail, str):
         message = detail
 
-    if "not_a_resume" in message:
-        return ErrorCode.RESUME_IMPORT_NOT_A_RESUME
-    if "スキャン PDF" in message:
-        return ErrorCode.RESUME_IMPORT_INVALID
     if "GitHubユーザーが見つかりません" in message:
         return ErrorCode.GITHUB_USER_NOT_FOUND
     if "タイムアウト" in message:

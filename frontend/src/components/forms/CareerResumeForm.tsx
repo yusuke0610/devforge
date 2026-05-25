@@ -12,6 +12,7 @@ import {
 import { IMPORT_ASSIST_MESSAGES } from "../../constants/messages";
 import { createInitialCareerForm, mapCareerResumeToForm } from "../../formMappers";
 import { useCareerDirty } from "../../hooks/career/useCareerDirty";
+import { usePdfPanelLayout } from "../../hooks/career/usePdfPanelLayout";
 import { useResumeImportAssist } from "../../hooks/career/useResumeImportAssist";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
 import { buildCareerPayload } from "../../payloadBuilders";
@@ -22,7 +23,8 @@ import shared from "../../styles/shared.module.css";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { Skeleton } from "../ui/Skeleton";
 import { PdfPreviewModal } from "./PdfPreviewModal";
-import { ResumeImportBlocksPanel } from "./ResumeImportBlocksPanel";
+import { ResumePdfTracePanel } from "./ResumePdfTracePanel";
+import layout from "./CareerResumeForm.module.css";
 import { CareerBasicInfoSection } from "./sections/CareerBasicInfoSection";
 import { CareerExperienceSection } from "./sections/CareerExperienceSection";
 import { CareerQualificationsSection } from "./sections/CareerQualificationsSection";
@@ -32,6 +34,13 @@ export function CareerResumeForm() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const assist = useResumeImportAssist();
   const pdfInputRef = useRef<HTMLInputElement>(null);
+  const splitRef = useRef<HTMLDivElement>(null);
+  const {
+    width: pdfWidth,
+    maximized: pdfMaximized,
+    startResize,
+    toggleMaximize,
+  } = usePdfPanelLayout(splitRef);
   const {
     form,
     setForm,
@@ -119,7 +128,7 @@ export function CareerResumeForm() {
         <div className={shared.pageHeader}>
           <h1>職務経歴書</h1>
           <div className={shared.pageHeaderActions}>
-            {/* PDF 取り込み（従来のヘッダー位置）。選択した PDF を右カラムにブロック表示する */}
+            {/* PDF 取り込み（従来のヘッダー位置）。選択した PDF を右カラムに原本表示する */}
             <input
               ref={pdfInputRef}
               type="file"
@@ -128,15 +137,8 @@ export function CareerResumeForm() {
               onChange={assist.handleFileChange}
               aria-label={IMPORT_ASSIST_MESSAGES.SELECT_FILE}
             />
-            <button
-              type="button"
-              className="ghost"
-              onClick={() => pdfInputRef.current?.click()}
-              disabled={assist.loading}
-            >
-              {assist.loading
-                ? IMPORT_ASSIST_MESSAGES.ANALYZING
-                : IMPORT_ASSIST_MESSAGES.SELECT_FILE}
+            <button type="button" className="ghost" onClick={() => pdfInputRef.current?.click()}>
+              {assist.file ? IMPORT_ASSIST_MESSAGES.RESELECT_FILE : IMPORT_ASSIST_MESSAGES.SELECT_FILE}
             </button>
             <button type="submit" className="primary" disabled={!canSubmit || saving}>
               {saveButtonText}
@@ -176,13 +178,10 @@ export function CareerResumeForm() {
         </div>
 
         <div className={shared.pageBody}>
-          {/* 左右 2 カラム。各カラムが独立してスクロールする（#2） */}
-          <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start" }}>
+          {/* 左=入力フォーム / 右=PDF 原本ビュー。スプリッターで左右リサイズ、最大化で覆い被せる。 */}
+          <div ref={splitRef} className={`${layout.split} ${pdfMaximized ? layout.maximized : ""}`}>
             {/* 左: 入力フォーム（選択中フィールドは緑枠 = import-assign-form の :focus CSS） */}
-            <div
-              className={`${shared.form} import-assign-form`}
-              style={{ flex: 1, minWidth: 0, maxHeight: "calc(100vh - 200px)", overflowY: "auto" }}
-            >
+            <div className={`${shared.form} import-assign-form ${layout.formCol}`}>
               {error && <p className={shared.error}>{error}</p>}
               {success && <p className={shared.success}>{success}</p>}
 
@@ -237,18 +236,21 @@ export function CareerResumeForm() {
               />
             </div>
 
-            {/* 右: PDF から抽出した割り当て候補ブロック（独立スクロール・LLM 不使用） */}
-            <aside
-              style={{
-                width: "340px",
-                flexShrink: 0,
-                maxHeight: "calc(100vh - 200px)",
-                overflowY: "auto",
-                borderLeft: "1px solid #e5e5e5",
-                paddingLeft: "1rem",
-              }}
-            >
-              <ResumeImportBlocksPanel assist={assist} />
+            {/* 中央: ドラッグでカラム幅を変えるスプリッター */}
+            <div
+              className={layout.splitter}
+              role="separator"
+              aria-orientation="vertical"
+              onMouseDown={startResize}
+            />
+
+            {/* 右: PDF 原本ビュー（独立スクロール）。文字を選択して入力欄へ流し込む */}
+            <aside className={layout.pdfCol} style={pdfMaximized ? undefined : { width: pdfWidth }}>
+              <ResumePdfTracePanel
+                assist={assist}
+                maximized={pdfMaximized}
+                onToggleMaximize={toggleMaximize}
+              />
             </aside>
           </div>
         </div>

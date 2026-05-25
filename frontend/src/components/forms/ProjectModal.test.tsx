@@ -1,8 +1,15 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { ProjectModal } from "./ProjectModal";
 import type { CareerProjectForm } from "../../payloadBuilders";
 import type { UseResumeImportAssistReturn } from "../../hooks/career/useResumeImportAssist";
+
+// 取り込みパネルは react-pdf / pdf.js を遅延ロードするため、ProjectModal の単体テストでは
+// スタブに差し替える。ここでは「PDF がある時だけ右カラムに再掲されるか」だけを検証する。
+const PANEL_MARKER = "PDF原本ビュー(stub)";
+vi.mock("./ResumePdfTracePanel", () => ({
+  ResumePdfTracePanel: () => <div>{PANEL_MARKER}</div>,
+}));
 
 const invalidDateProject: CareerProjectForm = {
   name: "テスト",
@@ -32,17 +39,16 @@ const emptyProject: CareerProjectForm = {
   phases: [],
 };
 
-/** 抽出ブロックを持つ取り込み補助のモックを生成する */
+/** PDF を選択済みの取り込み補助のモックを生成する */
 const makeAssist = (
   overrides: Partial<UseResumeImportAssistReturn> = {},
 ): UseResumeImportAssistReturn => ({
-  blocks: [{ id: 1, kind: "line", text: "抽出テキストA" }],
-  usedIds: new Set(),
-  loading: false,
-  error: null,
+  file: new File(["%PDF-1.4"], "resume.pdf", { type: "application/pdf" }),
   fileName: "resume.pdf",
+  error: null,
   handleFileChange: vi.fn(),
-  handleBlockClick: vi.fn(),
+  fillSelection: vi.fn(),
+  setError: vi.fn(),
   ...overrides,
 });
 
@@ -60,8 +66,8 @@ describe("ProjectModal", () => {
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
   });
 
-  /** assist にブロックがある時、子モーダル内に取り込みパネルを表示すること */
-  it("抽出ブロックがあるとモーダル内に取り込みパネルを表示する", () => {
+  /** PDF が選択済みの時、子モーダル内に原本ビューを再掲すること */
+  it("PDFが選択済みだとモーダル内に原本ビューを表示する", () => {
     render(
       <ProjectModal
         project={emptyProject}
@@ -71,37 +77,20 @@ describe("ProjectModal", () => {
         assist={makeAssist()}
       />,
     );
-    // ブロックがモーダル内（オーバーレイの上）に並び、クリックできる
-    expect(screen.getByRole("button", { name: /抽出テキストA/ })).toBeInTheDocument();
+    expect(screen.getByText(PANEL_MARKER)).toBeInTheDocument();
   });
 
-  /** モーダル内のブロックをクリックすると流し込みハンドラが呼ばれること */
-  it("モーダル内ブロックのクリックで handleBlockClick が呼ばれる", () => {
-    const handleBlockClick = vi.fn();
+  /** PDF 未選択の時は取り込みパネルを表示しないこと */
+  it("PDF未選択の時はモーダル内に原本ビューを出さない", () => {
     render(
       <ProjectModal
         project={emptyProject}
         onSave={vi.fn()}
         onClose={vi.fn()}
         techStackNamesByCategory={new Map()}
-        assist={makeAssist({ handleBlockClick })}
+        assist={makeAssist({ file: null, fileName: null })}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /抽出テキストA/ }));
-    expect(handleBlockClick).toHaveBeenCalledWith({ id: 1, kind: "line", text: "抽出テキストA" });
-  });
-
-  /** 抽出ブロックが無い時は取り込みパネルを表示しないこと */
-  it("抽出ブロックが無い時はモーダル内に取り込みパネルを出さない", () => {
-    render(
-      <ProjectModal
-        project={emptyProject}
-        onSave={vi.fn()}
-        onClose={vi.fn()}
-        techStackNamesByCategory={new Map()}
-        assist={makeAssist({ blocks: [], fileName: null })}
-      />,
-    );
-    expect(screen.queryByText("抽出テキストA")).not.toBeInTheDocument();
+    expect(screen.queryByText(PANEL_MARKER)).not.toBeInTheDocument();
   });
 });

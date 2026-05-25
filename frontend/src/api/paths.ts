@@ -71,9 +71,6 @@ export const PATHS = {
     summaryCacheStatus: "/api/blog/summary-cache/status",
     score: "/api/blog/score",
   },
-  resumeImports: {
-    extract: "/api/resumes/import/extract",
-  },
   aiResume: {
     generate: "/api/ai-resume/generate",
     snapshots: "/api/ai-resume/snapshots",

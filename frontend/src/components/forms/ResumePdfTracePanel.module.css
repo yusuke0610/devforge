@@ -1,0 +1,113 @@
+/* パネル全体（カラム高さいっぱいに伸び、ページ部だけがスクロールする） */
+.panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* VSCode タブ風ヘッダー（ファイル名 + ズーム + 最大化）。常に上部に固定。 */
+.tab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  padding: 0.3rem 0.5rem;
+  margin-bottom: 0.5rem;
+  background: #f1f3f5;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  user-select: none;
+}
+
+.tabName {
+  font-size: 0.8rem;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tabActions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.zoomLabel {
+  font-size: 0.72rem;
+  color: #444;
+  min-width: 2.8em;
+  text-align: center;
+}
+
+.iconButton {
+  font-size: 0.8rem;
+  line-height: 1;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid #c0c6cc;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  background: #eef1f4;
+}
+
+.iconButton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: #333;
+  margin: 0 0 0.5rem;
+  flex-shrink: 0;
+}
+
+.error {
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+  flex-shrink: 0;
+}
+
+.empty {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+/* スキャン PDF（テキストレイヤーなし）の警告 */
+.warning {
+  font-size: 0.85rem;
+  color: #b45309;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+  margin: 0 0 0.6rem;
+  flex-shrink: 0;
+}
+
+/* PDF ページの縦並び。ここがスクロール領域（ズーム時は横スクロールも発生する）。 */
+.pages {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+/* react-pdf の各ページ（canvas + テキストレイヤー）。選択しやすいよう枠で区切る。 */
+.page {
+  border: 1px solid #e5e5e5;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
