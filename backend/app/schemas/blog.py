@@ -1,3 +1,11 @@
+"""ブログ連携の Pydantic スキーマ。
+
+FE 同期: ``BlogAccountResponse`` / ``BlogArticleResponse`` は
+``frontend/src/types.ts`` の ``BlogAccount`` / ``BlogArticle`` と対になる DTO。
+言語境界のため codegen 未導入の手動同期で運用している（エラーコードの errors.py と同方針）。
+フィールドを増減・rename する場合は対応する FE type も同時に更新すること。
+"""
+
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
