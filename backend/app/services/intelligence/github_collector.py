@@ -3,8 +3,6 @@ GitHub データコレクター（オーケストレーション層）。
 
 GitHub REST API を介してパブリックリポジトリのデータを取得します。
 実際の API 呼び出しは github.api_client、解析処理は github.repo_analyzer に委譲します。
-
-後方互換性のため、このモジュールから直接インポートできるシンボルを再エクスポートします。
 """
 
 import logging
@@ -29,9 +27,6 @@ from .github.api_client import (
 )
 from .github.repo_analyzer import (
     DEPENDENCY_FILES as _DEPENDENCY_FILES,
-)
-from .github.repo_analyzer import (
-    DEPENDENCY_TO_FRAMEWORK,
 )
 from .github.repo_analyzer import (
     detect_devtools_from_root_files as _detect_devtools_from_root_files,
@@ -63,34 +58,13 @@ from .github.repo_analyzer import (
 
 logger = logging.getLogger(__name__)
 
-# 後方互換性のため公開シンボルとして再エクスポート
+# このモジュールの公開 API。``GitHubUserNotFoundError`` は github_link_service が
+# ``from .github_collector import GitHubUserNotFoundError`` で参照するため再エクスポートする。
 __all__ = [
     "RepoData",
     "collect_repos",
     "GitHubUserNotFoundError",
-    "DEPENDENCY_TO_FRAMEWORK",
-    "_detect_from_root_files",
-    "_detect_devtools_from_root_files",
-    "_detect_infras_from_root_files",
-    "_detect_infras_from_dependencies",
-    "_parse_requirements_txt",
-    "_parse_pyproject_toml",
-    "_parse_package_json",
-    "_parse_pom_xml",
-    "_parse_go_mod",
-    "GITHUB_API",
 ]
-
-
-def _detect_from_root_files(root_files: List[str]) -> List[str]:
-    """ルートファイルからdevtools・インフラを重複なく検出して返す。"""
-    seen: set[str] = set()
-    result: List[str] = []
-    for item in _detect_devtools_from_root_files(root_files) + _detect_infras_from_root_files(root_files):
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
 
 
 @dataclass
