@@ -42,7 +42,7 @@ def _get_max_attempts() -> int:
     インフラ（``infra/modules/cloud_tasks``）の値と一致させる必要がある。
     """
     try:
-        return max(1, int(os.environ.get("TASK_MAX_ATTEMPTS", "3")))
+        return max(1, int(os.environ.get(env_keys.TASK_MAX_ATTEMPTS, "3")))
     except ValueError:
         return 3
 
