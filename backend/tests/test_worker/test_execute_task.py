@@ -38,10 +38,10 @@ class TestExecuteTask:
         mock_gh.assert_called_once()
 
     def test_all_task_types_have_dispatch_branch(self):
-        """TaskType に列挙された全種別に execute_task のディスパッチ分岐があること。
-
-        新しい TaskType を追加した際に worker.execute_task への分岐追加を
-        忘れて「黙って completed になる」事故を防ぐためのガード。
+        """
+        Ensure every TaskType has a corresponding dispatch branch in worker.execute_task.
+        
+        Acts as a guard so adding a new TaskType without updating execute_task does not silently treat the task as completed; the test fails listing missing TaskType members.
         """
         import inspect
 
@@ -55,11 +55,11 @@ class TestExecuteTask:
         )
 
     def test_execute_task_marks_dead_letter_on_error(self, db_session: Session):
-        """予期しない例外が発生した場合（max_attempts=1）、例外が再 raise され、
-        キャッシュが dead_letter へ遷移し error_message が永続化されること。
-
-        内部関数 _mark_dead_letter の呼び出し引数ではなく結果 DB state を検証する
-        （test_retry_flow.py と同じ契約を、実装詳細に結合しない形で守る）。"""
+        """
+        Verify that when a task handler raises an unexpected exception (max_attempts=1), the exception is re-raised and the corresponding GitHubLinkCache row transitions to the "dead_letter" state with the error message persisted and completed_at set.
+        
+        Asserts the post-failure database state (cache.status == "dead_letter", cache.error_message contains the exception text, and cache.completed_at is not None) rather than relying on internal helper call observations.
+        """
         user = UserRepository(db_session).create(
             "github:dead-letter-user", hashed_password=None, email="dl@test.com",
         )
@@ -93,7 +93,11 @@ class TestExecuteTask:
         assert cache.completed_at is not None
 
     def test_execute_task_creates_notification_on_success(self, db_session: Session):
-        """タスク成功時に _create_notification が呼ばれること。"""
+        """
+        Verifies that a notification is created when a GitHub link task completes successfully.
+        
+        Ensures `_create_notification` is invoked once with the database session provided by `SessionLocal`, the `TaskType.GITHUB_LINK`, the task's `user_id`, and the `"completed"` status.
+        """
         mock_db = MagicMock()
         mock_session_local = MagicMock(return_value=mock_db)
 

@@ -49,7 +49,23 @@ def _get_max_attempts() -> int:
 
 @router.post("/{task_type}")
 async def handle_task(task_type: str, request: Request):
-    """Cloud Tasks コールバックまたはローカルテスト用エンドポイント。"""
+    """
+    Handle a task callback request from Cloud Tasks or a local/test invocation and dispatch execution for the specified task type.
+    
+    Parameters:
+        task_type (str): The task type identifier extracted from the URL path.
+        request (Request): The incoming FastAPI request containing headers and JSON payload.
+    
+    Returns:
+        dict: JSON-serializable response. On success returns {"status": "ok"}; for a non-retryable failure returns {"status": "non_retryable", "error": "<message>"}.
+    
+    Raises:
+        HTTPException: 
+            - 403 when the request is not authorized to invoke internal tasks.
+            - 400 when the provided task_type is unrecognized.
+            - 429 or 503 for retryable task failures (429 is used when a `Retry-After` value is provided).
+            - 500 for unexpected execution errors (generic error detail to avoid leaking internals).
+    """
     if not _verify_request(request):
         raise HTTPException(
             status_code=403,

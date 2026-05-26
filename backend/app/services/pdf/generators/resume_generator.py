@@ -46,7 +46,20 @@ def _format_period(
 
 
 def _build_project_html(project) -> str:
-    """プロジェクト1件分のHTMLを組み立てる"""
+    """
+    Builds the HTML fragment for a single project section of the resume.
+    
+    Parameters:
+        project (dict): Project data following the resume schema. Expected keys include
+            'name', 'start_date', 'end_date', 'is_current', 'role', 'phases',
+            'challenge', 'action', 'result', 'technology_stacks' and fields used by
+            team normalization helpers.
+    
+    Returns:
+        str: HTML string representing the project, containing a header (period/name/role/phases),
+        a left column for work details (challenge/action/result), a right column for grouped
+        technology stacks, and a team column (total and members).
+    """
     # ヘッダー（3行構成: 期間/プロジェクト名、役割、工程）
     name = _a(project, "name")
     start = _a(project, "start_date")
@@ -127,7 +140,17 @@ def _build_project_html(project) -> str:
 
 
 def _build_html(resume: dict) -> str:
-    """職務経歴書データからHTML文字列を組み立てる"""
+    """
+    Assemble an HTML document body representing the provided resume data.
+    
+    Builds the HTML for name, current date (rendered in Japan Standard Time), career summary, experiences (companies, clients, projects), qualifications, and self-promotion using the module's escaping, Markdown rendering, and normalization helpers.
+    
+    Parameters:
+        resume (dict): Structured resume data expected to contain keys like "full_name", "career_summary", "experiences", "qualifications", and "self_pr".
+    
+    Returns:
+        html (str): The assembled HTML string for the resume.
+    """
     parts: list[str] = []
 
     # タイトル

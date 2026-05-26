@@ -12,6 +12,19 @@ from ..utils.markdown_utils import field_line, format_period
 
 
 def build_resume_markdown(payload: dict[str, Any]) -> str:
+    """
+    Builds a Japanese resume as a single Markdown-formatted string from the provided payload.
+    
+    The payload may include keys such as:
+    - full_name: applicant's full name
+    - qualifications: list of {name, acquired_date}
+    - career_summary: free-form career summary text
+    - experiences: list of experience objects; each experience may contain company, start_date, end_date, is_current, business_description, employee_count, capital, and normalized client/project data (projects include project-level fields, team, phases, technology_stacks)
+    - self_pr: free-form self-promotion text
+    
+    Returns:
+        A single string containing the resume formatted in Markdown (Japanese labels and section structure).
+    """
     lines: list[str] = []
     lines.append(tpl.TITLE)
     lines.append("")

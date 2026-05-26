@@ -38,17 +38,32 @@ CATEGORY_LABELS: dict[str, str] = {
 
 
 def attr(obj: Any, key: str, default: Any = "") -> Any:
-    """dict / ORM オブジェクト両対応の属性アクセスヘルパ。"""
+    """
+    Access a value from a mapping or an attribute from an object using a single call.
+    
+    If `obj` is a dict-like mapping, returns `obj.get(key, default)`; otherwise returns `getattr(obj, key, default)`.
+    
+    Parameters:
+        obj (Any): A mapping (e.g., dict) or an object with attributes.
+        key (str): The key or attribute name to retrieve.
+        default (Any): Value returned when the key/attribute is missing (defaults to empty string).
+    
+    Returns:
+        Any: The retrieved value if present, otherwise `default`.
+    """
     if isinstance(obj, dict):
         return obj.get(key, default)
     return getattr(obj, key, default)
 
 
 def normalize_clients(experience: Any) -> list[Any]:
-    """職歴から取引先（clients）リストを取り出す（dict / ORM 両対応）。
-
-    旧スキーマ後方互換: ``clients`` が無く ``projects`` だけがある場合は、
-    無名取引先 1 件（``{"name": "", "projects": [...]}``）に畳んで返す。
+    """
+    Extract the list of clients from an experience object, supporting both dict and ORM-style access.
+    
+    If the experience has no `clients` but has `projects`, returns a single unnamed client `{"name": "", "projects": [...]}` for backward compatibility with the old schema.
+    
+    Returns:
+        list[Any]: A list of client objects (possibly a single synthesized unnamed client).
     """
     clients = attr(experience, "clients", [])
     if not clients and attr(experience, "projects", None):
@@ -57,11 +72,13 @@ def normalize_clients(experience: Any) -> list[Any]:
 
 
 def normalize_team(project: Any) -> Any | None:
-    """プロジェクトから体制（team）情報を取り出す（dict / ORM 両対応）。
-
-    旧スキーマ後方互換: ``team`` が無く ``scale`` だけがある場合は
-    ``{"total": scale, "members": []}`` に変換して返す。
-    team も scale も無ければ ``None`` を返す。
+    """
+    Extract team information from a project object, supporting both dict and attribute-style access.
+    
+    If `team` is missing but `scale` exists, a compatible team object `{"total": scale, "members": []}` is returned. If neither `team` nor `scale` is present, `None` is returned.
+    
+    Returns:
+        dict | None: A team object with keys `"total"` (number) and `"members"` (list) when available, otherwise `None`.
     """
     team = attr(project, "team", None)
     if not team and attr(project, "scale", None):
@@ -70,9 +87,13 @@ def normalize_team(project: Any) -> Any | None:
 
 
 def group_stacks_by_category(stacks: Iterable[Any]) -> dict[str, list[str]]:
-    """technology_stacks を ``{category: [name, ...]}`` にグルーピングする（dict / ORM 両対応）。
-
-    最初に出現した category の順序を保持する。表示用ラベル付けは呼び出し側が行う。
+    """
+    Group technology stack entries into a mapping from category to a list of names.
+    
+    Preserves the order in which categories first appear; display labeling is the caller's responsibility.
+    
+    Returns:
+        dict[str, list[str]]: Mapping from each category to a list of stack names. Categories appear in insertion order (first-seen first).
     """
     grouped: dict[str, list[str]] = {}
     for st in stacks:

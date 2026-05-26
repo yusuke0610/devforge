@@ -47,7 +47,11 @@ class TestRunGithubAnalysis:
         ]
 
     def test_status_transitions_to_completed(self, db_session: Session, session_factory):
-        """正常系: status が completed に遷移すること。"""
+        """
+        Verify that a pending GitHub link cache transitions to completed on successful processing.
+        
+        This test mocks repository collection and token decryption, runs the GitHub link worker, and asserts the cache is marked as "completed", a result is persisted, and `completed_at` is populated.
+        """
         user, cache = self._make_user_and_cache(db_session)
         repos = self._sample_repos()
 

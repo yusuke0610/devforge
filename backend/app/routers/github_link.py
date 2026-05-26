@@ -149,10 +149,22 @@ async def retry_github_link(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """失敗した GitHub 連携タスクを手動で再実行する。
-
-    ``dead_letter`` 状態のキャッシュのみ再実行可能。
-    ``retry_count`` を 0 にリセットし、ステータスを ``pending`` に戻して再ディスパッチする。
+    """
+    Manually re-dispatch a previously failed GitHub link task for the current user.
+    
+    Only a cache in the "dead_letter" terminal state can be retried. This resets the cache's retry count to 0, sets its status to "pending", and dispatches the background task to re-run the GitHub linking process.
+    
+    Parameters:
+        payload (GitHubLinkRequest | None): Optional request body. If provided, its `include_forks` value is used; otherwise `include_forks` defaults to False.
+    
+    Returns:
+        dict: {"status": "pending"} when the task has been queued.
+    
+    Raises:
+        HTTPException: 403 if the current user is not authenticated via GitHub.
+        HTTPException: 404 if there is no existing GitHub link cache for the user.
+        HTTPException: 409 if the cache is not in a retryable terminal state or a concurrent retry prevented resetting to pending.
+        HTTPException: 500 if dispatching the background task fails.
     """
     if not user.username.startswith("github:"):
         raise_app_error(

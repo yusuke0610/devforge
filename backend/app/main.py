@@ -77,6 +77,18 @@ async def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 @app.exception_handler(RequestValidationError)
 async def _validation_exception_handler(request: Request, exc: RequestValidationError):
+    """
+    Handle request validation errors and produce a standardized 422 error response.
+    
+    Parameters:
+        request (Request): The incoming request that triggered validation.
+        exc (RequestValidationError): The validation error details.
+    
+    Returns:
+        JSONResponse: HTTP 422 response containing an application error payload with
+        `code` set to `ErrorCode.VALIDATION_ERROR`, a localized `message`, an `action`
+        prompting input review, and an `error_id`.
+    """
     error_id = generate_error_id()
     logger.warning(
         "リクエストバリデーションエラー",
