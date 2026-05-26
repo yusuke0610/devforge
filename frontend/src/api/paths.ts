@@ -34,12 +34,12 @@ export const PATHS = {
     pdf: (id: string) => `/api/resumes/${id}/pdf`,
     markdown: (id: string) => `/api/resumes/${id}/markdown`,
   },
-  intelligence: {
-    analyze: "/api/intelligence/analyze",
-    analyzeRetry: "/api/intelligence/analyze/retry",
-    cache: "/api/intelligence/cache",
-    cacheStatus: "/api/intelligence/cache/status",
-    progress: "/api/intelligence/progress",
+  githubLink: {
+    run: "/api/github-link/run",
+    runRetry: "/api/github-link/run/retry",
+    cache: "/api/github-link/cache",
+    cacheStatus: "/api/github-link/cache/status",
+    progress: "/api/github-link/progress",
   },
   masterData: {
     qualification: "/api/master-data/qualification",

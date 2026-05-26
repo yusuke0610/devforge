@@ -7,19 +7,19 @@ from sqlalchemy.orm import Mapped, mapped_column
 from ..db import Base
 
 
-class GitHubAnalysisCache(Base):
-    """GitHub 分析結果のキャッシュ。ユーザーごとに最新の分析結果を1件保持する。"""
+class GitHubLinkCache(Base):
+    """GitHub 連携結果のキャッシュ。ユーザーごとに最新の連携結果を1件保持する。"""
 
-    __tablename__ = "github_analysis_cache"
+    __tablename__ = "github_link_cache"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id"), unique=True, nullable=False
     )
-    analysis_result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="completed", server_default="completed")
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
-    # LLM 失敗のような「分析自体は完了したが部分的に欠落した」非致命的状況を残す。
+    # 「連携自体は完了したが部分的に欠落した」非致命的状況を残す。
     # error_message は真の失敗のみに使う。
     warning_message: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")

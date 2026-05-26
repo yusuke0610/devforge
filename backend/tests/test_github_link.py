@@ -283,7 +283,7 @@ def test_analyze_requires_github_user(client) -> None:
     """通常ユーザー（非 GitHub）で analyze を呼ぶと 403 になること。"""
     headers = auth_header(client, "normal_analyze")
     resp = client.post(
-        "/api/intelligence/analyze",
+        "/api/github-link/run",
         json={"include_forks": False},
         headers=headers,
     )

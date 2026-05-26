@@ -31,17 +31,17 @@ def _reset_orphaned_tasks(db) -> None:
     _mark_dead_letter() が呼ばれずに DB ステータスが pending/processing のまま残る。
     放置すると次回起動時にフロントエンドが無限ポーリングに陥るため、起動時に掃除する。
     """
-    from ..models.cache import GitHubAnalysisCache
+    from ..models.cache import GitHubLinkCache
 
     logger = logging.getLogger(__name__)
     now = datetime.now(timezone.utc)
     stale_statuses = ("pending", "processing")
     error_message = "サーバ再起動により処理が中断されました"
 
-    # GitHubAnalysisCache
+    # GitHubLinkCache
     gh_rows = (
-        db.query(GitHubAnalysisCache)
-        .filter(GitHubAnalysisCache.status.in_(stale_statuses))
+        db.query(GitHubLinkCache)
+        .filter(GitHubLinkCache.status.in_(stale_statuses))
         .all()
     )
     for row in gh_rows:
@@ -50,7 +50,7 @@ def _reset_orphaned_tasks(db) -> None:
         row.completed_at = now
     if gh_rows:
         logger.warning(
-            "孤立した GitHub 分析タスクをリセットしました",
+            "孤立した GitHub 連携タスクをリセットしました",
             extra={"count": len(gh_rows)},
         )
 

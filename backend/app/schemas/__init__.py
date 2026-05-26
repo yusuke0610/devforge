@@ -10,10 +10,10 @@ from .blog import (
     BlogScoreResponse,
     BlogSyncResponse,
 )
-from .intelligence import (
-    AnalysisResponse,
-    AnalyzeRequest,
-    CachedAnalysisResponse,
+from .github_link import (
+    CachedGitHubLinkResponse,
+    GitHubLinkRequest,
+    GitHubLinkResponse,
 )
 from .master_data import (
     MasterItem,
@@ -38,8 +38,6 @@ from .resume import (
 from .shared import TaskStatusResponse
 
 __all__ = [
-    "AnalysisResponse",
-    "AnalyzeRequest",
     "BlogAccountCreate",
     "BlogAccountResponse",
     "BlogAccountUpdate",
@@ -47,10 +45,12 @@ __all__ = [
     "BlogScoreArticleResponse",
     "BlogScoreResponse",
     "BlogSyncResponse",
-    "CachedAnalysisResponse",
+    "CachedGitHubLinkResponse",
     "Client",
     "Experience",
     "GitHubCallbackRequest",
+    "GitHubLinkRequest",
+    "GitHubLinkResponse",
     "MasterItem",
     "MasterItemCreate",
     "MasterItemUpdate",

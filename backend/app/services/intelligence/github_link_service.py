@@ -1,6 +1,6 @@
-"""GitHub 分析タスクの実行サービス。
+"""GitHub 連携タスクの実行サービス。
 
-進捗通知付きでパイプラインを駆動し、結果を ``GitHubAnalysisCache`` に保存する。
+進捗通知付きでパイプラインを駆動し、結果を ``GitHubLinkCache`` に保存する。
 
 worker は本サービスを呼ぶだけで、状態遷移・進捗などは本モジュールに集約する。
 
@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 from ...core.encryption import decrypt_field
 from ...core.logging_utils import get_logger
-from ...models import GitHubAnalysisCache
+from ...models import GitHubLinkCache
 from ..progress_service import set_progress
 from ..tasks.exceptions import NonRetryableError
 from ..tasks.handlers.base import SessionFactory
@@ -29,8 +29,8 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-async def run_github_analysis(session_factory: SessionFactory, payload: dict) -> None:
-    """GitHub 分析パイプラインを実行し、結果をキャッシュに保存する。
+async def run_github_link(session_factory: SessionFactory, payload: dict) -> None:
+    """GitHub 連携パイプラインを実行し、結果をキャッシュに保存する。
 
     フェーズ構成:
       - A: payload 検証 + processing マーク（短命セッション）
@@ -41,16 +41,16 @@ async def run_github_analysis(session_factory: SessionFactory, payload: dict) ->
     # 必須キー欠落・キャッシュ不在はいずれもディスパッチ側のバグであり、
     # リトライしても回復しないため NonRetryableError で worker に dead_letter を委ねる。
     if not user_id:
-        message = "GitHub 分析タスクのペイロードに user_id がありません"
+        message = "GitHub 連携タスクのペイロードに user_id がありません"
         logger.error(message, extra={"payload_keys": list(payload.keys())})
         raise NonRetryableError(f"{message} (payload_keys={list(payload.keys())})")
     task_id = user_id
 
     # ── フェーズA: 検証 + processing マーク ─────────────────────────────────
     with session_factory() as db:
-        cache = db.query(GitHubAnalysisCache).filter_by(user_id=user_id).first()
+        cache = db.query(GitHubLinkCache).filter_by(user_id=user_id).first()
         if not cache:
-            message = "GitHub 分析キャッシュが見つかりません"
+            message = "GitHub 連携キャッシュが見つかりません"
             logger.error(message, extra={"user_id": user_id})
             raise NonRetryableError(f"{message} (user_id={user_id})")
 
@@ -84,7 +84,7 @@ async def run_github_analysis(session_factory: SessionFactory, payload: dict) ->
         )
     except GitHubUserNotFoundError as exc:
         with session_factory() as db:
-            cache = db.query(GitHubAnalysisCache).filter_by(user_id=user_id).first()
+            cache = db.query(GitHubLinkCache).filter_by(user_id=user_id).first()
             if cache:
                 cache.status = "dead_letter"
                 cache.error_message = (
@@ -95,24 +95,24 @@ async def run_github_analysis(session_factory: SessionFactory, payload: dict) ->
         raise exc
 
     # ステップ 3: スキル抽出（集計関数で一括処理）
-    await set_progress(task_id, 3, _TOTAL_STEPS, "スキル分析中...")
+    await set_progress(task_id, 3, _TOTAL_STEPS, "スキル集計中...")
     result = aggregate_intelligence(payload["github_username"], repos)
 
     response = map_pipeline_result(result)
-    analysis_dict = response.model_dump()
+    result_dict = response.model_dump()
 
     # ── フェーズC: 結果書き戻し（新セッション）─────────────────────────────
     # ステップ 4: DB 保存
     await set_progress(task_id, 4, _TOTAL_STEPS, "結果を保存中...")
     with session_factory() as db:
-        cache = db.query(GitHubAnalysisCache).filter_by(user_id=user_id).first()
+        cache = db.query(GitHubLinkCache).filter_by(user_id=user_id).first()
         if not cache:
             logger.warning(
                 "結果書き戻し時にキャッシュが見つかりません",
                 extra={"user_id": user_id},
             )
             return
-        cache.analysis_result = analysis_dict
+        cache.result = result_dict
         cache.status = "completed"
         cache.error_message = None
         cache.warning_message = None

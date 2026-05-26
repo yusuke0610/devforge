@@ -19,7 +19,7 @@ from contextlib import contextmanager
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from app.models import GitHubAnalysisCache
+from app.models import GitHubLinkCache
 from app.repositories import UserRepository
 from app.services.tasks.base import TaskType
 from app.services.tasks.exceptions import NonRetryableError, RetryableError
@@ -60,22 +60,22 @@ def _keep_open_session(db: Session):
 
 
 @contextmanager
-def _setup_github_analysis_test(
+def _setup_github_link_test(
     db_session: Session,
     suffix: str,
     side_effect,
     initial_status: str = "processing",
 ):
-    """github_analysis worker テストの共通スキャフォールド。
+    """github_link worker テストの共通スキャフォールド。
 
-    元の各テストにあった「user 作成 → cache 作成 → worker.SessionLocal / _run_github_analysis /
+    元の各テストにあった「user 作成 → cache 作成 → worker.SessionLocal / _run_github_link /
     _create_notification の 3 連 patch」を集約する。15 行 × 4 箇所のコピペを解消するための helper。
     yield する mock_notify で `_create_notification` の呼び出し有無を検証できる。
     """
     user = UserRepository(db_session).create(
         f"github:{suffix}", hashed_password=None, email=f"{suffix}@test.com",
     )
-    cache = GitHubAnalysisCache(user_id=user.id, status=initial_status)
+    cache = GitHubLinkCache(user_id=user.id, status=initial_status)
     db_session.add(cache)
     db_session.commit()
 
@@ -85,7 +85,7 @@ def _setup_github_analysis_test(
             return_value=_keep_open_session(db_session),
         ),
         patch(
-            "app.services.tasks.worker._run_github_analysis",
+            "app.services.tasks.worker._run_github_link",
             new_callable=AsyncMock,
             side_effect=side_effect,
         ),
@@ -104,13 +104,13 @@ class TestExecuteTaskRetryBranching:
 
     def test_non_retryable_error_marks_dead_letter(self, db_session: Session):
         """NonRetryableError はリトライ回数に関係なく status=dead_letter で終える。"""
-        with _setup_github_analysis_test(
+        with _setup_github_link_test(
             db_session, "nonretry-user", side_effect=NonRetryableError("認証不可"),
         ) as (user, cache, _mock_notify):
             with pytest.raises(NonRetryableError):
                 _run(
                     execute_task(
-                        TaskType.GITHUB_ANALYSIS,
+                        TaskType.GITHUB_LINK,
                         {"user_id": user.id},
                         retry_count=0,
                         max_attempts=3,
@@ -125,7 +125,7 @@ class TestExecuteTaskRetryBranching:
         self, db_session: Session,
     ):
         """RetryableError で試行回数が残っていれば status=retrying にする。"""
-        with _setup_github_analysis_test(
+        with _setup_github_link_test(
             db_session,
             "retrying-user",
             side_effect=RetryableError("一時エラー", retry_after=10),
@@ -133,7 +133,7 @@ class TestExecuteTaskRetryBranching:
             with pytest.raises(RetryableError):
                 _run(
                     execute_task(
-                        TaskType.GITHUB_ANALYSIS,
+                        TaskType.GITHUB_LINK,
                         {"user_id": user.id},
                         retry_count=0,
                         max_attempts=3,
@@ -151,7 +151,7 @@ class TestExecuteTaskRetryBranching:
         self, db_session: Session,
     ):
         """最終試行（retry_count == max_attempts - 1）で失敗したら dead_letter。"""
-        with _setup_github_analysis_test(
+        with _setup_github_link_test(
             db_session,
             "deadletter-user",
             side_effect=RetryableError("最後も失敗"),
@@ -160,7 +160,7 @@ class TestExecuteTaskRetryBranching:
             with pytest.raises(RetryableError):
                 _run(
                     execute_task(
-                        TaskType.GITHUB_ANALYSIS,
+                        TaskType.GITHUB_LINK,
                         {"user_id": user.id},
                         retry_count=2,
                         max_attempts=3,
@@ -177,7 +177,7 @@ class TestExecuteTaskRetryBranching:
 
     def test_unknown_exception_treated_as_retryable(self, db_session: Session):
         """分類されていない例外（RuntimeError 等）は retryable と同様に扱う。"""
-        with _setup_github_analysis_test(
+        with _setup_github_link_test(
             db_session,
             "unknown-err-user",
             side_effect=RuntimeError("想定外のクラッシュ"),
@@ -185,7 +185,7 @@ class TestExecuteTaskRetryBranching:
             with pytest.raises(RuntimeError):
                 _run(
                     execute_task(
-                        TaskType.GITHUB_ANALYSIS,
+                        TaskType.GITHUB_LINK,
                         {"user_id": user.id},
                         retry_count=0,
                         max_attempts=3,
@@ -199,14 +199,14 @@ class TestExecuteTaskRetryBranching:
         self, db_session: Session,
     ):
         """ローカル（max_attempts=1 デフォルト）では最初の失敗で即 dead_letter。"""
-        with _setup_github_analysis_test(
+        with _setup_github_link_test(
             db_session,
             "local-fail-user",
             side_effect=RuntimeError("ローカル失敗"),
         ) as (user, cache, _mock_notify):
             with pytest.raises(RuntimeError):
                 # retry_count=0, max_attempts=1（デフォルト）
-                _run(execute_task(TaskType.GITHUB_ANALYSIS, {"user_id": user.id}))
+                _run(execute_task(TaskType.GITHUB_LINK, {"user_id": user.id}))
 
         db_session.refresh(cache)
         assert cache.status == "dead_letter"
@@ -226,7 +226,7 @@ class TestInternalRouterStatusMapping:
     def test_success_returns_200(self, client: TestClient):
         # conftest で execute_task は AsyncMock(return_value=None) に差し替え済み
         resp = client.post(
-            "/internal/tasks/github_analysis",
+            "/internal/tasks/github_link",
             json=self._payload(),
         )
         assert resp.status_code == 200
@@ -239,7 +239,7 @@ class TestInternalRouterStatusMapping:
             new=AsyncMock(side_effect=NonRetryableError("認証エラー")),
         ):
             resp = client.post(
-                "/internal/tasks/github_analysis",
+                "/internal/tasks/github_link",
                 json=self._payload(),
             )
         assert resp.status_code == 200
@@ -253,7 +253,7 @@ class TestInternalRouterStatusMapping:
             new=AsyncMock(side_effect=RetryableError("一時エラー")),
         ):
             resp = client.post(
-                "/internal/tasks/github_analysis",
+                "/internal/tasks/github_link",
                 json=self._payload(),
             )
         assert resp.status_code == 503
@@ -265,7 +265,7 @@ class TestInternalRouterStatusMapping:
             new=AsyncMock(side_effect=RetryableError("rate limit", retry_after=30)),
         ):
             resp = client.post(
-                "/internal/tasks/github_analysis",
+                "/internal/tasks/github_link",
                 json=self._payload(),
             )
         assert resp.status_code == 429
@@ -278,7 +278,7 @@ class TestInternalRouterStatusMapping:
             new=AsyncMock(side_effect=RuntimeError("予期しない")),
         ):
             resp = client.post(
-                "/internal/tasks/github_analysis",
+                "/internal/tasks/github_link",
                 json=self._payload(),
             )
         assert resp.status_code == 500
@@ -294,7 +294,7 @@ class TestInternalRouterStatusMapping:
         with patch("app.routers.internal.execute_task", new=AsyncMock(side_effect=_capture)):
             with patch.dict(os.environ, {"TASK_MAX_ATTEMPTS": "5"}):
                 resp = client.post(
-                    "/internal/tasks/github_analysis",
+                    "/internal/tasks/github_link",
                     json=self._payload(),
                     headers={"X-CloudTasks-TaskRetryCount": "2"},
                 )
@@ -316,9 +316,9 @@ class TestRetryEndpoints:
     """`POST /{resource}/retry` が失敗状態をリセットし再ディスパッチすること。"""
 
     def test_intelligence_retry_requires_github_user(self, client: TestClient):
-        """GitHub 以外のユーザーは GitHub 分析リトライを実行できない。"""
+        """GitHub 以外のユーザーは GitHub 連携リトライを実行できない。"""
         headers = auth_header(client, "non-github-user")
-        resp = client.post("/api/intelligence/analyze/retry", headers=headers)
+        resp = client.post("/api/github-link/run/retry", headers=headers)
         assert resp.status_code == 403
 
     def test_intelligence_retry_resets_cache(self, client: TestClient):
@@ -326,7 +326,7 @@ class TestRetryEndpoints:
         db = client._db_session
         user = UserRepository(db).get_by_username("github:retry-intel-user")
 
-        cache = GitHubAnalysisCache(
+        cache = GitHubLinkCache(
             user_id=user.id,
             status="dead_letter",
             error_message="old",
@@ -335,7 +335,7 @@ class TestRetryEndpoints:
         db.add(cache)
         db.commit()
 
-        resp = client.post("/api/intelligence/analyze/retry", headers=headers)
+        resp = client.post("/api/github-link/run/retry", headers=headers)
         assert resp.status_code == 202
         assert resp.json()["status"] == "pending"
 
@@ -359,7 +359,7 @@ def test_is_final_at_last_attempt(db_session: Session):
     user = UserRepository(db_session).create(
         "github:boundary-user", hashed_password=None, email="boundary@test.com",
     )
-    cache = GitHubAnalysisCache(user_id=user.id, status="processing")
+    cache = GitHubLinkCache(user_id=user.id, status="processing")
     db_session.add(cache)
     db_session.commit()
 
@@ -370,7 +370,7 @@ def test_is_final_at_last_attempt(db_session: Session):
             return_value=_keep_open_session(db_session),
         ),
         patch(
-            "app.services.tasks.worker._run_github_analysis",
+            "app.services.tasks.worker._run_github_link",
             new_callable=AsyncMock,
             side_effect=RetryableError("still retrying"),
         ),
@@ -379,7 +379,7 @@ def test_is_final_at_last_attempt(db_session: Session):
         with pytest.raises(RetryableError):
             _run(
                 execute_task(
-                    TaskType.GITHUB_ANALYSIS,
+                    TaskType.GITHUB_LINK,
                     {"user_id": user.id},
                     retry_count=1,
                     max_attempts=3,

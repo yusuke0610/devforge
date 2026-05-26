@@ -1,7 +1,7 @@
 """SQLAlchemy モデル。"""
 
 from .blog import BlogAccount, BlogArticle, BlogArticleTag
-from .cache import GitHubAnalysisCache
+from .cache import GitHubLinkCache
 from .master_data import MQualification, MTechnologyStack
 from .notification import Notification
 from .resume import (
@@ -20,7 +20,7 @@ __all__ = [
     "BlogAccount",
     "BlogArticle",
     "BlogArticleTag",
-    "GitHubAnalysisCache",
+    "GitHubLinkCache",
     "MQualification",
     "MTechnologyStack",
     "Notification",

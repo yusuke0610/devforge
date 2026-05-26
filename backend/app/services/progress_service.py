@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 _KEY_PREFIX = "devforge:progress:"
 _TTL_SECONDS = 3600
 # Redis にデータがない場合のフォールバック値。
-# 呼び出し側がタスク種別ごとに override する想定（GitHub 分析: 5、resume_import: 3 等）。
+# 呼び出し側がタスク種別ごとに override する想定（GitHub 連携: 5、resume_import: 3 等）。
 _DEFAULT_TOTAL_STEPS = 5
 
 

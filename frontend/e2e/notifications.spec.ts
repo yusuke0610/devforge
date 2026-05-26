@@ -43,18 +43,18 @@ test.describe("通知ベル", () => {
     const mockNotifications = [
       {
         id: "notif-1",
-        task_type: "github_analysis",
+        task_type: "github_link",
         status: "completed",
-        title: "GitHub分析が完了しました",
+        title: "GitHub連携が完了しました",
         message: null,
         is_read: false,
         created_at: new Date().toISOString(),
       },
       {
         id: "notif-2",
-        task_type: "github_analysis",
+        task_type: "github_link",
         status: "failed",
-        title: "GitHub分析に失敗しました",
+        title: "GitHub連携に失敗しました",
         message: null,
         is_read: false,
         created_at: new Date().toISOString(),
@@ -81,8 +81,8 @@ test.describe("通知ベル", () => {
     await page.getByRole("button", { name: /通知/ }).click();
 
     // パネルが開いてタイトルが見える
-    await expect(page.getByText("GitHub分析が完了しました")).toBeVisible();
-    await expect(page.getByText("GitHub分析に失敗しました")).toBeVisible();
+    await expect(page.getByText("GitHub連携が完了しました")).toBeVisible();
+    await expect(page.getByText("GitHub連携に失敗しました")).toBeVisible();
   });
 
   test("「全て既読」ボタンをクリックするとバッジが消える", async ({ page }) => {
@@ -100,9 +100,9 @@ test.describe("通知ベル", () => {
         body: JSON.stringify([
           {
             id: "notif-1",
-            task_type: "github_analysis",
+            task_type: "github_link",
             status: "completed",
-            title: "GitHub分析が完了しました",
+            title: "GitHub連携が完了しました",
             message: null,
             is_read: false,
             created_at: new Date().toISOString(),

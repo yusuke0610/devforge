@@ -2,10 +2,10 @@ import { test, expect } from "@playwright/test";
 import { setupAuth, waitForAuthenticatedLayout } from "./helpers/auth";
 
 /**
- * GitHub 分析ダッシュボードでの検出フレームワーク表示 E2E テスト（Issue #203）
+ * GitHub 連携ダッシュボードでの検出フレームワーク表示 E2E テスト（Issue #203）
  */
 
-test.describe("GitHub 分析 - 検出フレームワーク表示", () => {
+test.describe("GitHub 連携 - 検出フレームワーク表示", () => {
   test.beforeEach(async ({ page }) => {
     await setupAuth(page);
   });
@@ -13,14 +13,14 @@ test.describe("GitHub 分析 - 検出フレームワーク表示", () => {
   test("検出フレームワークが Frameworks セクションに表示される", async ({
     page,
   }) => {
-    // 分析キャッシュのモックを登録（キャッチオールより後 = 優先される）
-    await page.route("**/api/intelligence/cache", (route) =>
+    // 連携キャッシュのモックを登録（キャッチオールより後 = 優先される）
+    await page.route("**/api/github-link/cache", (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           status: "completed",
-          analysis_result: {
+          result: {
             username: "e2e-test-user",
             repos_analyzed: 3,
             unique_skills: 5,
@@ -34,12 +34,12 @@ test.describe("GitHub 分析 - 検出フレームワーク表示", () => {
       }),
     );
 
-    await page.goto("/github_intelligence");
+    await page.goto("/github_link");
     await waitForAuthenticatedLayout(page);
 
     // ダッシュボードが表示されること
     await expect(
-      page.getByRole("heading", { name: "e2e-test-user の分析結果" }),
+      page.getByRole("heading", { name: "e2e-test-user の連携結果" }),
     ).toBeVisible();
 
     // Frameworks セクションが存在し、各 framework 名が表示されること
@@ -56,13 +56,13 @@ test.describe("GitHub 分析 - 検出フレームワーク表示", () => {
   test("検出フレームワークが空のとき Frameworks セクションが出ない", async ({
     page,
   }) => {
-    await page.route("**/api/intelligence/cache", (route) =>
+    await page.route("**/api/github-link/cache", (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           status: "completed",
-          analysis_result: {
+          result: {
             username: "e2e-test-user",
             repos_analyzed: 1,
             unique_skills: 0,
@@ -76,11 +76,11 @@ test.describe("GitHub 分析 - 検出フレームワーク表示", () => {
       }),
     );
 
-    await page.goto("/github_intelligence");
+    await page.goto("/github_link");
     await waitForAuthenticatedLayout(page);
 
     await expect(
-      page.getByRole("heading", { name: "e2e-test-user の分析結果" }),
+      page.getByRole("heading", { name: "e2e-test-user の連携結果" }),
     ).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Frameworks" }),

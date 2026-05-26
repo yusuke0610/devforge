@@ -1,11 +1,11 @@
-"""_run_github_analysis の単体テスト。"""
+"""_run_github_link の単体テスト。"""
 
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from app.models import GitHubAnalysisCache
+from app.models import GitHubLinkCache
 from app.repositories import UserRepository
-from app.services.tasks.worker import _run_github_analysis
+from app.services.tasks.worker import _run_github_link
 from sqlalchemy.orm import Session
 
 from ._helpers import run_sync as _run
@@ -18,7 +18,7 @@ class TestRunGithubAnalysis:
             hashed_password=None,
             email=f"{username}@test.com",
         )
-        cache = GitHubAnalysisCache(user_id=user.id, status="pending")
+        cache = GitHubLinkCache(user_id=user.id, status="pending")
         db.add(cache)
         db.commit()
         return user, cache
@@ -53,7 +53,7 @@ class TestRunGithubAnalysis:
 
         with (
             patch(
-                "app.services.intelligence.github_analysis_service.collect_repos",
+                "app.services.intelligence.github_link_service.collect_repos",
                 new_callable=AsyncMock,
                 return_value=repos,
             ),
@@ -62,12 +62,12 @@ class TestRunGithubAnalysis:
                 new_callable=AsyncMock,
             ),
             patch(
-                "app.services.intelligence.github_analysis_service.decrypt_field",
+                "app.services.intelligence.github_link_service.decrypt_field",
                 return_value="token123",
             ),
         ):
             _run(
-                _run_github_analysis(
+                _run_github_link(
                     session_factory,
                     {
                         "user_id": user.id,
@@ -80,7 +80,7 @@ class TestRunGithubAnalysis:
 
         db_session.refresh(cache)
         assert cache.status == "completed"
-        assert cache.analysis_result is not None
+        assert cache.result is not None
         assert cache.completed_at is not None
 
     def test_status_transitions_to_processing_at_start(
@@ -100,17 +100,17 @@ class TestRunGithubAnalysis:
 
         with (
             patch(
-                "app.services.intelligence.github_analysis_service.collect_repos",
+                "app.services.intelligence.github_link_service.collect_repos",
                 side_effect=_fake_collect,
             ),
             patch("app.services.progress_service.set_progress", new_callable=AsyncMock),
             patch(
-                "app.services.intelligence.github_analysis_service.decrypt_field",
+                "app.services.intelligence.github_link_service.decrypt_field",
                 return_value=None,
             ),
         ):
             _run(
-                _run_github_analysis(
+                _run_github_link(
                     session_factory,
                     {
                         "user_id": user.id,
@@ -133,19 +133,19 @@ class TestRunGithubAnalysis:
 
         with (
             patch(
-                "app.services.intelligence.github_analysis_service.collect_repos",
+                "app.services.intelligence.github_link_service.collect_repos",
                 new_callable=AsyncMock,
                 side_effect=GitHubUserNotFoundError("notfound"),
             ),
             patch("app.services.progress_service.set_progress", new_callable=AsyncMock),
             patch(
-                "app.services.intelligence.github_analysis_service.decrypt_field",
+                "app.services.intelligence.github_link_service.decrypt_field",
                 return_value=None,
             ),
         ):
             with pytest.raises(GitHubUserNotFoundError):
                 _run(
-                    _run_github_analysis(
+                    _run_github_link(
                         session_factory,
                         {
                             "user_id": user.id,
@@ -168,7 +168,7 @@ class TestRunGithubAnalysis:
 
         with pytest.raises(NonRetryableError):
             _run(
-                _run_github_analysis(
+                _run_github_link(
                     session_factory,
                     {
                         "user_id": "nonexistent-user-id",

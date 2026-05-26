@@ -1,9 +1,9 @@
 """
-キャリアインテリジェンス API エンドポイント。
+GitHub 連携 API エンドポイント。
 
-POST /api/intelligence/analyze      — 全分析パイプラインをバックグラウンド実行（202）
-GET  /api/intelligence/cache        — 保存済みの分析結果を取得
-GET  /api/intelligence/cache/status — 分析ステータスポーリング用
+POST /api/github-link/run        — GitHub 連携パイプラインをバックグラウンド実行（202）
+GET  /api/github-link/cache      — 保存済みの連携結果を取得
+GET  /api/github-link/cache/status — 連携ステータスポーリング用
 """
 
 import logging
@@ -16,10 +16,10 @@ from ..core.messages import get_error
 from ..core.security.auth import get_current_user
 from ..core.security.dependencies import limiter
 from ..db import get_db
-from ..models import GitHubAnalysisCache, User
-from ..schemas.intelligence import (
-    AnalyzeRequest,
-    CachedAnalysisResponse,
+from ..models import GitHubLinkCache, User
+from ..schemas.github_link import (
+    CachedGitHubLinkResponse,
+    GitHubLinkRequest,
     ProgressResponse,
 )
 from ..schemas.shared import TaskStatusResponse
@@ -27,30 +27,30 @@ from ..services.tasks import AsyncTaskCacheService, TaskType
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/intelligence", tags=["intelligence"])
+router = APIRouter(prefix="/api/github-link", tags=["github-link"])
 
 
-def _get_or_create_cache(db: Session, user_id: str) -> GitHubAnalysisCache:
+def _get_or_create_cache(db: Session, user_id: str) -> GitHubLinkCache:
     """ユーザーのキャッシュレコードを取得、なければ作成する。"""
-    cache = db.query(GitHubAnalysisCache).filter_by(user_id=user_id).first()
+    cache = db.query(GitHubLinkCache).filter_by(user_id=user_id).first()
     if not cache:
-        cache = GitHubAnalysisCache(user_id=user_id)
+        cache = GitHubLinkCache(user_id=user_id)
         db.add(cache)
         db.flush()
     return cache
 
 
-@router.get("/cache", response_model=CachedAnalysisResponse)
+@router.get("/cache", response_model=CachedGitHubLinkResponse)
 def get_cache(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """保存済みの分析結果を取得する。"""
-    cache = db.query(GitHubAnalysisCache).filter_by(user_id=user.id).first()
+    """保存済みの連携結果を取得する。"""
+    cache = db.query(GitHubLinkCache).filter_by(user_id=user.id).first()
     if not cache:
-        return CachedAnalysisResponse()
-    return CachedAnalysisResponse(
-        analysis_result=cache.analysis_result,
+        return CachedGitHubLinkResponse()
+    return CachedGitHubLinkResponse(
+        result=cache.result,
         status=cache.status,
         error_message=cache.error_message,
         error_code=resolve_async_error_code(cache.error_message),
@@ -59,10 +59,10 @@ def get_cache(
 
 
 @router.get("/progress", response_model=ProgressResponse)
-async def get_analysis_progress(
+async def get_link_progress(
     user: User = Depends(get_current_user),
 ):
-    """GitHub 分析タスクの進捗を取得する（ポーリング用）。
+    """GitHub 連携タスクの進捗を取得する（ポーリング用）。
 
     Redis にデータがない場合（タスク未開始・Redis 障害）は step_index=0 のデフォルトを返す。
     """
@@ -77,8 +77,8 @@ def get_cache_status(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """分析ステータスを返す（軽量ポーリング用）。"""
-    cache = db.query(GitHubAnalysisCache).filter_by(user_id=user.id).first()
+    """連携ステータスを返す（軽量ポーリング用）。"""
+    cache = db.query(GitHubLinkCache).filter_by(user_id=user.id).first()
     if not cache:
         return TaskStatusResponse(status="completed")
     return TaskStatusResponse(
@@ -88,21 +88,21 @@ def get_cache_status(
     )
 
 
-@router.post("/analyze", status_code=202)
+@router.post("/run", status_code=202)
 @limiter.limit("5/minute")
-async def analyze(
+async def start_github_link(
     request: Request,
-    payload: AnalyzeRequest,
+    payload: GitHubLinkRequest,
     background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """GitHub 分析パイプラインをバックグラウンドで開始する。"""
+    """GitHub 連携パイプラインをバックグラウンドで開始する。"""
     if not user.username.startswith("github:"):
         raise_app_error(
             status_code=403,
             code=ErrorCode.AUTH_REQUIRED,
-            message=get_error("intelligence.github_login_required"),
+            message=get_error("github_link.github_login_required"),
             action="GitHub アカウントでログインし直してください",
         )
 
@@ -119,7 +119,7 @@ async def analyze(
     try:
         await service.dispatch(
             background_tasks,
-            TaskType.GITHUB_ANALYSIS,
+            TaskType.GITHUB_LINK,
             {
                 "user_id": user.id,
                 "github_username": github_username,
@@ -140,16 +140,16 @@ async def analyze(
     return {"status": "pending"}
 
 
-@router.post("/analyze/retry", status_code=202)
+@router.post("/run/retry", status_code=202)
 @limiter.limit("5/minute")
-async def retry_analyze(
+async def retry_github_link(
     request: Request,
     background_tasks: BackgroundTasks,
-    payload: AnalyzeRequest | None = None,
+    payload: GitHubLinkRequest | None = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """失敗した GitHub 分析タスクを手動で再実行する。
+    """失敗した GitHub 連携タスクを手動で再実行する。
 
     ``dead_letter`` 状態のキャッシュのみ再実行可能。
     ``retry_count`` を 0 にリセットし、ステータスを ``pending`` に戻して再ディスパッチする。
@@ -158,17 +158,17 @@ async def retry_analyze(
         raise_app_error(
             status_code=403,
             code=ErrorCode.AUTH_REQUIRED,
-            message=get_error("intelligence.github_login_required"),
+            message=get_error("github_link.github_login_required"),
             action="GitHub アカウントでログインし直してください",
         )
 
-    cache = db.query(GitHubAnalysisCache).filter_by(user_id=user.id).first()
+    cache = db.query(GitHubLinkCache).filter_by(user_id=user.id).first()
     if not cache:
         raise_app_error(
             status_code=404,
             code=ErrorCode.VALIDATION_ERROR,
-            message=get_error("intelligence.no_analysis_cache"),
-            action="先に GitHub 分析を実行してください",
+            message=get_error("github_link.no_link_cache"),
+            action="先に GitHub 連携を実行してください",
         )
     service = AsyncTaskCacheService(db, cache)
     if not service.is_retryable_terminal():
@@ -194,7 +194,7 @@ async def retry_analyze(
     try:
         await service.dispatch(
             background_tasks,
-            TaskType.GITHUB_ANALYSIS,
+            TaskType.GITHUB_LINK,
             {
                 "user_id": user.id,
                 "github_username": github_username,

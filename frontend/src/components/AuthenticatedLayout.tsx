@@ -38,12 +38,12 @@ export function AuthenticatedLayout({
             </NavLink>
             {user.isGitHubUser && (
               <NavLink
-                to="/github_intelligence"
+                to="/github_link"
                 className={({ isActive }) =>
                   `${styles.sidebarItem} ${isActive ? styles.active : ""}`
                 }
               >
-                GitHub分析
+                GitHub連携
               </NavLink>
             )}
             <NavLink

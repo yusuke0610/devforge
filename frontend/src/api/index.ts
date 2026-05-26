@@ -3,7 +3,7 @@ export * from "./shared";
 export * from "./auth";
 export * from "./download";
 export * from "./resumes";
-export * from "./intelligence";
+export * from "./githubLink";
 export * from "./master-data";
 export * from "./blog";
 export * from "./notifications";

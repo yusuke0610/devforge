@@ -28,7 +28,7 @@ class SubProgress(BaseModel):
 class ProgressResponse(BaseModel):
     """非同期タスクの進捗情報。
 
-    GitHub 分析 / resume_import など、複数ステップを持つタスクで共通利用される。
+    GitHub 連携 / resume_import など、複数ステップを持つタスクで共通利用される。
     """
 
     task_id: str

@@ -90,7 +90,7 @@ export const IMPORT_ASSIST_MESSAGES = {
 
 /**
  * 非同期バックグラウンドタスクのローディング UI 文言（AsyncTaskLoading で使用）。
- * PDF アップロード / GitHub 分析 で共通の補足メッセージと、
+ * PDF アップロード / GitHub 連携 で共通の補足メッセージと、
  * 機能ごとの処理内容ラベルを集約する。
  */
 export const LOADING_MESSAGES = {
@@ -98,8 +98,8 @@ export const LOADING_MESSAGES = {
   BACKGROUND_CONTINUES: "他の画面に移動しても処理は継続されます",
   /** 補足: 処理に時間がかかる旨 */
   TAKES_TIME: "この処理には時間がかかります",
-  /** GitHub 分析中ラベル */
-  GITHUB_ANALYSIS: "GitHubプロフィールを分析中...",
+  /** GitHub 連携中ラベル */
+  GITHUB_LINK: "GitHubプロフィールを取得中...",
 } as const;
 
 /** ダウンロード失敗時のメッセージにファイル名を付与する。 */

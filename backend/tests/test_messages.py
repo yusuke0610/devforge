@@ -5,9 +5,9 @@ def test_get_notification_returns_message() -> None:
     load_messages()
 
     assert (
-        get_notification("github_analysis", "completed") == "GitHub分析が完了しました"
+        get_notification("github_link", "completed") == "GitHub連携が完了しました"
     )
-    assert get_notification("github_analysis", "failed") == "GitHub分析に失敗しました"
+    assert get_notification("github_link", "failed") == "GitHub連携に失敗しました"
 
 
 def test_get_error_returns_message_by_key() -> None:

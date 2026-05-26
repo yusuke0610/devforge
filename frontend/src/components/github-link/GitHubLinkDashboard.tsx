@@ -1,31 +1,31 @@
 import { useState } from "react";
 import {
-  analyzeGitHub,
-  getAnalysisCache,
-  getAnalysisCacheStatus,
-  getAnalysisProgress,
+  runGitHubLink,
+  getGitHubLinkCache,
+  getGitHubLinkCacheStatus,
+  getGitHubLinkProgress,
   toAppError,
-  type AnalysisResponse,
+  type GitHubLinkResponse,
 } from "../../api";
 import { ErrorToast } from "../ui/ErrorToast";
 import { InlineSpinner } from "../ui/InlineSpinner";
 import { AsyncTaskLoading } from "../ui/AsyncTaskLoading";
 import { LOADING_MESSAGES } from "../../constants/messages";
-import { useAsyncAnalysisPage } from "../../hooks/analysis/useAsyncAnalysisPage";
+import { useAsyncTaskPage } from "../../hooks/useAsyncTaskPage";
 import { LanguageBar } from "./LanguageBar";
 import { TechBar } from "./TechBar";
 import shared from "../../styles/shared.module.css";
-import styles from "./GitHubAnalysisPage.module.css";
+import styles from "./GitHubLinkDashboard.module.css";
 
 /**
- * GitHub 分析結果を表示するダッシュボードコンポーネント。
+ * GitHub 連携結果を表示するダッシュボードコンポーネント。
  * 初回表示時にDBキャッシュを読み込み、保存済みの結果があればそのまま表示する。
- * 「再分析」ボタン押下時のみパイプラインを再実行する。
+ * 「再連携」ボタン押下時のみパイプラインを再実行する。
  *
  * 職務経歴書ページと同様に、フェーズ（読み込み/入力/ポーリング/結果）に関わらず
  * `shared.pageHeader` のタイトルバーを常時表示する。
  */
-export function GitHubAnalysisPage() {
+export function GitHubLinkDashboard() {
   const [includeForks, setIncludeForks] = useState(false);
 
   const {
@@ -36,30 +36,30 @@ export function GitHubAnalysisPage() {
     setError,
     transitionToPolling,
     backToInput,
-  } = useAsyncAnalysisPage<AnalysisResponse>({
+  } = useAsyncTaskPage<GitHubLinkResponse>({
     loadCache: async () => {
-      const cache = await getAnalysisCache();
-      return { result: cache.analysis_result, status: cache.status };
+      const cache = await getGitHubLinkCache();
+      return { result: cache.result, status: cache.status };
     },
-    checkStatus: getAnalysisCacheStatus,
-    fetchProgress: getAnalysisProgress,
+    checkStatus: getGitHubLinkCacheStatus,
+    fetchProgress: getGitHubLinkProgress,
   });
 
   /**
-   * GitHub 分析を開始します（非同期バックグラウンド）。
+   * GitHub 連携を開始します（非同期バックグラウンド）。
    */
-  const handleAnalyze = async () => {
+  const handleRun = async () => {
     setError(null);
     try {
-      await analyzeGitHub({ include_forks: includeForks });
+      await runGitHubLink({ include_forks: includeForks });
       transitionToPolling();
     } catch (e) {
-      setError(toAppError(e, "分析に失敗しました"));
+      setError(toAppError(e, "連携に失敗しました"));
     }
   };
 
   /**
-   * 入力画面に戻ります（再分析用）。
+   * 入力画面に戻ります（再連携用）。
    */
   const handleBack = () => {
     setResult(null);
@@ -80,7 +80,7 @@ export function GitHubAnalysisPage() {
     if (phase === "input") {
       return (
         <div className={styles.inputCard}>
-          <p>あなたのGitHubアクティビティからスキルとキャリアを分析します</p>
+          <p>あなたのGitHubアクティビティからスキルとキャリアを可視化します</p>
 
           <div className={styles.advancedOptions}>
             <div className={styles.checkbox}>
@@ -97,9 +97,9 @@ export function GitHubAnalysisPage() {
           <button
             type="button"
             className={styles.analyzeButton}
-            onClick={handleAnalyze}
+            onClick={handleRun}
           >
-            分析開始
+            連携開始
           </button>
 
           {error && (
@@ -108,7 +108,7 @@ export function GitHubAnalysisPage() {
               message={error.message}
               action={error.action}
               errorId={error.errorId}
-              onRetry={handleAnalyze}
+              onRetry={handleRun}
             />
           )}
         </div>
@@ -117,17 +117,17 @@ export function GitHubAnalysisPage() {
 
     // ── フェーズ: ポーリング中 ────────────────────────────────────────
     if (phase === "polling") {
-      return <AsyncTaskLoading label={LOADING_MESSAGES.GITHUB_ANALYSIS} />;
+      return <AsyncTaskLoading label={LOADING_MESSAGES.GITHUB_LINK} />;
     }
 
-    // ── フェーズ: 分析結果ダッシュボード ───────────────────────────────
+    // ── フェーズ: 連携結果ダッシュボード ───────────────────────────────
     if (!result) return null;
 
     return (
       <div className={styles.dashboard}>
-        {/* ユーザー名見出し（再分析ボタンはページヘッダーへ移設済み） */}
+        {/* ユーザー名見出し（再連携ボタンはページヘッダーへ移設済み） */}
         <div className={styles.dashboardHeader}>
-          <h1>{result.username} の分析結果</h1>
+          <h1>{result.username} の連携結果</h1>
         </div>
 
         {error && (
@@ -136,7 +136,7 @@ export function GitHubAnalysisPage() {
             message={error.message}
             action={error.action}
             errorId={error.errorId}
-            onRetry={handleAnalyze}
+            onRetry={handleRun}
           />
         )}
 
@@ -196,11 +196,11 @@ export function GitHubAnalysisPage() {
   return (
     <>
       <div className={shared.pageHeader}>
-        <h1>GitHub分析</h1>
+        <h1>GitHub連携</h1>
         {phase === "result" && result && (
           <div className={shared.pageHeaderActions}>
             <button type="button" onClick={handleBack}>
-              再分析
+              再連携
             </button>
           </div>
         )}

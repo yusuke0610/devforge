@@ -3,39 +3,39 @@ import userEvent from "@testing-library/user-event";
 import { describe, it, expect } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server } from "../../test/mswServer";
-import { GitHubAnalysisPage } from "./GitHubAnalysisPage";
+import { GitHubLinkDashboard } from "./GitHubLinkDashboard";
 import { renderWithProviders } from "../../test/renderWithProviders";
 
 /** Provider 付きでレンダリングするヘルパー */
 function renderPage() {
-  return renderWithProviders(<GitHubAnalysisPage />);
+  return renderWithProviders(<GitHubLinkDashboard />);
 }
 
 /**
- * `GET /api/intelligence/cache` をキャッシュ未保存（入力画面表示）レスポンスに差し替える。
+ * `GET /api/github-link/cache` をキャッシュ未保存（入力画面表示）レスポンスに差し替える。
  * 2 箇所でコピペされていた server.use ブロックを集約する。
  */
 function mockEmptyCache() {
   server.use(
-    http.get("*/api/intelligence/cache", () =>
+    http.get("*/api/github-link/cache", () =>
       HttpResponse.json({
-        analysis_result: null,
+        result: null,
         status: null,
       }),
     ),
   );
 }
 
-describe("GitHubAnalysisPage", () => {
+describe("GitHubLinkDashboard", () => {
   it("キャッシュなしの場合、入力画面が表示される", async () => {
     mockEmptyCache();
 
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("分析開始")).toBeInTheDocument();
+      expect(screen.getByText("連携開始")).toBeInTheDocument();
     });
-    expect(screen.getByText("GitHub分析")).toBeInTheDocument();
+    expect(screen.getByText("GitHub連携")).toBeInTheDocument();
   });
 
   it("キャッシュが存在する場合、結果画面が表示される", async () => {
@@ -43,7 +43,7 @@ describe("GitHubAnalysisPage", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText("test-user-001 の分析結果"),
+        screen.getByText("test-user-001 の連携結果"),
       ).toBeInTheDocument();
     });
     expect(screen.getByText("10")).toBeInTheDocument(); // repos_analyzed
@@ -81,10 +81,10 @@ describe("GitHubAnalysisPage", () => {
 
   it("検出フレームワークが空のとき Frameworks セクションが描画されない", async () => {
     server.use(
-      http.get("*/api/intelligence/cache", () =>
+      http.get("*/api/github-link/cache", () =>
         HttpResponse.json({
           status: "completed",
-          analysis_result: {
+          result: {
             username: "test-user-001",
             repos_analyzed: 1,
             unique_skills: 0,
@@ -102,18 +102,18 @@ describe("GitHubAnalysisPage", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText("test-user-001 の分析結果"),
+        screen.getByText("test-user-001 の連携結果"),
       ).toBeInTheDocument();
     });
     expect(screen.queryByText("Frameworks")).not.toBeInTheDocument();
   });
 
-  it("分析開始ボタン押下後、ポーリング画面に遷移する", async () => {
+  it("連携開始ボタン押下後、ポーリング画面に遷移する", async () => {
     const user = userEvent.setup();
 
     mockEmptyCache();
     server.use(
-      http.get("*/api/intelligence/cache/status", () =>
+      http.get("*/api/github-link/cache/status", () =>
         HttpResponse.json({ status: "pending" }),
       ),
     );
@@ -121,14 +121,14 @@ describe("GitHubAnalysisPage", () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("分析開始")).toBeInTheDocument();
+      expect(screen.getByText("連携開始")).toBeInTheDocument();
     });
 
-    await user.click(screen.getByText("分析開始"));
+    await user.click(screen.getByText("連携開始"));
 
     await waitFor(() => {
       expect(
-        screen.getByText("GitHubプロフィールを分析中..."),
+        screen.getByText("GitHubプロフィールを取得中..."),
       ).toBeInTheDocument();
     });
   });
@@ -138,7 +138,7 @@ describe("GitHubAnalysisPage", () => {
 
     mockEmptyCache();
     server.use(
-      http.post("*/api/intelligence/analyze", () =>
+      http.post("*/api/github-link/run", () =>
         HttpResponse.json(
           {
             code: "LLM_UNAVAILABLE",
@@ -153,10 +153,10 @@ describe("GitHubAnalysisPage", () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("分析開始")).toBeInTheDocument();
+      expect(screen.getByText("連携開始")).toBeInTheDocument();
     });
 
-    await user.click(screen.getByText("分析開始"));
+    await user.click(screen.getByText("連携開始"));
 
     await waitFor(() => {
       // エラーメッセージが表示されること（アプリがクラッシュしないこと）
@@ -165,21 +165,21 @@ describe("GitHubAnalysisPage", () => {
     });
   });
 
-  it("再分析ボタンで入力画面に戻る", async () => {
+  it("再連携ボタンで入力画面に戻る", async () => {
     const user = userEvent.setup();
 
     renderPage();
 
     await waitFor(() => {
       expect(
-        screen.getByText("test-user-001 の分析結果"),
+        screen.getByText("test-user-001 の連携結果"),
       ).toBeInTheDocument();
     });
 
-    await user.click(screen.getByText("再分析"));
+    await user.click(screen.getByText("再連携"));
 
     await waitFor(() => {
-      expect(screen.getByText("分析開始")).toBeInTheDocument();
+      expect(screen.getByText("連携開始")).toBeInTheDocument();
     });
   });
 });

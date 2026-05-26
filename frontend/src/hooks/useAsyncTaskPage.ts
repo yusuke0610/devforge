@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { useTaskPolling } from "../useTaskPolling";
-import type { AppErrorState } from "../../utils/appError";
-import { isInProgressStatus } from "../../utils/taskStatus";
-import type { TaskProgress } from "../../api/intelligence";
+import { useTaskPolling } from "./useTaskPolling";
+import type { AppErrorState } from "../utils/appError";
+import { isInProgressStatus } from "../utils/taskStatus";
+import type { TaskProgress } from "../api/githubLink";
 
-/** 分析ページのフェーズ型 */
-export type AsyncAnalysisPhase = "loading-cache" | "input" | "polling" | "result";
+/** 非同期タスクページのフェーズ型 */
+export type AsyncTaskPhase = "loading-cache" | "input" | "polling" | "result";
 
 /** 指数バックオフのデフォルト設定 */
 const POLLING_CONFIG = {
@@ -24,8 +24,8 @@ const getNextInterval = (current: number): number =>
 // getNextInterval は将来の拡張用に export しておく
 export { getNextInterval };
 
-/** useAsyncAnalysisPage のオプション型 */
-export type UseAsyncAnalysisPageOptions<TResult> = {
+/** useAsyncTaskPage のオプション型 */
+export type UseAsyncTaskPageOptions<TResult> = {
   /**
    * キャッシュ読み込み関数。
    * - 結果が存在する場合は result を返す
@@ -48,13 +48,13 @@ export type UseAsyncAnalysisPageOptions<TResult> = {
   fetchProgress?: () => Promise<TaskProgress>;
 };
 
-/** useAsyncAnalysisPage の戻り値型 */
-type UseAsyncAnalysisPageReturn<TResult> = {
+/** useAsyncTaskPage の戻り値型 */
+type UseAsyncTaskPageReturn<TResult> = {
   /** 現在のフェーズ */
-  phase: AsyncAnalysisPhase;
+  phase: AsyncTaskPhase;
   /** フェーズを手動で更新する関数 */
-  setPhase: Dispatch<SetStateAction<AsyncAnalysisPhase>>;
-  /** 分析結果（result フェーズ時のみ非 null） */
+  setPhase: Dispatch<SetStateAction<AsyncTaskPhase>>;
+  /** 結果（result フェーズ時のみ非 null） */
   result: TResult | null;
   /** 結果を更新する関数 */
   setResult: Dispatch<SetStateAction<TResult | null>>;
@@ -67,7 +67,7 @@ type UseAsyncAnalysisPageReturn<TResult> = {
   /** ポーリング中フラグ */
   isPolling: boolean;
   /**
-   * 分析リクエストを送信した後に呼ぶハンドラ。
+   * リクエストを送信した後に呼ぶハンドラ。
    * polling フェーズに遷移してポーリングを開始する。
    */
   transitionToPolling: () => void;
@@ -83,19 +83,19 @@ type UseAsyncAnalysisPageReturn<TResult> = {
 };
 
 /**
- * AI 分析ページで共通する phase 管理・ポーリング制御・エラー処理を提供するカスタムフック。
- * GitHubAnalysisPage など、
+ * 非同期タスクページで共通する phase 管理・ポーリング制御・エラー処理を提供するカスタムフック。
+ * GitHubLinkDashboard など、
  * 「キャッシュ読み込み → 入力 → ポーリング → 結果」の状態遷移を持つページで利用する。
  *
  * fetchProgress を渡すと、ポーリングのたびに進捗も取得して progress に反映する。
  * Redis 障害等で fetchProgress が失敗してもポーリング本体は継続される。
  */
-export function useAsyncAnalysisPage<TResult>({
+export function useAsyncTaskPage<TResult>({
   loadCache,
   checkStatus,
   fetchProgress,
-}: UseAsyncAnalysisPageOptions<TResult>): UseAsyncAnalysisPageReturn<TResult> {
-  const [phase, setPhase] = useState<AsyncAnalysisPhase>("loading-cache");
+}: UseAsyncTaskPageOptions<TResult>): UseAsyncTaskPageReturn<TResult> {
+  const [phase, setPhase] = useState<AsyncTaskPhase>("loading-cache");
   const [result, setResult] = useState<TResult | null>(null);
   const [error, setError] = useState<AppErrorState | null>(null);
   const [progress, setProgress] = useState<TaskProgress | null>(null);

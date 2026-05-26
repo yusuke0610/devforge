@@ -2,7 +2,7 @@
 タスクハンドラの失敗パスを固定化するテスト。
 
 CLAUDE.md の「タスクハンドラの『黙って return』は禁止」原則に基づき、
-github_analysis ハンドラの以下分岐で
+github_link ハンドラの以下分岐で
 ``NonRetryableError`` が必ず raise されることを assert する。
 
 - payload に必須キー（user_id 等）が無い
@@ -19,7 +19,7 @@ import asyncio
 import pytest
 from app.repositories import UserRepository
 from app.services.tasks.exceptions import NonRetryableError
-from app.services.tasks.handlers.github_analysis import GitHubAnalysisHandler
+from app.services.tasks.handlers.github_link import GitHubLinkHandler
 from sqlalchemy.orm import Session
 
 
@@ -41,28 +41,28 @@ def _make_user(db: Session, username: str):
     )
 
 
-# ── GitHubAnalysisHandler ─────────────────────────────────────
+# ── GitHubLinkHandler ─────────────────────────────────────
 
 
 class TestGithubAnalysisHandlerFailures:
-    """GitHub 分析ハンドラの失敗パス。"""
+    """GitHub 連携ハンドラの失敗パス。"""
 
     def test_missing_user_id_raises_non_retryable(self, session_factory) -> None:
         """payload に user_id が無い → NonRetryableError。"""
-        handler = GitHubAnalysisHandler()
+        handler = GitHubLinkHandler()
         with pytest.raises(NonRetryableError):
             _run(handler.run(session_factory, payload={}))
 
     def test_missing_cache_raises_non_retryable(
         self, db_session: Session, session_factory
     ) -> None:
-        """user_id はあるが GitHubAnalysisCache が無い → NonRetryableError。
+        """user_id はあるが GitHubLinkCache が無い → NonRetryableError。
 
         現状は RuntimeError を raise しており worker のリトライ対象になってしまうため、
         テストとしては失敗するはず（fix 後に通過）。
         """
         user = _make_user(db_session, "gh-handler-no-cache")
-        handler = GitHubAnalysisHandler()
+        handler = GitHubLinkHandler()
         with pytest.raises(NonRetryableError):
             _run(
                 handler.run(

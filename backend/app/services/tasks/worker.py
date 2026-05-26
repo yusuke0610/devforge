@@ -83,8 +83,8 @@ async def execute_task(
         # 実体は ``services/tasks/handlers/`` 配下のハンドラ。
         # ハンドラには SessionLocal (ファクトリ) を渡し、ハンドラ内で長時間処理の
         # 前後にセッションを開閉させる。
-        if task_type == TaskType.GITHUB_ANALYSIS:
-            await _run_github_analysis(SessionLocal, payload)
+        if task_type == TaskType.GITHUB_LINK:
+            await _run_github_link(SessionLocal, payload)
 
         duration_ms = _monotonic_ms_since(start)
         logger.info(
@@ -194,15 +194,15 @@ def _safe_close(db: Session) -> None:
 
 
 # ---------- ハンドラ薄ラッパー（後方互換）----------
-# テストや既存呼び出しから ``_run_github_analysis`` を直接呼べるよう、
+# テストや既存呼び出しから ``_run_github_link`` を直接呼べるよう、
 # ハンドラ実装への薄いシムを残す。引数は ``session_factory``。
 
 
-async def _run_github_analysis(session_factory: SessionFactory, payload: dict) -> None:
-    """GitHub 分析ハンドラへのシム。"""
-    handler = get_handler(TaskType.GITHUB_ANALYSIS)
+async def _run_github_link(session_factory: SessionFactory, payload: dict) -> None:
+    """GitHub 連携ハンドラへのシム。"""
+    handler = get_handler(TaskType.GITHUB_LINK)
     if handler is None:
-        raise ValueError(f"ハンドラが登録されていません: {TaskType.GITHUB_ANALYSIS}")
+        raise ValueError(f"ハンドラが登録されていません: {TaskType.GITHUB_LINK}")
     await handler.run(session_factory, payload)
 
 

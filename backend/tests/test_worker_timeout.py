@@ -10,9 +10,9 @@ import asyncio
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from app.models import GitHubAnalysisCache
+from app.models import GitHubLinkCache
 from app.repositories import UserRepository
-from app.services.tasks.worker import _run_github_analysis
+from app.services.tasks.worker import _run_github_link
 from sqlalchemy.orm import Session
 
 
@@ -25,20 +25,20 @@ def _run(coro):
         loop.close()
 
 
-def test_github_analysis_timeout_propagates(db_session: Session, session_factory) -> None:
+def test_github_link_timeout_propagates(db_session: Session, session_factory) -> None:
     """collect_repos で asyncio.TimeoutError が発生した場合に例外が伝播することを確認する。"""
     user = UserRepository(db_session).create(
         "github:timeout-user",
         hashed_password=None,
         email="timeout@example.com",
     )
-    cache = GitHubAnalysisCache(user_id=user.id, status="pending")
+    cache = GitHubLinkCache(user_id=user.id, status="pending")
     db_session.add(cache)
     db_session.commit()
 
     with (
         patch(
-            "app.services.intelligence.github_analysis_service.collect_repos",
+            "app.services.intelligence.github_link_service.collect_repos",
             new_callable=AsyncMock,
             side_effect=asyncio.TimeoutError,
         ),
@@ -49,7 +49,7 @@ def test_github_analysis_timeout_propagates(db_session: Session, session_factory
     ):
         with pytest.raises(asyncio.TimeoutError):
             _run(
-                _run_github_analysis(
+                _run_github_link(
                     session_factory,
                     {
                         "user_id": user.id,

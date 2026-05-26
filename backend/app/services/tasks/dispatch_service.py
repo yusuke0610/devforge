@@ -1,6 +1,6 @@
 """非同期タスクのキャッシュレコード操作とディスパッチを共通化するサービス。
 
-3つの非同期タスク（GitHub 分析 / ブログサマリ / キャリア分析）はいずれも
+3つの非同期タスク（GitHub 連携 / ブログサマリ / キャリア分析）はいずれも
 ``status`` / ``error_message`` / ``retry_count`` / ``started_at`` / ``completed_at``
 を持つキャッシュレコードに紐づき、以下のフローを取る:
 
@@ -26,7 +26,7 @@ from .factory import get_task_dispatcher
 class _AsyncTaskRecord(Protocol):
     """status / error_message / retry_count などを持つキャッシュレコードの構造的型。
 
-    GitHubAnalysisCache が満たす。
+    GitHubLinkCache が満たす。
     """
 
     status: str

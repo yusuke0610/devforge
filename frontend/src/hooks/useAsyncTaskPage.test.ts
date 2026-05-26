@@ -1,11 +1,11 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
-  useAsyncAnalysisPage,
-  type UseAsyncAnalysisPageOptions,
-} from "./useAsyncAnalysisPage";
+  useAsyncTaskPage,
+  type UseAsyncTaskPageOptions,
+} from "./useAsyncTaskPage";
 
-describe("useAsyncAnalysisPage", () => {
+describe("useAsyncTaskPage", () => {
   const mockLoadCache = vi.fn();
   const mockCheckStatus = vi.fn();
 
@@ -19,10 +19,10 @@ describe("useAsyncAnalysisPage", () => {
    */
   type TestResult = { id: string };
   function setup(
-    overrides: Partial<UseAsyncAnalysisPageOptions<TestResult>> = {},
+    overrides: Partial<UseAsyncTaskPageOptions<TestResult>> = {},
   ) {
     return renderHook(() =>
-      useAsyncAnalysisPage<TestResult>({
+      useAsyncTaskPage<TestResult>({
         loadCache: mockLoadCache,
         checkStatus: mockCheckStatus,
         ...overrides,

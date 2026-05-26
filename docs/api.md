@@ -25,13 +25,12 @@ REST API エンドポイント一覧と、バックエンド／フロントエ�
 - `GET /api/resumes/{id}/pdf`: PDFダウンロード
 - `GET /api/resumes/{id}/markdown`: Markdownダウンロード
 
-### GitHub分析
-- `POST /api/intelligence/analyze`: GitHub活動の全パイプライン分析（GitHub OAuth必須、202 非同期、レート: 5/分）
-- `POST /api/intelligence/analyze/retry`: 失敗した分析タスクの再実行（202 非同期）
-- `GET /api/intelligence/cache`: キャッシュされた分析結果を取得
-- `GET /api/intelligence/cache/status`: 分析タスクのステータスをポーリング（軽量）
-- `GET /api/intelligence/progress`: 分析中の進捗ステップ取得
-- `POST /api/intelligence/position-advice`: 分析結果をもとにポジション別学習アドバイスを生成（レート: 10/分）
+### GitHub連携
+- `POST /api/github-link/run`: GitHubリポジトリの取得・技術検出パイプラインを実行（GitHub OAuth必須、202 非同期、レート: 5/分）
+- `POST /api/github-link/run/retry`: 失敗した連携タスクの再実行（202 非同期）
+- `GET /api/github-link/cache`: キャッシュされた連携結果を取得
+- `GET /api/github-link/cache/status`: 連携タスクのステータスをポーリング（軽量）
+- `GET /api/github-link/progress`: 連携中の進捗ステップ取得
 
 ### ブログ連携
 - `GET /api/blog/accounts`: 連携アカウント一覧

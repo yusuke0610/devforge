@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 
 from app.models import (
     BlogAccount,
-    GitHubAnalysisCache,
+    GitHubLinkCache,
     Notification,
     Resume,
 )
@@ -129,18 +129,18 @@ class TestIDOR:
         self, client: TestClient, db_session
     ) -> None:
         user_a = ensure_user(db_session, "idor-intel-cache-a")
-        cache_a = GitHubAnalysisCache(
+        cache_a = GitHubLinkCache(
             user_id=user_a.id,
-            analysis_result={"secret": "A だけが見るべきデータ"},
+            result={"secret": "A だけが見るべきデータ"},
             status="completed",
         )
         db_session.add(cache_a)
         db_session.commit()
         headers_b = auth_header(client, "idor-intel-cache-b")
-        resp = client.get("/api/intelligence/cache", headers=headers_b)
+        resp = client.get("/api/github-link/cache", headers=headers_b)
         assert resp.status_code == 200
         body = resp.json()
-        assert body.get("analysis_result") is None
+        assert body.get("result") is None
 
     def test_notification_mark_read_does_not_touch_other_user(
         self, client: TestClient, db_session
@@ -148,7 +148,7 @@ class TestIDOR:
         user_a = ensure_user(db_session, "idor-notif-a")
         notification = Notification(
             user_id=user_a.id,
-            task_type="github_analysis",
+            task_type="github_link",
             status="completed",
             title="A 宛通知",
             is_read=False,

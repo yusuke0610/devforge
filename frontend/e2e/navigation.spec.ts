@@ -16,7 +16,7 @@ test.describe("認証済みユーザーのナビゲーション", () => {
 
     await expect(page.getByText("DevForge")).toBeVisible();
     await expect(page.getByRole("link", { name: "職務経歴書" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "GitHub分析" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "GitHub連携" })).toBeVisible();
     await expect(page.getByRole("link", { name: "ブログ連携" })).toBeVisible();
   });
 

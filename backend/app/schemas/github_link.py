@@ -1,4 +1,4 @@
-"""キャリアインテリジェンス API 用の Pydantic スキーマ。"""
+"""GitHub 連携 API 用の Pydantic スキーマ。"""
 
 from typing import Any, Dict, Optional
 
@@ -8,14 +8,14 @@ from pydantic import BaseModel, Field
 from .shared import ProgressResponse, SubProgress  # noqa: F401
 
 
-class AnalyzeRequest(BaseModel):
+class GitHubLinkRequest(BaseModel):
     include_forks: bool = Field(
         False,
-        description="分析にフォークしたリポジトリを含めるかどうか",
+        description="連携にフォークしたリポジトリを含めるかどうか",
     )
 
 
-class AnalysisResponse(BaseModel):
+class GitHubLinkResponse(BaseModel):
     username: str
     repos_analyzed: int
     unique_skills: int
@@ -38,14 +38,14 @@ class AnalysisResponse(BaseModel):
     )
 
 
-class CachedAnalysisResponse(BaseModel):
-    """DB に保存された分析結果を返す。"""
+class CachedGitHubLinkResponse(BaseModel):
+    """DB に保存された連携結果を返す。"""
 
-    analysis_result: Optional[Dict[str, Any]] = None
+    result: Optional[Dict[str, Any]] = None
     status: Optional[str] = None
     error_message: Optional[str] = None
     error_code: Optional[str] = None
-    # 分析自体は完了したが LLM など部分的に欠落した場合の警告メッセージ
+    # 連携自体は完了したが部分的に欠落した場合の警告メッセージ
     warning_message: Optional[str] = None
 
 

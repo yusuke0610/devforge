@@ -31,14 +31,14 @@
       "save_failed": "保存に失敗しました。入力内容を確認してください。",
       "delete_failed": "削除に失敗しました。"
     },
-    "intelligence": {
-      "analysis_failed": "分析に失敗しました。しばらくしてから再度お試しください。",
-      "analysis_timeout": "分析がタイムアウトしました。しばらくしてから再度お試しください。",
-      "github_token_required": "GitHub分析にはGitHubトークンの設定が必要です。",
-      "github_login_required": "GitHub分析にはGitHubアカウントでのログインが必要です。",
+    "github_link": {
+      "link_failed": "GitHub連携に失敗しました。しばらくしてから再度お試しください。",
+      "link_timeout": "GitHub連携がタイムアウトしました。しばらくしてから再度お試しください。",
+      "github_token_required": "GitHub連携にはGitHubトークンの設定が必要です。",
+      "github_login_required": "GitHub連携にはGitHubアカウントでのログインが必要です。",
       "github_user_not_found": "GitHubユーザーが見つかりません: {username}",
-      "profile_analysis_failed": "GitHubプロフィールの分析に失敗しました。しばらくしてから再度お試しください。",
-      "no_analysis_cache": "分析結果がありません。先にGitHub分析を実行してください。"
+      "profile_fetch_failed": "GitHubプロフィールの取得に失敗しました。しばらくしてから再度お試しください。",
+      "no_link_cache": "連携データがありません。先にGitHub連携を実行してください。"
     },
     "validation": {
       "required_field": "{field}は必須です。",
@@ -57,15 +57,15 @@
       "not_found": "{item}が見つかりません。"
     },
     "task": {
-      "already_in_progress": "分析処理が進行中です。完了までお待ちください。",
+      "already_in_progress": "処理が進行中です。完了までお待ちください。",
       "dispatch_failed": "タスクの開始に失敗しました。しばらくしてから再度お試しください。",
       "internal_unauthorized": "内部タスクエンドポイントへのアクセスが拒否されました。"
     }
   },
   "notification": {
-    "github_analysis": {
-      "completed": "GitHub分析が完了しました",
-      "failed": "GitHub分析に失敗しました"
+    "github_link": {
+      "completed": "GitHub連携が完了しました",
+      "failed": "GitHub連携に失敗しました"
     }
   },
   "success": {
@@ -81,8 +81,8 @@
       "account_removed": "ブログアカウントの連携を解除しました。",
       "sync_complete": "記事の同期が完了しました。{count}件の記事を取得しました。"
     },
-    "intelligence": {
-      "analysis_complete": "分析が完了しました。",
+    "github_link": {
+      "link_complete": "GitHub連携が完了しました。",
       "cache_cleared": "キャッシュをクリアしました。"
     }
   }
