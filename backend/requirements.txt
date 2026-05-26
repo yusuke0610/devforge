@@ -1,4 +1,4 @@
-fastapi==0.136.3
+fastapi==0.136.1
 # starlette は fastapi の推移的依存だが、PYSEC-2026-161（Host ヘッダ未検証による認証バイパス）対策で >=1.0.1 を明示固定する
 starlette==1.1.0
 uvicorn[standard]==0.34.0
