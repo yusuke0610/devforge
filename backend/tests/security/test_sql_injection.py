@@ -47,15 +47,6 @@ class TestSQLInjection:
         assert resp.status_code in (404, 422), resp.text
 
     @pytest.mark.parametrize("payload", SQLI_PAYLOADS)
-    def test_career_analysis_path_param_rejects_sqli(
-        self, client: TestClient, payload: str
-    ) -> None:
-        """analysis_id は int 型。SQLi 文字列は 422、``/`` を含むペイロードは 404。"""
-        headers = auth_header(client, "sqli-career-path")
-        resp = client.get(f"/api/career-analysis/{payload}", headers=headers)
-        assert resp.status_code in (404, 422), resp.text
-
-    @pytest.mark.parametrize("payload", SQLI_PAYLOADS)
     def test_blog_account_path_returns_404_for_sqli(
         self, client: TestClient, db_session, payload: str
     ) -> None:

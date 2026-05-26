@@ -1,4 +1,5 @@
 import shared from "../../../styles/shared.module.css";
+import { DirtyDot } from "../../ui/DirtyDot";
 import { Skeleton } from "../../ui/Skeleton";
 import { MarkdownTextarea } from "../MarkdownTextarea";
 
@@ -10,13 +11,15 @@ type Props = {
   loading: boolean;
   /** 値変更ハンドラ */
   onChange: (value: string) => void;
+  /** 未保存変更があるか */
+  dirty?: boolean;
 };
 
 /**
  * 職務経歴書の「自己PR」セクション。
  * 元 CareerResumeForm の JSX をセクション単位で読みやすくするための切り出し。
  */
-export function CareerSelfPrSection({ selfPr, loading, onChange }: Props) {
+export function CareerSelfPrSection({ selfPr, loading, onChange, dirty = false }: Props) {
   return (
     <section className={shared.section}>
       {loading ? (
@@ -28,6 +31,7 @@ export function CareerSelfPrSection({ selfPr, loading, onChange }: Props) {
           onChange={onChange}
           rows={4}
           required
+          labelAdornment={<DirtyDot visible={dirty} />}
         />
       )}
     </section>

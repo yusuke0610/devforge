@@ -1,17 +1,18 @@
+import { FALLBACK_MESSAGES } from "../constants/messages";
 import { API_BASE_URL, request } from "./client";
 import { PATHS } from "./paths";
 
 type AuthResponse = { username: string; is_github_user: boolean };
 
 export async function getCurrentUser(): Promise<AuthResponse | null> {
-  const response = await fetch(`${API_BASE_URL}/auth/me`, {
+  const response = await fetch(`${API_BASE_URL}${PATHS.auth.me}`, {
     credentials: "include",
   });
   if (response.status === 401) {
     return null;
   }
   if (!response.ok) {
-    throw new Error("ログイン状態の確認に失敗しました。");
+    throw new Error(FALLBACK_MESSAGES.AUTH_CHECK);
   }
   return (await response.json()) as AuthResponse;
 }
@@ -31,10 +32,10 @@ export const GITHUB_OAUTH_STATE_STORAGE_KEY = "github_oauth_state";
  *  state は sessionStorage で管理し、コールバック時に CSRF 検証する。 */
 export async function initiateGitHubLogin(returnTo: string): Promise<void> {
   const params = new URLSearchParams({ return_to: returnTo });
-  const response = await fetch(`${API_BASE_URL}/auth/github/login-url?${params.toString()}`, {
+  const response = await fetch(`${API_BASE_URL}${PATHS.auth.githubLoginUrl}?${params.toString()}`, {
     credentials: "include",
   });
-  if (!response.ok) throw new Error("GitHub OAuth の開始に失敗しました");
+  if (!response.ok) throw new Error(FALLBACK_MESSAGES.GITHUB_OAUTH_START);
   const data = (await response.json()) as { authorization_url: string; state: string };
   // CSRF 検証用に state を sessionStorage へ保存する（コールバックで照合）
   sessionStorage.setItem(GITHUB_OAUTH_STATE_STORAGE_KEY, data.state);
@@ -44,7 +45,7 @@ export async function initiateGitHubLogin(returnTo: string): Promise<void> {
 /** サーバー側で refresh_jti を無効化し Cookie を削除する。
  *  401 ハンドラのループを避けるため request ラッパーではなく fetch を直接使う。 */
 export async function logout(): Promise<void> {
-  await fetch(`${API_BASE_URL}/auth/logout`, {
+  await fetch(`${API_BASE_URL}${PATHS.auth.logout}`, {
     method: "POST",
     credentials: "include",
   });

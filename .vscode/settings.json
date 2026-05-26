@@ -162,6 +162,9 @@
         "numtide",
         "pkgs",
         "pango",
+        "libpangocairo",
+        "libpangoft",
+        "libcairo",
         "gobject",
         "fontconfig",
         "freetype",
@@ -176,14 +179,15 @@
         "turso",
         "libsql",
         "Qiita",
-        "pyproject"
+        "pyproject",
+        "pdfgen",
+        "pdfplumber"
     ],
     "flake8.args": [
         "--max-line-length=100"
     ],
     "editor.linkedEditing": true,
     "html.autoClosingTags": true,
-    "js/ts.autoClosingTags.enabled": true,
     "[terraform]": {
         "editor.defaultFormatter": "hashicorp.terraform",
         "editor.formatOnSave": true,

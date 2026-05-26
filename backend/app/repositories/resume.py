@@ -1,6 +1,6 @@
 from sqlalchemy.orm import selectinload
 
-from ..core.date_utils import parse_iso_date, parse_year_month
+from ..core.date_utils import parse_year_month
 from ..models import (
     Resume,
     ResumeClient,
@@ -54,7 +54,7 @@ class ResumeRepository(SingleUserDocumentRepository):
         entity.qualification_rows = [
             ResumeQualification(
                 sort_order=index,
-                acquired_date_value=parse_iso_date(item["acquired_date"]),
+                acquired_date_value=parse_year_month(item["acquired_date"]),
                 name=item["name"],
             )
             for index, item in enumerate(sorted_qualifications)
@@ -105,7 +105,6 @@ class ResumeRepository(SingleUserDocumentRepository):
             ),
             is_current=payload.get("is_current", False),
             role=payload.get("role", ""),
-            description=payload.get("description", ""),
             challenge=payload.get("challenge", ""),
             action=payload.get("action", ""),
             result=payload.get("result", ""),

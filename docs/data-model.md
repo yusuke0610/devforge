@@ -6,41 +6,64 @@ Turso (libSQL) の運用、Alembic マイグレーション、テーブル設計
 
 ### Turso (libSQL)
 
-- **本番**: Turso Cloud（東京リージョン `nrt`）。`turso CLI` で DB と auth token を発行し、URL は Cloud Run 環境変数、トークンは Secret Manager に登録
+- **本番**: Turso Cloud（東京リージョン `nrt`）。DB 本体は OpenTofu (`infra/modules/turso/`) で作成。auth token のみ `turso CLI` で発行して Secret Manager に登録
 - **ローカル**: `turso dev --db-file ./backend/local.sqlite` で libSQL HTTP サーバーを起動
 - **接続**: `app.core.settings.build_sqlalchemy_database_url()` が `TURSO_DATABASE_URL` を SQLAlchemy URL（HTTP/HTTPS は `sqlite+libsql://`、ローカルファイルは `sqlite:///`）に変換
 - **ローカル DB**: `backend/local.sqlite` はコミットしない。必要時に自動生成/再作成する
 
-### Turso CLI セットアップ（本番）
+### Turso セットアップ（本番）
 
-DB は Turso (libSQL) を使用します。OpenTofu の対象外なので、`turso CLI` で各環境のリソースを手動作成します。
+DB 本体は OpenTofu で宣言し、`tofu apply` で作成します。auth token は state に乗せたくないため、token のみ CLI で発行して Secret Manager に投入します。group は事前に CLI で作成しておく必要があります（primary location は group に紐づく）。
+
+#### 1. 事前準備（CLI、各 organization で 1 回）
 
 ```bash
 # 認証
 turso auth login
 
-# dev / stg / prod それぞれの DB を東京リージョン (nrt) で作成
-turso db create devforge-dev --location nrt
-turso db create devforge-stg --location nrt
-turso db create devforge-prod --location nrt
-
-# 接続 URL を確認（libsql://devforge-<env>-<username>.turso.io）
-turso db show devforge-dev --url
-
-# 認証トークンを発行（環境ごとに分ける）
-turso db tokens create devforge-dev
-turso db tokens create devforge-stg
-turso db tokens create devforge-prod
+# default group を東京リージョンで作成（既に存在する場合はスキップ）
+turso group create default --location nrt
 ```
 
-発行した URL とトークンは次のように設定します。
+#### 2. Turso API token と organization slug を設定
+
+`tofu apply` の実行環境（ローカル or GitHub Actions runner）で:
+
+```bash
+export TF_VAR_turso_api_token="$(turso auth token)"
+```
+
+`infra/environments/<env>/terraform.tfvars` の `turso_organization` を実際の slug に置き換える（個人プランは Turso の username）。
+
+#### 3. OpenTofu で DB を作成
+
+```bash
+make infra-validate
+nix develop --command bash -c "tofu -chdir=infra/environments/dev apply"
+```
+
+`module.devforge_stack.module.turso.turso_database.this` が作成され、output `turso_database_url` に `libsql://devforge-dev-<org>.turso.io` 形式の URL が記録されます。Cloud Run の env block には自動で同じ値が注入されます。
+
+#### 4. auth token を発行して Secret Manager に投入
+
+```bash
+# token 発行
+TOKEN=$(turso db tokens create devforge-dev)
+
+# Secret Manager の新バージョンとして投入（secret 本体は cloud_run module が作成済み）
+printf '%s' "$TOKEN" | gcloud secrets versions add devforge-dev-turso-auth-token \
+  --project=<dev project id> --data-file=-
+```
+
+stg / prod も同様に実行。Cloud Run は次回 revision 起動時に新 token を読み込みます。
+
+#### 設定マッピング
 
 | 値 | 配置先 |
 |---|---|
-| `TURSO_DATABASE_URL` | Cloud Run 環境変数（OpenTofu `terraform.tfvars` の `turso_database_url`） |
-| `TURSO_AUTH_TOKEN` | Secret Manager `devforge-<env>-turso-auth-token`（OpenTofu で secret 本体は作成済み、version は手動で追加） |
-
-GitHub Actions の OpenTofu CI でも `TF_VAR_turso_database_url` を GitHub Secrets 経由で渡してください。
+| `TURSO_DATABASE_URL` | Cloud Run 環境変数（`infra/modules/turso/` の output → cloud_run module が参照） |
+| `TURSO_AUTH_TOKEN` | Secret Manager `devforge-<env>-turso-auth-token`（OpenTofu で secret 本体は作成済み、version のみ手動で追加） |
+| `TURSO_API_TOKEN` (OpenTofu 実行時) | `TF_VAR_turso_api_token` 環境変数。state には保存されない |
 
 ### Alembic マイグレーション
 

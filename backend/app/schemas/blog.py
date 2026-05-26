@@ -1,3 +1,11 @@
+"""ブログ連携の Pydantic スキーマ。
+
+FE 同期: ``BlogAccountResponse`` / ``BlogArticleResponse`` は
+``frontend/src/types.ts`` の ``BlogAccount`` / ``BlogArticle`` と対になる DTO。
+言語境界のため codegen 未導入の手動同期で運用している（エラーコードの errors.py と同方針）。
+フィールドを増減・rename する場合は対応する FE type も同時に更新すること。
+"""
+
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
@@ -50,35 +58,6 @@ class BlogSyncResponse(BaseModel):
 
     synced_count: int
     total_count: int
-
-
-
-class BlogSummaryArticleItem(BaseModel):
-    """サマリ生成リクエスト内の記事情報。"""
-
-    platform: str
-    title: str
-    url: str
-    published_at: str | None = None
-    likes_count: int = 0
-    summary: str | None = None
-    tags: list[str] = Field(default_factory=list)
-
-
-class BlogSummaryRequest(BaseModel):
-    """ブログ記事 AI サマリ生成リクエスト（最大50件）。"""
-
-    articles: list[BlogSummaryArticleItem] = Field(max_length=50)
-
-
-class BlogSummaryResponse(BaseModel):
-    """ブログ記事 AI 分析レスポンス。"""
-
-    summary: str
-    available: bool
-    status: str | None = None
-    error_message: str | None = None
-    error_code: str | None = None
 
 
 class BlogScoreArticleResponse(BaseModel):

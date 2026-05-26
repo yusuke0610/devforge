@@ -81,9 +81,6 @@ def build_resume_markdown(payload: dict[str, Any]) -> str:
                     role = _a(proj, "role")
                     if role:
                         lines.append(field_line("担当", role))
-                    desc = _a(proj, "description")
-                    if desc:
-                        lines.append(field_line("業務内容", desc))
                     challenge = _a(proj, "challenge")
                     if challenge:
                         lines.append(field_line("課題", challenge))

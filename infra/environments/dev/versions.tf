@@ -10,5 +10,9 @@ terraform {
       source  = "cloudflare/cloudflare"
       version = "~> 4.0"
     }
+    turso = {
+      source  = "jpedroh/turso"
+      version = "~> 0.3"
+    }
   }
 }

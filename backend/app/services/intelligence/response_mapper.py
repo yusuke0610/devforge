@@ -1,24 +1,12 @@
-from ...schemas.intelligence import AnalysisResponse, PositionScoresResponse
+from ...schemas.github_link import GitHubLinkResponse
 from .pipeline import IntelligenceResult
 
 
-def map_pipeline_result(result: IntelligenceResult) -> AnalysisResponse:
+def map_pipeline_result(result: IntelligenceResult) -> GitHubLinkResponse:
     """
     パイプラインの実行結果を API レスポンス形式に変換します。
     """
-    position_scores = None
-    if result.position_scores:
-        ps = result.position_scores
-        position_scores = PositionScoresResponse(
-            backend=ps.backend,
-            frontend=ps.frontend,
-            fullstack=ps.fullstack,
-            sre=ps.sre,
-            cloud=ps.cloud,
-            missing_skills=ps.missing_skills,
-        )
-
-    return AnalysisResponse(
+    return GitHubLinkResponse(
         username=result.username,
         repos_analyzed=result.repos_analyzed,
         unique_skills=result.unique_skills,
@@ -27,5 +15,4 @@ def map_pipeline_result(result: IntelligenceResult) -> AnalysisResponse:
         detected_frameworks=result.detected_frameworks,
         detected_devtools=result.detected_devtools,
         detected_infras=result.detected_infras,
-        position_scores=position_scores,
     )

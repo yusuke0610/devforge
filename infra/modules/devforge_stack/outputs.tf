@@ -22,3 +22,13 @@ output "service_url" {
   description = "Cloud Run service URL。"
   value       = module.cloud_run.service_url
 }
+
+output "turso_database_url" {
+  description = "Turso DB の libSQL 接続 URL（backend が TURSO_DATABASE_URL として参照）。"
+  value       = module.turso.database_url
+}
+
+output "turso_hostname" {
+  description = "Turso DB の DNS hostname。"
+  value       = module.turso.hostname
+}

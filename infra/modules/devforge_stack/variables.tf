@@ -84,9 +84,15 @@ variable "upstash_redis_token" {
 
 # --- 外部サービス: Turso ---
 
-variable "turso_database_url" {
-  description = "Turso (libSQL) データベースの接続 URL（例: libsql://devforge-dev-xxxx.turso.io）。"
+variable "turso_organization" {
+  description = "Turso organization slug（個人プランは Turso の username と一致）。turso_database リソースで organization_name に渡す。"
   type        = string
+}
+
+variable "turso_group" {
+  description = "Turso group 名。事前に CLI で作成しておく必要がある。primary location は group 定義に紐づく。"
+  type        = string
+  default     = "default"
 }
 
 # --- 外部サービス: Cloudflare ---

@@ -27,7 +27,6 @@ export function mapCareerResumeToForm(response: CareerResumeResponse): CareerFor
       response.experiences.length > 0
         ? response.experiences.map((experience) => ({
           ...experience,
-          end_date: experience.end_date ?? "",
           clients:
             experience.clients.length > 0
               ? experience.clients.map((client) => ({
@@ -36,7 +35,6 @@ export function mapCareerResumeToForm(response: CareerResumeResponse): CareerFor
                   client.projects.length > 0
                     ? client.projects.map((project) => ({
                       ...project,
-                      end_date: project.end_date ?? "",
                       team: {
                         total: project.team.total ?? "",
                         members: project.team.members.map((member) => ({

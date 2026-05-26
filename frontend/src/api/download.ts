@@ -1,3 +1,4 @@
+import { downloadFailureMessage, FALLBACK_MESSAGES } from "../constants/messages";
 import { API_BASE_URL } from "./client";
 
 export async function downloadBlob(
@@ -10,7 +11,7 @@ export async function downloadBlob(
     credentials: "include",
   });
   if (!response.ok) {
-    throw new Error(`ダウンロードに失敗しました: ${filename}`);
+    throw new Error(downloadFailureMessage(filename));
   }
   const blob = await response.blob();
   const blobUrl = URL.createObjectURL(blob);
@@ -26,7 +27,7 @@ export async function getBlobUrl(url: string): Promise<string> {
     credentials: "include",
   });
   if (!response.ok) {
-    throw new Error("プレビューの取得に失敗しました");
+    throw new Error(FALLBACK_MESSAGES.PREVIEW_FETCH);
   }
   const blob = await response.blob();
   return URL.createObjectURL(blob);

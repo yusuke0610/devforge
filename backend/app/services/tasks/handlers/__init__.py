@@ -8,14 +8,10 @@ from typing import Dict
 
 from ..base import TaskType
 from .base import TaskHandler
-from .blog_summarize import BlogSummarizeHandler
-from .career_analysis import CareerAnalysisHandler
-from .github_analysis import GitHubAnalysisHandler
+from .github_link import GitHubLinkHandler
 
 _HANDLERS: Dict[TaskType, TaskHandler] = {
-    TaskType.GITHUB_ANALYSIS: GitHubAnalysisHandler(),
-    TaskType.BLOG_SUMMARIZE: BlogSummarizeHandler(),
-    TaskType.CAREER_ANALYSIS: CareerAnalysisHandler(),
+    TaskType.GITHUB_LINK: GitHubLinkHandler(),
 }
 
 

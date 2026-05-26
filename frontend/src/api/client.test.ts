@@ -106,6 +106,37 @@ describe("api/client request", () => {
     expect(refreshCallCount).toBe(1);
   });
 
+  /** 並行 401 でリフレッシュが失敗した場合、両方の元リクエストがエラーで rejected になること */
+  it("複数の同時 401 はリフレッシュ失敗時に 1 回のリフレッシュを共有して両方失敗する", async () => {
+    let refreshCallCount = 0;
+    let resolveRefresh!: (response: Response) => void;
+    const refreshPromise = new Promise<Response>((resolve) => {
+      resolveRefresh = resolve;
+    });
+
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if ((url as string).includes("/auth/refresh")) {
+        refreshCallCount++;
+        return refreshPromise;
+      }
+      return Promise.resolve(makeResponse(401));
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const req1 = request("/api/test1");
+    const req2 = request("/api/test2");
+
+    await Promise.resolve();
+    expect(refreshCallCount).toBe(1);
+
+    resolveRefresh(makeResponse(401));
+
+    await expect(req1).rejects.toThrow("認証が必要です");
+    await expect(req2).rejects.toThrow("認証が必要です");
+    expect(refreshCallCount).toBe(1);
+  });
+
   /** 500 系のレスポンスでエラーがスローされること */
   it("500 レスポンスの場合エラーがスローされる", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(makeResponse(500)));

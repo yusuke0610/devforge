@@ -57,7 +57,7 @@ describe("useDocumentForm", () => {
     if (storeOverrides.presetCache) {
       store.dispatch(
         setCache({
-          key: "career",
+          key: overrides.cacheKey ?? "career",
           form: storeOverrides.presetCache.form,
           documentId: storeOverrides.presetCache.documentId,
         }),

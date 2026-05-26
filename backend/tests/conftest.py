@@ -77,9 +77,7 @@ from app.main import app, limiter  # noqa: E402
 from app.models import (  # noqa: F401,E402 — ensure models registered
     BlogAccount,
     BlogArticle,
-    BlogSummaryCache,
-    CareerAnalysis,
-    GitHubAnalysisCache,
+    GitHubLinkCache,
     MQualification,
     MTechnologyStack,
     Resume,
@@ -93,12 +91,15 @@ from sqlalchemy.pool import NullPool  # noqa: E402
 
 
 @pytest.fixture()
-def db_session(tmp_path):
-    """一時ファイル SQLite を使うことで複数接続（worker の SessionLocal 等）を可能にする。
+def session_factory(tmp_path):
+    """セッションファクトリ（呼ぶたびに新セッションを返す sessionmaker）。
 
-    本番では Turso (libSQL HTTP) を使うが、テストはローカルファイルで動かす。
-    libsql-experimental のローカルドライバは複雑な DDL でロック競合を起こすため、
-    `settings.build_sqlalchemy_database_url()` と同じく標準 sqlite ドライバを使用する。
+    ハンドラの ``run(session_factory, payload)`` 引数に渡す前提。本番の
+    ``SessionLocal`` と同様に「呼ぶたびに新セッション」を提供する。
+
+    libSQL の Hrana 失効回避策で、ハンドラは LLM 前後でセッションを開閉する設計に
+    なっており、テストでも同じインターフェイスで呼べるよう本ファクトリを使う。
+    ``expire_on_commit=False`` は本番 ``SessionLocal`` と揃える。
     """
     engine = create_engine(
         f"sqlite:///{tmp_path}/test.db",
@@ -106,13 +107,27 @@ def db_session(tmp_path):
         poolclass=NullPool,
     )
     Base.metadata.create_all(bind=engine)
-    TestSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    session = TestSession()
+    factory = sessionmaker(
+        autocommit=False, autoflush=False, expire_on_commit=False, bind=engine
+    )
+    try:
+        yield factory
+    finally:
+        Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture()
+def db_session(session_factory):
+    """テストごとに 1 つだけ払い出す互換セッション。
+
+    セットアップ・検証用に使う。長時間処理を含むハンドラに渡すときは
+    ``session_factory`` を直接使うこと（``run(session_factory, payload)``）。
+    """
+    session = session_factory()
     try:
         yield session
     finally:
         session.close()
-        Base.metadata.drop_all(bind=engine)
 
 
 @pytest.fixture()

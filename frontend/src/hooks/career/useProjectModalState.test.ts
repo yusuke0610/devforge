@@ -9,7 +9,6 @@ const dummyProject: CareerProjectForm = {
   end_date: "2024-12",
   is_current: false,
   role: "エンジニア",
-  description: "",
   challenge: "",
   action: "",
   result: "",

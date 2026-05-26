@@ -15,7 +15,7 @@
 ## PR の作り方
 
 - `develop` ブランチに向けて PR を作成する
-- PR タイトルは `: <内容>` の形式（例: `feat: GitHub 分析スコア計算の追加`）
+- PR タイトルは `: <内容>` の形式（例: `feat: GitHub 連携スコア計算の追加`）
 - セルフレビュー後にマージする
 
 ## ADR（Architecture Decision Record）

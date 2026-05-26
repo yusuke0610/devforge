@@ -17,9 +17,9 @@ def list_item(text: str) -> str:
     return f"- {text}"
 
 
-def format_period(start: str, end: str | None, is_current: bool) -> str:
-    """Format a date period string."""
-    return f"{start} - {'現在' if is_current else (end or '')}"
+def format_period(start: str, end: str, is_current: bool) -> str:
+    """Format a date period string. 在籍中は end を "" で受ける契約。"""
+    return f"{start} - {'現在' if is_current else end}"
 
 
 def get_str(payload: dict[str, Any], key: str, default: str = "") -> str:

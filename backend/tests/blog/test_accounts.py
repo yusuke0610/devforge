@@ -3,8 +3,6 @@
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
-import pytest
-from app.models import BlogSummaryCache
 from app.repositories import BlogAccountRepository
 from fastapi.testclient import TestClient
 from sqlalchemy.orm.session import Session
@@ -150,10 +148,10 @@ def test_delete_blog_account(client: TestClient) -> None:
     assert resp.json() == []
 
 
-def test_update_blog_account_resets_articles_sync_state_and_summary_cache(
+def test_update_blog_account_resets_articles_and_sync_state(
     client: TestClient, db_session: Session
 ) -> None:
-    """PATCH で username を更新し、記事・同期状態・サマリキャッシュを初期化する。"""
+    """PATCH で username を更新し、記事・同期状態を初期化する。"""
     headers = auth_header(client)
     with patch(_VERIFY_PATCH, new_callable=AsyncMock, return_value=True):
         resp = client.post(
@@ -173,13 +171,6 @@ def test_update_blog_account_resets_articles_sync_state_and_summary_cache(
     account = account_repo.get_by_id(account_id)
     assert account is not None
     account.last_synced_at = datetime.now(timezone.utc)
-    db_session.add(
-        BlogSummaryCache(
-            user_id=user.id,
-            summary="既存の分析結果",
-            status="completed",
-        )
-    )
     db_session.commit()
 
     repo = BlogArticleRepository(db_session, user.id)
@@ -221,82 +212,6 @@ def test_update_blog_account_resets_articles_sync_state_and_summary_cache(
     assert refreshed_account.username == "new-user"
     assert refreshed_account.last_synced_at is None
     assert repo.count_by_user() == 0
-    assert db_session.query(BlogSummaryCache).filter_by(user_id=user.id).first() is None
-
-
-def test_update_blog_account_rolls_back_when_invalidation_fails(
-    client: TestClient, db_session: Session
-) -> None:
-    """キャッシュ無効化で失敗した場合、記事削除と username 更新がロールバックされる。"""
-    headers = auth_header(client)
-    with patch(_VERIFY_PATCH, new_callable=AsyncMock, return_value=True):
-        resp = client.post(
-            "/api/blog/accounts",
-            json={
-                "platform": "note",
-                "username": "old-user",
-            },
-            headers=headers,
-        )
-    account_id = resp.json()["id"]
-
-    from app.repositories import BlogArticleRepository, UserRepository
-
-    user = UserRepository(db_session).get_by_username("testuser")
-    account_repo = BlogAccountRepository(db_session, user.id)
-    account = account_repo.get_by_id(account_id)
-    assert account is not None
-    account.last_synced_at = datetime.now(timezone.utc)
-    db_session.add(
-        BlogSummaryCache(
-            user_id=user.id,
-            summary="既存の分析結果",
-            status="completed",
-        )
-    )
-    db_session.commit()
-
-    repo = BlogArticleRepository(db_session, user.id)
-    repo.upsert_many(
-        [
-            {
-                "account_id": account.id,
-                "platform": "note",
-                "external_id": "note-1",
-                "title": "記事1",
-                "url": "https://note.com/old-user/n/note-1",
-                "published_at": "2026-04-01",
-                "likes_count": 3,
-                "summary": "要約",
-                "tags": ["note"],
-            },
-        ]
-    )
-
-    with (
-        patch(
-            "app.services.blog.account_service.verify_user_exists",
-            new_callable=AsyncMock,
-            return_value=True,
-        ),
-        patch(
-            "app.services.blog.account_service.BlogSummaryCacheRepository.invalidate",
-            side_effect=RuntimeError("cache invalidate failed"),
-        ),
-        pytest.raises(RuntimeError, match="cache invalidate failed"),
-    ):
-        client.patch(
-            "/api/blog/accounts/note",
-            json={"username": "new-user"},
-            headers=headers,
-        )
-
-    refreshed_account = account_repo.get_by_id(account_id)
-    assert refreshed_account is not None
-    assert refreshed_account.username == "old-user"
-    assert refreshed_account.last_synced_at is not None
-    assert repo.count_by_user() == 1
-    assert db_session.query(BlogSummaryCache).filter_by(user_id=user.id).first() is not None
 
 
 def test_list_blog_articles(client: TestClient) -> None:

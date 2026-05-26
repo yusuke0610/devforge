@@ -25,6 +25,40 @@ def _run(coro):
         loop.close()
 
 
+def _mock_async_client_returning_json(api_json: dict | list) -> AsyncMock:
+    """raise_for_status() を通り json() で `api_json` を返す AsyncClient モックを生成する。"""
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json = MagicMock(return_value=api_json)
+
+    mock_client = AsyncMock()
+    mock_client.get = AsyncMock(return_value=mock_resp)
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+    return mock_client
+
+
+def _mock_async_client_with_status(status_code: int) -> AsyncMock:
+    """get() が status_code だけを持つレスポンスを返す AsyncClient モックを生成する。"""
+    mock_resp = MagicMock()
+    mock_resp.status_code = status_code
+
+    mock_client = AsyncMock()
+    mock_client.get = AsyncMock(return_value=mock_resp)
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+    return mock_client
+
+
+def _mock_async_client_raising(exc: BaseException) -> AsyncMock:
+    """get() が `exc` を送出する AsyncClient モックを生成する。"""
+    mock_client = AsyncMock()
+    mock_client.get = AsyncMock(side_effect=exc)
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+    return mock_client
+
+
 # ── fetch_note_articles テスト ───────────────────────────────────────────
 
 
@@ -68,15 +102,7 @@ def test_fetch_note_articles_no_hashtags_returns_empty_tags() -> None:
             }
         ]
     )
-
-    mock_resp = MagicMock()
-    mock_resp.raise_for_status = MagicMock()
-    mock_resp.json = MagicMock(return_value=api_json)
-
-    mock_client = AsyncMock()
-    mock_client.get = AsyncMock(return_value=mock_resp)
-    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client = _mock_async_client_returning_json(api_json)
 
     with patch("app.services.blog.collector.httpx.AsyncClient", return_value=mock_client):
         articles = _run(fetch_note_articles("user"))
@@ -105,15 +131,7 @@ def test_fetch_note_articles_with_hashtags() -> None:
             }
         ]
     )
-
-    mock_resp = MagicMock()
-    mock_resp.raise_for_status = MagicMock()
-    mock_resp.json = MagicMock(return_value=api_json)
-
-    mock_client = AsyncMock()
-    mock_client.get = AsyncMock(return_value=mock_resp)
-    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client = _mock_async_client_returning_json(api_json)
 
     with patch("app.services.blog.collector.httpx.AsyncClient", return_value=mock_client):
         articles = _run(fetch_note_articles("user"))
@@ -137,15 +155,7 @@ def test_fetch_qiita_articles_success() -> None:
             "tags": [{"name": "TypeScript"}, {"name": "React"}],
         }
     ]
-
-    mock_resp = MagicMock()
-    mock_resp.raise_for_status = MagicMock()
-    mock_resp.json = MagicMock(return_value=api_json)
-
-    mock_client = AsyncMock()
-    mock_client.get = AsyncMock(return_value=mock_resp)
-    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client = _mock_async_client_returning_json(api_json)
 
     with patch("app.services.blog.collector.httpx.AsyncClient", return_value=mock_client):
         articles = _run(fetch_qiita_articles("user"))
@@ -164,10 +174,7 @@ def test_fetch_qiita_articles_success() -> None:
 
 def test_fetch_zenn_articles_timeout_raises() -> None:
     """httpx.TimeoutException 発生時は例外が伝播すること。"""
-    mock_client = AsyncMock()
-    mock_client.get = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
-    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client = _mock_async_client_raising(httpx.TimeoutException("timeout"))
 
     with patch("app.services.blog.collector.httpx.AsyncClient", return_value=mock_client):
         with pytest.raises(httpx.TimeoutException):
@@ -185,13 +192,7 @@ def test_verify_user_exists_unsupported_platform_raises_error() -> None:
 
 def test_verify_user_exists_zenn_user_found() -> None:
     """Zenn ユーザーが存在する場合は True を返すこと。"""
-    mock_resp = MagicMock()
-    mock_resp.status_code = 200
-
-    mock_client = AsyncMock()
-    mock_client.get = AsyncMock(return_value=mock_resp)
-    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client = _mock_async_client_with_status(200)
 
     with patch("app.services.blog.collector.httpx.AsyncClient", return_value=mock_client):
         result = _run(verify_user_exists("zenn", "testuser"))
@@ -201,13 +202,7 @@ def test_verify_user_exists_zenn_user_found() -> None:
 
 def test_verify_user_exists_normalizes_before_request() -> None:
     """URL 入力でも正規化された username で存在確認すること。"""
-    mock_resp = MagicMock()
-    mock_resp.status_code = 200
-
-    mock_client = AsyncMock()
-    mock_client.get = AsyncMock(return_value=mock_resp)
-    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client = _mock_async_client_with_status(200)
 
     with patch("app.services.blog.collector.httpx.AsyncClient", return_value=mock_client):
         result = _run(verify_user_exists("zenn", "https://zenn.dev/testuser/articles/test"))
@@ -218,13 +213,7 @@ def test_verify_user_exists_normalizes_before_request() -> None:
 
 def test_verify_user_exists_zenn_user_not_found() -> None:
     """Zenn ユーザーが存在しない場合は False を返すこと。"""
-    mock_resp = MagicMock()
-    mock_resp.status_code = 404
-
-    mock_client = AsyncMock()
-    mock_client.get = AsyncMock(return_value=mock_resp)
-    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client = _mock_async_client_with_status(404)
 
     with patch("app.services.blog.collector.httpx.AsyncClient", return_value=mock_client):
         result = _run(verify_user_exists("zenn", "nonexistent"))
@@ -239,10 +228,7 @@ def test_verify_user_exists_invalid_url_returns_false() -> None:
 
 def test_verify_user_exists_timeout_raises_blog_platform_request_error() -> None:
     """接続タイムアウト時は BlogPlatformRequestError が送出されること。"""
-    mock_client = AsyncMock()
-    mock_client.get = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
-    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client = _mock_async_client_raising(httpx.TimeoutException("timeout"))
 
     with patch("app.services.blog.collector.httpx.AsyncClient", return_value=mock_client):
         with pytest.raises(BlogPlatformRequestError):

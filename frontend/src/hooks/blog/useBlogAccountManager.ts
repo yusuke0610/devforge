@@ -8,8 +8,8 @@ import {
   getBlogArticles,
   syncBlogAccount,
 } from "../../api";
+import { FALLBACK_MESSAGES } from "../../constants/messages";
 import type { BlogAccount, BlogArticle } from "../../types";
-import { useBlogSummaryPolling } from "./useBlogSummaryPolling";
 
 export type PlatformKey = "zenn" | "note" | "qiita";
 
@@ -46,7 +46,7 @@ export function reduceActions(
 }
 
 /**
- * BlogPage のブログアカウント管理・同期・AI分析ロジックを提供するカスタムフック。
+ * BlogPage のブログアカウント管理・同期ロジックを提供するカスタムフック。
  *
  * 4 種類の per-platform lifecycle（saving / syncing / updating / deleting）は
  * 単一の ``PlatformActionMap`` で集約管理する。外部には従来通り
@@ -106,7 +106,7 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
         setArticles([]);
       }
     } catch (e) {
-      setAccountError(e instanceof Error ? e.message : "データの取得に失敗しました");
+      setAccountError(e instanceof Error ? e.message : FALLBACK_MESSAGES.BLOG_FETCH);
     } finally {
       setLoading(false);
     }
@@ -115,9 +115,6 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  const { summary, summaryLoading, summaryError, handleSummarize } =
-    useBlogSummaryPolling(articles);
 
   /**
    * 保存/更新後の自動同期を試みる。成功時は formatSuccess の文言、
@@ -135,9 +132,7 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
     } catch (syncErr) {
       setSuccess(fallbackMessage);
       setAccountError(
-        syncErr instanceof Error
-          ? syncErr.message
-          : "記事の同期に失敗しました。「同期」ボタンで再試行してください。",
+        syncErr instanceof Error ? syncErr.message : FALLBACK_MESSAGES.BLOG_SYNC,
       );
     }
   };
@@ -161,7 +156,7 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
         "アカウントを連携しました",
       );
     } catch (e) {
-      setAccountError(e instanceof Error ? e.message : "アカウントの連携に失敗しました");
+      setAccountError(e instanceof Error ? e.message : FALLBACK_MESSAGES.BLOG_LINK);
     } finally {
       setAction(platform, null, "saving");
     }
@@ -183,7 +178,7 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
         `${result.synced_count}件の新しい記事を取得しました（合計: ${result.total_count}件）`,
       );
     } catch (e) {
-      setAccountError(e instanceof Error ? e.message : "同期に失敗しました");
+      setAccountError(e instanceof Error ? e.message : FALLBACK_MESSAGES.BLOG_SYNC_SIMPLE);
     } finally {
       setAction(platform, null, "syncing");
     }
@@ -203,7 +198,7 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
       await loadData();
       setSuccess("アカウントを解除しました");
     } catch (e) {
-      setAccountError(e instanceof Error ? e.message : "アカウントの解除に失敗しました");
+      setAccountError(e instanceof Error ? e.message : FALLBACK_MESSAGES.BLOG_UNLINK);
     } finally {
       setAction(platform, null, "deleting");
     }
@@ -232,7 +227,7 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
       );
       return true;
     } catch (e) {
-      setAccountError(e instanceof Error ? e.message : "usernameの更新に失敗しました");
+      setAccountError(e instanceof Error ? e.message : FALLBACK_MESSAGES.BLOG_USERNAME_UPDATE);
       return false;
     } finally {
       setAction(platform, null, "updating");
@@ -244,7 +239,6 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
     articles,
     loading,
     accountError,
-    summaryError,
     success,
     draftUsernames,
     setDraftUsernames,
@@ -252,13 +246,10 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
     syncingPlatform: findPlatformWithAction("syncing"),
     updatingPlatform: findPlatformWithAction("updating"),
     deletingPlatform: findPlatformWithAction("deleting"),
-    summary,
-    summaryLoading,
     accountMap,
     handleSave,
     handleSync,
     handleDelete,
     handleUpdate,
-    handleSummarize,
   };
 }

@@ -58,5 +58,5 @@ class TestInternalSecret:
     ) -> None:
         """TASK_RUNNER=cloud_tasks では X-CloudTasks-QueueName が無いと 403。"""
         monkeypatch.setenv("TASK_RUNNER", "cloud_tasks")
-        resp = client.post("/internal/tasks/blog_summarize", json={"user_id": "x"})
+        resp = client.post("/internal/tasks/github_link", json={"user_id": "x"})
         assert resp.status_code == 403

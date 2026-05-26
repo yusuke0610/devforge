@@ -1,3 +1,5 @@
+import type { Dispatch, SetStateAction } from "react";
+
 import {
   blankCareerClient,
   blankCareerExperience,
@@ -20,7 +22,7 @@ import type {
  */
 export function useCareerExperienceMutators(
   experiences: CareerExperienceForm[],
-  setForm: React.Dispatch<React.SetStateAction<CareerFormState>>,
+  setForm: Dispatch<SetStateAction<CareerFormState>>,
 ) {
   /** experience フィールド変更ハンドラ */
   const updateExperienceField = (

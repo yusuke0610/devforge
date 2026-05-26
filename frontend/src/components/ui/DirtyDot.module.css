@@ -1,0 +1,15 @@
+/**
+ * 未保存マーク。マット（艶消し）な赤丸として描画する。
+ * 絵文字 🔴 のグラデーション/光沢を避けるため CSS で単色塗りにしている。
+ */
+.dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-left: 0.35rem;
+  border-radius: 50%;
+  /* マットな深い赤（material design red 700 相当）。グラデーションや shadow は付けない。 */
+  background-color: #c62828;
+  vertical-align: middle;
+  flex-shrink: 0;
+}

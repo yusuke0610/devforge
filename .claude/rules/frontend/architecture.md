@@ -18,7 +18,7 @@ frontend/src/
 ├── pages/                # ルートのエントリーポイント（薄いラッパー）
 │   ├── LoginPage.tsx / GitHubCallbackPage.tsx
 │   ├── CareerPage.tsx / CareerAnalysisPage.tsx
-│   ├── BlogPage.tsx / GitHubIntelligencePage.tsx
+│   ├── BlogPage.tsx / GitHubLinkPage.tsx
 │   └── NotFoundPage.tsx
 ├── components/
 │   ├── AuthenticatedLayout.tsx  # サイドバー + <Outlet />（フッターに NotificationBell を配置）
@@ -29,7 +29,7 @@ frontend/src/
 │   ├── TaskProgressStepper.tsx  # 非同期タスク進捗ステッパー
 │   ├── UserMenu.tsx
 │   ├── forms/                   # BasicInfoForm, CareerResumeForm, ResumeForm 等
-│   ├── analysis/                # GitHubAnalysisPage, LanguageBar 等
+│   ├── github-link/             # GitHubLinkDashboard, LanguageBar 等
 │   ├── career-analysis/         # CareerAnalysisPage + 結果表示
 │   ├── auth/                    # LoginForm, RegisterForm
 │   ├── blog/                    # BlogPage

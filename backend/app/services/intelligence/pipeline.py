@@ -2,7 +2,7 @@
 キャリアインテリジェンスパイプラインのオーケストレーター。
 
 GitHub のデータから以下の分析を順次実行します：
-  GitHub → リポジトリ → 集計 → スキル抽出 → スコア算出
+  GitHub → リポジトリ → 集計 → スキル抽出
 
 各ステージは決定論的（LLM は呼ばない）。
 """
@@ -15,7 +15,6 @@ from typing import Dict, List, Optional
 from ...core.logging_utils import get_logger
 from ...core.metrics import measure_time_async
 from .github_collector import RepoData, collect_repos
-from .position_scorer import PositionScores, calculate_position_scores
 from .skill_extractor import extract_skills
 
 logger = get_logger(__name__)
@@ -33,7 +32,6 @@ class IntelligenceResult:
     detected_frameworks: Dict[str, int] = field(default_factory=dict)  # フレームワーク名 → 使用リポジトリ数
     detected_devtools: Dict[str, int] = field(default_factory=dict)   # DevTools 名 → 使用リポジトリ数
     detected_infras: Dict[str, int] = field(default_factory=dict)     # インフラツール名 → 使用リポジトリ数
-    position_scores: Optional[PositionScores] = None
 
 
 def aggregate_intelligence(username: str, repos: List[RepoData]) -> IntelligenceResult:
@@ -60,7 +58,6 @@ def aggregate_intelligence(username: str, repos: List[RepoData]) -> Intelligence
             infra_counts[inf] += 1
 
     extraction = extract_skills(repos)
-    scores = calculate_position_scores(repos)
 
     return IntelligenceResult(
         username=username,
@@ -71,7 +68,6 @@ def aggregate_intelligence(username: str, repos: List[RepoData]) -> Intelligence
         detected_frameworks=dict(framework_counts),
         detected_devtools=dict(devtool_counts),
         detected_infras=dict(infra_counts),
-        position_scores=scores,
     )
 
 
@@ -84,7 +80,7 @@ async def run_pipeline(
     """GitHub ユーザーに対してキャリアインテリジェンスパイプラインを実行する。
 
     1. GitHub API からリポジトリ収集
-    2. ``aggregate_intelligence`` で集計・スキル抽出・スコア算出
+    2. ``aggregate_intelligence`` で集計・スキル抽出
     """
     logger.info("%s のインテリジェンスパイプラインを開始します", username)
 

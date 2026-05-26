@@ -97,7 +97,19 @@ variable "upstash_redis_token" {
   default     = ""
 }
 
-variable "turso_database_url" {
-  description = "Turso database URL injected via TF_VAR_turso_database_url."
+variable "turso_api_token" {
+  description = "Turso API token injected via TF_VAR_turso_api_token. provider \"turso\" の api_token に渡す。"
   type        = string
+  sensitive   = true
+}
+
+variable "turso_organization" {
+  description = "Turso organization slug（個人プランは Turso の username）。turso_database リソースの organization_name に渡す。"
+  type        = string
+}
+
+variable "turso_group" {
+  description = "Turso group 名。事前に turso CLI で作成しておく。primary location は group 定義に紐づく。"
+  type        = string
+  default     = "default"
 }

@@ -79,6 +79,11 @@ CLOUD_TASKS_QUEUE = "CLOUD_TASKS_QUEUE"
 CLOUD_TASKS_LOCATION = "CLOUD_TASKS_LOCATION"
 CLOUD_TASKS_SERVICE_URL = "CLOUD_TASKS_SERVICE_URL"
 CLOUD_TASKS_SERVICE_ACCOUNT = "CLOUD_TASKS_SERVICE_ACCOUNT"
+# タスク最大試行回数。Cloud Tasks キューの retry_config.max_attempts
+# （正本: infra/modules/cloud_tasks/main.tf の max_attempts）と一致させること。
+# 本番（Cloud Run）の env block には未注入で、既定値 3 で運用している。
+# 本番でリトライ上限を変える場合は cloud_tasks 側と本定数の注入を両方更新する。
+TASK_MAX_ATTEMPTS = "TASK_MAX_ATTEMPTS"
 
 # --- Upstash Redis ---
 

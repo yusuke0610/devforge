@@ -2,7 +2,7 @@
 	setup install-hooks install-backend install-frontend generate-keys \
 	dev dev-build dev-down dev-frontend preview-frontend dev-proxy dev-proxy-only \
 	test test-backend test-frontend \
-	lint lint-backend lint-frontend lint-fix \
+	lint lint-backend lint-frontend lint-frontend-messages lint-fix \
 	format format-check \
 	ci \
 	dupe-check dupe-check-html dupe-clean \
@@ -38,6 +38,7 @@ help:
 	@echo "  lint              全リント (backend + frontend)"
 	@echo "  lint-backend      Backend: ruff check"
 	@echo "  lint-frontend     Frontend: eslint"
+	@echo "  lint-frontend-messages  Frontend: setError等にリテラル日本語が渡っていないか検知"
 	@echo "  lint-fix          リント自動修正 (ruff + eslint)"
 	@echo "  format            Prettier で整形"
 	@echo "  format-check      Prettier チェック"
@@ -125,13 +126,18 @@ test-backend:
 test-frontend:
 	nix develop --command bash -c "cd frontend && npm test"
 
-lint: lint-backend lint-frontend
+lint: lint-backend lint-frontend lint-frontend-messages
 
 lint-backend:
 	nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check app tests alembic_migrations"
 
 lint-frontend:
 	nix develop --command bash -c "cd frontend && npm run lint"
+
+# ts/tsx で setError/toast.error/alert にリテラル日本語を直接渡していないか検知。
+# ESLint は throw new Error の AST しか拾えないため、関数呼び出し系をここで補完する。
+lint-frontend-messages:
+	nix develop --command bash scripts/lint-frontend-messages.sh
 
 lint-fix:
 	nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check --fix app tests alembic_migrations"

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { marked } from "marked";
 import shared from "../../styles/shared.module.css";
 import styles from "./MarkdownTextarea.module.css";
@@ -16,12 +16,14 @@ type Props = {
   placeholder?: string;
   /** 必須フィールドかどうか */
   required?: boolean;
+  /** ラベル横に追加する装飾要素（例: 未保存マーク 🔴） */
+  labelAdornment?: ReactNode;
 };
 
 /**
  * Markdownテキストエリア。入力内容をリアルタイムでプレビュー表示する。
  */
-export function MarkdownTextarea({ label, value, onChange, rows = 3, placeholder, required }: Props) {
+export function MarkdownTextarea({ label, value, onChange, rows = 3, placeholder, required, labelAdornment }: Props) {
   const renderedHtml = useMemo(() => {
     if (!value) return "";
     return marked.parse(value, { async: false }) as string;
@@ -32,6 +34,7 @@ export function MarkdownTextarea({ label, value, onChange, rows = 3, placeholder
       <span className={shared.labelText}>
         {label}
         {required && <span className={shared.requiredBadge}>必須</span>}
+        {labelAdornment}
       </span>
       <div className={styles.editorRow}>
         <textarea

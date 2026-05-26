@@ -1,18 +1,15 @@
 """Repository 層。"""
 
 from .base import BaseMasterRepository, SingleUserDocumentRepository
-from .blog import BlogAccountRepository, BlogArticleRepository, BlogSummaryCacheRepository
-from .career_analysis import CareerAnalysisRepository
+from .blog import BlogAccountRepository, BlogArticleRepository
 from .master_data import MQualificationRepository, MTechnologyStackRepository
 from .resume import ResumeRepository
 from .user import UserRepository
 
 __all__ = [
-    "CareerAnalysisRepository",
     "BaseMasterRepository",
     "BlogAccountRepository",
     "BlogArticleRepository",
-    "BlogSummaryCacheRepository",
     "MQualificationRepository",
     "MTechnologyStackRepository",
     "ResumeRepository",

@@ -124,12 +124,12 @@ def escape(text: str) -> str:
     return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def format_period(start_date: str, end_date: str | None, is_current: bool) -> str:
-    """期間（開始〜終了）をフォーマットします。"""
+def format_period(start_date: str, end_date: str, is_current: bool) -> str:
+    """期間（開始〜終了）をフォーマットします。在籍中は end_date を "" で受ける契約。"""
     start = start_date.replace("-", " 年 ") + " 月" if "-" in start_date else start_date
     if is_current:
         return f"{start}〜現在"
-    end = end_date.replace("-", " 年 ") + " 月" if end_date and "-" in end_date else (end_date or "")
+    end = end_date.replace("-", " 年 ") + " 月" if "-" in end_date else end_date
     return f"{start}〜{end}"
 
 

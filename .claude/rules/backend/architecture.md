@@ -37,7 +37,7 @@ backend/app/
 │   ├── career_analysis.py
 │   ├── download_utils.py
 │   ├── health.py
-│   ├── intelligence.py
+│   ├── github_link.py
 │   ├── internal.py      # Cloud Tasks → backend 内部 API
 │   ├── master_data.py
 │   ├── notifications.py
@@ -46,7 +46,7 @@ backend/app/
 │   ├── user.py / blog.py / cache.py / career_analysis.py
 │   ├── master_data.py / notification.py / resume.py
 ├── schemas/             # Pydantic リクエスト/レスポンススキーマ
-│   ├── auth.py / blog.py / career_analysis.py / intelligence.py
+│   ├── auth.py / blog.py / career_analysis.py / github_link.py
 │   ├── master_data.py / resume.py / shared.py
 ├── repositories/        # データアクセス層
 │   ├── base.py / user.py / blog.py / career_analysis.py
@@ -62,10 +62,10 @@ backend/app/
 │   │   ├── builder.py
 │   │   ├── prompt_builder.py
 │   │   └── tech_stack_merger.py
-│   ├── intelligence/            # GitHub 分析パイプラインと LLM 連携
+│   ├── intelligence/            # GitHub 連携パイプラインと LLM 連携
 │   │   ├── pipeline.py
 │   │   ├── github_collector.py
-│   │   ├── github_analysis_service.py
+│   │   ├── github_link_service.py
 │   │   ├── github/              # GitHub API クライアント・リポジトリ解析
 │   │   │   ├── api_client.py
 │   │   │   └── repo_analyzer.py
@@ -95,7 +95,7 @@ backend/app/
 │   │       ├── base.py          # TaskHandler 抽象基底クラス
 │   │       ├── blog_summarize.py
 │   │       ├── career_analysis.py
-│   │       └── github_analysis.py
+│   │       └── github_link.py
 │   ├── markdown/                # Markdown テンプレート生成
 │   ├── pdf/                     # WeasyPrint による PDF 生成
 │   ├── progress_service.py      # 進捗状態管理
@@ -111,5 +111,5 @@ backend/app/
 
 - **routers/auth/**: パッケージ化されており、`endpoints` / `github_auth` / `oauth_flow` / `token_manager` に責務分割
 - **services/tasks/**: Cloud Tasks（本番）と BackgroundTasks（ローカル）を共通の `execute_task` でディスパッチ。状態遷移（`processing` / `completed` / `dead_letter` / `retrying`）は worker が担う
-- **services/intelligence/**: GitHub 分析 → LLM 要約パイプライン。Ollama / Vertex AI を `LLMClient` 抽象で切替
+- **services/intelligence/**: GitHub 連携 → スキル集計パイプライン。Ollama / Vertex AI を `LLMClient` 抽象で切替
 - **services/llm/ と services/intelligence/llm/**: 別物。前者は入出力サニタイザ等の横断 util、後者は LLM プロバイダクライアントの実装

@@ -7,6 +7,10 @@ provider "cloudflare" {
   api_token = var.cloudflare_api_token
 }
 
+provider "turso" {
+  api_token = var.turso_api_token
+}
+
 # --------------------------------------------------------------------
 # dev 環境の stack composition
 # 各 module の呼び出しは ../../modules/devforge_stack に集約されている。
@@ -31,7 +35,8 @@ module "devforge_stack" {
   upstash_redis_url   = var.upstash_redis_url
   upstash_redis_token = var.upstash_redis_token
 
-  turso_database_url = var.turso_database_url
+  turso_organization = var.turso_organization
+  turso_group        = var.turso_group
 
   cloudflare_account_id         = var.cloudflare_account_id
   cloudflare_zone_id            = var.cloudflare_zone_id

@@ -48,9 +48,11 @@ nix develop --command bash -c "tofu -chdir=infra/environments/dev plan"
 
 ## DB（Turso）の扱い
 
-- Turso (libSQL) は OpenTofu 管理対象外で `turso CLI` で手動運用
+- Turso (libSQL) の DB 本体は OpenTofu の `infra/modules/turso/` で管理（jpedroh/turso provider）
+- auth token のみ `turso CLI` で発行 → Secret Manager に手動投入（state 漏洩回避のため Terraform 対象外）
+- group は事前に CLI で作成しておく（primary location は group 定義に紐づく）
 - スキーマ変更は backend 側の Alembic マイグレーション（`backend/alembic_migrations/versions/`）で行う
-- 詳細は `docs/data-model.md` の「Turso CLI セットアップ」参照
+- 詳細は `docs/data-model.md` の「Turso セットアップ」参照
 
 ## デプロイフロー
 

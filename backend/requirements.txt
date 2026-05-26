@@ -1,4 +1,6 @@
-fastapi==0.124.0
+fastapi==0.136.3
+# starlette は fastapi の推移的依存だが、PYSEC-2026-161（Host ヘッダ未検証による認証バイパス）対策で >=1.0.1 を明示固定する
+starlette==1.1.0
 uvicorn[standard]==0.34.0
 sqlalchemy==2.0.36
 sqlalchemy-libsql==0.2.0
@@ -25,3 +27,4 @@ black==26.3.1
 pytest-cov==6.1.0
 google-cloud-tasks>=2.16,<3
 pyasn1>=0.6.3
+python-multipart>=0.0.27

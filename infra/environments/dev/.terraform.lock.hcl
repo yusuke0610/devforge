@@ -1,7 +1,7 @@
-# This file is maintained automatically by "terraform init".
+# This file is maintained automatically by "tofu init".
 # Manual edits may be lost in future updates.
 
-provider "registry.terraform.io/cloudflare/cloudflare" {
+provider "registry.opentofu.org/cloudflare/cloudflare" {
   version     = "4.52.7"
   constraints = "~> 4.0"
   hashes = [
@@ -24,22 +24,48 @@ provider "registry.terraform.io/cloudflare/cloudflare" {
   ]
 }
 
-provider "registry.terraform.io/hashicorp/google" {
+provider "registry.opentofu.org/hashicorp/google" {
   version     = "7.32.0"
   constraints = "~> 7.22"
   hashes = [
-    "h1:hDMENgq6nxoM6ttxN1HNrqbYiyRV8avLmUuUe4QWvKY=",
-    "zh:091afeeeb58035f26ebaec34755a15d56e3229c4ce6db2745c52ba2593204a30",
-    "zh:15d6a375c49d023dd21e612610b12bf79fbc6459bc5ad64b989d2180e9931f7d",
-    "zh:2c70ee949b01c0c7925618e36417ac5b9c1de91c66bb0bd956b2b2bd1d38a2b6",
-    "zh:2e531cf6f3af847104df65675ebd9c9a7450ba91d8d21ff6ed04eeab6a5684e2",
-    "zh:42fece780ef909136213762731c945d59c58dbaf92f64a46989102da9ebfa998",
-    "zh:9008b13bec8c588ef41ec813c3d67d26acb22ada241d9dd9ed408687607726cc",
-    "zh:a62e09bd551de8ea74b68c1eb44f9d7d0dc56957811915d46ec0a28254a30e0b",
-    "zh:ad3d4419561d19e88b72ad4bedbbc73ee77f20acb594261be8f716bf1a89f947",
-    "zh:af0c23df89e5fb815751c64c9a438527d6e0609df52fa7e281dbd90aa238270b",
-    "zh:b4d1157559d04792441550ae79f13d16bd7cc3f80a9616cd9ef3f83466564ce4",
-    "zh:db32528838dc9641981769012bdabf21e658756f1581ccbcd239aab0eb4aed11",
-    "zh:f569b65999264a9416862bca5cd2a6177d94ccb0424f3a4ef424428912b9cb3c",
+    "h1:z0kbKVovrMINaZSXLZW+y5EQ0FpmefU5EMCKL6/OJWQ=",
+    "zh:011de7394b31d0aeed54d11c9ba0ccd4457addf24e467394088c54be87413f95",
+    "zh:1b9261f4a7329c4fa73886e3474ebdc66a0fa36aee78233f5a24e335e6062777",
+    "zh:2b7d9cc6462ff2ecdb0f1b6b6d97cf855f0d8010c7fcfa768f764a524519c796",
+    "zh:35a872afa39e37f2d266741fde647c10c4d6c0b066f0977de91f849f5cf64649",
+    "zh:400c2737752690530efcff578060dd24e5d365a038b772c7fc327b4357cb0b70",
+    "zh:46722e5509ba24cad6ab85cb5dae6f06e97e416660b68b8ff4cbce682f597d59",
+    "zh:5bdae841e16f327500d3395d626288ea387648ffabdab331786e6102a57df67f",
+    "zh:6b9421ec63b15f94e6daf46e51ca204cb466e23f8c7f40e18a0dbc4540df6744",
+    "zh:84cba090b3d9eee432a5121e4484ef592976fc4918cb10eb0182dea00cecd8c1",
+    "zh:859196e7a7e301cfb0f728b7a92035ede91629462c9d9da6c976d72864c42342",
+    "zh:a0ef237f70fd6602272f0d6bf82720227cdba205fd72f12c57076523a1e5079c",
+    "zh:a5df4ac00b3bea99e41672392831ad28fb44b2001bc2c39f3a21a124ff3b09fb",
+    "zh:d26e0221f7dd7abf5cd9431f5bea227d176ea7e81c50fb0d96c7d7f1fc77ef56",
+    "zh:e24d8380413b3460b1ac09687a9a78904e6b5d011db0fad952ee76d806ee6e85",
+    "zh:fb267184f11fa4e803f5559baac1f374cdf1e8f2427ee52c7470622238cf3ac0",
+  ]
+}
+
+provider "registry.opentofu.org/jpedroh/turso" {
+  version     = "0.3.0"
+  constraints = "~> 0.3"
+  hashes = [
+    "h1:wYBrD/0YvFXdvQ6s4E0nTWLRm4NLgjniics9ldMZ3c8=",
+    "zh:0bc9b1ddb817a968d5b6905d123f3ea38b147776769acefcc41762dab16290af",
+    "zh:155847966b07250d653b41c09695e9d8a54833e6e1657dfa12e26fe431dcc7ad",
+    "zh:1705fb688ab441d714464501a983fd540df50d6915f0350892a14d3ed569d622",
+    "zh:70135f83c117f970331a5d4ec5b26886f17b2bd88ff5c5bffc0c6bd061b512f0",
+    "zh:7b1002e83d3e57db79bed9c6715aba45686d66c794a3e9f2658775ac155c5088",
+    "zh:7c73633bf81680bf122fdae35fed206a095aabbb158939f088856389e46f740b",
+    "zh:85f34184f785e4d443309dbf88abef5e92029d6fe5e388587e64cd98e1ea4a73",
+    "zh:890df766e9b839623b1f0437355032a3c006226a6c200cd911e15ee1a9014e9f",
+    "zh:aac66e67e1b081eb8a9101278e1dbfbfce1007b2f58f854d29367f1c4f7cc1fb",
+    "zh:b1c3d64c19d21b2b60a45aa1ca62441b799b9d23740bfb71888fd5c104392597",
+    "zh:ca27cbf3615920e180bb68f3ce10a7630016e6f20904f51aec8dc3aaa4bd1926",
+    "zh:ca7949802a1ce4906898f3a517dd2f1e2901fbd8f7ed7ffe4daeddfb42895c2c",
+    "zh:cc6cf5e3ff05ad8d15ac52154eff99fbe06cf7ca613200b528a0903c8f6db118",
+    "zh:f64072707f2ec6f00eb2bb83c632de59232bbd9da4de779716e52196de69b717",
+    "zh:ff1fdf852ef6a238090a2f49be35faca3aa124fb621916bd3a2feff4cd6ea6bc",
   ]
 }

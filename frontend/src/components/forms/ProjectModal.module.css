@@ -19,6 +19,31 @@
   overflow: hidden;
 }
 
+/* 取り込みパネルを併置する分だけ横幅を広げる */
+.modalWide {
+  max-width: 1150px;
+}
+
+/* ヘッダー下の領域。左=入力フォーム / 右=取り込みブロックの 2 カラム */
+.bodyWrap {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* モーダル内に再掲する PDF 原本ビュー（タブ固定・ページ部のみスクロール） */
+.blocksColumn {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border-left: 1px solid var(--border);
+  padding: 1rem;
+}
+
 .header {
   display: flex;
   justify-content: space-between;
@@ -35,6 +60,7 @@
 
 .body {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
   padding: 1rem;
   display: flex;

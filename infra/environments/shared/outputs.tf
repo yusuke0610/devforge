@@ -17,3 +17,7 @@ output "cloudflare_pages_subdomain" {
 output "cloudflare_pages_project_name" {
   value = module.devforge_stack.cloudflare_pages_project_name
 }
+
+output "turso_database_url" {
+  value = module.devforge_stack.turso_database_url
+}

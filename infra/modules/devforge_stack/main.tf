@@ -60,6 +60,15 @@ module "cloud_tasks" {
   depends_on = [google_project_service.apis]
 }
 
+module "turso" {
+  source = "../turso"
+
+  app_name          = var.app_name
+  environment       = var.environment
+  organization_name = var.turso_organization
+  group             = var.turso_group
+}
+
 module "cloud_run" {
   source = "../cloud_run"
 
@@ -68,7 +77,7 @@ module "cloud_run" {
   stack_name                  = local.stack_name
   service_account_email       = module.service_account.email
   enable_github_oauth         = var.enable_github_oauth
-  turso_database_url          = var.turso_database_url
+  turso_database_url          = module.turso.database_url
   cors_origins                = var.cors_origins
   callback_base_url           = var.callback_base_url
   environment                 = var.environment

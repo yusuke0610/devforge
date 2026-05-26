@@ -1,3 +1,4 @@
+import { VALIDATION_MESSAGES } from "./constants/messages";
 import type {
   CareerClient,
   CareerExperience,
@@ -20,7 +21,6 @@ export type CareerProjectForm = {
   end_date: string;
   is_current: boolean;
   role: string;
-  description: string;
   challenge: string;
   action: string;
   result: string;
@@ -62,9 +62,13 @@ export function hasAnyText(values: Array<string | null | undefined>): boolean {
 }
 
 /** 終了日が開始日より前の場合にエラーメッセージを返す */
-export function validateDateRange(startDate: string, endDate: string, isCurrent: boolean): string | null {
+export function validateDateRange(
+  startDate: string,
+  endDate: string,
+  isCurrent: boolean,
+): string | null {
   if (isCurrent || !startDate || !endDate) return null;
-  if (endDate < startDate) return "開始日は終了日より前に設定してください。";
+  if (endDate < startDate) return VALIDATION_MESSAGES.DATE_RANGE_INVALID;
   return null;
 }
 
@@ -85,7 +89,6 @@ function buildProject(proj: CareerProjectForm): CareerProject {
     end_date: proj.is_current ? "" : proj.end_date.trim(),
     is_current: proj.is_current,
     role: proj.role.trim(),
-    description: proj.description.trim(),
     challenge: proj.challenge.trim(),
     action: proj.action.trim(),
     result: proj.result.trim(),
@@ -106,24 +109,24 @@ function buildClient(client: CareerClientForm): CareerClient {
     has_client: client.has_client,
     projects: client.projects
       .map(buildProject)
-      .filter((p) => hasAnyText([p.name, p.description, p.challenge, p.action, p.result])),
+      .filter((p) => hasAnyText([p.name, p.challenge, p.action, p.result])),
   };
 }
 
 export function buildCareerPayload(state: CareerFormState): CareerResumePayload {
   const full_name = state.full_name.trim();
   if (!full_name) {
-    throw new Error("氏名を入力してください。");
+    throw new Error(VALIDATION_MESSAGES.FULL_NAME_REQUIRED);
   }
 
   const career_summary = state.career_summary.trim();
   if (!career_summary) {
-    throw new Error("職務要約を入力してください。");
+    throw new Error(VALIDATION_MESSAGES.CAREER_SUMMARY_REQUIRED);
   }
 
   const self_pr = state.self_pr.trim();
   if (!self_pr) {
-    throw new Error("自己PRを入力してください。");
+    throw new Error(VALIDATION_MESSAGES.SELF_PR_REQUIRED);
   }
 
   const experiences: CareerExperience[] = state.experiences
@@ -131,7 +134,7 @@ export function buildCareerPayload(state: CareerFormState): CareerResumePayload 
       company: exp.company.trim(),
       business_description: exp.business_description.trim(),
       start_date: exp.start_date.trim(),
-      end_date: exp.is_current ? null : exp.end_date.trim(),
+      end_date: exp.is_current ? "" : exp.end_date.trim(),
       is_current: exp.is_current,
       employee_count: exp.employee_count.trim(),
       capital: exp.capital.trim(),
@@ -140,23 +143,36 @@ export function buildCareerPayload(state: CareerFormState): CareerResumePayload 
         .filter((c) => !c.has_client || c.name.trim() || c.projects.length > 0),
     }))
     .filter((exp) =>
-      hasAnyText([exp.company, exp.business_description, exp.start_date, exp.end_date ?? ""]),
+      hasAnyText([exp.company, exp.business_description, exp.start_date, exp.end_date]),
     );
 
   for (const exp of experiences) {
     if (!exp.company || !exp.business_description || !exp.start_date) {
-      throw new Error("職務経歴は会社名、事業内容、開始年月を入力してください。");
+      throw new Error(VALIDATION_MESSAGES.EXPERIENCE_REQUIRED_FIELDS);
     }
     if (!exp.is_current && !exp.end_date) {
-      throw new Error("職務経歴の離職年月を入力するか、在職を選択してください。");
+      throw new Error(VALIDATION_MESSAGES.EXPERIENCE_END_DATE_REQUIRED);
     }
     if (!exp.is_current && exp.start_date && exp.end_date && exp.end_date < exp.start_date) {
-      throw new Error("開始日は終了日より前に設定してください。");
+      throw new Error(VALIDATION_MESSAGES.DATE_RANGE_INVALID);
     }
     for (const client of exp.clients) {
       for (const proj of client.projects) {
-        if (!proj.is_current && proj.start_date && proj.end_date && proj.end_date < proj.start_date) {
-          throw new Error("開始日は終了日より前に設定してください。");
+        // 内容のあるプロジェクト行は開始年月が必須（空のまま送ると backend が 422）。
+        // 参画中でなければ終了年月も必須。
+        if (!proj.start_date) {
+          throw new Error(VALIDATION_MESSAGES.PROJECT_START_DATE_REQUIRED);
+        }
+        if (!proj.is_current && !proj.end_date) {
+          throw new Error(VALIDATION_MESSAGES.PROJECT_END_DATE_REQUIRED);
+        }
+        if (
+          !proj.is_current &&
+          proj.start_date &&
+          proj.end_date &&
+          proj.end_date < proj.start_date
+        ) {
+          throw new Error(VALIDATION_MESSAGES.DATE_RANGE_INVALID);
         }
       }
     }
@@ -171,7 +187,7 @@ export function buildCareerPayload(state: CareerFormState): CareerResumePayload 
 
   for (const q of qualifications) {
     if (!q.acquired_date || !q.name) {
-      throw new Error("資格は取得日と名称を両方入力してください。");
+      throw new Error(VALIDATION_MESSAGES.QUALIFICATION_REQUIRED_FIELDS);
     }
   }
 

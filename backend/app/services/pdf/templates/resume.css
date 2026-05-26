@@ -125,15 +125,6 @@ h2 {
   margin: 0 0 0.5em 0;
 }
 
-/* プロジェクト概要テキストを太字で表示 */
-.desc-bold {
-  font-weight: bold;
-}
-
-.desc-bold p {
-  margin: 0 0 0.3em 0;
-}
-
 /* 資格テーブル */
 .qual-table {
   width: 100%;
