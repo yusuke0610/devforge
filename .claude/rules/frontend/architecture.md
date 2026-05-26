@@ -17,8 +17,8 @@ frontend/src/
 │   └── index.ts
 ├── pages/                # ルートのエントリーポイント（薄いラッパー）
 │   ├── LoginPage.tsx / GitHubCallbackPage.tsx
-│   ├── CareerPage.tsx / CareerAnalysisPage.tsx
-│   ├── BlogPage.tsx / GitHubLinkPage.tsx
+│   ├── CareerPage.tsx / BlogPage.tsx
+│   ├── GitHubLinkPage.tsx
 │   └── NotFoundPage.tsx
 ├── components/
 │   ├── AuthenticatedLayout.tsx  # サイドバー + <Outlet />（フッターに NotificationBell を配置）
@@ -30,7 +30,6 @@ frontend/src/
 │   ├── UserMenu.tsx
 │   ├── forms/                   # BasicInfoForm, CareerResumeForm, ResumeForm 等
 │   ├── github-link/             # GitHubLinkDashboard, LanguageBar 等
-│   ├── career-analysis/         # CareerAnalysisPage + 結果表示
 │   ├── auth/                    # LoginForm, RegisterForm
 │   ├── blog/                    # BlogPage
 │   ├── icons/                   # アイコンコンポーネント（Bell, Eye, Qiita, Zenn 等）
@@ -40,22 +39,25 @@ frontend/src/
 │   ├── useMasterData.ts         # マスタデータのモジュールレベルキャッシュ
 │   ├── useNotifications.ts      # 通知ベル用フック（30秒ポーリング・パネル開閉・既読処理）
 │   ├── usePdfActions.ts         # PDF ダウンロード/プレビュー
-│   ├── useTaskPolling.ts        # 非同期タスクの進捗ポーリング
-│   ├── useBlogAccountManager.ts / useBlogSummaryPolling.ts
-│   ├── useCareerAnalysisPage.ts / useCareerExperienceMutators.ts
-│   ├── usePhotoUpload.ts / useProjectModalState.ts
+│   ├── useTaskPolling.ts        # 非同期タスクの進捗ポーリング（指数バックオフ対応）
+│   ├── useAsyncTaskPage.ts      # 「キャッシュ→入力→ポーリング→結果」の phase 管理（useTaskPolling を内包）
+│   ├── useAuthSession.ts        # 認証セッション状態
 │   ├── useTheme.ts
-│   └── analysis/                # useAsyncAnalysisPage（非同期分析共通）
+│   ├── blog/                    # useBlogAccountManager
+│   └── career/                  # useCareerDirty / useCareerExperienceMutators / useProjectModalForm / useProjectModalState / useProjectFormDirty / usePhotoUpload / usePdfPanelLayout / useResumeImportAssist
 ├── api/
 │   ├── client.ts                # fetch ラッパー（Cookie 認証、401 ハンドリング）
-│   └── *.ts                     # ドメイン別 API モジュール（auth, blog, resumes, career-analysis, intelligence, master-data, notifications, download, ai-resume）
+│   └── *.ts                     # ドメイン別 API モジュール（auth, blog, resumes, master-data, notifications, download, ai-resume, githubLink）
 ├── store/                       # Redux Toolkit + redux-persist
 │   ├── index.ts                 # store 構成
 │   ├── persistConfig.ts
 │   └── formCacheSlice.ts        # フォームキャッシュ
 ├── utils/
 │   ├── appError.ts
-│   └── errorId.ts
+│   ├── errorId.ts
+│   ├── deepEqual.ts             # フォーム dirty 判定用の再帰等価比較（useCareerDirty / useProjectFormDirty で共用）
+│   ├── pdfjs.ts
+│   └── taskStatus.ts            # 非同期タスクのステータス契約（in-progress 判定）
 ├── constants/ + constants.ts    # 定数定義
 ├── types.ts                     # 共通型
 ├── formTypes.ts / formMappers.ts / payloadBuilders.ts  # フォーム入出力変換
@@ -69,4 +71,4 @@ frontend/src/
 
 **状態管理**: Redux Toolkit + redux-persist。`store/formCacheSlice` でフォームの一時保持を行う。サーバ状態は各 API モジュール経由で取得し、コンポーネントローカルもしくはフックでキャッシュする方針。
 
-**非同期タスクの進捗**: `useTaskPolling` / `useAsyncAnalysisPage` でバックエンドの `dead_letter` / `processing` / `completed` 状態をポーリングし、`TaskProgressStepper` で可視化する。
+**非同期タスクの進捗**: `useTaskPolling` / `useAsyncTaskPage` でバックエンドの `dead_letter` / `processing` / `completed` 状態をポーリングし、`TaskProgressStepper` で可視化する。
