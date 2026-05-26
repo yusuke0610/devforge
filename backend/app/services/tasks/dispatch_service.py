@@ -1,6 +1,6 @@
 """非同期タスクのキャッシュレコード操作とディスパッチを共通化するサービス。
 
-3つの非同期タスク（GitHub 連携 / ブログサマリ / キャリア分析）はいずれも
+現在の非同期タスクは GitHub 連携（``TaskType.GITHUB_LINK``）の 1 種類のみ。
 ``status`` / ``error_message`` / ``retry_count`` / ``started_at`` / ``completed_at``
 を持つキャッシュレコードに紐づき、以下のフローを取る:
 
@@ -9,8 +9,9 @@
   3. ディスパッチ
   4. ディスパッチ失敗時に ``dead_letter`` へ遷移
 
-この共通フローを ``AsyncTaskCacheService`` に集約することで、ルーター層から
-キャッシュ状態管理の重複コードを排除する。
+``AsyncTaskCacheService`` は現状単一タスク専用だが、``_AsyncTaskRecord`` の構造的型と
+``TaskType`` 引数により**新規タスク追加時の拡張ポイントとして意図的に汎用化**してある。
+タスクが 1 種類だからといってルーター層へインライン化しない（再拡張時の手戻りになる）。
 """
 
 import logging

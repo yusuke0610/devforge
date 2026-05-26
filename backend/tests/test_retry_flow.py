@@ -346,6 +346,50 @@ class TestRetryEndpoints:
         assert cache.retry_count == 0
         assert cache.error_message is None
 
+    def test_retry_returns_404_when_no_cache(self, client: TestClient):
+        """連携キャッシュが未作成なら 404（先に連携を実行させる）。"""
+        headers = auth_header(client, "github:retry-nocache-user")
+        resp = client.post("/api/github-link/run/retry", headers=headers)
+        assert resp.status_code == 404
+
+    @pytest.mark.parametrize("status", ["completed", "processing", "pending", "retrying"])
+    def test_retry_returns_409_when_not_dead_letter(self, client: TestClient, status: str):
+        """dead_letter 以外（completed / processing 等）の状態では再実行できず 409。"""
+        username = f"github:retry-409-{status}"
+        headers = auth_header(client, username)
+        db = client._db_session
+        user = UserRepository(db).get_by_username(username)
+
+        cache = GitHubLinkCache(user_id=user.id, status=status)
+        db.add(cache)
+        db.commit()
+
+        resp = client.post("/api/github-link/run/retry", headers=headers)
+        assert resp.status_code == 409
+
+        # 状態は変更されないこと（再実行ガードが副作用を起こさない）
+        db.refresh(cache)
+        assert cache.status == status
+
+    def test_retry_returns_409_on_concurrent_reset_race(self, client: TestClient):
+        """is_retryable_terminal は通過しても、並列競合で try_reset_to_pending が
+        False を返したら 409 にすること（TOCTOU ガード）。"""
+        headers = auth_header(client, "github:retry-race-user")
+        db = client._db_session
+        user = UserRepository(db).get_by_username("github:retry-race-user")
+
+        cache = GitHubLinkCache(user_id=user.id, status="dead_letter", retry_count=2)
+        db.add(cache)
+        db.commit()
+
+        # 1つ目のガード（is_retryable_terminal）は通すが、アトミック遷移で競合負け
+        with patch(
+            "app.services.tasks.dispatch_service.AsyncTaskCacheService.try_reset_to_pending",
+            return_value=False,
+        ):
+            resp = client.post("/api/github-link/run/retry", headers=headers)
+        assert resp.status_code == 409
+
 
 # ══════════════════════════════════════════════════════════════════════
 # 終端状態の判定（固定値ではなく境界条件を確認）

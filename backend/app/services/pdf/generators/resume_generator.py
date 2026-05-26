@@ -7,7 +7,14 @@ import weasyprint
 
 from ....core.date_utils import JST
 from ...shared.resume_format import CATEGORY_LABELS as _CATEGORY_LABELS
-from ...shared.resume_format import attr as _a
+from ...shared.resume_format import (
+    attr as _a,
+)
+from ...shared.resume_format import (
+    group_stacks_by_category,
+    normalize_clients,
+    normalize_team,
+)
 
 _CSS_PATH = Path(__file__).resolve().parent.parent / "templates" / "resume.css"
 _FONT_PATH = (
@@ -84,13 +91,7 @@ def _build_project_html(project) -> str:
 
     # 右カラム: 開発環境（技術スタック）
     stacks = _a(project, "technology_stacks", [])
-    grouped: dict[str, list[str]] = {}
-    for st in stacks:
-        cat = _a(st, "category")
-        n = _a(st, "name")
-        if cat not in grouped:
-            grouped[cat] = []
-        grouped[cat].append(n)
+    grouped = group_stacks_by_category(stacks)
     right_parts: list[str] = []
     for cat, names in grouped.items():
         label = _CATEGORY_LABELS.get(cat, cat)
@@ -99,10 +100,8 @@ def _build_project_html(project) -> str:
         )
     right_content = "<br/>".join(right_parts) if right_parts else "-"
 
-    # 体制（後方互換: 旧 scale → team）
-    team = _a(project, "team", None)
-    if not team and _a(project, "scale", None):
-        team = {"total": _a(project, "scale"), "members": []}
+    # 体制（後方互換: 旧 scale → team の正規化は shared に集約）
+    team = normalize_team(project)
     team_parts: list[str] = []
     if team:
         total = _a(team, "total")
@@ -187,10 +186,8 @@ def _build_html(resume: dict) -> str:
             )
             parts.append('<div class="company-body">')
 
-            # 取引先 → プロジェクト
-            clients = _a(exp, "clients", [])
-            if not clients and _a(exp, "projects", None):
-                clients = [{"name": "", "projects": _a(exp, "projects", [])}]
+            # 取引先 → プロジェクト（後方互換含む正規化は shared に集約）
+            clients = normalize_clients(exp)
             for client in clients:
                 client_name = _a(client, "name")
                 if client_name:

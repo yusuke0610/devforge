@@ -59,7 +59,10 @@ async def handle_task(task_type: str, request: Request):
     try:
         task_type_enum = TaskType(task_type)
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"不明なタスク種別: {task_type}")
+        raise HTTPException(
+            status_code=400,
+            detail=get_error("task.unknown_task_type", task_type=task_type),
+        )
 
     payload = await request.json()
 
@@ -91,15 +94,16 @@ async def handle_task(task_type: str, request: Request):
             headers["Retry-After"] = str(int(exc.retry_after))
             status_code = 429
         raise HTTPException(status_code=status_code, detail=str(exc), headers=headers)
-    except Exception as exc:
+    except Exception:
         # 予期しないエラーは 500 を返し Cloud Tasks のリトライに任せる
         logger.exception(
             "タスク実行で予期しないエラー",
             extra={"task_id": task_type, "retry_count": retry_count},
         )
+        # 例外詳細は上の logger.exception でのみ残し、クライアント応答へは補間しない（info leak 防止）
         raise HTTPException(
             status_code=500,
-            detail=f"タスク実行中に予期しないエラーが発生しました: {exc}",
+            detail=get_error("task.execution_failed"),
         )
 
     return {"status": "ok"}

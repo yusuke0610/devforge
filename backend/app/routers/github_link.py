@@ -175,7 +175,7 @@ async def retry_github_link(
         raise_app_error(
             status_code=409,
             code=ErrorCode.VALIDATION_ERROR,
-            message=f"このタスクはリトライできない状態です（現在: {cache.status}）",
+            message=get_error("github_link.not_retryable", status=cache.status),
             action="タスクの完了または失敗を待ってから再試行してください",
         )
 
@@ -187,7 +187,7 @@ async def retry_github_link(
         raise_app_error(
             status_code=409,
             code=ErrorCode.VALIDATION_ERROR,
-            message=f"このタスクはリトライできない状態です（現在: {cache.status}）",
+            message=get_error("github_link.not_retryable", status=cache.status),
             action="タスクの完了または失敗を待ってから再試行してください",
         )
 

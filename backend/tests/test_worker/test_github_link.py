@@ -1,6 +1,6 @@
 """_run_github_link の単体テスト。"""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from app.models import GitHubLinkCache
@@ -81,6 +81,67 @@ class TestRunGithubAnalysis:
         db_session.refresh(cache)
         assert cache.status == "completed"
         assert cache.result is not None
+        assert cache.completed_at is not None
+
+    def test_completed_persists_mapped_result_content(
+        self, db_session: Session, session_factory
+    ):
+        """フェーズC: 成功時に map_pipeline_result の出力が cache.result へ
+        そのまま永続化され、error/warning がクリアされること（内容まで検証）。"""
+        user, cache = self._make_user_and_cache(db_session, "github:content-user")
+        # 前回失敗の痕跡が成功時にクリアされることも併せて確認する
+        cache.error_message = "前回の失敗"
+        cache.warning_message = "前回の警告"
+        db_session.commit()
+
+        repos = self._sample_repos()
+        sentinel_result = {
+            "skills": [{"name": "Python", "score": 80}],
+            "summary": "集計結果",
+        }
+        mapped = MagicMock()
+        mapped.model_dump.return_value = sentinel_result
+
+        with (
+            patch(
+                "app.services.intelligence.github_link_service.collect_repos",
+                new_callable=AsyncMock,
+                return_value=repos,
+            ),
+            patch("app.services.progress_service.set_progress", new_callable=AsyncMock),
+            patch(
+                "app.services.intelligence.github_link_service.decrypt_field",
+                return_value="token123",
+            ),
+            patch(
+                "app.services.intelligence.github_link_service.aggregate_intelligence",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "app.services.intelligence.github_link_service.map_pipeline_result",
+                return_value=mapped,
+            ),
+        ):
+            _run(
+                _run_github_link(
+                    session_factory,
+                    {
+                        "user_id": user.id,
+                        "github_username": "gh-user",
+                        "github_token": "encrypted_token",
+                        "include_forks": False,
+                    },
+                )
+            )
+
+        db_session.refresh(cache)
+        assert cache.status == "completed"
+        # フェーズCで mapper の出力がそのまま書き戻されていること
+        assert cache.result == sentinel_result
+        mapped.model_dump.assert_called_once()
+        # 成功時は前回の error/warning がクリアされること
+        assert cache.error_message is None
+        assert cache.warning_message is None
         assert cache.completed_at is not None
 
     def test_status_transitions_to_processing_at_start(
