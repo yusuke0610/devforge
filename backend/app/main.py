@@ -86,7 +86,7 @@ async def _validation_exception_handler(request: Request, exc: RequestValidation
         status_code=422,
         content=build_app_error_response(
             code=ErrorCode.VALIDATION_ERROR,
-            message="入力内容を確認してください。",
+            message=get_error("validation.invalid_input"),
             action="入力内容を見直して再試行してください",
             error_id=error_id,
         ).model_dump(exclude_none=True),

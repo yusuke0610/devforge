@@ -1,6 +1,11 @@
 from typing import Any
 
-from ...shared.resume_format import CATEGORY_LABELS
+from ...shared.resume_format import (
+    CATEGORY_LABELS,
+    group_stacks_by_category,
+    normalize_clients,
+    normalize_team,
+)
 from ...shared.resume_format import attr as _a
 from ..templates import resume_template as tpl
 from ..utils.markdown_utils import field_line, format_period
@@ -57,10 +62,8 @@ def build_resume_markdown(payload: dict[str, Any]) -> str:
                 lines.append(field_line("資本金", f"{cap}千万円"))
             lines.append("")
 
-            # clients → projects（後方互換: clients がなく projects がある場合）
-            clients = _a(exp, "clients", [])
-            if not clients and _a(exp, "projects", None):
-                clients = [{"name": "", "projects": _a(exp, "projects", [])}]
+            # clients → projects（後方互換含む正規化は shared に集約）
+            clients = normalize_clients(exp)
             for client in clients:
                 client_name = _a(client, "name")
                 if client_name:
@@ -90,10 +93,8 @@ def build_resume_markdown(payload: dict[str, Any]) -> str:
                     result = _a(proj, "result")
                     if result:
                         lines.append(field_line("成果", result))
-                    # 体制（後方互換: 旧 scale → team に変換）
-                    team = _a(proj, "team", None)
-                    if not team and _a(proj, "scale", None):
-                        team = {"total": _a(proj, "scale"), "members": []}
+                    # 体制（後方互換: 旧 scale → team の正規化は shared に集約）
+                    team = normalize_team(proj)
                     if team:
                         total = _a(team, "total")
                         members = _a(team, "members", [])
@@ -114,12 +115,7 @@ def build_resume_markdown(payload: dict[str, Any]) -> str:
                         lines.append(field_line("工程", ", ".join(phases)))
                     stacks = _a(proj, "technology_stacks", [])
                     if stacks:
-                        grouped: dict[str, list[str]] = {}
-                        for st in stacks:
-                            cat = _a(st, "category")
-                            if cat not in grouped:
-                                grouped[cat] = []
-                            grouped[cat].append(_a(st, "name"))
+                        grouped = group_stacks_by_category(stacks)
                         parts = [
                             f"{CATEGORY_LABELS.get(c, c)}: {', '.join(ns)}"
                             for c, ns in grouped.items()

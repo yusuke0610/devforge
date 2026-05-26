@@ -13,6 +13,7 @@ from app.services.tasks.worker import (
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from ._helpers import keep_open_session
 from ._helpers import run_sync as _run
 
 
@@ -54,37 +55,42 @@ class TestExecuteTask:
         )
 
     def test_execute_task_marks_dead_letter_on_error(self, db_session: Session):
-        """予期しない例外が発生した場合（max_attempts=1）、_mark_dead_letter が
-        呼ばれ例外が再 raise されること。"""
-        mock_db = MagicMock()
-        mock_session_local = MagicMock(return_value=mock_db)
+        """予期しない例外が発生した場合（max_attempts=1）、例外が再 raise され、
+        キャッシュが dead_letter へ遷移し error_message が永続化されること。
+
+        内部関数 _mark_dead_letter の呼び出し引数ではなく結果 DB state を検証する
+        （test_retry_flow.py と同じ契約を、実装詳細に結合しない形で守る）。"""
+        user = UserRepository(db_session).create(
+            "github:dead-letter-user", hashed_password=None, email="dl@test.com",
+        )
+        cache = GitHubLinkCache(user_id=user.id, status="processing")
+        db_session.add(cache)
+        db_session.commit()
 
         with (
-            patch("app.services.tasks.worker.SessionLocal", mock_session_local),
+            patch(
+                "app.services.tasks.worker.SessionLocal",
+                return_value=keep_open_session(db_session),
+            ),
             patch(
                 "app.services.tasks.worker._run_github_link",
                 new_callable=AsyncMock,
                 side_effect=RuntimeError("予期しないクラッシュ"),
             ),
-            patch("app.services.tasks.worker._mark_dead_letter") as mock_mark_dead_letter,
             patch("app.services.tasks.worker._create_notification"),
         ):
             with pytest.raises(RuntimeError, match="予期しないクラッシュ"):
                 _run(
                     execute_task(
                         TaskType.GITHUB_LINK,
-                        {"user_id": "test-user-id", "github_username": "u"},
+                        {"user_id": user.id, "github_username": "u"},
                     )
                 )
 
-        mock_mark_dead_letter.assert_called_once()
-        call_args = mock_mark_dead_letter.call_args
-        assert call_args.args == (
-            mock_db,
-            TaskType.GITHUB_LINK,
-            {"user_id": "test-user-id", "github_username": "u"},
-        )
-        assert isinstance(call_args.kwargs.get("error"), RuntimeError)
+        db_session.refresh(cache)
+        assert cache.status == "dead_letter"
+        assert "予期しないクラッシュ" in (cache.error_message or "")
+        assert cache.completed_at is not None
 
     def test_execute_task_creates_notification_on_success(self, db_session: Session):
         """タスク成功時に _create_notification が呼ばれること。"""
