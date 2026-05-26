@@ -26,14 +26,13 @@ frontend/src/
 │   ├── NotificationBell.tsx     # 通知ベル（未読バッジ・ドロップダウンパネル）
 │   ├── ConfirmDialog.tsx        # 確認モーダル
 │   ├── ErrorBoundary.tsx        # 例外境界
-│   ├── TaskProgressStepper.tsx  # 非同期タスク進捗ステッパー
 │   ├── UserMenu.tsx
 │   ├── forms/                   # BasicInfoForm, CareerResumeForm, ResumeForm 等
 │   ├── github-link/             # GitHubLinkDashboard, LanguageBar 等
 │   ├── auth/                    # LoginForm, RegisterForm
 │   ├── blog/                    # BlogPage
 │   ├── icons/                   # アイコンコンポーネント（Bell, Eye, Qiita, Zenn 等）
-│   └── ui/                      # 汎用 UI（ErrorToast, InlineSpinner, Skeleton）
+│   └── ui/                      # 汎用 UI（ErrorToast, InlineSpinner, Skeleton, AsyncTaskLoading）
 ├── hooks/
 │   ├── useDocumentForm.ts       # フォーム CRUD の共通フック（loading / saving / error 管理）
 │   ├── useMasterData.ts         # マスタデータのモジュールレベルキャッシュ
@@ -71,4 +70,4 @@ frontend/src/
 
 **状態管理**: Redux Toolkit + redux-persist。`store/formCacheSlice` でフォームの一時保持を行う。サーバ状態は各 API モジュール経由で取得し、コンポーネントローカルもしくはフックでキャッシュする方針。
 
-**非同期タスクの進捗**: `useTaskPolling` / `useAsyncTaskPage` でバックエンドの `dead_letter` / `processing` / `completed` 状態をポーリングし、`TaskProgressStepper` で可視化する。
+**非同期タスクの進捗**: `useTaskPolling` / `useAsyncTaskPage` がバックエンドのタスクステータス（`pending` / `processing` / `retrying` / `completed` / `dead_letter`）をポーリングし、`AsyncTaskLoading`（`components/ui/`）で可視化する。ステータス文字列の正本（`TaskStatus` 型・進行中判定 `isInProgressStatus`）は `utils/taskStatus.ts` に集約してあるので、状態を増減する際はまずそこを更新する。
