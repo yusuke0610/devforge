@@ -108,24 +108,33 @@ describe("useTaskPolling", () => {
   });
 
   it("アンマウント時にポーリングが停止する", async () => {
-    const checkStatus = vi.fn().mockResolvedValue({ status: "pending" });
-    const { result, unmount } = setup(checkStatus);
+    // fake timers で仮想時間を進め、実時間待ち（フレーキー要因）を排除する
+    vi.useFakeTimers();
+    try {
+      const checkStatus = vi.fn().mockResolvedValue({ status: "pending" });
+      const { result, unmount } = setup(checkStatus);
 
-    act(() => {
-      result.current.startPolling();
-    });
+      act(() => {
+        result.current.startPolling();
+      });
 
-    // 初回ポーリングを待つ
-    await waitFor(() => {
-      expect(checkStatus).toHaveBeenCalled();
-    });
+      // マウント中は 1 インターバル進めるとポーリングが反復する（初回即時 + 次回）
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(FAST_INTERVAL);
+      });
+      const callCountWhileMounted = checkStatus.mock.calls.length;
+      expect(callCountWhileMounted).toBeGreaterThanOrEqual(2);
 
-    const callCount = checkStatus.mock.calls.length;
-    unmount();
+      unmount();
 
-    // アンマウント後は呼び出し回数が増えないことを確認
-    await new Promise((r) => setTimeout(r, FAST_INTERVAL * 3));
-    expect(checkStatus.mock.calls.length).toBe(callCount);
+      // アンマウント後は次回タイマーが破棄され、何インターバル進めても呼び出しは増えない
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(FAST_INTERVAL * 3);
+      });
+      expect(checkStatus.mock.calls.length).toBe(callCountWhileMounted);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("ネットワークエラー時はポーリングが継続する", async () => {

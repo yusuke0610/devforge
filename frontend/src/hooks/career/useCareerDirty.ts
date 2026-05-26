@@ -7,6 +7,7 @@ import type {
   CareerProjectForm,
 } from "../../payloadBuilders";
 import type { ResumeQualification } from "../../types";
+import { isDeepEqual } from "../../utils/deepEqual";
 
 /** プロジェクト単位の dirty 情報。`any` は配下含めた未保存有無。 */
 export type ProjectDirty = {
@@ -64,36 +65,6 @@ export type CareerDirtyMap = {
   /** 「資格」h2 用集約 */
   qualificationsAny: boolean;
 };
-
-/**
- * 値が等しいかを判定する。プリミティブと配列・プレーンオブジェクトを再帰比較する。
- * フォーム値はプリミティブ／配列／プレーンオブジェクトのみで構成されている前提。
- */
-function isDeepEqual(a: unknown, b: unknown): boolean {
-  if (Object.is(a, b)) return true;
-  if (a === null || b === null) return false;
-  if (typeof a !== "object" || typeof b !== "object") return false;
-
-  if (Array.isArray(a) || Array.isArray(b)) {
-    if (!Array.isArray(a) || !Array.isArray(b)) return false;
-    if (a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) {
-      if (!isDeepEqual(a[i], b[i])) return false;
-    }
-    return true;
-  }
-
-  const objA = a as Record<string, unknown>;
-  const objB = b as Record<string, unknown>;
-  const keysA = Object.keys(objA);
-  const keysB = Object.keys(objB);
-  if (keysA.length !== keysB.length) return false;
-  for (const k of keysA) {
-    if (!Object.prototype.hasOwnProperty.call(objB, k)) return false;
-    if (!isDeepEqual(objA[k], objB[k])) return false;
-  }
-  return true;
-}
 
 /** dirty なしの経歴 1 件分のテンプレート。配下クライアントとプロジェクトは form の shape を踏襲する。 */
 function buildCleanExperience(

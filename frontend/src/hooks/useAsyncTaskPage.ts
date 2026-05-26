@@ -18,12 +18,6 @@ const POLLING_CONFIG = {
   multiplier: 1.5,
 } as const;
 
-const getNextInterval = (current: number): number =>
-  Math.min(current * POLLING_CONFIG.multiplier, POLLING_CONFIG.maxInterval);
-
-// getNextInterval は将来の拡張用に export しておく
-export { getNextInterval };
-
 /** useAsyncTaskPage のオプション型 */
 export type UseAsyncTaskPageOptions<TResult> = {
   /**
