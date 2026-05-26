@@ -73,17 +73,6 @@ class TestBoundaryValues:
         resp = client.post("/api/resumes", json=payload, headers=headers)
         assert resp.status_code == 422
 
-    def test_career_analysis_target_position_over_max_length_returns_422(
-        self, client: TestClient
-    ) -> None:
-        headers = auth_header(client, "bound-career-max")
-        resp = client.post(
-            "/api/career-analysis/generate",
-            json={"target_position": "x" * 201},
-            headers=headers,
-        )
-        assert resp.status_code == 422
-
     def test_blog_account_username_empty_returns_422(self, client: TestClient) -> None:
         headers = auth_header(client, "bound-blog-empty")
         resp = client.post(
@@ -144,19 +133,3 @@ class TestPathParamInjection:
         headers = auth_header(client, "path-resume-bad")
         resp = client.get("/api/resumes/etc-passwd", headers=headers)
         assert resp.status_code == 422
-
-    def test_career_analysis_alpha_id_returns_422(self, client: TestClient) -> None:
-        headers = auth_header(client, "path-career-alpha")
-        resp = client.get("/api/career-analysis/abc", headers=headers)
-        assert resp.status_code == 422
-
-    def test_career_analysis_float_id_returns_422(self, client: TestClient) -> None:
-        headers = auth_header(client, "path-career-float")
-        resp = client.delete("/api/career-analysis/1.5", headers=headers)
-        assert resp.status_code == 422
-
-    def test_career_analysis_negative_id_returns_404(self, client: TestClient) -> None:
-        """負数 ID は int としてパースされるが DB ヒットしないため 404。"""
-        headers = auth_header(client, "path-career-neg")
-        resp = client.get("/api/career-analysis/-1", headers=headers)
-        assert resp.status_code == 404

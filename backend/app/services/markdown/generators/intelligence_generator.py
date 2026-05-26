@@ -13,9 +13,9 @@ def build_intelligence_markdown(payload: dict[str, Any]) -> str:
     lines.append(tpl.SECTION_OVERVIEW)
     lines.append("")
     lines.append(field_line("ユーザー", payload.get("username", "")))
-    lines.append(field_line("分析リポジトリ数", str(payload.get("repos_analyzed", 0))))
+    lines.append(field_line("対象リポジトリ数", str(payload.get("repos_analyzed", 0))))
     lines.append(field_line("ユニークスキル数", str(payload.get("unique_skills", 0))))
-    lines.append(field_line("分析日時", payload.get("analyzed_at", "")))
+    lines.append(field_line("取得日時", payload.get("analyzed_at", "")))
     lines.append("")
 
     # AI Summary

@@ -211,3 +211,14 @@ button.danger:hover {
     transform: rotate(360deg);
   }
 }
+
+/*
+ * PDF 取り込み補助: 流し込み先として選択中（フォーカス中）の入力欄を緑枠で明示する。
+ * ブロッククリック後はフォーカスを対象へ戻すため、選択状態の緑枠が維持される。
+ */
+.import-assign-form input:focus,
+.import-assign-form textarea:focus {
+  outline: 2px solid #22c55e;
+  outline-offset: 1px;
+  border-color: #22c55e;
+}

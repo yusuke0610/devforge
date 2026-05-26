@@ -31,21 +31,20 @@
       "save_failed": "保存に失敗しました。入力内容を確認してください。",
       "delete_failed": "削除に失敗しました。"
     },
-    "intelligence": {
-      "analysis_failed": "分析に失敗しました。しばらくしてから再度お試しください。",
-      "analysis_timeout": "分析がタイムアウトしました。しばらくしてから再度お試しください。",
-      "github_token_required": "GitHub分析にはGitHubトークンの設定が必要です。",
-      "github_login_required": "GitHub分析にはGitHubアカウントでのログインが必要です。",
+    "github_link": {
+      "link_failed": "GitHub連携に失敗しました。しばらくしてから再度お試しください。",
+      "link_timeout": "GitHub連携がタイムアウトしました。しばらくしてから再度お試しください。",
+      "github_token_required": "GitHub連携にはGitHubトークンの設定が必要です。",
+      "github_login_required": "GitHub連携にはGitHubアカウントでのログインが必要です。",
       "github_user_not_found": "GitHubユーザーが見つかりません: {username}",
-      "profile_analysis_failed": "GitHubプロフィールの分析に失敗しました。しばらくしてから再度お試しください。",
-      "llm_unavailable": "AI要約サービスが一時的に利用できません。",
-      "no_analysis_cache": "分析結果がありません。先にGitHub分析を実行してください。",
-      "no_position_scores": "ポジションスコアが算出されていません。再度GitHub分析を実行してください。"
+      "profile_fetch_failed": "GitHubプロフィールの取得に失敗しました。しばらくしてから再度お試しください。",
+      "no_link_cache": "連携データがありません。先にGitHub連携を実行してください。"
     },
     "validation": {
       "required_field": "{field}は必須です。",
       "invalid_format": "{field}の形式が正しくありません。",
       "date_range_invalid": "開始日は終了日より前に設定してください。",
+      "start_date_required": "開始年月を入力してください。",
       "end_date_required": "在職中でない場合は終了年月を入力してください。"
     },
     "server": {
@@ -57,30 +56,16 @@
     "master_data": {
       "not_found": "{item}が見つかりません。"
     },
-    "career_analysis": {
-      "generate_failed": "AI 分析に失敗しました。しばらく時間をおいて再試行してください",
-      "llm_unavailable": "AI キャリアパス分析サービスが利用できません。LLM の設定または接続状態を確認してください。",
-      "no_resume_data": "職務経歴書データが見つかりません。先に職務経歴書を入力してください",
-      "not_found": "指定の分析結果が見つかりません"
-    },
     "task": {
-      "already_in_progress": "分析処理が進行中です。完了までお待ちください。",
+      "already_in_progress": "処理が進行中です。完了までお待ちください。",
       "dispatch_failed": "タスクの開始に失敗しました。しばらくしてから再度お試しください。",
       "internal_unauthorized": "内部タスクエンドポイントへのアクセスが拒否されました。"
     }
   },
   "notification": {
-    "github_analysis": {
-      "completed": "GitHub分析が完了しました",
-      "failed": "GitHub分析に失敗しました"
-    },
-    "blog_summarize": {
-      "completed": "ブログAI分析が完了しました",
-      "failed": "ブログAI分析に失敗しました"
-    },
-    "career_analysis": {
-      "completed": "キャリア分析が完了しました",
-      "failed": "キャリア分析に失敗しました"
+    "github_link": {
+      "completed": "GitHub連携が完了しました",
+      "failed": "GitHub連携に失敗しました"
     }
   },
   "success": {
@@ -96,13 +81,9 @@
       "account_removed": "ブログアカウントの連携を解除しました。",
       "sync_complete": "記事の同期が完了しました。{count}件の記事を取得しました。"
     },
-    "intelligence": {
-      "analysis_complete": "分析が完了しました。",
+    "github_link": {
+      "link_complete": "GitHub連携が完了しました。",
       "cache_cleared": "キャッシュをクリアしました。"
-    },
-    "career_analysis": {
-      "generate_success": "キャリアパス分析が完了しました",
-      "delete_success": "分析結果を削除しました"
     }
   }
 }

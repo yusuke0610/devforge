@@ -7,10 +7,7 @@ from enum import Enum
 class TaskType(str, Enum):
     """バックグラウンドで実行可能なタスクの種別。"""
 
-    GITHUB_ANALYSIS = "github_analysis"
-    BLOG_SUMMARIZE = "blog_summarize"
-    CAREER_ANALYSIS = "career_analysis"
-    RESUME_IMPORT = "resume_import"
+    GITHUB_LINK = "github_link"
 
 
 # 手動再実行を許可するキャッシュレコードのステータス集合。

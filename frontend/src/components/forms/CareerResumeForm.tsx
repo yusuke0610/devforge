@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { CSSProperties, FormEvent, useRef, useState } from "react";
 
 import {
   createCareerResume,
@@ -9,9 +9,11 @@ import {
   getLatestCareerResume,
   updateCareerResume,
 } from "../../api";
+import { IMPORT_ASSIST_MESSAGES } from "../../constants/messages";
 import { createInitialCareerForm, mapCareerResumeToForm } from "../../formMappers";
 import { useCareerDirty } from "../../hooks/career/useCareerDirty";
-import { useResumeImport } from "../../hooks/career/useResumeImport";
+import { usePdfPanelLayout } from "../../hooks/career/usePdfPanelLayout";
+import { useResumeImportAssist } from "../../hooks/career/useResumeImportAssist";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
 import { buildCareerPayload } from "../../payloadBuilders";
 import type { CareerTextFieldKey } from "../../formTypes";
@@ -20,9 +22,9 @@ import { usePdfActions } from "../../hooks/usePdfActions";
 import shared from "../../styles/shared.module.css";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { Skeleton } from "../ui/Skeleton";
-import { ImportResumeButton } from "./ImportResumeButton";
 import { PdfPreviewModal } from "./PdfPreviewModal";
-import { ResumeImportConfirmModal } from "./ResumeImportConfirmModal";
+import { ResumePdfTracePanel } from "./ResumePdfTracePanel";
+import layout from "./CareerResumeForm.module.css";
 import { CareerBasicInfoSection } from "./sections/CareerBasicInfoSection";
 import { CareerExperienceSection } from "./sections/CareerExperienceSection";
 import { CareerQualificationsSection } from "./sections/CareerQualificationsSection";
@@ -30,7 +32,15 @@ import { CareerSelfPrSection } from "./sections/CareerSelfPrSection";
 
 export function CareerResumeForm() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const importState = useResumeImport();
+  const assist = useResumeImportAssist();
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const splitRef = useRef<HTMLDivElement>(null);
+  const {
+    width: pdfWidth,
+    maximized: pdfMaximized,
+    startResize,
+    toggleMaximize,
+  } = usePdfPanelLayout(splitRef);
   const {
     form,
     setForm,
@@ -79,10 +89,13 @@ export function CareerResumeForm() {
   });
 
   /** PDF アクションまたはフォーム保存のエラー・成功メッセージを統合して表示する */
-  const error = pdfError ?? formError ?? importState.error?.message ?? null;
+  const error = pdfError ?? formError ?? null;
   const success = pdfSuccess ?? formSuccess;
 
-  /** フォームデータ・技術スタック・資格の3つが揃ってから送信可能 */
+  /** Skeleton 表示・入力ロックの統合フラグ */
+  const formLocked = loading;
+
+  /** フォームデータ・技術スタック・資格の3つが揃った時に送信可能 */
   const canSubmit = !loading && !techLoading && !qualLoading;
 
   const onChangeField = (key: CareerTextFieldKey, value: string) => {
@@ -111,47 +124,47 @@ export function CareerResumeForm() {
         />
       )}
       {previewUrl && <PdfPreviewModal previewUrl={previewUrl} onClose={closePreview} />}
-      {importState.phase === "ready" && importState.parsedData && (
-        <ResumeImportConfirmModal
-          parsedData={importState.parsedData.result}
-          existingForm={form}
-          isDirty={dirty.any}
-          onConfirm={(merged) => {
-            setForm(merged);
-            importState.reset();
-          }}
-          onCancel={() => importState.reset()}
-        />
-      )}
       <form onSubmit={onSubmit}>
         <div className={shared.pageHeader}>
           <h1>職務経歴書</h1>
           <div className={shared.pageHeaderActions}>
-            <ImportResumeButton importState={importState} />
+            {/* PDF 取り込み（従来のヘッダー位置）。選択した PDF を右カラムに原本表示する */}
+            <input
+              ref={pdfInputRef}
+              type="file"
+              accept="application/pdf"
+              style={{ display: "none" }}
+              onChange={assist.handleFileChange}
+              aria-label={IMPORT_ASSIST_MESSAGES.SELECT_FILE}
+            />
+            <button type="button" className="ghost" onClick={() => pdfInputRef.current?.click()}>
+              {assist.file
+                ? IMPORT_ASSIST_MESSAGES.RESELECT_FILE
+                : IMPORT_ASSIST_MESSAGES.SELECT_FILE}
+            </button>
             <button type="submit" className="primary" disabled={!canSubmit || saving}>
               {saveButtonText}
             </button>
             <button
               type="button"
               onClick={() => resumeId && onPreviewPdf(resumeId)}
-              disabled={!resumeId || loading}
+              disabled={!resumeId || formLocked}
             >
               プレビュー
             </button>
             <button
               type="button"
               onClick={() =>
-                resumeId &&
-                onDownloadPdf(resumeId, "職務経歴書PDFをダウンロードしました。")
+                resumeId && onDownloadPdf(resumeId, "職務経歴書PDFをダウンロードしました。")
               }
-              disabled={!resumeId || downloading || loading}
+              disabled={!resumeId || downloading || formLocked}
             >
               {downloading ? "ダウンロード中..." : "PDF出力"}
             </button>
             <button
               type="button"
               onClick={() => resumeId && onDownloadMarkdown(resumeId)}
-              disabled={!resumeId || loading}
+              disabled={!resumeId || formLocked}
             >
               Markdown出力
             </button>
@@ -159,7 +172,7 @@ export function CareerResumeForm() {
               type="button"
               className="danger"
               onClick={() => setShowDeleteConfirm(true)}
-              disabled={!resumeId || loading}
+              disabled={!resumeId || formLocked}
             >
               データを削除
             </button>
@@ -167,58 +180,90 @@ export function CareerResumeForm() {
         </div>
 
         <div className={shared.pageBody}>
-          <div className={shared.form}>
-            {error && <p className={shared.error}>{error}</p>}
-            {success && <p className={shared.success}>{success}</p>}
+          {/* 左=入力フォーム / 右=PDF 原本ビュー。スプリッターで左右リサイズ、最大化で覆い被せる。
+              splitWrap はコンテナクエリの基準（= split に割り当てられる実幅）。
+              横幅が足りない時は split を縦積みに切り替える。PDF カラム幅は CSS 変数で渡し、
+              縦積み時は CSS 側で全幅に上書きする（inline style だと上書きできないため変数経由）。 */}
+          <div className={layout.splitWrap}>
+            <div
+              ref={splitRef}
+              className={`${layout.split} ${pdfMaximized ? layout.maximized : ""}`}
+              style={{ "--pdf-col-width": `${pdfWidth}px` } as CSSProperties}
+            >
+              {/* 左: 入力フォーム（選択中フィールドは緑枠 = import-assign-form の :focus CSS） */}
+              <div className={`${shared.form} import-assign-form ${layout.formCol}`}>
+                {error && <p className={shared.error}>{error}</p>}
+                {success && <p className={shared.success}>{success}</p>}
 
-            {/* 基本情報: 氏名・職務要約 */}
-            <CareerBasicInfoSection
-              fullName={form.full_name}
-              careerSummary={form.career_summary}
-              loading={loading}
-              onChange={onChangeField}
-              fullNameDirty={dirty.full_name}
-              careerSummaryDirty={dirty.career_summary}
-            />
+                {/* 基本情報: 氏名・職務要約 */}
+                <CareerBasicInfoSection
+                  fullName={form.full_name}
+                  careerSummary={form.career_summary}
+                  loading={loading}
+                  onChange={onChangeField}
+                  fullNameDirty={dirty.full_name}
+                  careerSummaryDirty={dirty.career_summary}
+                />
 
-            {/* 職務経歴セクション */}
-            {loading ? (
-              <section className={shared.section}>
-                <Skeleton height="20px" width="80px" borderRadius="4px" />
-                <div className={shared.entry} style={{ marginTop: "0.8rem" }}>
-                  <Skeleton height="120px" />
-                </div>
-                <div className={shared.entry}>
-                  <Skeleton height="120px" />
-                </div>
-              </section>
-            ) : (
-              <CareerExperienceSection
-                experiences={form.experiences}
-                setForm={setForm}
-                techStackOptions={techStackOptions}
-                experiencesDirty={dirty.experiences}
-                sectionDirty={dirty.experiencesAny}
+                {/* 職務経歴セクション */}
+                {loading ? (
+                  <section className={shared.section}>
+                    <Skeleton height="20px" width="80px" borderRadius="4px" />
+                    <div className={shared.entry} style={{ marginTop: "0.8rem" }}>
+                      <Skeleton height="120px" />
+                    </div>
+                    <div className={shared.entry}>
+                      <Skeleton height="120px" />
+                    </div>
+                  </section>
+                ) : (
+                  <CareerExperienceSection
+                    experiences={form.experiences}
+                    setForm={setForm}
+                    techStackOptions={techStackOptions}
+                    experiencesDirty={dirty.experiences}
+                    sectionDirty={dirty.experiencesAny}
+                    assist={assist}
+                  />
+                )}
+
+                {/* 資格セクション */}
+                <CareerQualificationsSection
+                  qualifications={form.qualifications}
+                  qualificationNames={qualificationNames}
+                  loading={loading}
+                  setForm={setForm}
+                  qualificationsDirty={dirty.qualifications}
+                  sectionDirty={dirty.qualificationsAny}
+                />
+
+                {/* 自己PR */}
+                <CareerSelfPrSection
+                  selfPr={form.self_pr}
+                  loading={loading}
+                  onChange={(v) => onChangeField("self_pr", v)}
+                  dirty={dirty.self_pr}
+                />
+              </div>
+
+              {/* 中央: ドラッグでカラム幅を変えるスプリッター */}
+              <div
+                className={layout.splitter}
+                role="separator"
+                aria-orientation="vertical"
+                onMouseDown={startResize}
               />
-            )}
 
-            {/* 資格セクション */}
-            <CareerQualificationsSection
-              qualifications={form.qualifications}
-              qualificationNames={qualificationNames}
-              loading={loading}
-              setForm={setForm}
-              qualificationsDirty={dirty.qualifications}
-              sectionDirty={dirty.qualificationsAny}
-            />
-
-            {/* 自己PR */}
-            <CareerSelfPrSection
-              selfPr={form.self_pr}
-              loading={loading}
-              onChange={(v) => onChangeField("self_pr", v)}
-              dirty={dirty.self_pr}
-            />
+              {/* 右: PDF 原本ビュー（独立スクロール）。文字を選択して入力欄へ流し込む。
+                幅は CSS 変数 --pdf-col-width を CSS 側で参照（縦積み時は全幅へ上書き）。 */}
+              <aside className={layout.pdfCol}>
+                <ResumePdfTracePanel
+                  assist={assist}
+                  maximized={pdfMaximized}
+                  onToggleMaximize={toggleMaximize}
+                />
+              </aside>
+            </div>
           </div>
         </div>
       </form>

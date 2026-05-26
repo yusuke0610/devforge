@@ -23,6 +23,8 @@ export const VALIDATION_MESSAGES = {
   SELF_PR_REQUIRED: "自己PRを入力してください。",
   EXPERIENCE_REQUIRED_FIELDS: "職務経歴は会社名、事業内容、開始年月を入力してください。",
   EXPERIENCE_END_DATE_REQUIRED: "職務経歴の離職年月を入力するか、在職を選択してください。",
+  PROJECT_START_DATE_REQUIRED: "プロジェクトの開始年月を入力してください。",
+  PROJECT_END_DATE_REQUIRED: "プロジェクトの終了年月を入力するか、参画中を選択してください。",
   DATE_RANGE_INVALID: "開始日は終了日より前に設定してください。",
   QUALIFICATION_REQUIRED_FIELDS: "資格は取得日と名称を両方入力してください。",
   RESUME_PDF_REQUIRED: "PDF をアップロードしてください。",
@@ -47,15 +49,12 @@ export const FALLBACK_MESSAGES = {
   ANALYSIS: "分析に失敗しました",
   ANALYSIS_DELETE: "削除に失敗しました",
   ANALYSIS_RERUN: "再実行に失敗しました",
-  RESUME_EXTRACT: "抽出結果の取得に失敗しました。",
   BLOG_FETCH: "データの取得に失敗しました",
   BLOG_SYNC: "記事の同期に失敗しました。「同期」ボタンで再試行してください。",
   BLOG_LINK: "アカウントの連携に失敗しました",
   BLOG_SYNC_SIMPLE: "同期に失敗しました",
   BLOG_UNLINK: "アカウントの解除に失敗しました",
   BLOG_USERNAME_UPDATE: "usernameの更新に失敗しました",
-  BLOG_SUMMARY_FAILED: "AI分析に失敗しました",
-  BLOG_SUMMARY_UNAVAILABLE: "AI分析サーバーに接続できません",
   DOWNLOAD: "ダウンロードに失敗しました",
   PREVIEW_FETCH: "プレビューの取得に失敗しました",
   AUTH_CHECK: "ログイン状態の確認に失敗しました。",
@@ -69,9 +68,38 @@ export const UI_MESSAGES = {
     "ページの表示中に問題が発生しました。再読み込みするか、ホームへ戻ってください。",
 } as const;
 
-/** 開発者向け（通常はユーザーに表示されない）の内部エラーメッセージ */
-export const INTERNAL_MESSAGES = {
-  RESUME_IMPORT_NO_ID: "import_id が未設定です",
+/** PDF 取り込み補助（PDF ビュー上の選択 → 流し込み）UI の文言 */
+export const IMPORT_ASSIST_MESSAGES = {
+  TITLE: "PDFから下書きを取り込む",
+  HINT: "フォームの入力欄をクリックして選ぶ（緑枠）と、右のPDF上で選択した文字がその欄に流し込まれます。テキスト欄は続けて選択で追記できます。",
+  SELECT_FILE: "PDFから取り込み",
+  RESELECT_FILE: "PDFを選び直す",
+  RENDERING: "PDFを表示中...",
+  EMPTY: "PDFを選ぶと、ここに原本が表示されます。文字をドラッグで選択して入力欄へ流し込めます。",
+  NO_TEXT:
+    "このPDFから文字を選択できませんでした（スキャンPDFの可能性があります）。文字を選択できるPDFをお試しください。",
+  RENDER_FAILED: "PDFの表示に失敗しました。別のファイルをお試しください。",
+  NO_TARGET: "先にフォームの入力欄をクリックして、流し込み先を選んでください。",
+  TAB_FALLBACK: "PDF",
+  MAXIMIZE: "最大化",
+  RESTORE: "元に戻す",
+  MAXIMIZE_HINT: "ダブルクリックで最大化／元に戻す",
+  ZOOM_IN: "拡大",
+  ZOOM_OUT: "縮小",
+} as const;
+
+/**
+ * 非同期バックグラウンドタスクのローディング UI 文言（AsyncTaskLoading で使用）。
+ * PDF アップロード / GitHub 連携 で共通の補足メッセージと、
+ * 機能ごとの処理内容ラベルを集約する。
+ */
+export const LOADING_MESSAGES = {
+  /** 補足: 画面遷移してもタスクが継続する旨 */
+  BACKGROUND_CONTINUES: "他の画面に移動しても処理は継続されます",
+  /** 補足: 処理に時間がかかる旨 */
+  TAKES_TIME: "この処理には時間がかかります",
+  /** GitHub 連携中ラベル */
+  GITHUB_LINK: "GitHubプロフィールを取得中...",
 } as const;
 
 /** ダウンロード失敗時のメッセージにファイル名を付与する。 */

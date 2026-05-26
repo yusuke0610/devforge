@@ -31,13 +31,11 @@ from .middleware.request_id import RequestIDMiddleware  # noqa: E402
 from .routers import (  # noqa: E402
     auth_router,
     blog_router,
-    career_analysis_router,
+    github_link_router,
     health_router,
-    intelligence_router,
     internal_router,
     master_data_router,
     notifications_router,
-    resume_imports_router,
     resumes_router,
 )
 
@@ -208,11 +206,9 @@ app.add_middleware(
 app.add_middleware(RequestIDMiddleware)
 
 app.include_router(health_router)
-app.include_router(career_analysis_router)
 app.include_router(auth_router)
-app.include_router(resume_imports_router)
 app.include_router(resumes_router)
-app.include_router(intelligence_router)
+app.include_router(github_link_router)
 app.include_router(blog_router)
 app.include_router(master_data_router)
 app.include_router(notifications_router)

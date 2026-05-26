@@ -18,7 +18,7 @@ class Notification(Base):
     user_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    # タスク種別: github_analysis / blog_summarize / career_analysis
+    # タスク種別: github_link
     task_type: Mapped[str] = mapped_column(String(50), nullable=False)
     # 通知ステータス: completed / failed
     status: Mapped[str] = mapped_column(String(20), nullable=False)

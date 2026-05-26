@@ -34,19 +34,12 @@ export const PATHS = {
     pdf: (id: string) => `/api/resumes/${id}/pdf`,
     markdown: (id: string) => `/api/resumes/${id}/markdown`,
   },
-  careerAnalysis: {
-    base: "/api/career-analysis/",
-    generate: "/api/career-analysis/generate",
-    byId: (id: number) => `/api/career-analysis/${id}`,
-    status: (id: number) => `/api/career-analysis/${id}/status`,
-    retry: (id: number) => `/api/career-analysis/${id}/retry`,
-  },
-  intelligence: {
-    analyze: "/api/intelligence/analyze",
-    analyzeRetry: "/api/intelligence/analyze/retry",
-    cache: "/api/intelligence/cache",
-    cacheStatus: "/api/intelligence/cache/status",
-    progress: "/api/intelligence/progress",
+  githubLink: {
+    run: "/api/github-link/run",
+    runRetry: "/api/github-link/run/retry",
+    cache: "/api/github-link/cache",
+    cacheStatus: "/api/github-link/cache/status",
+    progress: "/api/github-link/progress",
   },
   masterData: {
     qualification: "/api/master-data/qualification",
@@ -65,16 +58,7 @@ export const PATHS = {
     accountSync: (accountId: string) => `/api/blog/accounts/${accountId}/sync`,
     articles: (platform?: string) =>
       platform ? `/api/blog/articles?platform=${platform}` : "/api/blog/articles",
-    summarize: "/api/blog/summarize",
-    summarizeRetry: "/api/blog/summarize/retry",
-    summaryCache: "/api/blog/summary-cache",
-    summaryCacheStatus: "/api/blog/summary-cache/status",
     score: "/api/blog/score",
-  },
-  resumeImports: {
-    start: "/api/resumes/import",
-    status: (id: string) => `/api/resumes/import/${id}/status`,
-    result: (id: string) => `/api/resumes/import/${id}/result`,
   },
   aiResume: {
     generate: "/api/ai-resume/generate",

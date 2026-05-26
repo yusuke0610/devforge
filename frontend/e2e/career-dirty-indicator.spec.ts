@@ -7,7 +7,7 @@ import { setupAuth, waitForAuthenticatedLayout } from "./helpers/auth";
  * シナリオ:
  * 1. 職務経歴書を開く → 🔴 なし
  * 2. 氏名を編集 → 氏名横と保存ボタン横に 🔴
- * 3. キャリア分析タブへ遷移して職務経歴書に戻る → 🔴 が維持されている（Redux 保持）
+ * 3. ブログ連携タブへ遷移して職務経歴書に戻る → 🔴 が維持されている（Redux 保持）
  * 4. 保存（PUT /api/resumes/{id}）→ baseline 更新で 🔴 が全消失
  */
 
@@ -65,8 +65,8 @@ async function setupResumeApi(page: Page) {
     await route.fallback();
   });
 
-  // キャリア分析ページ用モック（タブ遷移先の 404 ループを避ける）
-  await page.route("**/api/career-analysis/**", (route) =>
+  // ブログ連携ページ用モック（タブ遷移先で連携アカウント空を返す）
+  await page.route("**/api/blog/accounts", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
   );
 }
@@ -104,7 +104,6 @@ test.describe("職務経歴書 未保存マーク", () => {
                   end_date: "2022-03",
                   is_current: false,
                   role: "Eng",
-                  description: "",
                   challenge: "",
                   action: "",
                   result: "",
@@ -138,9 +137,7 @@ test.describe("職務経歴書 未保存マーク", () => {
     await page.getByRole("button", { name: "編集" }).click();
 
     // モーダル内のプロジェクト名を変更
-    const projectNameInput = page.getByPlaceholder(
-      "例: エネルギー業界 IoT Web API アプリ新規開発",
-    );
+    const projectNameInput = page.getByPlaceholder("例: エネルギー業界 IoT Web API アプリ新規開発");
     await projectNameInput.fill("既存プロジェクト改");
 
     // モーダル内で 🔴 が表示される（タイトル横とプロジェクト名ラベル横）
@@ -171,7 +168,9 @@ test.describe("職務経歴書 未保存マーク", () => {
     await expect(page.getByTestId("dirty-dot").first()).toBeVisible();
   });
 
-  test("新規ユーザー（DB データなし）でフォーム編集しても React の setState 警告が出ない", async ({ page }) => {
+  test("新規ユーザー（DB データなし）でフォーム編集しても React の setState 警告が出ない", async ({
+    page,
+  }) => {
     // /api/resumes/latest を 404 にして「初回ログインで職務経歴データがないユーザー」を再現する
     await page.unroute("**/api/resumes/latest");
     await page.route("**/api/resumes/latest", (route) =>
@@ -201,9 +200,7 @@ test.describe("職務経歴書 未保存マーク", () => {
     await page.waitForTimeout(100);
 
     // 「Cannot update a component while rendering a different component」警告が無いこと
-    const setStateWarnings = consoleIssues.filter((m) =>
-      m.includes("Cannot update a component"),
-    );
+    const setStateWarnings = consoleIssues.filter((m) => m.includes("Cannot update a component"));
     expect(setStateWarnings, setStateWarnings.join("\n")).toEqual([]);
   });
 
@@ -223,9 +220,9 @@ test.describe("職務経歴書 未保存マーク", () => {
     const dirtyCountAfterEdit = await page.getByTestId("dirty-dot").count();
     expect(dirtyCountAfterEdit).toBeGreaterThanOrEqual(1);
 
-    // 3. キャリア分析タブへ遷移
-    await page.getByRole("link", { name: "キャリア分析" }).click();
-    await expect(page).toHaveURL(/\/career_analysis/);
+    // 3. ブログ連携タブへ遷移
+    await page.getByRole("link", { name: "ブログ連携" }).click();
+    await expect(page).toHaveURL(/\/blog/);
 
     // 職務経歴書に戻る
     await page.getByRole("link", { name: "職務経歴書" }).click();

@@ -3,9 +3,8 @@ import { Route, Routes, Navigate } from "react-router-dom";
 import type { Theme } from "../hooks/useTheme";
 import { AuthenticatedLayout } from "../components/AuthenticatedLayout";
 import { PrivateRoute, PublicRoute, type AuthUser } from "./guards";
-import CareerAnalysisPage from "../pages/CareerAnalysisPage";
 import CareerPage from "../pages/CareerPage";
-import GitHubIntelligencePage from "../pages/GitHubIntelligencePage";
+import GitHubLinkPage from "../pages/GitHubLinkPage";
 import BlogPage from "../pages/BlogPage";
 import GitHubCallbackPage from "../pages/GitHubCallbackPage";
 import LoginPage from "../pages/LoginPage";
@@ -54,9 +53,8 @@ export default function AppRoutes({
           }
         >
           <Route path="/career" element={<CareerPage />} />
-          <Route path="/github_intelligence" element={<GitHubIntelligencePage />} />
+          <Route path="/github_link" element={<GitHubLinkPage />} />
           <Route path="/blog" element={<BlogPage />} />
-          <Route path="/career_analysis" element={<CareerAnalysisPage />} />
         </Route>
       </Route>
 

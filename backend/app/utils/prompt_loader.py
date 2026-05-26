@@ -12,7 +12,7 @@ def load_prompt(filename: str) -> str:
     呼び出し時に都度ファイルを読み込む（キャッシュなし）。
 
     Args:
-        filename: 拡張子込みのファイル名（例: "career_analysis.md"）
+        filename: 拡張子込みのファイル名（例: "github_trend.md"）
 
     Returns:
         MD ファイルの内容文字列（前後の空白・改行を除去済み）

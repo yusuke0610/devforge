@@ -1,6 +1,5 @@
 """sanitizer モジュールのユニットテスト。"""
 
-from app.services.intelligence.llm_summarizer import _build_learning_advice_prompt
 from app.services.llm.sanitizer import (
     SanitizeContext,
     sanitize_project_name,
@@ -158,33 +157,3 @@ def test_context_empty_name_not_registered():
     result = context.register_company("")
     assert result == ""
     assert len(context.companies) == 0
-
-
-# ============================================================
-# generate_learning_advice プロンプトに username が含まれないこと
-# ============================================================
-
-
-def test_username_not_in_learning_advice_prompt():
-    """_build_learning_advice_prompt のプロンプトに username が含まれない。"""
-    analysis = {
-        "username": "secret_user",
-        "repos_analyzed": 20,
-        "unique_skills": 15,
-        "languages": {"Python": 50000, "TypeScript": 30000},
-    }
-    scores = {
-        "backend": 70,
-        "frontend": 40,
-        "fullstack": 55,
-        "sre": 30,
-        "cloud": 25,
-        "missing_skills": ["Kubernetes"],
-    }
-    prompt = _build_learning_advice_prompt(analysis, scores)
-
-    assert "secret_user" not in prompt
-    assert "username" not in prompt
-    # A分類の情報は含まれていること
-    assert "20" in prompt  # repos_analyzed
-    assert "Python" in prompt

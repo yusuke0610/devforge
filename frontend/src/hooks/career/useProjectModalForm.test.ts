@@ -10,7 +10,6 @@ const sampleProject: CareerProjectForm = {
   end_date: "2024-12",
   is_current: false,
   role: "Backend",
-  description: "",
   challenge: "",
   action: "",
   result: "",
@@ -62,7 +61,10 @@ describe("useProjectModalForm", () => {
 
   it("技術スタックを 1 件のみ残して削除すると空チップが再生成される", () => {
     const { result } = renderHook(() =>
-      useProjectModalForm({ ...sampleProject, technology_stacks: [{ category: "language", name: "Go" }] }),
+      useProjectModalForm({
+        ...sampleProject,
+        technology_stacks: [{ category: "language", name: "Go" }],
+      }),
     );
     act(() => result.current.removeTechStack(0));
     expect(result.current.local.technology_stacks).toHaveLength(1);

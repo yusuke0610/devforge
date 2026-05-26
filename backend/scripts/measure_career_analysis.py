@@ -35,7 +35,7 @@ BACKEND_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.db.database import SessionLocal  # noqa: E402
-from app.models import BlogSummaryCache, GitHubAnalysisCache, Resume  # noqa: E402
+from app.models import BlogSummaryCache, GitHubLinkCache, Resume  # noqa: E402
 from app.services.career_analysis.prompt_builder import build_user_prompt  # noqa: E402
 from app.services.career_analysis.tech_stack_merger import (  # noqa: E402
     collect_github_skills,
@@ -165,7 +165,7 @@ def build_prompts_for_user(user_id: str, target_position: str) -> tuple[PromptBu
     db = SessionLocal()
     try:
         resume = db.query(Resume).filter_by(user_id=user_id).first()
-        analysis_cache = db.query(GitHubAnalysisCache).filter_by(user_id=user_id).first()
+        analysis_cache = db.query(GitHubLinkCache).filter_by(user_id=user_id).first()
         blog_cache = db.query(BlogSummaryCache).filter_by(user_id=user_id).first()
 
         resume_techs = collect_resume_tech_stacks(resume) if resume else set()

@@ -8,9 +8,7 @@ from unittest.mock import AsyncMock, patch
 
 from app.models import (
     BlogAccount,
-    BlogSummaryCache,
-    CareerAnalysis,
-    GitHubAnalysisCache,
+    GitHubLinkCache,
     Notification,
     Resume,
 )
@@ -74,38 +72,6 @@ class TestIDOR:
         remaining = db_session.scalar(select(Resume).where(Resume.user_id == user_a.id))
         assert remaining is not None
 
-    def test_career_analysis_status_returns_404_for_other_user(
-        self, client: TestClient, db_session
-    ) -> None:
-        user_a = ensure_user(db_session, "idor-career-status-a")
-        analysis = self._insert_career_analysis(db_session, user_a.id)
-        headers_b = auth_header(client, "idor-career-status-b")
-        resp = client.get(f"/api/career-analysis/{analysis.id}/status", headers=headers_b)
-        assert resp.status_code == 404
-
-    def test_career_analysis_delete_does_not_touch_other_user_data(
-        self, client: TestClient, db_session
-    ) -> None:
-        user_a = ensure_user(db_session, "idor-career-del-a")
-        analysis = self._insert_career_analysis(db_session, user_a.id)
-        analysis_id = analysis.id
-        headers_b = auth_header(client, "idor-career-del-b")
-        resp = client.delete(f"/api/career-analysis/{analysis_id}", headers=headers_b)
-        assert resp.status_code == 404
-        remaining = db_session.scalar(
-            select(CareerAnalysis).where(CareerAnalysis.id == analysis_id)
-        )
-        assert remaining is not None
-
-    def test_career_analysis_retry_returns_404_for_other_user(
-        self, client: TestClient, db_session
-    ) -> None:
-        user_a = ensure_user(db_session, "idor-career-retry-a")
-        analysis = self._insert_career_analysis(db_session, user_a.id, status="dead_letter")
-        headers_b = auth_header(client, "idor-career-retry-b")
-        resp = client.post(f"/api/career-analysis/{analysis.id}/retry", headers=headers_b)
-        assert resp.status_code == 404
-
     def test_blog_account_delete_does_not_touch_other_user_data(
         self, client: TestClient, db_session
     ) -> None:
@@ -159,38 +125,22 @@ class TestIDOR:
         resp = client.post(f"/api/blog/accounts/{account_id}/sync", headers=headers_b)
         assert resp.status_code == 404
 
-    def test_blog_summary_cache_does_not_leak_to_other_user(
-        self, client: TestClient, db_session
-    ) -> None:
-        user_a = ensure_user(db_session, "idor-blog-cache-a")
-        cache_a = BlogSummaryCache(
-            user_id=user_a.id, summary="A の機密サマリ", status="completed"
-        )
-        db_session.add(cache_a)
-        db_session.commit()
-        headers_b = auth_header(client, "idor-blog-cache-b")
-        resp = client.get("/api/blog/summary-cache", headers=headers_b)
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["available"] is False
-        assert "A の機密サマリ" not in (body.get("summary") or "")
-
     def test_intelligence_cache_does_not_leak_to_other_user(
         self, client: TestClient, db_session
     ) -> None:
         user_a = ensure_user(db_session, "idor-intel-cache-a")
-        cache_a = GitHubAnalysisCache(
+        cache_a = GitHubLinkCache(
             user_id=user_a.id,
-            analysis_result={"secret": "A だけが見るべきデータ"},
+            result={"secret": "A だけが見るべきデータ"},
             status="completed",
         )
         db_session.add(cache_a)
         db_session.commit()
         headers_b = auth_header(client, "idor-intel-cache-b")
-        resp = client.get("/api/intelligence/cache", headers=headers_b)
+        resp = client.get("/api/github-link/cache", headers=headers_b)
         assert resp.status_code == 200
         body = resp.json()
-        assert body.get("analysis_result") is None
+        assert body.get("result") is None
 
     def test_notification_mark_read_does_not_touch_other_user(
         self, client: TestClient, db_session
@@ -198,7 +148,7 @@ class TestIDOR:
         user_a = ensure_user(db_session, "idor-notif-a")
         notification = Notification(
             user_id=user_a.id,
-            task_type="github_analysis",
+            task_type="github_link",
             status="completed",
             title="A 宛通知",
             is_read=False,
@@ -211,18 +161,3 @@ class TestIDOR:
         assert resp.status_code == 404
         unchanged = db_session.scalar(select(Notification).where(Notification.id == notif_id))
         assert unchanged.is_read is False
-
-    @staticmethod
-    def _insert_career_analysis(
-        db, user_id: str, *, status: str = "pending"
-    ) -> CareerAnalysis:
-        analysis = CareerAnalysis(
-            user_id=user_id,
-            version=1,
-            target_position="Backend",
-            status=status,
-        )
-        db.add(analysis)
-        db.commit()
-        db.refresh(analysis)
-        return analysis

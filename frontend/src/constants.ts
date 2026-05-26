@@ -50,12 +50,29 @@ export const blankCareerTechnologyStack: CareerTechnologyStack = {
 };
 
 export const teamRoleOptions = [
-  "PM", "PL", "PMO", "SM", "SE", "PG", "テスター", "デザイナー", "インフラ", "その他",
+  "PM",
+  "PL",
+  "PMO",
+  "SM",
+  "SE",
+  "PG",
+  "テスター",
+  "デザイナー",
+  "インフラ",
+  "その他",
 ];
 
 export const phaseOptions = [
-  "要件定義", "基本設計", "詳細設計", "開発", "単体テスト",
-  "総合テスト", "統合テスト", "リリース", "運用保守", "運用監視",
+  "要件定義",
+  "基本設計",
+  "詳細設計",
+  "開発",
+  "単体テスト",
+  "総合テスト",
+  "統合テスト",
+  "リリース",
+  "運用保守",
+  "運用監視",
 ];
 
 export const blankTeamMember: TeamMemberForm = {
@@ -69,7 +86,6 @@ export const blankCareerProject: CareerProjectForm = {
   end_date: "",
   is_current: false,
   role: "",
-  description: "",
   challenge: "",
   action: "",
   result: "",

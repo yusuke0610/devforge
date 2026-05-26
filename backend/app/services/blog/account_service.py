@@ -3,7 +3,7 @@
 from sqlalchemy.orm import Session
 
 from ...models import BlogAccount
-from ...repositories import BlogAccountRepository, BlogArticleRepository, BlogSummaryCacheRepository
+from ...repositories import BlogAccountRepository, BlogArticleRepository
 from .collector import (
     BlogAccountNotFoundError,
     BlogPlatformRequestError,
@@ -21,7 +21,6 @@ class BlogAccountService:
         self._user_id = user_id
         self._account_repo = BlogAccountRepository(db, user_id)
         self._article_repo = BlogArticleRepository(db, user_id)
-        self._summary_cache_repo = BlogSummaryCacheRepository(db, user_id)
 
     def get_by_platform(self, platform: str) -> BlogAccount | None:
         return self._account_repo.get_by_platform(platform)
@@ -45,7 +44,6 @@ class BlogAccountService:
             self._article_repo.delete_by_account(account.id, commit=False)
             account.username = normalized_username
             account.last_synced_at = None
-            self._summary_cache_repo.invalidate(commit=False)
             self._db.commit()
         except Exception:
             self._db.rollback()

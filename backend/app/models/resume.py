@@ -14,7 +14,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ..core.date_utils import format_iso_date, format_year_month
+from ..core.date_utils import format_year_month
 from ..db import Base
 from ..services.shared.sort_utils import sort_by_date_asc, sort_by_period_desc
 
@@ -82,7 +82,8 @@ class ResumeQualification(Base):
 
     @property
     def acquired_date(self) -> str:
-        return format_iso_date(self.acquired_date_value) or ""
+        # 在籍期間と同じく YYYY-MM で返す（UI は type="month" に統一）。
+        return format_year_month(self.acquired_date_value) or ""
 
 
 class ResumeExperience(Base):
@@ -115,8 +116,9 @@ class ResumeExperience(Base):
         return format_year_month(self.start_date_value) or ""
 
     @property
-    def end_date(self) -> str | None:
-        return format_year_month(self.end_date_value)
+    def end_date(self) -> str:
+        """DB の end_date が NULL（在籍中）の場合は "" を返す（schema 契約と一致）。"""
+        return format_year_month(self.end_date_value) or ""
 
     @property
     def clients(self) -> list["ResumeClient"]:
@@ -165,7 +167,6 @@ class ResumeProject(Base):
     end_date_value: Mapped[date | None] = mapped_column("end_date", Date, nullable=True)
     is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     role: Mapped[str] = mapped_column(String(200), nullable=False, default="")
-    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     challenge: Mapped[str] = mapped_column(Text, nullable=False, default="")
     action: Mapped[str] = mapped_column(Text, nullable=False, default="")
     result: Mapped[str] = mapped_column(Text, nullable=False, default="")
@@ -192,8 +193,9 @@ class ResumeProject(Base):
         return format_year_month(self.start_date_value) or ""
 
     @property
-    def end_date(self) -> str | None:
-        return format_year_month(self.end_date_value)
+    def end_date(self) -> str:
+        """DB の end_date が NULL（参画中）の場合は "" を返す（schema 契約と一致）。"""
+        return format_year_month(self.end_date_value) or ""
 
     @property
     def team(self) -> dict:

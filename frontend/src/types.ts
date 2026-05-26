@@ -39,7 +39,6 @@ export type CareerProject = {
   end_date: string;
   is_current: boolean;
   role: string;
-  description: string;
   challenge: string;
   action: string;
   result: string;
@@ -58,7 +57,7 @@ export type CareerExperience = {
   company: string;
   business_description: string;
   start_date: string;
-  end_date: string | null;
+  end_date: string;
   is_current: boolean;
   employee_count: string;
   capital: string;

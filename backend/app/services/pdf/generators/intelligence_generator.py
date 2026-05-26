@@ -64,7 +64,7 @@ def build_intelligence_pdf(payload: dict) -> bytes:
     content_width = PAGE_W - 2 * MARGIN
 
     # Title
-    elements.append(Paragraph("GitHub 分析レポート", s["title"]))
+    elements.append(Paragraph("GitHub 連携レポート", s["title"]))
     elements.append(Spacer(1, 2 * mm))
 
     # Overview
@@ -76,14 +76,14 @@ def build_intelligence_pdf(payload: dict) -> bytes:
     overview_data = [
         [Paragraph("<b>ユーザー</b>", s["body"]), Paragraph(username, s["body"])],
         [
-            Paragraph("<b>分析リポジトリ数</b>", s["body"]),
+            Paragraph("<b>対象リポジトリ数</b>", s["body"]),
             Paragraph(str(repos), s["body"]),
         ],
         [
             Paragraph("<b>ユニークスキル数</b>", s["body"]),
             Paragraph(str(skills_count), s["body"]),
         ],
-        [Paragraph("<b>分析日時</b>", s["body"]), Paragraph(analyzed_at, s["body"])],
+        [Paragraph("<b>取得日時</b>", s["body"]), Paragraph(analyzed_at, s["body"])],
     ]
     overview_table = Table(overview_data, colWidths=[40 * mm, content_width - 40 * mm])
     overview_table.setStyle(_table_style(((0, 0), (0, -1)), "MIDDLE"))

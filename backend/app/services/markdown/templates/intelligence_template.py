@@ -1,4 +1,4 @@
-TITLE = "# GitHub分析レポート"
+TITLE = "# GitHub連携レポート"
 SECTION_OVERVIEW = "## 概要"
 SECTION_AI_SUMMARY = "## AI要約"
 SECTION_CAREER_PREDICTION = "## キャリア予測"

@@ -7,7 +7,9 @@ logger = logging.getLogger(__name__)
 
 _KEY_PREFIX = "devforge:progress:"
 _TTL_SECONDS = 3600
-_GITHUB_ANALYSIS_TOTAL_STEPS = 5
+# Redis にデータがない場合のフォールバック値。
+# 呼び出し側がタスク種別ごとに override する想定（GitHub 連携: 5、resume_import: 3 等）。
+_DEFAULT_TOTAL_STEPS = 5
 
 
 async def set_progress(
@@ -44,17 +46,23 @@ async def set_progress(
         )
 
 
-async def get_progress(task_id: str) -> dict:
+async def get_progress(
+    task_id: str,
+    *,
+    default_total_steps: int = _DEFAULT_TOTAL_STEPS,
+) -> dict:
     """Redis から進捗情報を取得する。
 
     データがない場合（タスク未開始・Redis 障害）はデフォルト値を返す。
+    default_total_steps はタスク種別ごとに想定全ステップ数を渡す
+    （フロントの進捗バー初期表示用。実値は ``set_progress`` 後に上書きされる）。
     """
     from ..core.redis_client import get_redis_client
 
     default: dict = {
         "task_id": task_id,
         "step_index": 0,
-        "total_steps": _GITHUB_ANALYSIS_TOTAL_STEPS,
+        "total_steps": default_total_steps,
         "step_label": None,
         "sub_progress": None,
     }
