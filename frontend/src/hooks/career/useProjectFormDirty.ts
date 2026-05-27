@@ -15,9 +15,7 @@ export type ProjectFormDirty = {
     end_date: boolean;
     is_current: boolean;
     role: boolean;
-    challenge: boolean;
-    action: boolean;
-    result: boolean;
+    description: boolean;
   };
   /** 体制セクションの dirty（全体人数 or メンバー配列が変化） */
   team: boolean;
@@ -47,9 +45,7 @@ export function useProjectFormDirty(
       end_date: local.end_date !== base.end_date,
       is_current: local.is_current !== base.is_current,
       role: local.role !== base.role,
-      challenge: local.challenge !== base.challenge,
-      action: local.action !== base.action,
-      result: local.result !== base.result,
+      description: local.description !== base.description,
     };
 
     const team = !isDeepEqual(local.team, base.team);

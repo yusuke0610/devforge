@@ -21,9 +21,7 @@ export type CareerProjectForm = {
   end_date: string;
   is_current: boolean;
   role: string;
-  challenge: string;
-  action: string;
-  result: string;
+  description: string;
   team: {
     total: string;
     members: TeamMemberForm[];
@@ -89,9 +87,7 @@ function buildProject(proj: CareerProjectForm): CareerProject {
     end_date: proj.is_current ? "" : proj.end_date.trim(),
     is_current: proj.is_current,
     role: proj.role.trim(),
-    challenge: proj.challenge.trim(),
-    action: proj.action.trim(),
-    result: proj.result.trim(),
+    description: proj.description.trim(),
     team: buildTeam(proj.team),
     technology_stacks: proj.technology_stacks
       .map((stack) => ({
@@ -109,7 +105,7 @@ function buildClient(client: CareerClientForm): CareerClient {
     has_client: client.has_client,
     projects: client.projects
       .map(buildProject)
-      .filter((p) => hasAnyText([p.name, p.challenge, p.action, p.result])),
+      .filter((p) => hasAnyText([p.name, p.description])),
   };
 }
 

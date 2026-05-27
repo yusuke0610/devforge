@@ -167,9 +167,8 @@ class ResumeProject(Base):
     end_date_value: Mapped[date | None] = mapped_column("end_date", Date, nullable=True)
     is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     role: Mapped[str] = mapped_column(String(200), nullable=False, default="")
-    challenge: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    action: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    result: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # 課題・行動・成果を統合した自由記述欄。見出しは「詳細」。
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     team_total: Mapped[str] = mapped_column(String(60), nullable=False, default="")
     team_member_rows: Mapped[list["ResumeProjectTeamMember"]] = relationship(
         back_populates="project",

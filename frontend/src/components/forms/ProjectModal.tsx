@@ -219,27 +219,11 @@ export function ProjectModal({
             </div>
 
             <MarkdownTextarea
-              label="課題"
-              value={local.challenge}
-              onChange={(v) => updateField("challenge", v)}
-              rows={2}
-              labelAdornment={<DirtyDot visible={dirty.fields.challenge} />}
-            />
-
-            <MarkdownTextarea
-              label="行動"
-              value={local.action}
-              onChange={(v) => updateField("action", v)}
-              rows={2}
-              labelAdornment={<DirtyDot visible={dirty.fields.action} />}
-            />
-
-            <MarkdownTextarea
-              label="成果"
-              value={local.result}
-              onChange={(v) => updateField("result", v)}
-              rows={2}
-              labelAdornment={<DirtyDot visible={dirty.fields.result} />}
+              label="詳細"
+              value={local.description}
+              onChange={(v) => updateField("description", v)}
+              rows={6}
+              labelAdornment={<DirtyDot visible={dirty.fields.description} />}
             />
 
             {/* 技術スタック */}

@@ -105,9 +105,7 @@ class ResumeRepository(SingleUserDocumentRepository):
             ),
             is_current=payload.get("is_current", False),
             role=payload.get("role", ""),
-            challenge=payload.get("challenge", ""),
-            action=payload.get("action", ""),
-            result=payload.get("result", ""),
+            description=payload.get("description", ""),
             team_total=team.get("total", ""),
             team_member_rows=[
                 ResumeProjectTeamMember(

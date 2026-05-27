@@ -53,9 +53,8 @@ export type CareerProject = {
   end_date: string;
   is_current: boolean;
   role: string;
-  challenge: string;
-  action: string;
-  result: string;
+  /** 課題・行動・成果を統合した自由記述欄（見出し「詳細」） */
+  description: string;
   team: ProjectTeam;
   technology_stacks: CareerTechnologyStack[];
   phases: string[];

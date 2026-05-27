@@ -140,9 +140,7 @@ def test_resume_round_trips_nested_structure(client: TestClient) -> None:
                                 "end_date": "2024-03",
                                 "is_current": False,
                                 "role": "SE",
-                                "challenge": "性能改善",
-                                "action": "非同期化",
-                                "result": "応答時間短縮",
+                                "description": "性能改善のため非同期化し応答時間を短縮",
                                 "team": {
                                     "total": "5",
                                     "members": [{"role": "SE", "count": 3}],
