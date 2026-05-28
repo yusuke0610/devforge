@@ -81,9 +81,6 @@ export const IMPORT_ASSIST_MESSAGES = {
   RENDER_FAILED: "PDFの表示に失敗しました。別のファイルをお試しください。",
   NO_TARGET: "先にフォームの入力欄をクリックして、流し込み先を選んでください。",
   TAB_FALLBACK: "PDF",
-  MAXIMIZE: "最大化",
-  RESTORE: "元に戻す",
-  MAXIMIZE_HINT: "ダブルクリックで最大化／元に戻す",
   ZOOM_IN: "拡大",
   ZOOM_OUT: "縮小",
 } as const;

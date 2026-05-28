@@ -35,20 +35,13 @@ describe("usePdfPanelLayout", () => {
     document.body.style.userSelect = "";
   });
 
-  it("初期幅を返し、toggleMaximize で最大化を反転する", () => {
+  it("初期幅を返す", () => {
     const ref = makeContainerRef(1000, 900);
     const { result } = renderHook(() =>
       usePdfPanelLayout(ref, { initialWidth: 360, minWidth: 280, minFormWidth: 360 }),
     );
 
     expect(result.current.width).toBe(360);
-    expect(result.current.maximized).toBe(false);
-
-    act(() => result.current.toggleMaximize());
-    expect(result.current.maximized).toBe(true);
-
-    act(() => result.current.toggleMaximize());
-    expect(result.current.maximized).toBe(false);
   });
 
   it("ドラッグで幅が変わり、最小/最大でクランプされる", () => {

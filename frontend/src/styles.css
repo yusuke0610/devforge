@@ -2,6 +2,10 @@
   color-scheme: light;
   font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif;
 
+  /* Layout（サイドバー幅・モバイル上部バー高。AuthenticatedLayout とモーダルのオフセットで共用） */
+  --sidebar-width: 220px;
+  --topbar-height: 48px;
+
   /* Backgrounds */
   --bg-page: #f9f6f1;
   --bg-card: #ffffff;
@@ -39,6 +43,11 @@
   /* Status */
   --error: #a72323;
   --success: #2e7d4f;
+
+  /* Warning (PDF スキャン警告などの注意喚起) */
+  --warning-text: #b45309;
+  --warning-bg: #fff7ed;
+  --warning-border: #fed7aa;
 
   /* Shadow */
   --shadow-card: 0 14px 30px rgba(80, 60, 30, 0.06);
@@ -100,6 +109,10 @@
 
   --error: #f87171;
   --success: #4ade80;
+
+  --warning-text: #fbbf24;
+  --warning-bg: #422006;
+  --warning-border: #854d0e;
 
   --shadow-card: 0 14px 30px rgba(0, 0, 0, 0.3);
 

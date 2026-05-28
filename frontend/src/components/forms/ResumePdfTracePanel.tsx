@@ -14,10 +14,6 @@ const ZOOM_STEP = 0.25;
 
 type Props = {
   assist: UseResumeImportAssistReturn;
-  /** 最大化（フォームに覆い被せて全幅表示）中か。タブのラベル切替に使う。 */
-  maximized?: boolean;
-  /** 最大化トグル。渡された時だけタブに最大化ボタン/ダブルクリックを出す（モーダルでは渡さない）。 */
-  onToggleMaximize?: () => void;
 };
 
 /**
@@ -25,9 +21,9 @@ type Props = {
  *
  * 選択された PDF を原本のまま描画し、ユーザーが文字をドラッグ選択すると、選択中（緑枠）の
  * 入力欄へ流し込む。「どの項目をどの粒度で取り込むか」は人間が PDF 上の選択で決める。
- * 上部のタブ風ヘッダーでズーム（拡大/縮小）と最大化（フォームに覆い被せる）を操作する。
+ * 上部のタブ風ヘッダーでズーム（拡大/縮小）を操作する。
  */
-export function ResumePdfTracePanel({ assist, maximized = false, onToggleMaximize }: Props) {
+export function ResumePdfTracePanel({ assist }: Props) {
   const { file, fileName, error, fillSelection, setError } = assist;
   const [zoom, setZoom] = useState(1);
 
@@ -38,12 +34,7 @@ export function ResumePdfTracePanel({ assist, maximized = false, onToggleMaximiz
     <div className={styles.panel}>
       {file && (
         <div className={styles.tab}>
-          <span
-            className={styles.tabName}
-            title={onToggleMaximize ? IMPORT_ASSIST_MESSAGES.MAXIMIZE_HINT : (fileName ?? undefined)}
-            onDoubleClick={onToggleMaximize}
-            style={onToggleMaximize ? { cursor: "pointer" } : undefined}
-          >
+          <span className={styles.tabName} title={fileName ?? undefined}>
             {fileName ?? IMPORT_ASSIST_MESSAGES.TAB_FALLBACK}
           </span>
           <div className={styles.tabActions}>
@@ -66,11 +57,6 @@ export function ResumePdfTracePanel({ assist, maximized = false, onToggleMaximiz
             >
               ＋
             </button>
-            {onToggleMaximize && (
-              <button type="button" className={styles.iconButton} onClick={onToggleMaximize}>
-                {maximized ? IMPORT_ASSIST_MESSAGES.RESTORE : IMPORT_ASSIST_MESSAGES.MAXIMIZE}
-              </button>
-            )}
           </div>
         </div>
       )}

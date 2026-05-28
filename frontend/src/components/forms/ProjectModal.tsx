@@ -1,3 +1,5 @@
+import { useRef, type CSSProperties } from "react";
+
 import type { CareerProjectForm } from "../../payloadBuilders";
 import {
   careerTechnologyStackCategories,
@@ -7,6 +9,7 @@ import {
 } from "../../constants";
 import { useProjectFormDirty } from "../../hooks/career/useProjectFormDirty";
 import { useProjectModalForm } from "../../hooks/career/useProjectModalForm";
+import { usePdfPanelLayout } from "../../hooks/career/usePdfPanelLayout";
 import type { UseResumeImportAssistReturn } from "../../hooks/career/useResumeImportAssist";
 import { Combobox } from "./Combobox";
 import { MarkdownTextarea } from "./MarkdownTextarea";
@@ -58,12 +61,19 @@ export function ProjectModal({
   /** PDF が選択されている時だけモーダル内に原本ビューを表示する */
   const showPdf = !!assist && !!assist.file;
 
+  // 入力フォームと PDF カラムの比率をスプリッターのドラッグで変える。
+  // PDF カラムは右側なので「幅 = コンテナ右端 - マウス X」。reservedGap はカラム間のスプリッター(6px)。
+  const bodyWrapRef = useRef<HTMLDivElement>(null);
+  const { width: pdfWidth, startResize } = usePdfPanelLayout(bodyWrapRef, {
+    initialWidth: 440,
+    minWidth: 240,
+    minFormWidth: 320,
+    reservedGap: 6,
+  });
+
   return (
     <div className={styles.overlay} onClick={onClose}>
-      <div
-        className={`${styles.modal} ${showPdf ? styles.modalWide : ""}`}
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
           <span>
             {project ? "プロジェクト編集" : "プロジェクト追加"}
@@ -84,7 +94,11 @@ export function ProjectModal({
           </div>
         </div>
 
-        <div className={styles.bodyWrap}>
+        <div
+          className={styles.bodyWrap}
+          ref={bodyWrapRef}
+          style={showPdf ? ({ "--pdf-col-width": `${pdfWidth}px` } as CSSProperties) : undefined}
+        >
           <div className={styles.body}>
             <label>
               {/* グローバル CSS の label { display: grid } により、
@@ -169,6 +183,7 @@ export function ProjectModal({
                   <div className={styles.inputWithUnit}>
                     <input
                       type="number"
+                      min="0"
                       value={local.team.total}
                       onChange={(e) => updateTeamTotal(e.target.value)}
                       placeholder="例: 10"
@@ -198,6 +213,7 @@ export function ProjectModal({
                     <div className={styles.inputWithUnit}>
                       <input
                         type="number"
+                        min="0"
                         value={member.count}
                         onChange={(e) => updateTeamMember(memberIndex, "count", e.target.value)}
                         placeholder="人数"
@@ -294,9 +310,18 @@ export function ProjectModal({
             </div>
           </div>
           {showPdf && assist && (
-            <aside className={styles.blocksColumn}>
-              <ResumePdfTracePanel assist={assist} />
-            </aside>
+            <>
+              {/* 入力フォームと PDF カラムの境界。ドラッグで左右比率を変える（縦積み時は CSS で非表示）。 */}
+              <div
+                className={styles.splitter}
+                role="separator"
+                aria-orientation="vertical"
+                onMouseDown={startResize}
+              />
+              <aside className={styles.blocksColumn}>
+                <ResumePdfTracePanel assist={assist} />
+              </aside>
+            </>
           )}
         </div>
       </div>

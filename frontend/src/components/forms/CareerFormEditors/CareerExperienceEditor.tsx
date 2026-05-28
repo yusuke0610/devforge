@@ -163,6 +163,7 @@ export function CareerExperienceEditor({
             <div className={styles.inputWithUnit}>
               <input
                 type="number"
+                min="0"
                 value={exp.employee_count}
                 onChange={(e) =>
                   onUpdateExperienceField(expIndex, "employee_count", e.target.value)
@@ -180,6 +181,7 @@ export function CareerExperienceEditor({
             <div className={styles.inputWithUnit}>
               <input
                 type="number"
+                min="0"
                 value={exp.capital}
                 onChange={(e) => onUpdateExperienceField(expIndex, "capital", e.target.value)}
                 placeholder="例: 5"
