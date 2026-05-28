@@ -15,6 +15,7 @@ import { Combobox } from "./Combobox";
 import { MarkdownTextarea } from "./MarkdownTextarea";
 import { ResumePdfTracePanel } from "./ResumePdfTracePanel";
 import { DirtyDot } from "../ui/DirtyDot";
+import shared from "../../styles/shared.module.css";
 import styles from "./ProjectModal.module.css";
 
 type ProjectModalProps = {
@@ -126,7 +127,10 @@ export function ProjectModal({
               {local.periods.map((period, periodIndex) => (
                 <div key={`period-${periodIndex}`} className={styles.inline}>
                   <label>
-                    <span>開始</span>
+                    <span className={shared.labelText}>
+                      開始
+                      <span className={shared.requiredBadge}>必須</span>
+                    </span>
                     <input
                       type="month"
                       value={period.start_date}
@@ -147,7 +151,10 @@ export function ProjectModal({
                   </label>
                   {!period.is_current && (
                     <label>
-                      <span>終了</span>
+                      <span className={shared.labelText}>
+                        終了
+                        <span className={shared.requiredBadge}>必須</span>
+                      </span>
                       <input
                         type="month"
                         value={period.end_date}

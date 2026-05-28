@@ -81,8 +81,9 @@ export function CareerExperienceEditor({
           <label>
             {/* グローバル CSS で label { display: grid } のため、テキストと DirtyDot を span で
               束ねないと別々の行になる。span で 1 グリッド行に束ねることでラベル右側に並べる。 */}
-            <span>
+            <span className={shared.labelText}>
               会社名
+              <span className={shared.requiredBadge}>必須</span>
               <DirtyDot visible={Boolean(fieldDirty?.company)} />
             </span>
             <input
@@ -92,8 +93,9 @@ export function CareerExperienceEditor({
             />
           </label>
           <label>
-            <span>
+            <span className={shared.labelText}>
               事業内容
+              <span className={shared.requiredBadge}>必須</span>
               <DirtyDot visible={Boolean(fieldDirty?.business_description)} />
             </span>
             <input
@@ -109,8 +111,9 @@ export function CareerExperienceEditor({
 
         <div className={shared.inline}>
           <label>
-            <span>
+            <span className={shared.labelText}>
               開始
+              <span className={shared.requiredBadge}>必須</span>
               <DirtyDot visible={Boolean(fieldDirty?.start_date)} />
             </span>
             <input
@@ -136,8 +139,9 @@ export function CareerExperienceEditor({
           </label>
           {!exp.is_current && (
             <label>
-              <span>
+              <span className={shared.labelText}>
                 離職年月
+                <span className={shared.requiredBadge}>必須</span>
                 <DirtyDot visible={Boolean(fieldDirty?.end_date)} />
               </span>
               <input
@@ -164,6 +168,7 @@ export function CareerExperienceEditor({
               <input
                 type="number"
                 min="0"
+                step="1"
                 value={exp.employee_count}
                 onChange={(e) =>
                   onUpdateExperienceField(expIndex, "employee_count", e.target.value)
