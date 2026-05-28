@@ -66,40 +66,18 @@ class ProjectTeam(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class Project(BaseModel):
-    name: str = Field(max_length=200, default="")
+class ProjectPeriod(BaseModel):
+    """プロジェクトの在籍期間（1 案件に複数持てる）。"""
+
     start_date: str = Field(max_length=30, default="")
     # 参画中（is_current=True）の場合は "" を渡す契約。
-    # DB 上 end_date は NULL で保存され、ResumeProject.end_date プロパティが "" を返す。
     end_date: str = Field(default="", max_length=30)
     is_current: bool = False
-    role: str = Field(max_length=200, default="")
-    # 課題・行動・成果を統合した自由記述欄（見出し「詳細」）
-    description: str = Field(max_length=4500, default="")
-    team: ProjectTeam = Field(default_factory=ProjectTeam)
-    technology_stacks: list[TechnologyStackItem] = Field(default_factory=list)
-    phases: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
-    @model_validator(mode="before")
-    @classmethod
-    def _migrate_scale_to_team(cls, data: dict) -> dict:
-        """旧形式 scale → team に自動変換する後方互換処理。"""
-        if isinstance(data, dict) and "scale" in data and "team" not in data:
-            scale = data.pop("scale")
-            data["team"] = {"total": str(scale) if scale else "", "members": []}
-        return data
-
     @model_validator(mode="after")
-    def validate_dates(self) -> "Project":
-        """開始年月を必須化し、参画中でなければ終了年月も必須化、日付範囲を検証する。
-
-        開始年月が空のまま repositories 層に渡ると ``parse_year_month("")`` が
-        ValueError を投げて 500 になる（DB の start_date は NOT NULL）。
-        手前で 422（日本語メッセージ）として返す。フロントは案件に内容がある行のみ
-        送信するため、ここに到達するプロジェクトは開始年月が必須でよい。
-        """
+    def validate_dates(self) -> "ProjectPeriod":
         if not self.start_date.strip():
             raise ValueError(get_error("validation.start_date_required"))
         if self.is_current:
@@ -111,6 +89,40 @@ class Project(BaseModel):
             raise ValueError(get_error("validation.date_range_invalid"))
         return self
 
+
+class Project(BaseModel):
+    name: str = Field(max_length=200, default="")
+    periods: list[ProjectPeriod] = Field(default_factory=list)
+    role: str = Field(max_length=200, default="")
+    # 課題・行動・成果を統合した自由記述欄（見出し「詳細」）
+    description: str = Field(max_length=4500, default="")
+    team: ProjectTeam = Field(default_factory=ProjectTeam)
+    technology_stacks: list[TechnologyStackItem] = Field(default_factory=list)
+    phases: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_legacy_fields(cls, data: dict) -> dict:
+        """旧形式の後方互換処理。
+        - scale → team
+        - start_date/end_date/is_current（フラット）→ periods[0]
+        """
+        if not isinstance(data, dict):
+            return data
+        if "scale" in data and "team" not in data:
+            scale = data.pop("scale")
+            data["team"] = {"total": str(scale) if scale else "", "members": []}
+        if "start_date" in data and "periods" not in data:
+            data["periods"] = [
+                {
+                    "start_date": data.pop("start_date", ""),
+                    "end_date": data.pop("end_date", ""),
+                    "is_current": data.pop("is_current", False),
+                }
+            ]
+        return data
 
 class Client(BaseModel):
     """ユーザ（常駐先/クライアント企業）。"""

@@ -2,13 +2,15 @@ import { useState } from "react";
 
 import {
   blankCareerProject,
+  blankCareerProjectPeriod,
   blankCareerTechnologyStack,
   blankTeamMember,
 } from "../../constants";
-import type { CareerProjectFieldKey } from "../../formTypes";
+import type { CareerProjectFieldKey, CareerProjectPeriodFieldKey } from "../../formTypes";
 import {
-  validateDateRange,
+  validatePeriods,
   type CareerProjectForm,
+  type CareerProjectPeriodForm,
 } from "../../payloadBuilders";
 import type { CareerTechnologyStack, CareerTechnologyStackCategory } from "../../types";
 
@@ -33,14 +35,43 @@ export function initProject(project: CareerProjectForm | null): CareerProjectFor
 export function useProjectModalForm(project: CareerProjectForm | null) {
   const [local, setLocal] = useState<CareerProjectForm>(() => initProject(project));
 
-  const updateField = (key: CareerProjectFieldKey, value: string | boolean) => {
-    setLocal((prev) => {
-      if (key === "is_current") {
-        const isCurrent = Boolean(value);
-        return { ...prev, is_current: isCurrent, end_date: isCurrent ? "" : prev.end_date };
-      }
-      return { ...prev, [key]: value };
-    });
+  const updateField = (key: CareerProjectFieldKey, value: string) => {
+    setLocal((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const addPeriod = () => {
+    setLocal((prev) => ({
+      ...prev,
+      periods: [...prev.periods, { ...blankCareerProjectPeriod }],
+    }));
+  };
+
+  const removePeriod = (periodIndex: number) => {
+    setLocal((prev) => ({
+      ...prev,
+      periods:
+        prev.periods.length === 1
+          ? [{ ...blankCareerProjectPeriod }]
+          : prev.periods.filter((_, i) => i !== periodIndex),
+    }));
+  };
+
+  const updatePeriodField = (
+    periodIndex: number,
+    key: CareerProjectPeriodFieldKey,
+    value: string | boolean,
+  ) => {
+    setLocal((prev) => ({
+      ...prev,
+      periods: prev.periods.map((p, i): CareerProjectPeriodForm => {
+        if (i !== periodIndex) return p;
+        if (key === "is_current") {
+          const isCurrent = Boolean(value);
+          return { ...p, is_current: isCurrent, end_date: isCurrent ? "" : p.end_date };
+        }
+        return { ...p, [key]: value };
+      }),
+    }));
   };
 
   const updateTechStack = (
@@ -119,12 +150,15 @@ export function useProjectModalForm(project: CareerProjectForm | null) {
     });
   };
 
-  const dateError = validateDateRange(local.start_date, local.end_date, local.is_current);
+  const dateError = validatePeriods(local.periods);
 
   return {
     local,
     dateError,
     updateField,
+    addPeriod,
+    removePeriod,
+    updatePeriodField,
     updateTechStack,
     addTechStack,
     removeTechStack,

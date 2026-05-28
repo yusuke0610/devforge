@@ -24,9 +24,9 @@ test("buildCareerPayload trims data and keeps only non-empty technology stacks",
             projects: [
               {
                 name: "  プロジェクトA  ",
-                start_date: "2020-04",
-                end_date: "2021-03",
-                is_current: false,
+                periods: [
+                  { start_date: "2020-04", end_date: "2021-03", is_current: false }
+                ],
                 role: "  メンバー  ",
                 description: "  課題・行動・成果テスト  ",
                 team: {

@@ -5,9 +5,7 @@ import type { CareerProjectForm } from "../../payloadBuilders";
 
 const dummyProject: CareerProjectForm = {
   name: "テストプロジェクト",
-  start_date: "2024-01",
-  end_date: "2024-12",
-  is_current: false,
+  periods: [{ start_date: "2024-01", end_date: "2024-12", is_current: false }],
   role: "エンジニア",
   description: "",
   team: { total: "", members: [] },

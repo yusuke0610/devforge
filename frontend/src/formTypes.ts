@@ -8,10 +8,5 @@ export type CareerExperienceFieldKey =
   | "employee_count"
   | "capital";
 export type CareerClientFieldKey = "name";
-export type CareerProjectFieldKey =
-  | "name"
-  | "start_date"
-  | "end_date"
-  | "is_current"
-  | "role"
-  | "description";
+export type CareerProjectFieldKey = "name" | "role" | "description";
+export type CareerProjectPeriodFieldKey = "start_date" | "end_date" | "is_current";

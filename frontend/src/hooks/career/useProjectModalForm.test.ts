@@ -6,9 +6,7 @@ import type { CareerProjectForm } from "../../payloadBuilders";
 
 const sampleProject: CareerProjectForm = {
   name: "テスト",
-  start_date: "2024-01",
-  end_date: "2024-12",
-  is_current: false,
+  periods: [{ start_date: "2024-01", end_date: "2024-12", is_current: false }],
   role: "Backend",
   description: "",
   team: { total: "5", members: [{ role: "SE", count: "3" }] },
@@ -20,7 +18,8 @@ describe("useProjectModalForm", () => {
   it("project=null で初期化すると空の state が返る", () => {
     const { result } = renderHook(() => useProjectModalForm(null));
     expect(result.current.local.name).toBe("");
-    expect(result.current.local.is_current).toBe(false);
+    expect(result.current.local.periods).toHaveLength(1);
+    expect(result.current.local.periods[0].is_current).toBe(false);
     expect(result.current.local.technology_stacks).toHaveLength(1);
     expect(result.current.local.team.members).toHaveLength(0);
   });
@@ -29,15 +28,29 @@ describe("useProjectModalForm", () => {
     const { result } = renderHook(() => useProjectModalForm(sampleProject));
     act(() => result.current.updateField("name", "差し替え"));
     expect(result.current.local.name).toBe("差し替え");
-    // 元データは破壊されない
     expect(sampleProject.name).toBe("テスト");
   });
 
-  it("is_current=true に切り替えると end_date が空にリセットされる", () => {
+  it("期間の is_current=true に切り替えると end_date が空にリセットされる", () => {
     const { result } = renderHook(() => useProjectModalForm(sampleProject));
-    act(() => result.current.updateField("is_current", true));
-    expect(result.current.local.is_current).toBe(true);
-    expect(result.current.local.end_date).toBe("");
+    act(() => result.current.updatePeriodField(0, "is_current", true));
+    expect(result.current.local.periods[0].is_current).toBe(true);
+    expect(result.current.local.periods[0].end_date).toBe("");
+  });
+
+  it("期間の追加・削除が動作する", () => {
+    const { result } = renderHook(() => useProjectModalForm(sampleProject));
+    act(() => result.current.addPeriod());
+    expect(result.current.local.periods).toHaveLength(2);
+    act(() => result.current.removePeriod(1));
+    expect(result.current.local.periods).toHaveLength(1);
+  });
+
+  it("期間を 1 件のみ残して削除すると空の期間に戻る", () => {
+    const { result } = renderHook(() => useProjectModalForm(sampleProject));
+    act(() => result.current.removePeriod(0));
+    expect(result.current.local.periods).toHaveLength(1);
+    expect(result.current.local.periods[0].start_date).toBe("");
   });
 
   it("技術スタックのカテゴリを変えると name が空にリセットされる", () => {
@@ -89,7 +102,10 @@ describe("useProjectModalForm", () => {
 
   it("開始日 > 終了日 のとき dateError が生成される", () => {
     const { result } = renderHook(() =>
-      useProjectModalForm({ ...sampleProject, start_date: "2024-12", end_date: "2024-01" }),
+      useProjectModalForm({
+        ...sampleProject,
+        periods: [{ start_date: "2024-12", end_date: "2024-01", is_current: false }],
+      }),
     );
     expect(result.current.dateError).not.toBeNull();
   });
@@ -98,9 +114,7 @@ describe("useProjectModalForm", () => {
     const { result } = renderHook(() =>
       useProjectModalForm({
         ...sampleProject,
-        start_date: "2024-12",
-        end_date: "2024-01",
-        is_current: true,
+        periods: [{ start_date: "2024-12", end_date: "2024-01", is_current: true }],
       }),
     );
     expect(result.current.dateError).toBeNull();

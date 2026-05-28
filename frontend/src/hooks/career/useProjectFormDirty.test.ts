@@ -9,9 +9,7 @@ import { useProjectFormDirty } from "./useProjectFormDirty";
 function buildProject(overrides: Partial<CareerProjectForm> = {}): CareerProjectForm {
   return {
     name: "プロジェクトX",
-    start_date: "2021-04",
-    end_date: "2022-03",
-    is_current: false,
+    periods: [{ start_date: "2021-04", end_date: "2022-03", is_current: false }],
     role: "Eng",
     description: "課題・行動・成果",
     team: { total: "5", members: [{ role: "PM", count: "1" }] },
@@ -67,6 +65,19 @@ describe("useProjectFormDirty", () => {
     const local = buildProject({ phases: ["要件定義"] });
     const { result } = renderHook(() => useProjectFormDirty(local, original));
     expect(result.current.phases).toBe(true);
+    expect(result.current.any).toBe(true);
+  });
+
+  it("期間を追加すると periods が true", () => {
+    const original = buildProject();
+    const local = buildProject({
+      periods: [
+        ...original.periods,
+        { start_date: "2025-06", end_date: "", is_current: true },
+      ],
+    });
+    const { result } = renderHook(() => useProjectFormDirty(local, original));
+    expect(result.current.periods).toBe(true);
     expect(result.current.any).toBe(true);
   });
 

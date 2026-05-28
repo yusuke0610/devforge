@@ -47,11 +47,15 @@ export type ProjectTeam = {
   members: TeamMember[];
 };
 
-export type CareerProject = {
-  name: string;
+export type ProjectPeriod = {
   start_date: string;
   end_date: string;
   is_current: boolean;
+};
+
+export type CareerProject = {
+  name: string;
+  periods: ProjectPeriod[];
   role: string;
   /** 課題・行動・成果を統合した自由記述欄（見出し「詳細」） */
   description: string;

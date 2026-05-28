@@ -13,9 +13,7 @@ vi.mock("./ResumePdfTracePanel", () => ({
 
 const invalidDateProject: CareerProjectForm = {
   name: "テスト",
-  start_date: "2024-12",
-  end_date: "2024-01",
-  is_current: false,
+  periods: [{ start_date: "2024-12", end_date: "2024-01", is_current: false }],
   role: "エンジニア",
   description: "",
   team: { total: "", members: [] },
@@ -25,9 +23,7 @@ const invalidDateProject: CareerProjectForm = {
 
 const emptyProject: CareerProjectForm = {
   name: "",
-  start_date: "",
-  end_date: "",
-  is_current: false,
+  periods: [{ start_date: "", end_date: "", is_current: false }],
   role: "",
   description: "",
   team: { total: "", members: [] },

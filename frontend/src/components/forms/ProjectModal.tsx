@@ -45,6 +45,9 @@ export function ProjectModal({
     local,
     dateError,
     updateField,
+    addPeriod,
+    removePeriod,
+    updatePeriodField,
     updateTechStack,
     addTechStack,
     removeTechStack,
@@ -115,44 +118,60 @@ export function ProjectModal({
               />
             </label>
 
-            <div className={styles.inline}>
-              <label>
-                <span>
-                  開始
-                  <DirtyDot visible={dirty.fields.start_date} />
-                </span>
-                <input
-                  type="month"
-                  value={local.start_date}
-                  onChange={(e) => updateField("start_date", e.target.value)}
-                />
-              </label>
-              <label>
-                <span>
-                  参画状況
-                  <DirtyDot visible={dirty.fields.is_current} />
-                </span>
-                <select
-                  value={local.is_current ? "current" : "ended"}
-                  onChange={(e) => updateField("is_current", e.target.value === "current")}
-                >
-                  <option value="ended">終了</option>
-                  <option value="current">参画中</option>
-                </select>
-              </label>
-              {!local.is_current && (
-                <label>
-                  <span>
-                    終了
-                    <DirtyDot visible={dirty.fields.end_date} />
-                  </span>
-                  <input
-                    type="month"
-                    value={local.end_date}
-                    onChange={(e) => updateField("end_date", e.target.value)}
-                  />
-                </label>
-              )}
+            <div className={styles.stackSection}>
+              <h3>
+                期間
+                <DirtyDot visible={dirty.periods} />
+              </h3>
+              {local.periods.map((period, periodIndex) => (
+                <div key={`period-${periodIndex}`} className={styles.inline}>
+                  <label>
+                    <span>開始</span>
+                    <input
+                      type="month"
+                      value={period.start_date}
+                      onChange={(e) => updatePeriodField(periodIndex, "start_date", e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    <span>参画状況</span>
+                    <select
+                      value={period.is_current ? "current" : "ended"}
+                      onChange={(e) =>
+                        updatePeriodField(periodIndex, "is_current", e.target.value === "current")
+                      }
+                    >
+                      <option value="ended">終了</option>
+                      <option value="current">参画中</option>
+                    </select>
+                  </label>
+                  {!period.is_current && (
+                    <label>
+                      <span>終了</span>
+                      <input
+                        type="month"
+                        value={period.end_date}
+                        onChange={(e) =>
+                          updatePeriodField(periodIndex, "end_date", e.target.value)
+                        }
+                      />
+                    </label>
+                  )}
+                  {local.periods.length > 1 && (
+                    <button
+                      type="button"
+                      className={styles.chipRemove}
+                      onClick={() => removePeriod(periodIndex)}
+                      aria-label="期間を削除"
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button type="button" className={`ghost ${styles.chipAdd}`} onClick={addPeriod}>
+                + 期間を追加
+              </button>
             </div>
             {dateError && (
               <p style={{ margin: 0, color: "var(--error)", fontSize: "0.85rem" }}>{dateError}</p>
