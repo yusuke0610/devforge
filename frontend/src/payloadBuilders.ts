@@ -175,6 +175,9 @@ export function buildCareerPayload(state: CareerFormState): CareerResumePayload 
     for (const client of exp.clients) {
       for (const proj of client.projects) {
         // 内容のあるプロジェクトは periods が 1 件以上あり、各期間の開始年月が必須。
+        if (proj.periods.length === 0) {
+          throw new Error(VALIDATION_MESSAGES.PROJECT_START_DATE_REQUIRED);
+        }
         for (const period of proj.periods) {
           if (!period.start_date) {
             throw new Error(VALIDATION_MESSAGES.PROJECT_START_DATE_REQUIRED);

@@ -235,6 +235,26 @@ describe("buildCareerPayload (projects/clients/team)", () => {
     ).toThrow(/プロジェクトの開始年月/);
   });
 
+  it("内容のある project に period が 1 件も無いならエラー", () => {
+    expect(() =>
+      buildCareerPayload(
+        baseState({
+          experiences: [
+            blankExperience({
+              clients: [
+                {
+                  name: "顧客A",
+                  has_client: true,
+                  projects: [blankProject({ name: "P", description: "詳細", periods: [] })],
+                },
+              ],
+            }),
+          ],
+        }),
+      ),
+    ).toThrow(/プロジェクトの開始年月/);
+  });
+
   it("project の period が is_current=false で終了年月が空ならエラー", () => {
     expect(() =>
       buildCareerPayload(
