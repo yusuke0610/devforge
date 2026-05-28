@@ -73,3 +73,4 @@ docs/adr/XXXX-kebab-case-title.md
 | [ADR-0003](docs/adr/0003-redux-toolkit-persist.md) | Redux Toolkit + redux-persist の採用 | Accepted |
 | [ADR-0004](docs/adr/0004-llm-provider-abstraction.md) | LLM プロバイダ抽象化（Ollama/Vertex AI） | Accepted |
 | [ADR-0005](docs/adr/0005-cloudrun-single-instance.md) | Cloud Run single instance 構成の採用 | Accepted |
+| [ADR-0006](docs/adr/0006-tanstack-query.md) | TanStack Query 導入検討 | Proposed |

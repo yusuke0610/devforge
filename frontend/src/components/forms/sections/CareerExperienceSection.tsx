@@ -61,12 +61,15 @@ export function CareerExperienceSection({
   const { modalTarget, setModalTarget, modalProject, handleProjectSave, closeModal } =
     useProjectModalState(mutators.getProject, mutators.onProjectSave);
 
-  /** プロジェクトの期間サマリーテキストを生成する */
+  /** プロジェクトの期間サマリーテキストを生成する（複数期間は「、」区切り） */
   const projectSummary = (proj: CareerProjectForm) => {
-    const period = [proj.start_date, proj.is_current ? "現在" : proj.end_date]
+    return proj.periods
+      .map((p) => {
+        const end = p.is_current ? "現在" : p.end_date;
+        return [p.start_date, end].filter(Boolean).join(" 〜 ");
+      })
       .filter(Boolean)
-      .join(" 〜 ");
-    return period || "";
+      .join("、");
   };
 
   /** モーダルを開くハンドラ */

@@ -6,6 +6,7 @@ from ..models import (
     ResumeClient,
     ResumeExperience,
     ResumeProject,
+    ResumeProjectPeriod,
     ResumeProjectPhase,
     ResumeProjectTeamMember,
     ResumeProjectTechnologyStack,
@@ -19,6 +20,10 @@ class ResumeRepository(SingleUserDocumentRepository):
     _model = Resume
     _loader_options = (
         selectinload(Resume.experience_rows).selectinload(ResumeExperience.client_rows),
+        selectinload(Resume.experience_rows)
+        .selectinload(ResumeExperience.client_rows)
+        .selectinload(ResumeClient.project_rows)
+        .selectinload(ResumeProject.period_rows),
         selectinload(Resume.experience_rows)
         .selectinload(ResumeExperience.client_rows)
         .selectinload(ResumeClient.project_rows)
@@ -79,11 +84,8 @@ class ResumeRepository(SingleUserDocumentRepository):
         )
 
     def _build_client_row(self, index: int, payload: dict[str, object]) -> ResumeClient:
-        sorted_projects = sort_by_period_desc(
-            payload.get("projects", []),
-            start_key="start_date",
-            end_key="end_date",
-        )
+        projects = list(payload.get("projects", []))
+        sorted_projects = sorted(projects, key=self._project_sort_key)
         return ResumeClient(
             sort_order=index,
             name=payload.get("name", ""),
@@ -94,19 +96,52 @@ class ResumeRepository(SingleUserDocumentRepository):
             ],
         )
 
+    @staticmethod
+    def _project_sort_key(proj: dict[str, object]) -> tuple:
+        """複数期間を持つプロジェクトを sort_by_period_desc と同じ降順ロジックでソートする。"""
+        from datetime import date as _date
+
+        def _parse(val: object) -> _date | None:
+            if val is None:
+                return None
+            if isinstance(val, _date):
+                return val
+            if isinstance(val, str) and val:
+                if len(val) == 7 and val[4] == "-":
+                    return _date.fromisoformat(f"{val}-01")
+                return _date.fromisoformat(val)
+            return None
+
+        periods = proj.get("periods", [])
+        is_any_current = any(p.get("is_current") for p in periods)
+        starts = [_parse(p.get("start_date")) for p in periods]
+        effective_start = max((s for s in starts if s), default=_date.min)
+        if is_any_current:
+            return (0, _date.max - effective_start)
+        ends = [_parse(p.get("end_date")) for p in periods if p.get("end_date")]
+        effective_end = max(ends, default=_date.min)
+        return (1, _date.max - effective_end, _date.max - effective_start)
+
     def _build_project_row(self, index: int, payload: dict[str, object]) -> ResumeProject:
         team = payload.get("team", {})
+        periods = list(payload.get("periods", []))
         return ResumeProject(
             sort_order=index,
             name=payload.get("name", ""),
-            start_date_value=parse_year_month(payload["start_date"]),
-            end_date_value=(
-                parse_year_month(payload["end_date"]) if payload.get("end_date") else None
-            ),
-            is_current=payload.get("is_current", False),
             role=payload.get("role", ""),
             description=payload.get("description", ""),
             team_total=team.get("total", ""),
+            period_rows=[
+                ResumeProjectPeriod(
+                    sort_order=period_index,
+                    start_date_value=parse_year_month(period["start_date"]),
+                    end_date_value=(
+                        parse_year_month(period["end_date"]) if period.get("end_date") else None
+                    ),
+                    is_current=period.get("is_current", False),
+                )
+                for period_index, period in enumerate(periods)
+            ],
             team_member_rows=[
                 ResumeProjectTeamMember(
                     sort_order=member_index,
