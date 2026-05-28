@@ -35,12 +35,7 @@ export function CareerResumeForm() {
   const assist = useResumeImportAssist();
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const splitRef = useRef<HTMLDivElement>(null);
-  const {
-    width: pdfWidth,
-    maximized: pdfMaximized,
-    startResize,
-    toggleMaximize,
-  } = usePdfPanelLayout(splitRef);
+  const { width: pdfWidth, startResize } = usePdfPanelLayout(splitRef);
   const {
     form,
     setForm,
@@ -180,14 +175,14 @@ export function CareerResumeForm() {
         </div>
 
         <div className={shared.pageBody}>
-          {/* 左=入力フォーム / 右=PDF 原本ビュー。スプリッターで左右リサイズ、最大化で覆い被せる。
+          {/* 左=入力フォーム / 右=PDF 原本ビュー。スプリッターで左右リサイズする。
               splitWrap はコンテナクエリの基準（= split に割り当てられる実幅）。
               横幅が足りない時は split を縦積みに切り替える。PDF カラム幅は CSS 変数で渡し、
               縦積み時は CSS 側で全幅に上書きする（inline style だと上書きできないため変数経由）。 */}
           <div className={layout.splitWrap}>
             <div
               ref={splitRef}
-              className={`${layout.split} ${pdfMaximized ? layout.maximized : ""}`}
+              className={layout.split}
               style={{ "--pdf-col-width": `${pdfWidth}px` } as CSSProperties}
             >
               {/* 左: 入力フォーム（選択中フィールドは緑枠 = import-assign-form の :focus CSS） */}
@@ -257,11 +252,7 @@ export function CareerResumeForm() {
               {/* 右: PDF 原本ビュー（独立スクロール）。文字を選択して入力欄へ流し込む。
                 幅は CSS 変数 --pdf-col-width を CSS 側で参照（縦積み時は全幅へ上書き）。 */}
               <aside className={layout.pdfCol}>
-                <ResumePdfTracePanel
-                  assist={assist}
-                  maximized={pdfMaximized}
-                  onToggleMaximize={toggleMaximize}
-                />
+                <ResumePdfTracePanel assist={assist} />
               </aside>
             </div>
           </div>

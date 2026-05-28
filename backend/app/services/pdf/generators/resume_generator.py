@@ -78,15 +78,9 @@ def _build_project_html(project) -> str:
 
     # 左カラム: 業務内容
     left_parts: list[str] = []
-    challenge = _a(project, "challenge")
-    if challenge:
-        left_parts.append(f"<strong>【課題】</strong>{_md(challenge)}")
-    action = _a(project, "action")
-    if action:
-        left_parts.append(f"<strong>【行動】</strong>{_md(action)}")
-    result = _a(project, "result")
-    if result:
-        left_parts.append(f"<strong>【成果】</strong>{_md(result)}")
+    description = _a(project, "description")
+    if description:
+        left_parts.append(f"<strong>【詳細】</strong>{_md(description)}")
     left_content = "".join(left_parts) if left_parts else "-"
 
     # 右カラム: 開発環境（技術スタック）

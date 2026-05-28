@@ -2,12 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, RefObject } from "react";
 
 /**
- * PDF 取り込みパネルのレイアウト（左右リサイズ + 最大化）を管理するフック。
+ * PDF 取り込みパネルのレイアウト（左右リサイズ）を管理するフック。
  *
  * - リサイズ: フォームとパネルの間のスプリッターをドラッグして PDF カラム幅を変える。
  *   PDF は右カラムなので「幅 = コンテナ右端 - マウス X」。左にドラッグするほど広がる。
- * - 最大化: VSCode のタブをダブルクリックした時のように、PDF をフォームに覆い被せて全幅表示する
- *   （maximized=true）。再度トグルで元の 2 カラムに戻す。
  *
  * 幅は最小 PDF 幅とフォームの最小確保幅でクランプする。
  */
@@ -29,14 +27,10 @@ type Options = {
 };
 
 export type UsePdfPanelLayoutReturn = {
-  /** PDF カラムの現在幅(px)。最大化中は無視される。 */
+  /** PDF カラムの現在幅(px) */
   width: number;
-  /** 最大化（フォームに覆い被せて全幅表示）中か */
-  maximized: boolean;
   /** スプリッターの mousedown で呼ぶ。ドラッグ中の幅追従を開始する。 */
   startResize: (e: ReactMouseEvent) => void;
-  /** 最大化⇔元の 2 カラムをトグルする。 */
-  toggleMaximize: () => void;
 };
 
 export function usePdfPanelLayout(
@@ -46,7 +40,6 @@ export function usePdfPanelLayout(
   const { initialWidth = 360, minWidth = 280, minFormWidth = 360, reservedGap = 38 } = options;
 
   const [width, setWidth] = useState(initialWidth);
-  const [maximized, setMaximized] = useState(false);
   const resizingRef = useRef(false);
 
   // mousemove / mouseup は document 全体で拾う（スプリッター外へカーソルが出ても追従するため）。
@@ -81,7 +74,5 @@ export function usePdfPanelLayout(
     document.body.style.cursor = "col-resize";
   }, []);
 
-  const toggleMaximize = useCallback(() => setMaximized((prev) => !prev), []);
-
-  return { width, maximized, startResize, toggleMaximize };
+  return { width, startResize };
 }

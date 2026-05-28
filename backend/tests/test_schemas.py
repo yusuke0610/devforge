@@ -26,10 +26,7 @@ def experience_payload() -> dict:
                         "end_date": "2024-03",
                         "is_current": False,
                         "role": "メンバー",
-                        "description": "API開発",
-                        "challenge": "課題",
-                        "action": "行動",
-                        "result": "処理速度を改善",
+                        "description": "課題・行動・成果をまとめた詳細",
                         "team": {
                             "total": "5",
                             "members": [

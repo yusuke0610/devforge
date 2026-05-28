@@ -74,9 +74,8 @@ class Project(BaseModel):
     end_date: str = Field(default="", max_length=30)
     is_current: bool = False
     role: str = Field(max_length=200, default="")
-    challenge: str = Field(max_length=1500, default="")
-    action: str = Field(max_length=1500, default="")
-    result: str = Field(max_length=1500, default="")
+    # 課題・行動・成果を統合した自由記述欄（見出し「詳細」）
+    description: str = Field(max_length=4500, default="")
     team: ProjectTeam = Field(default_factory=ProjectTeam)
     technology_stacks: list[TechnologyStackItem] = Field(default_factory=list)
     phases: list[str] = Field(default_factory=list)

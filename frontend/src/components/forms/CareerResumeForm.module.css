@@ -125,7 +125,7 @@
 }
 
 .splitter:hover {
-  background: #b7c5e0;
+  background: var(--accent);
 }
 
 /* 右: PDF カラム（幅は CSS 変数 --pdf-col-width で可変。中の panel が縦に伸びる）。
@@ -138,17 +138,6 @@
   min-height: 0;
   border-left: 1px solid var(--border, #e5e5e5);
   padding-left: 1rem;
-}
-
-/* 最大化中: フォームとスプリッターを隠し、PDF をフォームに覆い被せて全幅表示する */
-.maximized .formCol,
-.maximized .splitter {
-  display: none;
-}
-
-.maximized .pdfCol {
-  flex: 1;
-  width: auto;
 }
 
 /* 横幅が足りない時（2 カラムを並べると最小幅を割る幅）は縦積みに切り替える。

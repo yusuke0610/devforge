@@ -84,15 +84,9 @@ def build_resume_markdown(payload: dict[str, Any]) -> str:
                     role = _a(proj, "role")
                     if role:
                         lines.append(field_line("担当", role))
-                    challenge = _a(proj, "challenge")
-                    if challenge:
-                        lines.append(field_line("課題", challenge))
-                    action = _a(proj, "action")
-                    if action:
-                        lines.append(field_line("行動", action))
-                    result = _a(proj, "result")
-                    if result:
-                        lines.append(field_line("成果", result))
+                    description = _a(proj, "description")
+                    if description:
+                        lines.append(field_line("詳細", description))
                     # 体制（後方互換: 旧 scale → team の正規化は shared に集約）
                     team = normalize_team(proj)
                     if team:

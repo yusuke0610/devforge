@@ -14,6 +14,4 @@ export type CareerProjectFieldKey =
   | "end_date"
   | "is_current"
   | "role"
-  | "challenge"
-  | "action"
-  | "result";
+  | "description";
