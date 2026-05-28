@@ -381,6 +381,27 @@ describe("buildCareerPayload (projects/clients/team)", () => {
       { category: "db", name: "PostgreSQL" },
     ]);
   });
+
+  it("project の name が空で description に内容があればプロジェクトはペイロードに含まれる", () => {
+    const payload = buildCareerPayload(
+      baseState({
+        experiences: [
+          blankExperience({
+            clients: [
+              {
+                name: "C",
+                has_client: true,
+                projects: [blankProject({ name: "", description: "開発の詳細" })],
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+    const project = payload.experiences[0].clients[0].projects[0];
+    expect(project.name).toBe("");
+    expect(project.description).toBe("開発の詳細");
+  });
 });
 
 // ── qualifications の境界 ────────────────────────────────────

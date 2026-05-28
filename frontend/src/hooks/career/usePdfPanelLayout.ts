@@ -63,6 +63,8 @@ export function usePdfPanelLayout(
     return () => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
     };
   }, [containerRef, minWidth, minFormWidth, reservedGap]);
 

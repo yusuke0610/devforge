@@ -18,6 +18,7 @@ from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import text
 
 # revision identifiers, used by Alembic.
 revision: str = "0037_merge_project_caf_into_description"
@@ -27,6 +28,20 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
+    result = conn.execute(
+        text(
+            "SELECT COUNT(*) FROM resume_projects"
+            " WHERE challenge != '' OR action != '' OR result != ''"
+        )
+    )
+    count = result.scalar() or 0
+    if count > 0:
+        raise RuntimeError(
+            f"resume_projects に challenge/action/result のデータが {count} 件残っています。"
+            "カラム削除前にデータを退避してください。"
+        )
+
     with op.batch_alter_table("resume_projects") as batch_op:
         batch_op.add_column(
             sa.Column("description", sa.Text(), nullable=False, server_default=""),

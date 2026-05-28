@@ -94,4 +94,22 @@ describe("useProjectFormDirty", () => {
     const { result } = renderHook(() => useProjectFormDirty(local, null));
     expect(result.current.any).toBe(false);
   });
+
+  it("description を変更すると fields.description と any が true", () => {
+    const original = buildProject();
+    const local = buildProject({ description: "変更後の詳細" });
+    const { result } = renderHook(() => useProjectFormDirty(local, original));
+    expect(result.current.fields.description).toBe(true);
+    expect(result.current.any).toBe(true);
+    expect(result.current.fields.name).toBe(false);
+    expect(result.current.team).toBe(false);
+  });
+
+  it("description を元の値に戻すと fields.description と any が false", () => {
+    const original = buildProject();
+    const local = buildProject({ description: original.description });
+    const { result } = renderHook(() => useProjectFormDirty(local, original));
+    expect(result.current.fields.description).toBe(false);
+    expect(result.current.any).toBe(false);
+  });
 });
