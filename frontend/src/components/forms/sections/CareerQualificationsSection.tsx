@@ -89,8 +89,10 @@ export function CareerQualificationsSection({
                 <div key={`qualification-${index}`} className={shared.entry}>
                   <div className={shared.inline}>
                     <label>
-                      <span>
-                        資格名 ※プルダウンにないものはテキストで入力できます。
+                      <span className={shared.labelText}>
+                        資格名
+                        <span className={shared.requiredBadge}>必須</span>
+                        ※プルダウンにないものはテキストで入力できます。
                         <DirtyDot visible={Boolean(rowDirty?.fields.name)} />
                       </span>
                       <Combobox
@@ -102,8 +104,9 @@ export function CareerQualificationsSection({
                       />
                     </label>
                     <label>
-                      <span>
+                      <span className={shared.labelText}>
                         取得日
+                        <span className={shared.requiredBadge}>必須</span>
                         <DirtyDot visible={Boolean(rowDirty?.fields.acquired_date)} />
                       </span>
                       <input

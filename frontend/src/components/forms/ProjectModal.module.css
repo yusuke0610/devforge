@@ -1,30 +1,38 @@
+/* サイドバーを覆わず（操作可能なまま残し）、その右のコンテンツ領域いっぱいにモーダルを開く。
+   overlay 自体を left:サイドバー幅 から始めるので、z-index がサイドバー(100)より上でも
+   サイドバーは露出したままになる。 */
 .overlay {
   position: fixed;
   inset: 0;
+  left: var(--sidebar-width);
   background: var(--overlay-bg);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  padding: 1.2rem;
   z-index: 1000;
 }
 
+/* モーダルはコンテンツ領域いっぱいに広げる（職務経歴書ページと同等の作業領域を確保）。 */
 .modal {
   background: var(--bg-card);
   border-radius: 12px;
-  width: 90vw;
-  max-width: 800px;
-  max-height: 85vh;
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-/* 取り込みパネルを併置する分だけ横幅を広げる */
-.modalWide {
-  max-width: 1150px;
+/* モバイルはサイドバーが上部バーになるため、その下から全幅で開く。 */
+@media (max-width: 768px) {
+  .overlay {
+    left: 0;
+    top: var(--topbar-height);
+    padding: 0.8rem;
+  }
 }
 
-/* ヘッダー下の領域。左=入力フォーム / 右=取り込みブロックの 2 カラム */
+/* ヘッダー下の領域。左=入力フォーム / 右=取り込みブロックの 2 カラム。
+   スプリッターのドラッグで左右の比率を変えられる。 */
 .bodyWrap {
   flex: 1;
   display: flex;
@@ -32,9 +40,26 @@
   overflow: hidden;
 }
 
-/* モーダル内に再掲する PDF 原本ビュー（タブ固定・ページ部のみスクロール） */
+/* 入力フォームと PDF カラムの境界。ドラッグで左右比率を変える。 */
+.splitter {
+  flex-shrink: 0;
+  align-self: stretch;
+  width: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  cursor: col-resize;
+  transition: background 0.15s;
+}
+
+.splitter:hover {
+  background: var(--accent);
+}
+
+/* モーダル内に再掲する PDF 原本ビュー（タブ固定・ページ部のみスクロール）。
+   幅は CSS 変数 --pdf-col-width で可変（縦積み時は下のメディアクエリで全幅に上書き）。
+   inline style ではなく変数経由にすることで、縦積み時の全幅化を CSS 側で上書きできる。 */
 .blocksColumn {
-  width: 320px;
+  width: var(--pdf-col-width, 320px);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -42,6 +67,33 @@
   overflow: hidden;
   border-left: 1px solid var(--border);
   padding: 1rem;
+}
+
+/* 横幅が狭い時は左右 2 カラムをやめ、フォームの下に PDF を全幅で縦積みする。
+   モーダルは width:90vw なのでビューポート幅で判定する。 */
+@media (max-width: 700px) {
+  .bodyWrap {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  /* 縦積み時はモーダル全体スクロールに委ねる（カラム個別スクロールを解除） */
+  .body {
+    overflow-y: visible;
+  }
+
+  /* 縦積み時はドラッグでの左右リサイズを無効化 */
+  .splitter {
+    display: none;
+  }
+
+  /* 幅指定を上書きして全幅。区切りは左ボーダーから上ボーダーへ。 */
+  .blocksColumn {
+    width: 100%;
+    min-height: 60vh;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
 }
 
 .header {

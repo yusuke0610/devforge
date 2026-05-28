@@ -1,3 +1,5 @@
+import { useRef, type CSSProperties } from "react";
+
 import type { CareerProjectForm } from "../../payloadBuilders";
 import {
   careerTechnologyStackCategories,
@@ -7,11 +9,13 @@ import {
 } from "../../constants";
 import { useProjectFormDirty } from "../../hooks/career/useProjectFormDirty";
 import { useProjectModalForm } from "../../hooks/career/useProjectModalForm";
+import { usePdfPanelLayout } from "../../hooks/career/usePdfPanelLayout";
 import type { UseResumeImportAssistReturn } from "../../hooks/career/useResumeImportAssist";
 import { Combobox } from "./Combobox";
 import { MarkdownTextarea } from "./MarkdownTextarea";
 import { ResumePdfTracePanel } from "./ResumePdfTracePanel";
 import { DirtyDot } from "../ui/DirtyDot";
+import shared from "../../styles/shared.module.css";
 import styles from "./ProjectModal.module.css";
 
 type ProjectModalProps = {
@@ -42,6 +46,9 @@ export function ProjectModal({
     local,
     dateError,
     updateField,
+    addPeriod,
+    removePeriod,
+    updatePeriodField,
     updateTechStack,
     addTechStack,
     removeTechStack,
@@ -58,12 +65,19 @@ export function ProjectModal({
   /** PDF が選択されている時だけモーダル内に原本ビューを表示する */
   const showPdf = !!assist && !!assist.file;
 
+  // 入力フォームと PDF カラムの比率をスプリッターのドラッグで変える。
+  // PDF カラムは右側なので「幅 = コンテナ右端 - マウス X」。reservedGap はカラム間のスプリッター(6px)。
+  const bodyWrapRef = useRef<HTMLDivElement>(null);
+  const { width: pdfWidth, startResize } = usePdfPanelLayout(bodyWrapRef, {
+    initialWidth: 440,
+    minWidth: 240,
+    minFormWidth: 320,
+    reservedGap: 6,
+  });
+
   return (
     <div className={styles.overlay} onClick={onClose}>
-      <div
-        className={`${styles.modal} ${showPdf ? styles.modalWide : ""}`}
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
           <span>
             {project ? "プロジェクト編集" : "プロジェクト追加"}
@@ -84,7 +98,11 @@ export function ProjectModal({
           </div>
         </div>
 
-        <div className={styles.bodyWrap}>
+        <div
+          className={styles.bodyWrap}
+          ref={bodyWrapRef}
+          style={showPdf ? ({ "--pdf-col-width": `${pdfWidth}px` } as CSSProperties) : undefined}
+        >
           <div className={styles.body}>
             <label>
               {/* グローバル CSS の label { display: grid } により、
@@ -101,44 +119,66 @@ export function ProjectModal({
               />
             </label>
 
-            <div className={styles.inline}>
-              <label>
-                <span>
-                  開始
-                  <DirtyDot visible={dirty.fields.start_date} />
-                </span>
-                <input
-                  type="month"
-                  value={local.start_date}
-                  onChange={(e) => updateField("start_date", e.target.value)}
-                />
-              </label>
-              <label>
-                <span>
-                  参画状況
-                  <DirtyDot visible={dirty.fields.is_current} />
-                </span>
-                <select
-                  value={local.is_current ? "current" : "ended"}
-                  onChange={(e) => updateField("is_current", e.target.value === "current")}
-                >
-                  <option value="ended">終了</option>
-                  <option value="current">参画中</option>
-                </select>
-              </label>
-              {!local.is_current && (
-                <label>
-                  <span>
-                    終了
-                    <DirtyDot visible={dirty.fields.end_date} />
-                  </span>
-                  <input
-                    type="month"
-                    value={local.end_date}
-                    onChange={(e) => updateField("end_date", e.target.value)}
-                  />
-                </label>
-              )}
+            <div className={styles.stackSection}>
+              <h3>
+                期間
+                <DirtyDot visible={dirty.periods} />
+              </h3>
+              {local.periods.map((period, periodIndex) => (
+                <div key={`period-${periodIndex}`} className={styles.inline}>
+                  <label>
+                    <span className={shared.labelText}>
+                      開始
+                      <span className={shared.requiredBadge}>必須</span>
+                    </span>
+                    <input
+                      type="month"
+                      value={period.start_date}
+                      onChange={(e) => updatePeriodField(periodIndex, "start_date", e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    <span>参画状況</span>
+                    <select
+                      value={period.is_current ? "current" : "ended"}
+                      onChange={(e) =>
+                        updatePeriodField(periodIndex, "is_current", e.target.value === "current")
+                      }
+                    >
+                      <option value="ended">終了</option>
+                      <option value="current">参画中</option>
+                    </select>
+                  </label>
+                  {!period.is_current && (
+                    <label>
+                      <span className={shared.labelText}>
+                        終了
+                        <span className={shared.requiredBadge}>必須</span>
+                      </span>
+                      <input
+                        type="month"
+                        value={period.end_date}
+                        onChange={(e) =>
+                          updatePeriodField(periodIndex, "end_date", e.target.value)
+                        }
+                      />
+                    </label>
+                  )}
+                  {local.periods.length > 1 && (
+                    <button
+                      type="button"
+                      className={styles.chipRemove}
+                      onClick={() => removePeriod(periodIndex)}
+                      aria-label="期間を削除"
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button type="button" className={`ghost ${styles.chipAdd}`} onClick={addPeriod}>
+                + 期間を追加
+              </button>
             </div>
             {dateError && (
               <p style={{ margin: 0, color: "var(--error)", fontSize: "0.85rem" }}>{dateError}</p>
@@ -169,6 +209,7 @@ export function ProjectModal({
                   <div className={styles.inputWithUnit}>
                     <input
                       type="number"
+                      min="0"
                       value={local.team.total}
                       onChange={(e) => updateTeamTotal(e.target.value)}
                       placeholder="例: 10"
@@ -198,6 +239,7 @@ export function ProjectModal({
                     <div className={styles.inputWithUnit}>
                       <input
                         type="number"
+                        min="0"
                         value={member.count}
                         onChange={(e) => updateTeamMember(memberIndex, "count", e.target.value)}
                         placeholder="人数"
@@ -219,27 +261,11 @@ export function ProjectModal({
             </div>
 
             <MarkdownTextarea
-              label="課題"
-              value={local.challenge}
-              onChange={(v) => updateField("challenge", v)}
-              rows={2}
-              labelAdornment={<DirtyDot visible={dirty.fields.challenge} />}
-            />
-
-            <MarkdownTextarea
-              label="行動"
-              value={local.action}
-              onChange={(v) => updateField("action", v)}
-              rows={2}
-              labelAdornment={<DirtyDot visible={dirty.fields.action} />}
-            />
-
-            <MarkdownTextarea
-              label="成果"
-              value={local.result}
-              onChange={(v) => updateField("result", v)}
-              rows={2}
-              labelAdornment={<DirtyDot visible={dirty.fields.result} />}
+              label="詳細"
+              value={local.description}
+              onChange={(v) => updateField("description", v)}
+              rows={6}
+              labelAdornment={<DirtyDot visible={dirty.fields.description} />}
             />
 
             {/* 技術スタック */}
@@ -310,9 +336,18 @@ export function ProjectModal({
             </div>
           </div>
           {showPdf && assist && (
-            <aside className={styles.blocksColumn}>
-              <ResumePdfTracePanel assist={assist} />
-            </aside>
+            <>
+              {/* 入力フォームと PDF カラムの境界。ドラッグで左右比率を変える（縦積み時は CSS で非表示）。 */}
+              <div
+                className={styles.splitter}
+                role="separator"
+                aria-orientation="vertical"
+                onMouseDown={startResize}
+              />
+              <aside className={styles.blocksColumn}>
+                <ResumePdfTracePanel assist={assist} />
+              </aside>
+            </>
           )}
         </div>
       </div>

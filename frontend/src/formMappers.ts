@@ -2,6 +2,7 @@ import {
   blankCareerClient,
   blankCareerExperience,
   blankCareerProject,
+  blankCareerProjectPeriod,
   blankCareerTechnologyStack,
   blankResumeQualification,
 } from "./constants";
@@ -35,6 +36,9 @@ export function mapCareerResumeToForm(response: CareerResumeResponse): CareerFor
                   client.projects.length > 0
                     ? client.projects.map((project) => ({
                       ...project,
+                      periods: project.periods.length > 0
+                        ? project.periods
+                        : [{ ...blankCareerProjectPeriod }],
                       team: {
                         total: project.team.total ?? "",
                         members: project.team.members.map((member) => ({

@@ -24,13 +24,11 @@ test("buildCareerPayload trims data and keeps only non-empty technology stacks",
             projects: [
               {
                 name: "  プロジェクトA  ",
-                start_date: "2020-04",
-                end_date: "2021-03",
-                is_current: false,
+                periods: [
+                  { start_date: "2020-04", end_date: "2021-03", is_current: false }
+                ],
                 role: "  メンバー  ",
-                challenge: "  課題テスト  ",
-                action: "  行動テスト  ",
-                result: "  パフォーマンス改善  ",
+                description: "  課題・行動・成果テスト  ",
                 team: {
                   total: "  5  ",
                   members: [
@@ -79,6 +77,10 @@ test("buildCareerPayload trims data and keeps only non-empty technology stacks",
   assert.equal(payload.experiences[0].clients[0].projects.length, 1);
   assert.equal(payload.experiences[0].clients[0].projects[0].name, "プロジェクトA");
   assert.equal(payload.experiences[0].clients[0].projects[0].role, "メンバー");
+  assert.equal(
+    payload.experiences[0].clients[0].projects[0].description,
+    "課題・行動・成果テスト"
+  );
   assert.deepEqual(payload.experiences[0].clients[0].projects[0].technology_stacks, [
     {
       category: "framework",

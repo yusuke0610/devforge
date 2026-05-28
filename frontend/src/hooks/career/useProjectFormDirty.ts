@@ -11,14 +11,11 @@ export type ProjectFormDirty = {
   /** 単純フィールドの dirty */
   fields: {
     name: boolean;
-    start_date: boolean;
-    end_date: boolean;
-    is_current: boolean;
     role: boolean;
-    challenge: boolean;
-    action: boolean;
-    result: boolean;
+    description: boolean;
   };
+  /** 期間セクションの dirty（periods 配列が変化） */
+  periods: boolean;
   /** 体制セクションの dirty（全体人数 or メンバー配列が変化） */
   team: boolean;
   /** 技術スタックセクションの dirty（配列いずれかが変化） */
@@ -43,21 +40,17 @@ export function useProjectFormDirty(
 
     const fields = {
       name: local.name !== base.name,
-      start_date: local.start_date !== base.start_date,
-      end_date: local.end_date !== base.end_date,
-      is_current: local.is_current !== base.is_current,
       role: local.role !== base.role,
-      challenge: local.challenge !== base.challenge,
-      action: local.action !== base.action,
-      result: local.result !== base.result,
+      description: local.description !== base.description,
     };
 
+    const periods = !isDeepEqual(local.periods, base.periods);
     const team = !isDeepEqual(local.team, base.team);
     const technology_stacks = !isDeepEqual(local.technology_stacks, base.technology_stacks);
     const phases = !isDeepEqual(local.phases, base.phases);
 
-    const any = Object.values(fields).some(Boolean) || team || technology_stacks || phases;
+    const any = Object.values(fields).some(Boolean) || periods || team || technology_stacks || phases;
 
-    return { any, fields, team, technology_stacks, phases };
+    return { any, fields, periods, team, technology_stacks, phases };
   }, [local, original]);
 }

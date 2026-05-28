@@ -5,6 +5,7 @@ import type {
   CareerProject,
   CareerResumePayload,
   CareerTechnologyStack,
+  ProjectPeriod,
   ProjectTeam,
   ResumeQualification,
   TeamMember,
@@ -15,15 +16,17 @@ export type TeamMemberForm = {
   count: string;
 };
 
-export type CareerProjectForm = {
-  name: string;
+export type CareerProjectPeriodForm = {
   start_date: string;
   end_date: string;
   is_current: boolean;
+};
+
+export type CareerProjectForm = {
+  name: string;
+  periods: CareerProjectPeriodForm[];
   role: string;
-  challenge: string;
-  action: string;
-  result: string;
+  description: string;
   team: {
     total: string;
     members: TeamMemberForm[];
@@ -72,6 +75,15 @@ export function validateDateRange(
   return null;
 }
 
+/** periods 配列内にエラーがあれば最初のエラーメッセージを返す */
+export function validatePeriods(periods: CareerProjectPeriodForm[]): string | null {
+  for (const p of periods) {
+    const err = validateDateRange(p.start_date, p.end_date, p.is_current);
+    if (err) return err;
+  }
+  return null;
+}
+
 function buildTeam(team: CareerProjectForm["team"]): ProjectTeam {
   const members: TeamMember[] = team.members
     .filter((m) => m.role.trim() && String(m.count).trim())
@@ -82,16 +94,20 @@ function buildTeam(team: CareerProjectForm["team"]): ProjectTeam {
   };
 }
 
+function buildPeriod(p: CareerProjectPeriodForm): ProjectPeriod {
+  return {
+    start_date: p.start_date.trim(),
+    end_date: p.is_current ? "" : p.end_date.trim(),
+    is_current: p.is_current,
+  };
+}
+
 function buildProject(proj: CareerProjectForm): CareerProject {
   return {
     name: proj.name.trim(),
-    start_date: proj.start_date.trim(),
-    end_date: proj.is_current ? "" : proj.end_date.trim(),
-    is_current: proj.is_current,
+    periods: proj.periods.map(buildPeriod),
     role: proj.role.trim(),
-    challenge: proj.challenge.trim(),
-    action: proj.action.trim(),
-    result: proj.result.trim(),
+    description: proj.description.trim(),
     team: buildTeam(proj.team),
     technology_stacks: proj.technology_stacks
       .map((stack) => ({
@@ -109,7 +125,7 @@ function buildClient(client: CareerClientForm): CareerClient {
     has_client: client.has_client,
     projects: client.projects
       .map(buildProject)
-      .filter((p) => hasAnyText([p.name, p.challenge, p.action, p.result])),
+      .filter((p) => hasAnyText([p.name, p.description])),
   };
 }
 
@@ -158,21 +174,25 @@ export function buildCareerPayload(state: CareerFormState): CareerResumePayload 
     }
     for (const client of exp.clients) {
       for (const proj of client.projects) {
-        // 内容のあるプロジェクト行は開始年月が必須（空のまま送ると backend が 422）。
-        // 参画中でなければ終了年月も必須。
-        if (!proj.start_date) {
+        // 内容のあるプロジェクトは periods が 1 件以上あり、各期間の開始年月が必須。
+        if (proj.periods.length === 0) {
           throw new Error(VALIDATION_MESSAGES.PROJECT_START_DATE_REQUIRED);
         }
-        if (!proj.is_current && !proj.end_date) {
-          throw new Error(VALIDATION_MESSAGES.PROJECT_END_DATE_REQUIRED);
-        }
-        if (
-          !proj.is_current &&
-          proj.start_date &&
-          proj.end_date &&
-          proj.end_date < proj.start_date
-        ) {
-          throw new Error(VALIDATION_MESSAGES.DATE_RANGE_INVALID);
+        for (const period of proj.periods) {
+          if (!period.start_date) {
+            throw new Error(VALIDATION_MESSAGES.PROJECT_START_DATE_REQUIRED);
+          }
+          if (!period.is_current && !period.end_date) {
+            throw new Error(VALIDATION_MESSAGES.PROJECT_END_DATE_REQUIRED);
+          }
+          if (
+            !period.is_current &&
+            period.start_date &&
+            period.end_date &&
+            period.end_date < period.start_date
+          ) {
+            throw new Error(VALIDATION_MESSAGES.DATE_RANGE_INVALID);
+          }
         }
       }
     }

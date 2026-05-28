@@ -32,12 +32,8 @@ def _md(text: str) -> str:
     return markdown.markdown(str(text), extensions=["tables"])
 
 
-def _format_period(
-    start: str,
-    end: str,
-    is_current: bool,
-) -> str:
-    """期間表示をフォーマットする。在籍中は end を "" で受ける契約。"""
+def _format_period(start: str, end: str, is_current: bool) -> str:
+    """1 期間をフォーマットする。在籍中は end を "" で受ける契約（Experience 用）。"""
     s = start.replace("-", " 年 ") + " 月" if "-" in start else start
     if is_current:
         return f"{s}〜現在"
@@ -45,20 +41,32 @@ def _format_period(
     return f"{s}〜{e}"
 
 
+def _format_periods(periods: list) -> str:
+    """複数期間を「、」区切りで連結してフォーマットする（Project 用）。"""
+    parts: list[str] = []
+    for p in periods:
+        start = _a(p, "start_date")
+        if not start:
+            continue
+        end = _a(p, "end_date", "")
+        is_current = _a(p, "is_current", False)
+        parts.append(_format_period(start, end, is_current))
+    return "、".join(parts)
+
+
 def _build_project_html(project) -> str:
     """プロジェクト1件分のHTMLを組み立てる"""
     # ヘッダー（3行構成: 期間/プロジェクト名、役割、工程）
     name = _a(project, "name")
-    start = _a(project, "start_date")
-    end = _a(project, "end_date")
-    is_current = _a(project, "is_current", False)
+    periods = _a(project, "periods", [])
     role = _a(project, "role")
     phases = _a(project, "phases", [])
 
     # 1行目: 期間 ／ プロジェクト名
     line1_parts: list[str] = []
-    if start:
-        line1_parts.append(_format_period(start, end, is_current))
+    period_str = _format_periods(periods)
+    if period_str:
+        line1_parts.append(period_str)
     if name:
         line1_parts.append(_esc(name))
     line1 = "　／　".join(line1_parts) if line1_parts else ""
@@ -78,15 +86,9 @@ def _build_project_html(project) -> str:
 
     # 左カラム: 業務内容
     left_parts: list[str] = []
-    challenge = _a(project, "challenge")
-    if challenge:
-        left_parts.append(f"<strong>【課題】</strong>{_md(challenge)}")
-    action = _a(project, "action")
-    if action:
-        left_parts.append(f"<strong>【行動】</strong>{_md(action)}")
-    result = _a(project, "result")
-    if result:
-        left_parts.append(f"<strong>【成果】</strong>{_md(result)}")
+    description = _a(project, "description")
+    if description:
+        left_parts.append(_md(description))
     left_content = "".join(left_parts) if left_parts else "-"
 
     # 右カラム: 開発環境（技術スタック）

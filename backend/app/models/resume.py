@@ -163,14 +163,15 @@ class ResumeProject(Base):
     )
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
-    start_date_value: Mapped[date] = mapped_column("start_date", Date, nullable=False)
-    end_date_value: Mapped[date | None] = mapped_column("end_date", Date, nullable=True)
-    is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     role: Mapped[str] = mapped_column(String(200), nullable=False, default="")
-    challenge: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    action: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    result: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # 課題・行動・成果を統合した自由記述欄。見出しは「詳細」。
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     team_total: Mapped[str] = mapped_column(String(60), nullable=False, default="")
+    period_rows: Mapped[list["ResumeProjectPeriod"]] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan",
+        order_by="ResumeProjectPeriod.sort_order",
+    )
     team_member_rows: Mapped[list["ResumeProjectTeamMember"]] = relationship(
         back_populates="project",
         cascade="all, delete-orphan",
@@ -189,12 +190,33 @@ class ResumeProject(Base):
     client: Mapped["ResumeClient"] = relationship(back_populates="project_rows")
 
     @property
+    def periods(self) -> list["ResumeProjectPeriod"]:
+        return list(self.period_rows)
+
+    @property
+    def is_current(self) -> bool:
+        return any(p.is_current for p in self.period_rows)
+
+    @property
+    def start_date_value(self) -> date | None:
+        """ソート用: 全期間のうち最も新しい開始日を返す。"""
+        values = [p.start_date_value for p in self.period_rows if p.start_date_value]
+        return max(values) if values else None
+
+    @property
+    def end_date_value(self) -> date | None:
+        """ソート用: いずれかの期間が参画中なら None、それ以外は全期間の最大終了日を返す。"""
+        if self.is_current:
+            return None
+        values = [p.end_date_value for p in self.period_rows if p.end_date_value]
+        return max(values) if values else None
+
+    @property
     def start_date(self) -> str:
         return format_year_month(self.start_date_value) or ""
 
     @property
     def end_date(self) -> str:
-        """DB の end_date が NULL（参画中）の場合は "" を返す（schema 契約と一致）。"""
         return format_year_month(self.end_date_value) or ""
 
     @property
@@ -211,6 +233,32 @@ class ResumeProject(Base):
     @property
     def phases(self) -> list[str]:
         return [phase.name for phase in self.phase_rows]
+
+
+class ResumeProjectPeriod(Base):
+    __tablename__ = "resume_project_periods"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("resume_projects.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    start_date_value: Mapped[date] = mapped_column("start_date", Date, nullable=False)
+    end_date_value: Mapped[date | None] = mapped_column("end_date", Date, nullable=True)
+    is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    project: Mapped["ResumeProject"] = relationship(back_populates="period_rows")
+
+    @property
+    def start_date(self) -> str:
+        return format_year_month(self.start_date_value) or ""
+
+    @property
+    def end_date(self) -> str:
+        """DB の end_date が NULL（参画中）の場合は "" を返す（schema 契約と一致）。"""
+        return format_year_month(self.end_date_value) or ""
 
 
 class ResumeProjectTeamMember(Base):

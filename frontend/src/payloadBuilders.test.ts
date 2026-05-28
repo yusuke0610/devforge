@@ -7,19 +7,23 @@ import {
   type CareerExperienceForm,
   type CareerFormState,
   type CareerProjectForm,
+  type CareerProjectPeriodForm,
 } from "./payloadBuilders";
 
 // ── 共通 fixture ────────────────────────────────────────────────
 
-const blankProject = (overrides: Partial<CareerProjectForm> = {}): CareerProjectForm => ({
-  name: "P",
+const blankPeriod = (overrides: Partial<CareerProjectPeriodForm> = {}): CareerProjectPeriodForm => ({
   start_date: "2024-01",
   end_date: "2024-06",
   is_current: false,
+  ...overrides,
+});
+
+const blankProject = (overrides: Partial<CareerProjectForm> = {}): CareerProjectForm => ({
+  name: "P",
+  periods: [blankPeriod()],
   role: "",
-  challenge: "",
-  action: "",
-  result: "",
+  description: "",
   team: { total: "", members: [] },
   technology_stacks: [],
   phases: [],
@@ -186,7 +190,7 @@ describe("buildCareerPayload (experiences)", () => {
 // ── projects / clients / team の境界 ─────────────────────────
 
 describe("buildCareerPayload (projects/clients/team)", () => {
-  it("project.is_current=true なら end_date が空文字に正規化される", () => {
+  it("project の period.is_current=true なら end_date が空文字に正規化される", () => {
     const payload = buildCareerPayload(
       baseState({
         experiences: [
@@ -197,8 +201,7 @@ describe("buildCareerPayload (projects/clients/team)", () => {
                 has_client: true,
                 projects: [
                   blankProject({
-                    is_current: true,
-                    end_date: "2024-12",
+                    periods: [blankPeriod({ is_current: true, end_date: "2024-12" })],
                   }),
                 ],
               },
@@ -207,12 +210,12 @@ describe("buildCareerPayload (projects/clients/team)", () => {
         ],
       }),
     );
-    const proj = payload.experiences[0].clients[0].projects[0];
-    expect(proj.end_date).toBe("");
-    expect(proj.is_current).toBe(true);
+    const period = payload.experiences[0].clients[0].projects[0].periods[0];
+    expect(period.end_date).toBe("");
+    expect(period.is_current).toBe(true);
   });
 
-  it("内容のある project で開始年月が空ならエラー", () => {
+  it("内容のある project で期間の開始年月が空ならエラー", () => {
     expect(() =>
       buildCareerPayload(
         baseState({
@@ -222,7 +225,7 @@ describe("buildCareerPayload (projects/clients/team)", () => {
                 {
                   name: "顧客A",
                   has_client: true,
-                  projects: [blankProject({ start_date: "" })],
+                  projects: [blankProject({ periods: [blankPeriod({ start_date: "" })] })],
                 },
               ],
             }),
@@ -232,7 +235,7 @@ describe("buildCareerPayload (projects/clients/team)", () => {
     ).toThrow(/プロジェクトの開始年月/);
   });
 
-  it("project が is_current=false で終了年月が空ならエラー", () => {
+  it("内容のある project に period が 1 件も無いならエラー", () => {
     expect(() =>
       buildCareerPayload(
         baseState({
@@ -242,7 +245,29 @@ describe("buildCareerPayload (projects/clients/team)", () => {
                 {
                   name: "顧客A",
                   has_client: true,
-                  projects: [blankProject({ is_current: false, end_date: "" })],
+                  projects: [blankProject({ name: "P", description: "詳細", periods: [] })],
+                },
+              ],
+            }),
+          ],
+        }),
+      ),
+    ).toThrow(/プロジェクトの開始年月/);
+  });
+
+  it("project の period が is_current=false で終了年月が空ならエラー", () => {
+    expect(() =>
+      buildCareerPayload(
+        baseState({
+          experiences: [
+            blankExperience({
+              clients: [
+                {
+                  name: "顧客A",
+                  has_client: true,
+                  projects: [
+                    blankProject({ periods: [blankPeriod({ is_current: false, end_date: "" })] }),
+                  ],
                 },
               ],
             }),
@@ -375,6 +400,27 @@ describe("buildCareerPayload (projects/clients/team)", () => {
       { category: "language", name: "TypeScript" },
       { category: "db", name: "PostgreSQL" },
     ]);
+  });
+
+  it("project の name が空で description に内容があればプロジェクトはペイロードに含まれる", () => {
+    const payload = buildCareerPayload(
+      baseState({
+        experiences: [
+          blankExperience({
+            clients: [
+              {
+                name: "C",
+                has_client: true,
+                projects: [blankProject({ name: "", description: "開発の詳細" })],
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+    const project = payload.experiences[0].clients[0].projects[0];
+    expect(project.name).toBe("");
+    expect(project.description).toBe("開発の詳細");
   });
 });
 

@@ -26,10 +26,7 @@ def experience_payload() -> dict:
                         "end_date": "2024-03",
                         "is_current": False,
                         "role": "メンバー",
-                        "description": "API開発",
-                        "challenge": "課題",
-                        "action": "行動",
-                        "result": "処理速度を改善",
+                        "description": "課題・行動・成果をまとめた詳細",
                         "team": {
                             "total": "5",
                             "members": [
@@ -156,13 +153,11 @@ def test_project_current_without_end_date_is_accepted() -> None:
     """プロジェクト: 参画中（is_current=True）なら終了年月が空でも OK。"""
     proj = Project(
         name="API開発",
-        start_date="2021-04",
-        end_date="",
-        is_current=True,
+        periods=[{"start_date": "2021-04", "end_date": "", "is_current": True}],
         technology_stacks=[],
     )
-    assert proj.start_date == "2021-04"
-    assert proj.end_date == ""
+    assert proj.periods[0].start_date == "2021-04"
+    assert proj.periods[0].end_date == ""
 
 
 def test_experience_requires_start_date_with_japanese_message() -> None:
@@ -259,60 +254,39 @@ def test_project_end_date_equals_start_date_is_accepted() -> None:
     """プロジェクト: 終了日 = 開始日は正常に保存されること。"""
     proj = Project(
         name="テスト",
-        start_date="2024-04",
-        end_date="2024-04",
-        is_current=False,
+        periods=[{"start_date": "2024-04", "end_date": "2024-04", "is_current": False}],
         technology_stacks=[],
     )
-    assert proj.end_date == "2024-04"
+    assert proj.periods[0].end_date == "2024-04"
 
 
 def test_project_end_date_after_start_date_is_accepted() -> None:
     """プロジェクト: 終了日 > 開始日は正常に保存されること。"""
     proj = Project(
         name="テスト",
-        start_date="2021-04",
-        end_date="2024-03",
-        is_current=False,
+        periods=[{"start_date": "2021-04", "end_date": "2024-03", "is_current": False}],
         technology_stacks=[],
     )
-    assert proj.end_date == "2024-03"
+    assert proj.periods[0].end_date == "2024-03"
 
 
 def test_project_in_progress_end_date_is_normalized_to_empty() -> None:
-    """プロジェクト: 参画中（is_current=True）は end_date が "" に正規化されること。
-
-    DB 側は end_date が NULL で保存され、ResumeProject.end_date プロパティは "" を返す。
-    Experience.end_date と同じ契約で、schema は str 必須・None 不可。
-    """
-    # 未指定（デフォルト ""）
+    """プロジェクト: 参画中（is_current=True）の期間は end_date が "" に正規化されること。"""
+    # 値が入っていても is_current=True なら "" に正規化される
     proj = Project(
         name="テスト",
-        start_date="2021-04",
-        is_current=True,
+        periods=[{"start_date": "2021-04", "end_date": "2024-03", "is_current": True}],
         technology_stacks=[],
     )
-    assert proj.end_date == ""
-
-    # 値が入っていても is_current=True なら "" に正規化される
-    proj_overridden = Project(
-        name="テスト",
-        start_date="2021-04",
-        end_date="2024-03",
-        is_current=True,
-        technology_stacks=[],
-    )
-    assert proj_overridden.end_date == ""
+    assert proj.periods[0].end_date == ""
 
     # 空文字列も当然 OK
     proj_empty = Project(
         name="テスト",
-        start_date="2021-04",
-        end_date="",
-        is_current=True,
+        periods=[{"start_date": "2021-04", "end_date": "", "is_current": True}],
         technology_stacks=[],
     )
-    assert proj_empty.end_date == ""
+    assert proj_empty.periods[0].end_date == ""
 
 
 def test_project_end_date_none_is_rejected() -> None:

@@ -3,6 +3,7 @@ import type {
   CareerClientForm,
   CareerExperienceForm,
   CareerProjectForm,
+  CareerProjectPeriodForm,
   TeamMemberForm,
 } from "./payloadBuilders";
 import type { CareerTechnologyStack } from "./types";
@@ -80,15 +81,17 @@ export const blankTeamMember: TeamMemberForm = {
   count: "",
 };
 
-export const blankCareerProject: CareerProjectForm = {
-  name: "",
+export const blankCareerProjectPeriod: CareerProjectPeriodForm = {
   start_date: "",
   end_date: "",
   is_current: false,
+};
+
+export const blankCareerProject: CareerProjectForm = {
+  name: "",
+  periods: [{ ...blankCareerProjectPeriod }],
   role: "",
-  challenge: "",
-  action: "",
-  result: "",
+  description: "",
   team: { total: "", members: [] },
   technology_stacks: [{ ...blankCareerTechnologyStack }],
   phases: [],

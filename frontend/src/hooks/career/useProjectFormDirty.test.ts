@@ -9,13 +9,9 @@ import { useProjectFormDirty } from "./useProjectFormDirty";
 function buildProject(overrides: Partial<CareerProjectForm> = {}): CareerProjectForm {
   return {
     name: "プロジェクトX",
-    start_date: "2021-04",
-    end_date: "2022-03",
-    is_current: false,
+    periods: [{ start_date: "2021-04", end_date: "2022-03", is_current: false }],
     role: "Eng",
-    challenge: "課題",
-    action: "行動",
-    result: "成果",
+    description: "課題・行動・成果",
     team: { total: "5", members: [{ role: "PM", count: "1" }] },
     technology_stacks: [{ category: "language", name: "TypeScript" }],
     phases: ["要件定義", "開発"],
@@ -72,6 +68,19 @@ describe("useProjectFormDirty", () => {
     expect(result.current.any).toBe(true);
   });
 
+  it("期間を追加すると periods が true", () => {
+    const original = buildProject();
+    const local = buildProject({
+      periods: [
+        ...original.periods,
+        { start_date: "2025-06", end_date: "", is_current: true },
+      ],
+    });
+    const { result } = renderHook(() => useProjectFormDirty(local, original));
+    expect(result.current.periods).toBe(true);
+    expect(result.current.any).toBe(true);
+  });
+
   it("新規追加（original=null）の場合は blankCareerProject と比較し、入力すると dirty", () => {
     const local = buildProject(); // 入力済み
     const { result } = renderHook(() => useProjectFormDirty(local, null));
@@ -83,6 +92,24 @@ describe("useProjectFormDirty", () => {
   it("新規追加（original=null）で blankCareerProject と同一の local は dirty なし", () => {
     const local = structuredClone(blankCareerProject);
     const { result } = renderHook(() => useProjectFormDirty(local, null));
+    expect(result.current.any).toBe(false);
+  });
+
+  it("description を変更すると fields.description と any が true", () => {
+    const original = buildProject();
+    const local = buildProject({ description: "変更後の詳細" });
+    const { result } = renderHook(() => useProjectFormDirty(local, original));
+    expect(result.current.fields.description).toBe(true);
+    expect(result.current.any).toBe(true);
+    expect(result.current.fields.name).toBe(false);
+    expect(result.current.team).toBe(false);
+  });
+
+  it("description を元の値に戻すと fields.description と any が false", () => {
+    const original = buildProject();
+    const local = buildProject({ description: original.description });
+    const { result } = renderHook(() => useProjectFormDirty(local, original));
+    expect(result.current.fields.description).toBe(false);
     expect(result.current.any).toBe(false);
   });
 });

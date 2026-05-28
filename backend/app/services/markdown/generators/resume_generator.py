@@ -75,24 +75,25 @@ def build_resume_markdown(payload: dict[str, Any]) -> str:
                     if name:
                         lines.append(f"##### {name}")
                         lines.append("")
-                    proj_start = _a(proj, "start_date")
-                    proj_end = _a(proj, "end_date")
-                    proj_is_current = _a(proj, "is_current", False)
-                    if proj_start:
-                        proj_period = format_period(proj_start, proj_end, proj_is_current)
-                        lines.append(field_line("期間", proj_period))
+                    proj_periods = _a(proj, "periods", [])
+                    if proj_periods:
+                        period_parts = [
+                            format_period(
+                                _a(p, "start_date"),
+                                _a(p, "end_date", ""),
+                                _a(p, "is_current", False),
+                            )
+                            for p in proj_periods
+                            if _a(p, "start_date")
+                        ]
+                        if period_parts:
+                            lines.append(field_line("期間", "、".join(period_parts)))
                     role = _a(proj, "role")
                     if role:
                         lines.append(field_line("担当", role))
-                    challenge = _a(proj, "challenge")
-                    if challenge:
-                        lines.append(field_line("課題", challenge))
-                    action = _a(proj, "action")
-                    if action:
-                        lines.append(field_line("行動", action))
-                    result = _a(proj, "result")
-                    if result:
-                        lines.append(field_line("成果", result))
+                    description = _a(proj, "description")
+                    if description:
+                        lines.append(field_line("詳細", description))
                     # 体制（後方互換: 旧 scale → team の正規化は shared に集約）
                     team = normalize_team(proj)
                     if team:
