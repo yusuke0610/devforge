@@ -105,6 +105,8 @@ export function CareerExperienceSection({
           onUpdateExperienceField={mutators.updateExperienceField}
           onUpdateClientField={mutators.updateClientField}
           onUpdateClientHasClient={mutators.updateClientHasClient}
+          onUpdateClientIsVacation={mutators.updateClientIsVacation}
+          onUpdateClientVacationIsCurrent={mutators.updateClientVacationIsCurrent}
           onAddClient={mutators.addClient}
           onRemoveClient={mutators.removeClient}
           onRemoveProject={mutators.removeProject}

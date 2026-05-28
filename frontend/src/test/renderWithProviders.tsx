@@ -5,12 +5,13 @@
 import { type ReactElement } from "react";
 import { render, type RenderOptions } from "@testing-library/react";
 import { Provider } from "react-redux";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, type MemoryRouterProps } from "react-router-dom";
 import { configureStore } from "@reduxjs/toolkit";
 import formCacheReducer from "../store/formCacheSlice";
 
 interface Options extends Omit<RenderOptions, "wrapper"> {
-  initialEntries?: string[];
+  /** 文字列パス、または state を含む location オブジェクトを渡せる */
+  initialEntries?: MemoryRouterProps["initialEntries"];
 }
 
 export function renderWithProviders(

@@ -1,4 +1,4 @@
-import type { CareerTechnologyStackCategory, ResumeQualification } from "./types";
+import type { CapitalUnit, CareerTechnologyStackCategory, ResumeQualification } from "./types";
 import type {
   CareerClientForm,
   CareerExperienceForm,
@@ -12,6 +12,12 @@ export const blankResumeQualification: ResumeQualification = {
   acquired_date: "",
   name: "",
 };
+
+/** 資本金の単位の選択肢（ドロップダウン表示順）。backend の Literal と手動同期。 */
+export const CAPITAL_UNITS: readonly CapitalUnit[] = ["万円", "百万円", "千万円", "億円"];
+
+/** 資本金の単位の既定値（後方互換のため「千万円」）。 */
+export const DEFAULT_CAPITAL_UNIT: CapitalUnit = "千万円";
 
 export const careerTechnologyStackCategories: CareerTechnologyStackCategory[] = [
   "language",
@@ -101,6 +107,11 @@ export const blankCareerClient: CareerClientForm = {
   name: "",
   has_client: true,
   projects: [{ ...blankCareerProject, technology_stacks: [{ ...blankCareerTechnologyStack }] }],
+  is_vacation: false,
+  vacation_start_date: "",
+  vacation_end_date: "",
+  vacation_is_current: false,
+  vacation_description: "",
 };
 
 export const blankCareerExperience: CareerExperienceForm = {
@@ -111,5 +122,8 @@ export const blankCareerExperience: CareerExperienceForm = {
   is_current: false,
   employee_count: "",
   capital: "",
+  capital_unit: DEFAULT_CAPITAL_UNIT,
+  is_it_company: true,
+  description: "",
   clients: [{ ...blankCareerClient }],
 };

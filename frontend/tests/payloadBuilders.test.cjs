@@ -17,6 +17,7 @@ test("buildCareerPayload trims data and keeps only non-empty technology stacks",
         is_current: true,
         employee_count: "  300名  ",
         capital: "  1億円  ",
+        is_it_company: true,
         clients: [
           {
             has_client: true,
@@ -124,6 +125,7 @@ test("buildCareerPayload throws when 離職で終了年月がない", () => {
             is_current: false,
             employee_count: "100名",
             capital: "5000万円",
+            is_it_company: true,
             clients: []
           }
         ],

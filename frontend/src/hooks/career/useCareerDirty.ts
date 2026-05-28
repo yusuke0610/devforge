@@ -37,6 +37,9 @@ export type ExperienceDirty = {
     is_current: boolean;
     employee_count: boolean;
     capital: boolean;
+    capital_unit: boolean;
+    is_it_company: boolean;
+    description: boolean;
   };
   clients: ClientDirty[];
 };
@@ -81,6 +84,9 @@ function buildCleanExperience(
       is_current: false,
       employee_count: false,
       capital: false,
+      capital_unit: false,
+      is_it_company: false,
+      description: false,
     },
     clients: experience.clients.map((c) => ({
       any: false,
@@ -130,7 +136,13 @@ function diffClient(
     };
   }
   const selfFieldsDirty =
-    current.name !== base.name || current.has_client !== base.has_client;
+    current.name !== base.name ||
+    current.has_client !== base.has_client ||
+    current.is_vacation !== base.is_vacation ||
+    current.vacation_start_date !== base.vacation_start_date ||
+    current.vacation_end_date !== base.vacation_end_date ||
+    current.vacation_is_current !== base.vacation_is_current ||
+    current.vacation_description !== base.vacation_description;
   const projects = current.projects.map((p, i) => diffProject(p, base.projects[i]));
   const removedProjects = current.projects.length !== base.projects.length;
   const any =
@@ -156,6 +168,9 @@ function diffExperience(
         is_current: true,
         employee_count: true,
         capital: true,
+        capital_unit: true,
+        is_it_company: true,
+        description: true,
       },
       clients: current.clients.map((c) => ({
         any: true,
@@ -172,6 +187,9 @@ function diffExperience(
     is_current: current.is_current !== base.is_current,
     employee_count: current.employee_count !== base.employee_count,
     capital: current.capital !== base.capital,
+    capital_unit: current.capital_unit !== base.capital_unit,
+    is_it_company: current.is_it_company !== base.is_it_company,
+    description: current.description !== base.description,
   };
   const self = Object.values(fields).some(Boolean);
   const clients = current.clients.map((c, i) => diffClient(c, base.clients[i]));

@@ -1,0 +1,111 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── サマリー ─────────────────────────────────────────────── */
+
+.summary {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.statCard {
+  flex: 1;
+  min-width: 140px;
+  text-align: center;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+}
+
+.statValue {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.statLabel {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+/* ── ヒートマップグリッド ───────────────────────────────────── */
+
+.scroll {
+  overflow-x: auto;
+  padding-bottom: 0.3rem;
+}
+
+.monthRow {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 3px;
+}
+
+.monthLabel {
+  width: 11px;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.grid {
+  display: flex;
+  gap: 3px;
+}
+
+.weekCol {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.cell {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: var(--contrib-l0);
+  flex-shrink: 0;
+}
+
+.l0 {
+  background: var(--contrib-l0);
+}
+
+.l1 {
+  background: var(--contrib-l1);
+}
+
+.l2 {
+  background: var(--contrib-l2);
+}
+
+.l3 {
+  background: var(--contrib-l3);
+}
+
+.l4 {
+  background: var(--contrib-l4);
+}
+
+/* ── 凡例 ─────────────────────────────────────────────────── */
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  justify-content: flex-end;
+}
+
+.legendText {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin: 0 0.3rem;
+}

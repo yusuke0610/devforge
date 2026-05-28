@@ -39,7 +39,8 @@
       "github_user_not_found": "GitHubユーザーが見つかりません: {username}",
       "profile_fetch_failed": "GitHubプロフィールの取得に失敗しました。しばらくしてから再度お試しください。",
       "no_link_cache": "連携データがありません。先にGitHub連携を実行してください。",
-      "not_retryable": "このタスクはリトライできない状態です（現在: {status}）。"
+      "not_retryable": "このタスクはリトライできない状態です（現在: {status}）。",
+      "contribution_fetch_failed": "コントリビューション情報の取得に失敗しました。スキル集計は表示されています。"
     },
     "validation": {
       "required_field": "{field}は必須です。",

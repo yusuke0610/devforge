@@ -173,6 +173,91 @@ def test_resume_round_trips_nested_structure(client: TestClient) -> None:
     assert project["phases"] == ["基本設計", "開発"]
 
 
+def test_resume_round_trips_non_it_and_vacation(client: TestClient) -> None:
+    headers = auth_header(client, "resume-nonit-vacation-user")
+
+    payload = {
+        "full_name": "佐藤 花子",
+        "career_summary": "キャリアサマリー",
+        "self_pr": "自己PR",
+        "experiences": [
+            {
+                "company": "〇〇商事",
+                "business_description": "小売業",
+                "start_date": "2016-04",
+                "end_date": "2019-03",
+                "is_current": False,
+                "is_it_company": False,
+                "description": "店舗運営・在庫管理・スタッフ教育を担当",
+                "clients": [],
+            },
+            {
+                "company": "Example株式会社",
+                "business_description": "SES事業",
+                "start_date": "2019-04",
+                "end_date": "2024-03",
+                "is_current": False,
+                "is_it_company": True,
+                "clients": [
+                    {
+                        "is_vacation": True,
+                        "vacation_start_date": "2020-04",
+                        "vacation_end_date": "2021-03",
+                        "vacation_is_current": False,
+                        "vacation_description": "育児休暇を取得。期間中にProgateで学習",
+                    },
+                    {
+                        "name": "顧客A",
+                        "has_client": True,
+                        "projects": [
+                            {
+                                "name": "API開発",
+                                "periods": [
+                                    {
+                                        "start_date": "2021-04",
+                                        "end_date": "2024-03",
+                                        "is_current": False,
+                                    }
+                                ],
+                                "role": "SE",
+                                "description": "性能改善",
+                                "technology_stacks": [{"category": "language", "name": "Python"}],
+                            }
+                        ],
+                    },
+                ],
+            },
+        ],
+        "qualifications": [],
+    }
+
+    resp = client.post("/api/resumes", json=payload, headers=headers)
+    assert resp.status_code == 201
+    resume_id = resp.json()["id"]
+
+    resp = client.get(f"/api/resumes/{resume_id}", headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()
+
+    # 経歴は在籍期間の降順（新しい在籍が先）でソートされる。
+    experiences = {exp["company"]: exp for exp in data["experiences"]}
+
+    non_it = experiences["〇〇商事"]
+    assert non_it["is_it_company"] is False
+    assert non_it["description"] == "店舗運営・在庫管理・スタッフ教育を担当"
+    assert non_it["clients"] == []
+
+    it_exp = experiences["Example株式会社"]
+    assert it_exp["is_it_company"] is True
+    vacation = next(c for c in it_exp["clients"] if c["is_vacation"])
+    assert vacation["vacation_start_date"] == "2020-04"
+    assert vacation["vacation_end_date"] == "2021-03"
+    assert vacation["vacation_description"] == "育児休暇を取得。期間中にProgateで学習"
+    normal = next(c for c in it_exp["clients"] if not c["is_vacation"])
+    assert normal["name"] == "顧客A"
+    assert normal["projects"][0]["name"] == "API開発"
+
+
 # ── Health Check ───────────────────────────────────────────────
 
 

@@ -1,19 +1,32 @@
 import { screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { describe, it, expect } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server } from "../../test/mswServer";
 import { GitHubLinkDashboard } from "./GitHubLinkDashboard";
 import { renderWithProviders } from "../../test/renderWithProviders";
 
-/** Provider 付きでレンダリングするヘルパー */
+/** Provider 付きでレンダリングするヘルパー（表示のみ） */
 function renderPage() {
   return renderWithProviders(<GitHubLinkDashboard />);
 }
 
 /**
- * `GET /api/github-link/cache` をキャッシュ未保存（入力画面表示）レスポンスに差し替える。
- * 2 箇所でコピペされていた server.use ブロックを集約する。
+ * サイドバーから連携実行された状態（runNonce を含む location state）で描画する。
+ * 連携 API のトリガーはサイドバークリックのみのため、テストでも state 経由で再現する。
+ */
+function renderPageWithRun(includeForks = false) {
+  return renderWithProviders(<GitHubLinkDashboard />, {
+    initialEntries: [
+      {
+        pathname: "/github_link",
+        state: { runNonce: 1, includeForks },
+      },
+    ],
+  });
+}
+
+/**
+ * `GET /api/github-link/cache` をキャッシュ未保存（空状態）レスポンスに差し替える。
  */
 function mockEmptyCache() {
   server.use(
@@ -27,15 +40,30 @@ function mockEmptyCache() {
 }
 
 describe("GitHubLinkDashboard", () => {
-  it("キャッシュなしの場合、入力画面が表示される", async () => {
+  it("キャッシュなしの場合、空状態メッセージが表示される", async () => {
     mockEmptyCache();
 
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("連携開始")).toBeInTheDocument();
+      expect(
+        screen.getByText(/まだ連携データがありません/),
+      ).toBeInTheDocument();
     });
     expect(screen.getByText("GitHub連携")).toBeInTheDocument();
+  });
+
+  it("表示専用: ページ上に連携トリガーボタン（連携する/更新する/再連携）が無い", async () => {
+    renderPage();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("test-user-001 の連携結果"),
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByText("連携する")).not.toBeInTheDocument();
+    expect(screen.queryByText("更新する")).not.toBeInTheDocument();
+    expect(screen.queryByText("再連携")).not.toBeInTheDocument();
   });
 
   it("キャッシュが存在する場合、結果画面が表示される", async () => {
@@ -48,6 +76,16 @@ describe("GitHubLinkDashboard", () => {
     });
     expect(screen.getByText("10")).toBeInTheDocument(); // repos_analyzed
     expect(screen.getByText("リポジトリ")).toBeInTheDocument();
+  });
+
+  it("コントリビューションカレンダーがあると Activity ヒートマップが表示される", async () => {
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Activity")).toBeInTheDocument();
+    });
+    expect(screen.getByText("年間コントリビュート")).toBeInTheDocument();
+    expect(screen.getByText("123")).toBeInTheDocument();
   });
 
   it("検出フレームワークがあるとき Frameworks セクションにバーが表示される", async () => {
@@ -108,9 +146,7 @@ describe("GitHubLinkDashboard", () => {
     expect(screen.queryByText("Frameworks")).not.toBeInTheDocument();
   });
 
-  it("連携開始ボタン押下後、ポーリング画面に遷移する", async () => {
-    const user = userEvent.setup();
-
+  it("サイドバーからの連携実行(runNonce)でポーリング画面に遷移する", async () => {
     mockEmptyCache();
     server.use(
       http.get("*/api/github-link/cache/status", () =>
@@ -118,13 +154,7 @@ describe("GitHubLinkDashboard", () => {
       ),
     );
 
-    renderPage();
-
-    await waitFor(() => {
-      expect(screen.getByText("連携開始")).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByText("連携開始"));
+    renderPageWithRun();
 
     await waitFor(() => {
       expect(
@@ -133,9 +163,7 @@ describe("GitHubLinkDashboard", () => {
     });
   });
 
-  it("API 500 エラー時にエラーメッセージが表示される", async () => {
-    const user = userEvent.setup();
-
+  it("連携実行が 503 を返したときエラーメッセージが表示される", async () => {
     mockEmptyCache();
     server.use(
       http.post("*/api/github-link/run", () =>
@@ -150,36 +178,14 @@ describe("GitHubLinkDashboard", () => {
       ),
     );
 
-    renderPage();
-
-    await waitFor(() => {
-      expect(screen.getByText("連携開始")).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByText("連携開始"));
+    renderPageWithRun();
 
     await waitFor(() => {
       // エラーメッセージが表示されること（アプリがクラッシュしないこと）
-      expect(screen.getByText(/AI 分析サービスが一時的に利用できません/)).toBeInTheDocument();
-      expect(screen.getByText(/エラーID: err-ui-500/)).toBeInTheDocument();
-    });
-  });
-
-  it("再連携ボタンで入力画面に戻る", async () => {
-    const user = userEvent.setup();
-
-    renderPage();
-
-    await waitFor(() => {
       expect(
-        screen.getByText("test-user-001 の連携結果"),
+        screen.getByText(/AI 分析サービスが一時的に利用できません/),
       ).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByText("再連携"));
-
-    await waitFor(() => {
-      expect(screen.getByText("連携開始")).toBeInTheDocument();
+      expect(screen.getByText(/エラーID: err-ui-500/)).toBeInTheDocument();
     });
   });
 });

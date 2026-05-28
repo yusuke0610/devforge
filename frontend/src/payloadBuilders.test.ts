@@ -4,6 +4,7 @@ import {
   buildCareerPayload,
   hasAnyText,
   validateDateRange,
+  type CareerClientForm,
   type CareerExperienceForm,
   type CareerFormState,
   type CareerProjectForm,
@@ -30,6 +31,18 @@ const blankProject = (overrides: Partial<CareerProjectForm> = {}): CareerProject
   ...overrides,
 });
 
+const blankClient = (overrides: Partial<CareerClientForm> = {}): CareerClientForm => ({
+  name: "",
+  has_client: true,
+  projects: [],
+  is_vacation: false,
+  vacation_start_date: "",
+  vacation_end_date: "",
+  vacation_is_current: false,
+  vacation_description: "",
+  ...overrides,
+});
+
 const blankExperience = (overrides: Partial<CareerExperienceForm> = {}): CareerExperienceForm => ({
   company: "Acme",
   business_description: "Web",
@@ -38,6 +51,9 @@ const blankExperience = (overrides: Partial<CareerExperienceForm> = {}): CareerE
   is_current: false,
   employee_count: "",
   capital: "",
+  capital_unit: "千万円",
+  is_it_company: true,
+  description: "",
   clients: [],
   ...overrides,
 });
@@ -170,6 +186,16 @@ describe("buildCareerPayload (experiences)", () => {
     ).toThrow(/会社名/);
   });
 
+  it("capital_unit が payload にそのまま引き継がれる", () => {
+    const payload = buildCareerPayload(
+      baseState({
+        experiences: [blankExperience({ capital: "5", capital_unit: "百万円" })],
+      }),
+    );
+    expect(payload.experiences[0].capital).toBe("5");
+    expect(payload.experiences[0].capital_unit).toBe("百万円");
+  });
+
   it("空欄だけの experience は filter で除外され、エラーにならない", () => {
     const payload = buildCareerPayload(
       baseState({
@@ -196,7 +222,7 @@ describe("buildCareerPayload (projects/clients/team)", () => {
         experiences: [
           blankExperience({
             clients: [
-              {
+              blankClient({
                 name: "顧客A",
                 has_client: true,
                 projects: [
@@ -204,7 +230,7 @@ describe("buildCareerPayload (projects/clients/team)", () => {
                     periods: [blankPeriod({ is_current: true, end_date: "2024-12" })],
                   }),
                 ],
-              },
+              }),
             ],
           }),
         ],
@@ -222,11 +248,11 @@ describe("buildCareerPayload (projects/clients/team)", () => {
           experiences: [
             blankExperience({
               clients: [
-                {
+                blankClient({
                   name: "顧客A",
                   has_client: true,
                   projects: [blankProject({ periods: [blankPeriod({ start_date: "" })] })],
-                },
+                }),
               ],
             }),
           ],
@@ -242,11 +268,11 @@ describe("buildCareerPayload (projects/clients/team)", () => {
           experiences: [
             blankExperience({
               clients: [
-                {
+                blankClient({
                   name: "顧客A",
                   has_client: true,
                   projects: [blankProject({ name: "P", description: "詳細", periods: [] })],
-                },
+                }),
               ],
             }),
           ],
@@ -262,13 +288,13 @@ describe("buildCareerPayload (projects/clients/team)", () => {
           experiences: [
             blankExperience({
               clients: [
-                {
+                blankClient({
                   name: "顧客A",
                   has_client: true,
                   projects: [
                     blankProject({ periods: [blankPeriod({ is_current: false, end_date: "" })] }),
                   ],
-                },
+                }),
               ],
             }),
           ],
@@ -283,11 +309,11 @@ describe("buildCareerPayload (projects/clients/team)", () => {
         experiences: [
           blankExperience({
             clients: [
-              {
+              blankClient({
                 name: "捨てられる",
                 has_client: false,
                 projects: [blankProject()],
-              },
+              }),
             ],
           }),
         ],
@@ -303,11 +329,11 @@ describe("buildCareerPayload (projects/clients/team)", () => {
         experiences: [
           blankExperience({
             clients: [
-              {
+              blankClient({
                 name: "",
                 has_client: true,
                 projects: [],
-              },
+              }),
             ],
           }),
         ],
@@ -322,11 +348,11 @@ describe("buildCareerPayload (projects/clients/team)", () => {
         experiences: [
           blankExperience({
             clients: [
-              {
+              blankClient({
                 name: "C",
                 has_client: true,
                 projects: [blankProject({ team: { total: "3", members: [] } })],
-              },
+              }),
             ],
           }),
         ],
@@ -342,7 +368,7 @@ describe("buildCareerPayload (projects/clients/team)", () => {
         experiences: [
           blankExperience({
             clients: [
-              {
+              blankClient({
                 name: "C",
                 has_client: true,
                 projects: [
@@ -358,7 +384,7 @@ describe("buildCareerPayload (projects/clients/team)", () => {
                     },
                   }),
                 ],
-              },
+              }),
             ],
           }),
         ],
@@ -377,7 +403,7 @@ describe("buildCareerPayload (projects/clients/team)", () => {
         experiences: [
           blankExperience({
             clients: [
-              {
+              blankClient({
                 name: "C",
                 has_client: true,
                 projects: [
@@ -389,7 +415,7 @@ describe("buildCareerPayload (projects/clients/team)", () => {
                     ],
                   }),
                 ],
-              },
+              }),
             ],
           }),
         ],
@@ -408,11 +434,11 @@ describe("buildCareerPayload (projects/clients/team)", () => {
         experiences: [
           blankExperience({
             clients: [
-              {
+              blankClient({
                 name: "C",
                 has_client: true,
                 projects: [blankProject({ name: "", description: "開発の詳細" })],
-              },
+              }),
             ],
           }),
         ],
@@ -421,6 +447,174 @@ describe("buildCareerPayload (projects/clients/team)", () => {
     const project = payload.experiences[0].clients[0].projects[0];
     expect(project.name).toBe("");
     expect(project.description).toBe("開発の詳細");
+  });
+});
+
+// ── 非IT企業の経歴 ────────────────────────────────────────────
+
+describe("buildCareerPayload (non-IT experience)", () => {
+  it("非ITは clients が空配列になり description が trim 保持される", () => {
+    const payload = buildCareerPayload(
+      baseState({
+        experiences: [
+          blankExperience({
+            is_it_company: false,
+            description: "  店舗運営を担当  ",
+            clients: [blankClient({ name: "捨てられる", projects: [blankProject()] })],
+          }),
+        ],
+      }),
+    );
+    expect(payload.experiences[0].is_it_company).toBe(false);
+    expect(payload.experiences[0].description).toBe("店舗運営を担当");
+    expect(payload.experiences[0].clients).toEqual([]);
+  });
+
+  it("非ITで description が空ならエラー", () => {
+    expect(() =>
+      buildCareerPayload(
+        baseState({
+          experiences: [blankExperience({ is_it_company: false, description: "   " })],
+        }),
+      ),
+    ).toThrow(/詳細/);
+  });
+
+  it("ITの場合 description は空文字に正規化され clients が残る", () => {
+    const payload = buildCareerPayload(
+      baseState({
+        experiences: [
+          blankExperience({
+            is_it_company: true,
+            description: "無視される",
+            clients: [blankClient({ name: "顧客A", projects: [blankProject()] })],
+          }),
+        ],
+      }),
+    );
+    expect(payload.experiences[0].description).toBe("");
+    expect(payload.experiences[0].clients).toHaveLength(1);
+  });
+});
+
+// ── 休暇エントリ ──────────────────────────────────────────────
+
+describe("buildCareerPayload (vacation client)", () => {
+  it("休暇は projects 空・name 空で vacation_* が trim 保持される", () => {
+    const payload = buildCareerPayload(
+      baseState({
+        experiences: [
+          blankExperience({
+            clients: [
+              blankClient({
+                is_vacation: true,
+                vacation_start_date: " 2020-04 ",
+                vacation_end_date: " 2021-03 ",
+                vacation_description: " 育児休暇 ",
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+    const client = payload.experiences[0].clients[0];
+    expect(client.is_vacation).toBe(true);
+    expect(client.name).toBe("");
+    expect(client.projects).toEqual([]);
+    expect(client.vacation_start_date).toBe("2020-04");
+    expect(client.vacation_end_date).toBe("2021-03");
+    expect(client.vacation_description).toBe("育児休暇");
+  });
+
+  it("休暇が継続中なら vacation_end_date は空文字に正規化される", () => {
+    const payload = buildCareerPayload(
+      baseState({
+        experiences: [
+          blankExperience({
+            clients: [
+              blankClient({
+                is_vacation: true,
+                vacation_start_date: "2020-04",
+                vacation_end_date: "2021-03",
+                vacation_is_current: true,
+                vacation_description: "育児休暇",
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(payload.experiences[0].clients[0].vacation_end_date).toBe("");
+  });
+
+  it("休暇で開始年月が空ならエラー", () => {
+    expect(() =>
+      buildCareerPayload(
+        baseState({
+          experiences: [
+            blankExperience({
+              clients: [
+                blankClient({
+                  is_vacation: true,
+                  vacation_start_date: "",
+                  vacation_description: "育児休暇",
+                }),
+              ],
+            }),
+          ],
+        }),
+      ),
+    ).toThrow(/休暇の開始年月/);
+  });
+
+  it("休暇で継続中でなく終了年月が空ならエラー", () => {
+    expect(() =>
+      buildCareerPayload(
+        baseState({
+          experiences: [
+            blankExperience({
+              clients: [
+                blankClient({
+                  is_vacation: true,
+                  vacation_start_date: "2020-04",
+                  vacation_end_date: "",
+                  vacation_is_current: false,
+                }),
+              ],
+            }),
+          ],
+        }),
+      ),
+    ).toThrow(/休暇の終了年月/);
+  });
+
+  it("休暇で終了年月が開始年月より前ならエラー", () => {
+    expect(() =>
+      buildCareerPayload(
+        baseState({
+          experiences: [
+            blankExperience({
+              clients: [
+                blankClient({
+                  is_vacation: true,
+                  vacation_start_date: "2021-04",
+                  vacation_end_date: "2020-03",
+                }),
+              ],
+            }),
+          ],
+        }),
+      ),
+    ).toThrow(/開始日/);
+  });
+
+  it("中身が空の休暇エントリは除外される", () => {
+    const payload = buildCareerPayload(
+      baseState({
+        experiences: [blankExperience({ clients: [blankClient({ is_vacation: true })] })],
+      }),
+    );
+    expect(payload.experiences[0].clients).toEqual([]);
   });
 });
 

@@ -23,6 +23,9 @@ export const VALIDATION_MESSAGES = {
   SELF_PR_REQUIRED: "自己PRを入力してください。",
   EXPERIENCE_REQUIRED_FIELDS: "職務経歴は会社名、事業内容、開始年月を入力してください。",
   EXPERIENCE_END_DATE_REQUIRED: "職務経歴の離職年月を入力するか、在職を選択してください。",
+  EXPERIENCE_DESCRIPTION_REQUIRED: "非IT企業の職務経歴は詳細を入力してください。",
+  VACATION_START_DATE_REQUIRED: "休暇の開始年月を入力してください。",
+  VACATION_END_DATE_REQUIRED: "休暇の終了年月を入力するか、継続中を選択してください。",
   PROJECT_START_DATE_REQUIRED: "プロジェクトの開始年月を入力してください。",
   PROJECT_END_DATE_REQUIRED: "プロジェクトの終了年月を入力するか、参画中を選択してください。",
   DATE_RANGE_INVALID: "開始日は終了日より前に設定してください。",
@@ -66,6 +69,8 @@ export const UI_MESSAGES = {
   ERROR_BOUNDARY_TITLE: "予期しないエラーが発生しました",
   ERROR_BOUNDARY_BODY:
     "ページの表示中に問題が発生しました。再読み込みするか、ホームへ戻ってください。",
+  GITHUB_LINK_EMPTY:
+    "まだ連携データがありません。連携してアクティビティを可視化しましょう。",
 } as const;
 
 /** PDF 取り込み補助（PDF ビュー上の選択 → 流し込み）UI の文言 */

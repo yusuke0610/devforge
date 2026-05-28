@@ -33,6 +33,15 @@ const analysisCacheResult = http.get("*/api/github-link/cache", () =>
       detected_frameworks: { React: 3, FastAPI: 2 },
       detected_devtools: { Docker: 4, "GitHub Actions": 3 },
       detected_infras: { Terraform: 1 },
+      contribution_calendar: {
+        total_contributions: 123,
+        weeks: [
+          [
+            { date: "2025-01-06", count: 2, level: 1 },
+            { date: "2025-01-07", count: 8, level: 4 },
+          ],
+        ],
+      },
     },
   }),
 );
