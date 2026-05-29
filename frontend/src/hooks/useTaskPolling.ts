@@ -4,10 +4,12 @@ import { ApiError, type AppErrorState, toAppError } from "../utils/appError";
 
 interface TaskStatus {
   status: string;
-  error_message?: string;
-  error_code?: string;
-  error_id?: string;
-  retry_after?: number;
+  // backend の Pydantic schema は `str | None`（OpenAPI 生成型では `string | null`）。
+  // 生成型 TaskStatusResponse を checkStatus に渡せるよう null を許容する（ADR-0007 論点B）。
+  error_message?: string | null;
+  error_code?: string | null;
+  error_id?: string | null;
+  retry_after?: number | null;
 }
 
 interface UseTaskPollingOptions {

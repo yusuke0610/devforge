@@ -1,6 +1,6 @@
 import { request } from "./client";
 import { PATHS } from "./paths";
-import type { TaskStatusResponse } from "./shared";
+import type { TaskStatusResponse } from "./types";
 
 export interface TaskProgress {
   task_id: string;
