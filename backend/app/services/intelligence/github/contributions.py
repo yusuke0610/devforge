@@ -123,24 +123,43 @@ async def fetch_contribution_calendar(
         logger.warning("コントリビューションカレンダーが空 (username=%s)", username)
         return None
 
-    return _parse_calendar(calendar_raw)
+    try:
+        return _parse_calendar(calendar_raw)
+    except Exception as exc:
+        logger.warning(
+            "コントリビューションカレンダーの解析に失敗 (username=%s): %s",
+            username,
+            exc,
+        )
+        return None
 
 
 def _parse_calendar(calendar_raw: dict) -> ContributionCalendar:
-    """GraphQL の contributionCalendar を ``ContributionCalendar`` に変換する。"""
+    """GraphQL の contributionCalendar を ``ContributionCalendar`` に変換する。
+
+    不正な day エントリ（date 欠落・型不一致など）は黙って読み飛ばし、
+    解析全体を巻き添えにしない（補助処理として best-effort で変換する）。
+    """
     weeks: list[list[ContributionDay]] = []
     for week in calendar_raw.get("weeks", []):
-        days = [
-            ContributionDay(
-                date=day["date"],
-                count=day.get("contributionCount", 0),
-                level=_LEVEL_MAP.get(day.get("contributionLevel", "NONE"), 0),
+        days: list[ContributionDay] = []
+        for day in week.get("contributionDays", []):
+            date = day.get("date")
+            if not isinstance(date, str) or not date:
+                # date 欠落・型不一致の day はスキップ
+                continue
+            count = day.get("contributionCount", 0)
+            days.append(
+                ContributionDay(
+                    date=date,
+                    count=count if isinstance(count, int) else 0,
+                    level=_LEVEL_MAP.get(day.get("contributionLevel", "NONE"), 0),
+                )
             )
-            for day in week.get("contributionDays", [])
-        ]
         weeks.append(days)
 
+    total = calendar_raw.get("totalContributions", 0)
     return ContributionCalendar(
-        total_contributions=calendar_raw.get("totalContributions", 0),
+        total_contributions=total if isinstance(total, int) else 0,
         weeks=weeks,
     )

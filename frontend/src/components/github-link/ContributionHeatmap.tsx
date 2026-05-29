@@ -21,8 +21,10 @@ interface ContributionHeatmapProps {
 export function ContributionHeatmap({ calendar }: ContributionHeatmapProps) {
   /** 各週の先頭日から月ラベルを算出する（前の週から月が変わる週にのみ表示） */
   const monthLabels = useMemo(() => {
+    // "YYYY-MM-DD" は UTC 深夜として parse されるため、ローカル TZ で月がずれない
+    // よう getUTCMonth() で月を取り出す（負オフセット TZ での月境界ずれを防ぐ）
     const monthOf = (week: ContributionDay[]) =>
-      week[0] ? new Date(week[0].date).getMonth() : -1;
+      week[0] ? new Date(week[0].date).getUTCMonth() : -1;
     return calendar.weeks.map((week, i) => {
       const month = monthOf(week);
       if (month < 0) return "";

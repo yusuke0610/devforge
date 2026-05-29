@@ -60,22 +60,9 @@ GitHub活動分析、ブログ連携による発信力を集計
 
 ## クイックスタート
 
-詳細手順は [docs/development.md](./docs/development.md) を参照。
-
-```bash
-nix develop          # devshell に入る（direnv 利用時は自動）
-make setup           # git hooks + backend (.venv + uv) + frontend (npm ci)
-make generate-keys   # JWT RS256 鍵ペアを生成
-cp backend/.env.example backend/.env
-
-make dev             # docker compose up（FastAPI + Ollama + Redis + libSQL）
-```
-
-CI 相当を一括で走らせる:
-
-```bash
-make ci              # lint + test + build-frontend
-```
+初回セットアップ（`nix develop` / `make setup` / `make generate-keys` / `make dev`）と
+CI 相当の一括実行（`make ci`）の手順は [docs/development.md](./docs/development.md) を正本として参照してください。
+README にコマンドを再掲すると docs と二重管理になり同期漏れの原因になるため、リンクのみとしています。
 
 ## システム構成図
 
