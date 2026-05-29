@@ -249,6 +249,10 @@ jobs:
             libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
             libglib2.0-0 libgobject-2.0-0 libffi-dev libcairo2
 
+      - name: Create virtualenv
+        working-directory: backend
+        run: uv venv
+
       - name: Install backend dependencies
         working-directory: backend
         run: uv pip install -r requirements.txt
