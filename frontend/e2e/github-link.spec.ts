@@ -181,7 +181,39 @@ test.describe("GitHub 連携 - 検出フレームワーク表示", () => {
     ).toBeVisible();
   });
 
-  test("サイドバーの GitHub連携 クリックで連携が実行されポーリング表示になる", async ({
+  test("サイドバーの GitHub連携 クリックは画面遷移のみで連携を実行しない", async ({
+    page,
+  }) => {
+    let runCalled = false;
+    await page.route("**/api/github-link/cache", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ result: null, status: null }),
+      }),
+    );
+    await page.route("**/api/github-link/run", (route) => {
+      runCalled = true;
+      return route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({ status: "pending" }),
+      });
+    });
+
+    // 別ページから GitHub連携 リンクで遷移する
+    await page.goto("/career");
+    await waitForAuthenticatedLayout(page);
+
+    await page.getByRole("link", { name: "GitHub連携", exact: true }).click();
+
+    // キャッシュ（空状態）が表示され、連携 API は呼ばれない
+    await expect(page).toHaveURL(/\/github_link/);
+    await expect(page.getByText(/まだ連携データがありません/)).toBeVisible();
+    expect(runCalled).toBe(false);
+  });
+
+  test("サブパネルの「連携実行」ボタンで連携が実行されポーリング表示になる", async ({
     page,
   }) => {
     await page.route("**/api/github-link/cache", (route) =>
@@ -209,9 +241,9 @@ test.describe("GitHub 連携 - 検出フレームワーク表示", () => {
     await page.goto("/github_link");
     await waitForAuthenticatedLayout(page);
 
-    await page
-      .getByRole("button", { name: "GitHub連携", exact: true })
-      .click();
+    // ▼ でサブパネルを開き、「連携実行」ボタンを押すと連携が走る
+    await page.getByRole("button", { name: "GitHub連携オプション" }).click();
+    await page.getByRole("button", { name: "連携実行" }).click();
 
     await expect(
       page.getByText("GitHubプロフィールを取得中..."),

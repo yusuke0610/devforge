@@ -16,9 +16,9 @@ test.describe("認証済みユーザーのナビゲーション", () => {
 
     await expect(page.getByText("DevForge")).toBeVisible();
     await expect(page.getByRole("link", { name: "職務経歴書" })).toBeVisible();
-    // GitHub連携 は連携トリガーを兼ねるためボタン
+    // GitHub連携 は画面遷移に徹するためリンク（連携実行はサブパネルのボタン）
     await expect(
-      page.getByRole("button", { name: "GitHub連携", exact: true }),
+      page.getByRole("link", { name: "GitHub連携", exact: true }),
     ).toBeVisible();
     await expect(page.getByRole("link", { name: "ブログ連携" })).toBeVisible();
   });
