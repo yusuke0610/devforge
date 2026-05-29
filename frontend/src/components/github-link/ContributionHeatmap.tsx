@@ -19,25 +19,28 @@ interface ContributionHeatmapProps {
  * 年間コントリビュート数と最大連続日数のサマリーも表示する。
  */
 export function ContributionHeatmap({ calendar }: ContributionHeatmapProps) {
+  // weeks は OpenAPI 生成型では optional（backend の default_factory 由来）。null 合体で安定参照にする。
+  const weeks = useMemo(() => calendar.weeks ?? [], [calendar.weeks]);
+
   /** 各週の先頭日から月ラベルを算出する（前の週から月が変わる週にのみ表示） */
   const monthLabels = useMemo(() => {
     // "YYYY-MM-DD" は UTC 深夜として parse されるため、ローカル TZ で月がずれない
     // よう getUTCMonth() で月を取り出す（負オフセット TZ での月境界ずれを防ぐ）
     const monthOf = (week: ContributionDay[]) =>
       week[0] ? new Date(week[0].date).getUTCMonth() : -1;
-    return calendar.weeks.map((week, i) => {
+    return weeks.map((week, i) => {
       const month = monthOf(week);
       if (month < 0) return "";
-      const prevMonth = i > 0 ? monthOf(calendar.weeks[i - 1]) : -1;
+      const prevMonth = i > 0 ? monthOf(weeks[i - 1]) : -1;
       return month !== prevMonth ? MONTH_NAMES[month] : "";
     });
-  }, [calendar.weeks]);
+  }, [weeks]);
 
   /** 連続コントリビュート日数の最大値を算出する */
   const longestStreak = useMemo(() => {
     let longest = 0;
     let current = 0;
-    for (const day of calendar.weeks.flat()) {
+    for (const day of weeks.flat()) {
       if (day.count > 0) {
         current += 1;
         longest = Math.max(longest, current);
@@ -46,7 +49,7 @@ export function ContributionHeatmap({ calendar }: ContributionHeatmapProps) {
       }
     }
     return longest;
-  }, [calendar.weeks]);
+  }, [weeks]);
 
   return (
     <div className={styles.container}>
@@ -74,7 +77,7 @@ export function ContributionHeatmap({ calendar }: ContributionHeatmapProps) {
           ))}
         </div>
         <div className={styles.grid}>
-          {calendar.weeks.map((week, wi) => (
+          {weeks.map((week, wi) => (
             <div key={wi} className={styles.weekCol}>
               {week.map((day) => (
                 <span

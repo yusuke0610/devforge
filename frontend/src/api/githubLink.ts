@@ -1,67 +1,26 @@
 import { request } from "./client";
 import { PATHS } from "./paths";
-import type { TaskStatusResponse } from "./types";
+import type {
+  CachedGitHubLinkResponse,
+  ProgressResponse,
+  TaskAcceptedResponse,
+  TaskStatusResponse,
+} from "./types";
 
-export interface TaskProgress {
-  task_id: string;
-  step_index: number;
-  total_steps: number;
-  step_label: string | null;
-  sub_progress: { done: number; total: number } | null;
-}
-
+/**
+ * GitHub 連携の開始リクエスト body。
+ * backend `schemas/github_link.py:GitHubLinkRequest` 相当だが、呼び出し側で
+ * 省略可能にするため include_forks を optional にした手書きの request 型（ADR-0007 論点A）。
+ */
 export interface GitHubLinkPayload {
   include_forks?: boolean;
-}
-
-/** コントリビューションカレンダーの 1 日分 */
-export interface ContributionDay {
-  /** ISO 8601 形式の日付 (YYYY-MM-DD) */
-  date: string;
-  /** その日のコントリビューション数 */
-  count: number;
-  /** GitHub の濃淡レベル (0–4) */
-  level: number;
-}
-
-/** 直近1年のコントリビューションカレンダー（GitHub の緑の四角） */
-export interface ContributionCalendar {
-  /** 期間内のコントリビューション総数 */
-  total_contributions: number;
-  /** 週ごとの日配列（列=週、各週は最大7日） */
-  weeks: ContributionDay[][];
-}
-
-export interface GitHubLinkResponse {
-  username: string;
-  repos_analyzed: number;
-  unique_skills: number;
-  analyzed_at: string;
-  languages: Record<string, number>;
-  /** 依存関係から検出したフレームワーク名 → 使用リポジトリ数 */
-  detected_frameworks: Record<string, number>;
-  /** ルートファイルから検出した DevTools 名 → 使用リポジトリ数 */
-  detected_devtools: Record<string, number>;
-  /** ルートファイルから検出したインフラツール名 → 使用リポジトリ数 */
-  detected_infras: Record<string, number>;
-  /** 直近1年のコントリビューションカレンダー（取得失敗時は null） */
-  contribution_calendar?: ContributionCalendar | null;
-}
-
-export interface CachedGitHubLinkResponse {
-  result: GitHubLinkResponse | null;
-  status?: string;
-  error_message?: string;
-  error_code?: string;
-  /** 連携自体は完了したが部分的に欠落した場合の警告 */
-  warning_message?: string;
 }
 
 /**
  * GitHub 連携を開始します（202 非同期）。
  */
-export function runGitHubLink(payload: GitHubLinkPayload): Promise<{ status: string }> {
-  return request<{ status: string }>(PATHS.githubLink.run, {
+export function runGitHubLink(payload: GitHubLinkPayload): Promise<TaskAcceptedResponse> {
+  return request<TaskAcceptedResponse>(PATHS.githubLink.run, {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -85,8 +44,8 @@ export function getGitHubLinkCacheStatus(): Promise<TaskStatusResponse> {
  * GitHub 連携タスクの進捗を取得します。
  * Redis が利用できない場合は step_index=0 のデフォルト値が返ります。
  */
-export function getGitHubLinkProgress(): Promise<TaskProgress> {
-  return request<TaskProgress>(PATHS.githubLink.progress);
+export function getGitHubLinkProgress(): Promise<ProgressResponse> {
+  return request<ProgressResponse>(PATHS.githubLink.progress);
 }
 
 /**
@@ -94,8 +53,8 @@ export function getGitHubLinkProgress(): Promise<TaskProgress> {
  */
 export function retryGitHubLink(
   payload: GitHubLinkPayload = {},
-): Promise<{ status: string }> {
-  return request<{ status: string }>(PATHS.githubLink.runRetry, {
+): Promise<TaskAcceptedResponse> {
+  return request<TaskAcceptedResponse>(PATHS.githubLink.runRetry, {
     method: "POST",
     body: JSON.stringify(payload),
   });

@@ -809,8 +809,7 @@ export interface components {
             error_code?: string | null;
             /** Error Message */
             error_message?: string | null;
-            /** Result */
-            result?: Record<string, never> | null;
+            result?: components["schemas"]["GitHubLinkResponse"] | null;
             /** Status */
             status?: string | null;
             /** Warning Message */
@@ -907,6 +906,43 @@ export interface components {
              * @default
              */
             vacation_start_date: string;
+        };
+        /**
+         * ContributionCalendar
+         * @description 直近1年のコントリビューションカレンダー（GitHub の緑の四角）。
+         */
+        ContributionCalendar: {
+            /**
+             * Total Contributions
+             * @description 期間内のコントリビューション総数
+             */
+            total_contributions: number;
+            /**
+             * Weeks
+             * @description 週ごとの日配列（列=週、各週は最大7日）
+             */
+            weeks?: components["schemas"]["ContributionDay"][][];
+        };
+        /**
+         * ContributionDay
+         * @description コントリビューションカレンダーの 1 日分。
+         */
+        ContributionDay: {
+            /**
+             * Count
+             * @description その日のコントリビューション数
+             */
+            count: number;
+            /**
+             * Date
+             * @description ISO 8601 形式の日付 (YYYY-MM-DD)
+             */
+            date: string;
+            /**
+             * Level
+             * @description GitHub の濃淡レベル (0–4)
+             */
+            level: number;
         };
         /** Experience */
         "Experience-Input": {
@@ -1023,6 +1059,47 @@ export interface components {
              * @default false
              */
             include_forks: boolean;
+        };
+        /** GitHubLinkResponse */
+        GitHubLinkResponse: {
+            /** Analyzed At */
+            analyzed_at: string;
+            /** @description 直近1年のコントリビューションカレンダー（取得失敗時は None） */
+            contribution_calendar?: components["schemas"]["ContributionCalendar"] | null;
+            /**
+             * Detected Devtools
+             * @description ルートファイルから検出した DevTools 名 → 使用リポジトリ数
+             */
+            detected_devtools?: {
+                [key: string]: number;
+            };
+            /**
+             * Detected Frameworks
+             * @description 依存関係から検出したフレームワーク名 → 使用リポジトリ数
+             */
+            detected_frameworks?: {
+                [key: string]: number;
+            };
+            /**
+             * Detected Infras
+             * @description ルートファイルから検出したインフラツール名 → 使用リポジトリ数
+             */
+            detected_infras?: {
+                [key: string]: number;
+            };
+            /**
+             * Languages
+             * @description 言語ごとのバイト数（GitHub linguist ベース）
+             */
+            languages?: {
+                [key: string]: number;
+            };
+            /** Repos Analyzed */
+            repos_analyzed: number;
+            /** Unique Skills */
+            unique_skills: number;
+            /** Username */
+            username: string;
         };
         /**
          * GitHubLoginUrlResponse

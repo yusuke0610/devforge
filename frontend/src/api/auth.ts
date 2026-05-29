@@ -1,10 +1,9 @@
 import { FALLBACK_MESSAGES } from "../constants/messages";
 import { API_BASE_URL, request } from "./client";
 import { PATHS } from "./paths";
+import type { GitHubLoginUrlResponse, TokenResponse } from "./types";
 
-type AuthResponse = { username: string; is_github_user: boolean };
-
-export async function getCurrentUser(): Promise<AuthResponse | null> {
+export async function getCurrentUser(): Promise<TokenResponse | null> {
   const response = await fetch(`${API_BASE_URL}${PATHS.auth.me}`, {
     credentials: "include",
   });
@@ -14,11 +13,11 @@ export async function getCurrentUser(): Promise<AuthResponse | null> {
   if (!response.ok) {
     throw new Error(FALLBACK_MESSAGES.AUTH_CHECK);
   }
-  return (await response.json()) as AuthResponse;
+  return (await response.json()) as TokenResponse;
 }
 
-export async function handleGitHubCallback(code: string, state: string): Promise<AuthResponse> {
-  return request<AuthResponse>(PATHS.auth.githubCallback, {
+export async function handleGitHubCallback(code: string, state: string): Promise<TokenResponse> {
+  return request<TokenResponse>(PATHS.auth.githubCallback, {
     method: "POST",
     body: JSON.stringify({ code, state }),
   });
@@ -36,7 +35,7 @@ export async function initiateGitHubLogin(returnTo: string): Promise<void> {
     credentials: "include",
   });
   if (!response.ok) throw new Error(FALLBACK_MESSAGES.GITHUB_OAUTH_START);
-  const data = (await response.json()) as { authorization_url: string; state: string };
+  const data = (await response.json()) as GitHubLoginUrlResponse;
   // CSRF 検証用に state を sessionStorage へ保存する（コールバックで照合）
   sessionStorage.setItem(GITHUB_OAUTH_STATE_STORAGE_KEY, data.state);
   window.location.assign(data.authorization_url);

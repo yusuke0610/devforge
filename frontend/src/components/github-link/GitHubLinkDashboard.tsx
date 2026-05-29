@@ -41,7 +41,8 @@ export function GitHubLinkDashboard() {
     useAsyncTaskPage<GitHubLinkResponse>({
       loadCache: async () => {
         const cache = await getGitHubLinkCache();
-        return { result: cache.result, status: cache.status };
+        // result は生成型では optional（`GitHubLinkResponse | null | undefined`）のため null に正規化する。
+        return { result: cache.result ?? null, status: cache.status };
       },
       checkStatus: getGitHubLinkCacheStatus,
       fetchProgress: getGitHubLinkProgress,
