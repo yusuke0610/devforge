@@ -11,6 +11,9 @@ ADR-0007（OpenAPI → TypeScript 型コード生成）のパイプライン Pha
 注意:
 - `app.main` を import するだけで FastAPI app は構築される（lifespan の bootstrap は実行されない）。
 - ENVIRONMENT 未設定時は local 扱いとなり、INTERNAL_SECRET 等の必須チェックは走らない。
+- `app.db.database` は import 時に `build_sqlalchemy_database_url()` を評価するため
+  TURSO_DATABASE_URL が必須。OpenAPI 出力では DB 接続しない（URL を組み立てて engine を
+  作るだけで connect しない）ので、未設定時はダミーの sqlite URL を充てて import を通す。
 - diff の安定化のため `sort_keys=True` で出力する（openapi-typescript はキー順に依存しない）。
 """
 
@@ -19,15 +22,20 @@ import os
 import sys
 from pathlib import Path
 
-# import 時の設定チェックを避けるため、未設定なら local 環境として扱う。
-os.environ.setdefault("ENVIRONMENT", "local")
-
 # scripts/ から見たプロジェクトルート（backend/）配下に openapi.json を出力する。
+# `app` パッケージ解決を cwd に依存させないため、env_keys の import より前に path を通す。
 _BACKEND_DIR = Path(__file__).resolve().parent.parent
 _DEFAULT_OUTPUT = _BACKEND_DIR / "openapi.json"
-
-# backend ディレクトリを import パスに追加し、`app.main` を解決可能にする。
 sys.path.insert(0, str(_BACKEND_DIR))
+
+from app.core import env_keys  # noqa: E402
+
+# import 時の設定チェックを避けるため、未設定なら local 環境として扱う。
+os.environ.setdefault(env_keys.ENVIRONMENT, "local")
+
+# `app.db.database` の import 時に URL 構築が走る。OpenAPI 出力は DB へ接続しないため、
+# CI など TURSO_DATABASE_URL 未設定の環境では接続されないダミー sqlite URL を充てる。
+os.environ.setdefault(env_keys.TURSO_DATABASE_URL, "file:openapi-export-dummy.sqlite")
 
 
 def main() -> None:
