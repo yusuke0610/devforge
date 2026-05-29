@@ -1,6 +1,6 @@
 """GitHub 連携 API 用の Pydantic スキーマ。"""
 
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from pydantic import BaseModel, Field
 
@@ -63,7 +63,9 @@ class GitHubLinkResponse(BaseModel):
 class CachedGitHubLinkResponse(BaseModel):
     """DB に保存された連携結果を返す。"""
 
-    result: Optional[Dict[str, Any]] = None
+    # cache.result は GitHubLinkResponse(...).model_dump() を保存したものなので、
+    # 型を絞って OpenAPI に GitHubLinkResponse / Contribution* を出力させる（ADR-0007 Phase 2）。
+    result: Optional[GitHubLinkResponse] = None
     status: Optional[str] = None
     error_message: Optional[str] = None
     error_code: Optional[str] = None

@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { useTaskPolling } from "./useTaskPolling";
 import type { AppErrorState } from "../utils/appError";
 import { isInProgressStatus } from "../utils/taskStatus";
-import type { TaskProgress } from "../api/githubLink";
+import type { ProgressResponse } from "../api/types";
 
 /** 非同期タスクページのフェーズ型 */
 export type AsyncTaskPhase = "loading-cache" | "input" | "polling" | "result";
@@ -28,7 +28,8 @@ export type UseAsyncTaskPageOptions<TResult> = {
    */
   loadCache: () => Promise<{
     result: TResult | null;
-    status?: string;
+    // status は backend schema が `str | None`（生成型では `string | null`）のため null を許容する（ADR-0007 論点B）。
+    status?: string | null;
   }>;
   /**
    * タスクステータス取得関数（ポーリング用）。
@@ -44,7 +45,7 @@ export type UseAsyncTaskPageOptions<TResult> = {
    * 指定した場合、ポーリングのたびに並走して呼ばれる。
    * 失敗してもポーリング本体には影響しない。
    */
-  fetchProgress?: () => Promise<TaskProgress>;
+  fetchProgress?: () => Promise<ProgressResponse>;
 };
 
 /** useAsyncTaskPage の戻り値型 */
@@ -78,7 +79,7 @@ type UseAsyncTaskPageReturn<TResult> = {
   /**
    * 現在の進捗情報。fetchProgress が未指定または取得失敗時は null。
    */
-  progress: TaskProgress | null;
+  progress: ProgressResponse | null;
 };
 
 /**
@@ -97,7 +98,7 @@ export function useAsyncTaskPage<TResult>({
   const [phase, setPhase] = useState<AsyncTaskPhase>("loading-cache");
   const [result, setResult] = useState<TResult | null>(null);
   const [error, setError] = useState<AppErrorState | null>(null);
-  const [progress, setProgress] = useState<TaskProgress | null>(null);
+  const [progress, setProgress] = useState<ProgressResponse | null>(null);
 
   /**
    * checkStatus を、進捗取得を並走させるラッパーに差し替える。
