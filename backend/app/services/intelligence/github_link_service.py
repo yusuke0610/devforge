@@ -124,8 +124,11 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
         cache.status = "completed"
         cache.error_message = None
         # コントリビューション取得失敗は連携自体を失敗させず警告として残す
+        # （token が無い場合は取得を試行していないため警告は出さない）
         cache.warning_message = (
-            get_error("github_link.contribution_fetch_failed") if calendar is None else None
+            get_error("github_link.contribution_fetch_failed")
+            if token and calendar is None
+            else None
         )
         cache.completed_at = _now()
         db.commit()
