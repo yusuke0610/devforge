@@ -1,0 +1,2 @@
+# openapi-typescript の自動生成物（手編集禁止 / フォーマット対象外）。ADR-0007 参照。
+src/api/generated.ts

@@ -50,6 +50,7 @@
     "http-proxy-middleware": "^3.0.5",
     "jsdom": "^29.0.1",
     "msw": "^2.13.2",
+    "openapi-typescript": "^7.13.0",
     "playwright": "^1.56.0",
     "prettier": "^3.8.1",
     "typescript": "^5.7.2",

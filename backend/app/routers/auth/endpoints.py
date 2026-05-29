@@ -22,7 +22,7 @@ from ...core.security.dependencies import limiter
 from ...core.settings import get_callback_base_url
 from ...db import get_db
 from ...repositories import UserRepository
-from ...schemas import GitHubCallbackRequest, TokenResponse
+from ...schemas import GitHubCallbackRequest, GitHubLoginUrlResponse, TokenResponse
 from .github_auth import authenticate_github_user
 from .oauth_flow import (
     begin_github_oauth,
@@ -142,19 +142,19 @@ def me(request: Request, current_user=Depends(get_current_user)) -> TokenRespons
     )
 
 
-@router.get("/github/login-url")
+@router.get("/github/login-url", response_model=GitHubLoginUrlResponse)
 @limiter.limit("10/minute")
 def github_login_url(
     request: Request,
     return_to: str | None = None,
-) -> dict[str, str]:
+) -> GitHubLoginUrlResponse:
     """GitHub OAuth 認可 URL と state を返す。
 
     state はフロントが sessionStorage に保持し、コールバック時に CSRF 検証する。
     """
     frontend_url = resolve_frontend_url_from_request(request, return_to)
     authorization_url, state = begin_github_oauth(request, frontend_url)
-    return {"authorization_url": authorization_url, "state": state}
+    return GitHubLoginUrlResponse(authorization_url=authorization_url, state=state)
 
 
 @router.get("/github/login")

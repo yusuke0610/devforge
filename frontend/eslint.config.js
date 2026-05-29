@@ -5,7 +5,9 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import eslintConfigPrettier from "eslint-config-prettier";
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  // src/api/generated.ts は openapi-typescript の自動生成物（手編集禁止）。
+  // lint 対象に含めると生成スタイルと衝突するため除外する（ADR-0007）。
+  { ignores: ["dist", "src/api/generated.ts"] },
   {
     files: ["src/**/*.{ts,tsx}"],
     extends: [

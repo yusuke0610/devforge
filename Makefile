@@ -7,7 +7,7 @@
 	ci \
 	dupe-check dupe-check-html dupe-clean \
 	build-frontend build-backend deploy-frontend \
-	gen-redirects \
+	gen-redirects codegen-types \
 	migrate migrate-create \
 	infra-fmt infra-fmt-check infra-validate-dev infra-validate-stg infra-validate-prod infra-validate \
 	clean
@@ -53,6 +53,7 @@ help:
 	@echo "  build-backend     Docker イメージビルド"
 	@echo "  deploy-frontend   Cloudflare Pages へビルド＆デプロイ (CLOUD_RUN_URL=... 指定可)"
 	@echo "  gen-redirects     Cloudflare Pages 用 _redirects を生成 (CLOUD_RUN_URL=... 指定可)"
+	@echo "  codegen-types     OpenAPI から frontend 型 (src/api/generated.ts) を再生成 (ADR-0007)"
 	@echo ""
 	@echo "マイグレーション"
 	@echo "  migrate           alembic upgrade head"
@@ -180,6 +181,17 @@ deploy-frontend:
 
 gen-redirects:
 	nix develop --command bash -c "cd frontend && CLOUD_RUN_URL='$(CLOUD_RUN_URL)' node scripts/gen-redirects.mjs"
+
+# ------------------------------------------------------------------ #
+# OpenAPI 型コード生成 (ADR-0007)
+# ------------------------------------------------------------------ #
+
+# backend の FastAPI OpenAPI スキーマから frontend の型定義を生成する。
+# export_openapi.py で backend/openapi.json を出力し、gen-types.mjs で
+# frontend/src/api/generated.ts を再生成する。backend app の import に
+# WeasyPrint 等のネイティブ依存解決が必要なため Nix devshell 経由で実行する。
+codegen-types:
+	nix develop --command bash -c "set -e; cd backend && .venv/bin/python scripts/export_openapi.py && cd ../frontend && node scripts/gen-types.mjs"
 
 # ------------------------------------------------------------------ #
 # マイグレーション

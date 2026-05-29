@@ -16,3 +16,13 @@ class UserResponse(BaseModel):
 class GitHubCallbackRequest(BaseModel):
     code: str = Field(min_length=1)
     state: str = Field(min_length=1)
+
+
+class GitHubLoginUrlResponse(BaseModel):
+    """GitHub OAuth 認可 URL と CSRF 検証用 state を返すレスポンス。
+
+    state はフロントが sessionStorage に保持し、コールバック時に CSRF 検証する。
+    """
+
+    authorization_url: str
+    state: str

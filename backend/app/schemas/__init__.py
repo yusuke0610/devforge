@@ -1,6 +1,6 @@
 """Pydantic スキーマ。"""
 
-from .auth import GitHubCallbackRequest, TokenResponse, UserResponse
+from .auth import GitHubCallbackRequest, GitHubLoginUrlResponse, TokenResponse, UserResponse
 from .blog import (
     BlogAccountCreate,
     BlogAccountResponse,
@@ -50,6 +50,7 @@ __all__ = [
     "Experience",
     "GitHubCallbackRequest",
     "GitHubLinkRequest",
+    "GitHubLoginUrlResponse",
     "GitHubLinkResponse",
     "MasterItem",
     "MasterItemCreate",
