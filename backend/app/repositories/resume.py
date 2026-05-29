@@ -77,6 +77,9 @@ class ResumeRepository(SingleUserDocumentRepository):
             is_current=payload.get("is_current", False),
             employee_count=payload.get("employee_count", ""),
             capital=payload.get("capital", ""),
+            capital_unit=payload.get("capital_unit", "千万円"),
+            is_it_company=payload.get("is_it_company", True),
+            description=payload.get("description", ""),
             client_rows=[
                 self._build_client_row(client_index, client)
                 for client_index, client in enumerate(payload.get("clients", []))
@@ -86,10 +89,17 @@ class ResumeRepository(SingleUserDocumentRepository):
     def _build_client_row(self, index: int, payload: dict[str, object]) -> ResumeClient:
         projects = list(payload.get("projects", []))
         sorted_projects = sorted(projects, key=self._project_sort_key)
+        vacation_start = payload.get("vacation_start_date") or ""
+        vacation_end = payload.get("vacation_end_date") or ""
         return ResumeClient(
             sort_order=index,
             name=payload.get("name", ""),
             has_client=payload.get("has_client", True),
+            is_vacation=payload.get("is_vacation", False),
+            vacation_start_date_value=parse_year_month(vacation_start) if vacation_start else None,
+            vacation_end_date_value=parse_year_month(vacation_end) if vacation_end else None,
+            vacation_is_current=payload.get("vacation_is_current", False),
+            vacation_description=payload.get("vacation_description", ""),
             project_rows=[
                 self._build_project_row(project_index, project)
                 for project_index, project in enumerate(sorted_projects)

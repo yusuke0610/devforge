@@ -17,6 +17,7 @@ Cloud: /internal/tasks/{type} エンドポイント経由で呼ばれる（Cloud
 """
 
 import time
+from collections.abc import Callable
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
@@ -104,12 +105,7 @@ async def execute_task(
                 duration_ms,
                 extra={"task_id": task_type.value, "user_id": user_id, "duration_ms": duration_ms},
             )
-        if isinstance(user_id, str) and user_id != "unknown":
-            db = SessionLocal()
-            try:
-                _create_notification(db, task_type, user_id, "completed")
-            finally:
-                _safe_close(db)
+        _finalize_completed(task_type, user_id)
     except NonRetryableError as exc:
         duration_ms = _monotonic_ms_since(start)
         logger.warning(
@@ -125,13 +121,7 @@ async def execute_task(
             },
             exc_info=True,
         )
-        db = SessionLocal()
-        try:
-            _mark_dead_letter(db, task_type, payload, error=exc)
-            if isinstance(user_id, str) and user_id != "unknown":
-                _create_notification(db, task_type, user_id, "failed")
-        finally:
-            _safe_close(db)
+        _finalize_dead_letter(task_type, payload, user_id, error=exc)
         raise
     except Exception as exc:
         duration_ms = _monotonic_ms_since(start)
@@ -151,13 +141,7 @@ async def execute_task(
                 },
                 exc_info=True,
             )
-            db = SessionLocal()
-            try:
-                _mark_dead_letter(db, task_type, payload, error=exc)
-                if isinstance(user_id, str) and user_id != "unknown":
-                    _create_notification(db, task_type, user_id, "failed")
-            finally:
-                _safe_close(db)
+            _finalize_dead_letter(task_type, payload, user_id, error=exc)
         else:
             logger.warning(
                 "タスク失敗（リトライ予定）",
@@ -173,11 +157,7 @@ async def execute_task(
                 },
                 exc_info=True,
             )
-            db = SessionLocal()
-            try:
-                _mark_retrying(db, task_type, payload, retry_count, max_attempts, error=exc)
-            finally:
-                _safe_close(db)
+            _finalize_retrying(task_type, payload, retry_count, max_attempts, error=exc)
         raise
 
 
@@ -191,6 +171,64 @@ def _safe_close(db: Session) -> None:
         db.close()
     except Exception:
         logger.warning("セッションのクローズに失敗しました", exc_info=True)
+
+
+# ---------- 終端処理（独立した新規セッションで実行）----------
+# 状態遷移更新・通知は、ハンドラ側セッションが失効していても終端ステータスを確実に
+# 永続化するため、常に新規セッションで実行する（libSQL Hrana 失効対策）。
+
+
+def _run_in_new_session(work: Callable[[Session], None]) -> None:
+    """新規セッションを開いて ``work`` を実行し、必ず close する。
+
+    成功通知・dead_letter・retrying の各終端処理で共通する
+    「新規セッション開閉」のみを担う。挙動は分岐ごとに ``work`` で渡す。
+    """
+    db = SessionLocal()
+    try:
+        work(db)
+    finally:
+        _safe_close(db)
+
+
+def _notify_if_real_user(db: Session, task_type: TaskType, user_id, status: str) -> None:
+    """実ユーザー（``user_id`` が ``"unknown"`` でない文字列）のときだけ通知を作成する。"""
+    if isinstance(user_id, str) and user_id != "unknown":
+        _create_notification(db, task_type, user_id, status)
+
+
+def _finalize_completed(task_type: TaskType, user_id) -> None:
+    """タスク成功時の通知を作成する。実ユーザーでなければ何もしない。"""
+    if not (isinstance(user_id, str) and user_id != "unknown"):
+        return
+    _run_in_new_session(lambda db: _create_notification(db, task_type, user_id, "completed"))
+
+
+def _finalize_dead_letter(
+    task_type: TaskType, payload: dict, user_id, *, error: Exception
+) -> None:
+    """終端ステータス（dead_letter）への更新と失敗通知を行う。
+
+    ``_mark_dead_letter`` は DB エラーを握りつぶす（rollback しない）ため、commit 失敗時に
+    セッションが失効状態のまま残りうる。通知作成が汚染セッションを再利用しないよう、
+    状態更新と通知はそれぞれ独立した新規セッションで実行する。
+    """
+    _run_in_new_session(lambda db: _mark_dead_letter(db, task_type, payload, error=error))
+    _run_in_new_session(lambda db: _notify_if_real_user(db, task_type, user_id, "failed"))
+
+
+def _finalize_retrying(
+    task_type: TaskType,
+    payload: dict,
+    retry_count: int,
+    max_attempts: int,
+    *,
+    error: Exception,
+) -> None:
+    """リトライ待ち状態（retrying）への更新を行う（通知は出さない）。"""
+    _run_in_new_session(
+        lambda db: _mark_retrying(db, task_type, payload, retry_count, max_attempts, error=error)
+    )
 
 
 # ---------- ハンドラ薄ラッパー（後方互換）----------

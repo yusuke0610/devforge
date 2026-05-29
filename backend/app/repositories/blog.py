@@ -87,6 +87,7 @@ class BlogArticleRepository:
         return list(self.db.scalars(statement).all())
 
     def upsert_many(self, articles: list[dict]) -> int:
+        """複数アカウントにまたがる記事を追加・更新する（既存の削除は行わない）。"""
         normalized_articles = [self._normalize_article(article) for article in articles]
         if not normalized_articles:
             return 0
@@ -102,9 +103,49 @@ class BlogArticleRepository:
             .options(selectinload(BlogArticle.tag_rows))
         )
         existing_articles = list(self.db.scalars(existing_statement).all())
+        return self._merge(normalized_articles, existing_articles, delete_missing=False)
+
+    def sync_many(self, account_id: str, articles: list[dict]) -> int:
+        """単一アカウントの記事を全置換する（incoming に無い既存記事は削除する）。"""
+        # 新規エンティティ生成と key 突合のため、各記事へ account_id を確実に付与する。
+        normalized_articles = [
+            self._normalize_article({**article, "account_id": account_id}) for article in articles
+        ]
+
+        existing_statement = (
+            select(BlogArticle)
+            .join(BlogArticle.account)
+            .where(BlogAccount.user_id == self.user_id)
+            .where(BlogArticle.account_id == account_id)
+            .options(selectinload(BlogArticle.tag_rows))
+        )
+        existing_articles = list(self.db.scalars(existing_statement).all())
+        return self._merge(normalized_articles, existing_articles, delete_missing=True)
+
+    def _merge(
+        self,
+        normalized_articles: list[dict[str, Any]],
+        existing_articles: list[BlogArticle],
+        *,
+        delete_missing: bool,
+    ) -> int:
+        """正規化済み記事を既存レコードへマージし、追加件数を返す。
+
+        key は ``(account_id, external_id)``。``delete_missing=True`` のとき、
+        incoming に存在しない既存記事を削除する（単一アカウントの全置換 sync 用）。
+        """
         existing_map = {
             (article.account_id, article.external_id): article for article in existing_articles
         }
+
+        if delete_missing:
+            incoming_keys = {
+                (article["account_id"], article["external_id"])
+                for article in normalized_articles
+            }
+            for key, article in list(existing_map.items()):
+                if key not in incoming_keys:
+                    self.db.delete(article)
 
         added = 0
         for article in normalized_articles:
@@ -118,40 +159,6 @@ class BlogArticleRepository:
             self._apply_article_payload(entity, article)
             self.db.add(entity)
             existing_map[key] = entity
-            added += 1
-
-        self.db.commit()
-        return added
-
-    def sync_many(self, account_id: str, articles: list[dict]) -> int:
-        normalized_articles = [self._normalize_article(article) for article in articles]
-
-        existing_statement = (
-            select(BlogArticle)
-            .join(BlogArticle.account)
-            .where(BlogAccount.user_id == self.user_id)
-            .where(BlogArticle.account_id == account_id)
-            .options(selectinload(BlogArticle.tag_rows))
-        )
-        existing_articles = list(self.db.scalars(existing_statement).all())
-        existing_map = {article.external_id: article for article in existing_articles}
-        incoming_external_ids = {article["external_id"] for article in normalized_articles}
-
-        for external_id, article in existing_map.items():
-            if external_id not in incoming_external_ids:
-                self.db.delete(article)
-
-        added = 0
-        for article in normalized_articles:
-            existing = existing_map.get(article["external_id"])
-            if existing:
-                self._apply_article_payload(existing, article)
-                continue
-
-            entity = BlogArticle(account_id=account_id)
-            self._apply_article_payload(entity, article)
-            self.db.add(entity)
-            existing_map[article["external_id"]] = entity
             added += 1
 
         self.db.commit()

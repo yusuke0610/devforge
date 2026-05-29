@@ -128,6 +128,24 @@ def _build_project_html(project) -> str:
     )
 
 
+def _build_vacation_html(client) -> str:
+    """休暇エントリ1件分のHTMLを組み立てる（期間 + 詳細）。"""
+    period = _format_period(
+        _a(client, "vacation_start_date"),
+        _a(client, "vacation_end_date", ""),
+        _a(client, "vacation_is_current", False),
+    )
+    header = f"休暇　{_esc(period)}" if period else "休暇"
+    description = _a(client, "vacation_description")
+    body = _md(description) if description else "-"
+    return (
+        f'<div class="vacation">'
+        f'<div class="vacation-header">{header}</div>'
+        f'<div class="vacation-body">{body}</div>'
+        f"</div>"
+    )
+
+
 def _build_html(resume: dict) -> str:
     """職務経歴書データからHTML文字列を組み立てる"""
     parts: list[str] = []
@@ -171,7 +189,8 @@ def _build_html(resume: dict) -> str:
             )
             capital_raw = _a(exp, "capital")
             emp_raw = _a(exp, "employee_count")
-            capital = f"{_esc(capital_raw)}千万円" if capital_raw else ""
+            capital_unit = _a(exp, "capital_unit", "千万円")
+            capital = f"{_esc(capital_raw)}{_esc(capital_unit)}" if capital_raw else ""
             emp = f"{_esc(emp_raw)}名" if emp_raw else ""
             info_parts = [f"事業内容：{biz}"]
             if capital:
@@ -188,17 +207,27 @@ def _build_html(resume: dict) -> str:
             )
             parts.append('<div class="company-body">')
 
-            # 取引先 → プロジェクト（後方互換含む正規化は shared に集約）
-            clients = normalize_clients(exp)
-            for client in clients:
-                client_name = _a(client, "name")
-                if client_name:
-                    parts.append(
-                        f'<div class="client-name">' f"取引先名：{_esc(client_name)}</div>",
-                    )
-                projects = _a(client, "projects", [])
-                for proj in projects:
-                    parts.append(_build_project_html(proj))
+            if not _a(exp, "is_it_company", True):
+                # 非IT企業: 取引先/プロジェクトの代わりに詳細を表示
+                detail = _a(exp, "description")
+                parts.append(
+                    f'<div class="company-detail">{_md(detail)}</div>' if detail else "<p>-</p>",
+                )
+            else:
+                # 取引先 → プロジェクト（後方互換含む正規化は shared に集約）
+                clients = normalize_clients(exp)
+                for client in clients:
+                    if _a(client, "is_vacation", False):
+                        parts.append(_build_vacation_html(client))
+                        continue
+                    client_name = _a(client, "name")
+                    if client_name:
+                        parts.append(
+                            f'<div class="client-name">' f"取引先名：{_esc(client_name)}</div>",
+                        )
+                    projects = _a(client, "projects", [])
+                    for proj in projects:
+                        parts.append(_build_project_html(proj))
 
             parts.append("</div></div>")
 

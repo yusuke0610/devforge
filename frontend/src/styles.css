@@ -74,6 +74,13 @@
   --github-hover: #3b4249;
   --photo-placeholder-bg: #f5f0ea;
   --overlay-bg: rgba(0, 0, 0, 0.5);
+
+  /* Contribution heatmap（GitHub の緑の四角・濃淡 0–4） */
+  --contrib-l0: #ebedf0;
+  --contrib-l1: #9be9a8;
+  --contrib-l2: #40c463;
+  --contrib-l3: #30a14e;
+  --contrib-l4: #216e39;
 }
 
 [data-theme="dark"] {
@@ -135,6 +142,13 @@
   --github-hover: #2d2d2d;
   --photo-placeholder-bg: #292524;
   --overlay-bg: rgba(0, 0, 0, 0.7);
+
+  /* Contribution heatmap（GitHub の緑の四角・濃淡 0–4） */
+  --contrib-l0: #2d2a26;
+  --contrib-l1: #0e4429;
+  --contrib-l2: #006d32;
+  --contrib-l3: #26a641;
+  --contrib-l4: #39d353;
 }
 
 * {

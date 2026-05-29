@@ -42,6 +42,8 @@ make infra-validate
 nix develop --command bash -c "tofu -chdir=infra/environments/dev apply"
 ```
 
+> `tofu init` / `plan` / `apply` の一般的な実行手順と GCS backend の認証（`gcloud auth application-default login`）は [docs/deployment.md](./deployment.md)「OpenTofu」セクションを正本として参照。ここでは Turso DB 作成に固有の手順のみを記載する。
+
 `module.devforge_stack.module.turso.turso_database.this` が作成され、output `turso_database_url` に `libsql://devforge-dev-<org>.turso.io` 形式の URL が記録されます。Cloud Run の env block には自動で同じ値が注入されます。
 
 #### 4. auth token を発行して Secret Manager に投入

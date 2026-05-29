@@ -67,6 +67,36 @@ h2 {
   padding: 4px;
 }
 
+/* 非IT企業の詳細（取引先/プロジェクトの代わり） */
+.company-detail {
+  font-size: 8pt;
+  line-height: 1.6;
+}
+
+.company-detail p {
+  margin: 0 0 0.5em 0;
+}
+
+/* 休暇エントリ */
+.vacation {
+  margin-bottom: 2mm;
+}
+
+.vacation-header {
+  font-size: 9pt;
+  font-weight: bold;
+  margin: 2mm 0 1mm 0;
+}
+
+.vacation-body {
+  font-size: 8pt;
+  line-height: 1.6;
+}
+
+.vacation-body p {
+  margin: 0 0 0.5em 0;
+}
+
 /* 取引先 */
 .client-name {
   font-size: 10pt;

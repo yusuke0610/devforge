@@ -58,6 +58,11 @@ class TestRunGithubAnalysis:
                 return_value=repos,
             ),
             patch(
+                "app.services.intelligence.github_link_service.fetch_contribution_calendar",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
                 "app.services.progress_service.set_progress",
                 new_callable=AsyncMock,
             ),
@@ -88,6 +93,8 @@ class TestRunGithubAnalysis:
     ):
         """フェーズC: 成功時に map_pipeline_result の出力が cache.result へ
         そのまま永続化され、error/warning がクリアされること（内容まで検証）。"""
+        from app.schemas.github_link import ContributionCalendar, ContributionDay
+
         user, cache = self._make_user_and_cache(db_session, "github:content-user")
         # 前回失敗の痕跡が成功時にクリアされることも併せて確認する
         cache.error_message = "前回の失敗"
@@ -95,6 +102,12 @@ class TestRunGithubAnalysis:
         db_session.commit()
 
         repos = self._sample_repos()
+        # コントリビューション取得が成功するケース。これにより新たな警告は出ず、
+        # 前回の warning_message がクリアされることを純粋に検証できる。
+        calendar = ContributionCalendar(
+            total_contributions=7,
+            weeks=[[ContributionDay(date="2024-03-01", count=3, level=2)]],
+        )
         sentinel_result = {
             "skills": [{"name": "Python", "score": 80}],
             "summary": "集計結果",
@@ -107,6 +120,11 @@ class TestRunGithubAnalysis:
                 "app.services.intelligence.github_link_service.collect_repos",
                 new_callable=AsyncMock,
                 return_value=repos,
+            ),
+            patch(
+                "app.services.intelligence.github_link_service.fetch_contribution_calendar",
+                new_callable=AsyncMock,
+                return_value=calendar,
             ),
             patch("app.services.progress_service.set_progress", new_callable=AsyncMock),
             patch(
@@ -143,6 +161,99 @@ class TestRunGithubAnalysis:
         assert cache.error_message is None
         assert cache.warning_message is None
         assert cache.completed_at is not None
+
+    def test_contribution_calendar_persisted_in_result(
+        self, db_session: Session, session_factory
+    ):
+        """コントリビューションカレンダーが取得できた場合、result に格納され
+        warning_message が立たないこと。"""
+        from app.schemas.github_link import ContributionCalendar, ContributionDay
+
+        user, cache = self._make_user_and_cache(db_session, "github:calendar-user")
+        repos = self._sample_repos()
+        calendar = ContributionCalendar(
+            total_contributions=7,
+            weeks=[[ContributionDay(date="2024-03-01", count=3, level=2)]],
+        )
+
+        with (
+            patch(
+                "app.services.intelligence.github_link_service.collect_repos",
+                new_callable=AsyncMock,
+                return_value=repos,
+            ),
+            patch(
+                "app.services.intelligence.github_link_service.fetch_contribution_calendar",
+                new_callable=AsyncMock,
+                return_value=calendar,
+            ),
+            patch("app.services.progress_service.set_progress", new_callable=AsyncMock),
+            patch(
+                "app.services.intelligence.github_link_service.decrypt_field",
+                return_value="token123",
+            ),
+        ):
+            _run(
+                _run_github_link(
+                    session_factory,
+                    {
+                        "user_id": user.id,
+                        "github_username": "gh-user",
+                        "github_token": "encrypted_token",
+                        "include_forks": False,
+                    },
+                )
+            )
+
+        db_session.refresh(cache)
+        assert cache.status == "completed"
+        assert cache.result is not None
+        assert cache.result["contribution_calendar"]["total_contributions"] == 7
+        assert cache.result["contribution_calendar"]["weeks"][0][0]["level"] == 2
+        assert cache.warning_message is None
+
+    def test_contribution_fetch_failure_sets_warning(
+        self, db_session: Session, session_factory
+    ):
+        """コントリビューション取得失敗（None）でも連携は completed のままで、
+        warning_message が立つこと。"""
+        user, cache = self._make_user_and_cache(db_session, "github:warn-user")
+        repos = self._sample_repos()
+
+        with (
+            patch(
+                "app.services.intelligence.github_link_service.collect_repos",
+                new_callable=AsyncMock,
+                return_value=repos,
+            ),
+            patch(
+                "app.services.intelligence.github_link_service.fetch_contribution_calendar",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch("app.services.progress_service.set_progress", new_callable=AsyncMock),
+            patch(
+                "app.services.intelligence.github_link_service.decrypt_field",
+                return_value="token123",
+            ),
+        ):
+            _run(
+                _run_github_link(
+                    session_factory,
+                    {
+                        "user_id": user.id,
+                        "github_username": "gh-user",
+                        "github_token": "encrypted_token",
+                        "include_forks": False,
+                    },
+                )
+            )
+
+        db_session.refresh(cache)
+        assert cache.status == "completed"
+        assert cache.result is not None
+        assert cache.result["contribution_calendar"] is None
+        assert cache.warning_message is not None
 
     def test_status_transitions_to_processing_at_start(
         self, db_session: Session, session_factory

@@ -6,7 +6,14 @@ export type CareerExperienceFieldKey =
   | "end_date"
   | "is_current"
   | "employee_count"
-  | "capital";
-export type CareerClientFieldKey = "name";
+  | "capital"
+  | "capital_unit"
+  | "is_it_company"
+  | "description";
+export type CareerClientFieldKey =
+  | "name"
+  | "vacation_start_date"
+  | "vacation_end_date"
+  | "vacation_description";
 export type CareerProjectFieldKey = "name" | "role" | "description";
 export type CareerProjectPeriodFieldKey = "start_date" | "end_date" | "is_current";

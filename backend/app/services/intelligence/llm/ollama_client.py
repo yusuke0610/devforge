@@ -6,6 +6,7 @@ import time
 
 import httpx
 
+from ....core import env_keys
 from ....services.tasks.exceptions import NonRetryableError, RetryableError
 from .base import LLMClient
 
@@ -19,9 +20,9 @@ class OllamaClient(LLMClient):
     """Ollama API を使用した LLM クライアント。"""
 
     def __init__(self) -> None:
-        self.base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-        self.model = os.environ.get("OLLAMA_MODEL", "gemma3:4b")
-        self.timeout = float(os.environ.get("OLLAMA_TIMEOUT", "1200.0"))  # デフォルトは 20 分
+        self.base_url = os.environ.get(env_keys.OLLAMA_BASE_URL, "http://localhost:11434")
+        self.model = os.environ.get(env_keys.OLLAMA_MODEL, "gemma3:4b")
+        self.timeout = float(os.environ.get(env_keys.OLLAMA_TIMEOUT, "1200.0"))  # デフォルトは 20 分
 
     async def generate(self, system_prompt: str, user_prompt: str) -> str | None:
         """Ollama API でテキスト生成を実行する。

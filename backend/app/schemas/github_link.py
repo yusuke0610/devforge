@@ -15,6 +15,24 @@ class GitHubLinkRequest(BaseModel):
     )
 
 
+class ContributionDay(BaseModel):
+    """コントリビューションカレンダーの 1 日分。"""
+
+    date: str = Field(description="ISO 8601 形式の日付 (YYYY-MM-DD)")
+    count: int = Field(description="その日のコントリビューション数")
+    level: int = Field(description="GitHub の濃淡レベル (0–4)")
+
+
+class ContributionCalendar(BaseModel):
+    """直近1年のコントリビューションカレンダー（GitHub の緑の四角）。"""
+
+    total_contributions: int = Field(description="期間内のコントリビューション総数")
+    weeks: list[list[ContributionDay]] = Field(
+        default_factory=list,
+        description="週ごとの日配列（列=週、各週は最大7日）",
+    )
+
+
 class GitHubLinkResponse(BaseModel):
     username: str
     repos_analyzed: int
@@ -35,6 +53,10 @@ class GitHubLinkResponse(BaseModel):
     detected_infras: Dict[str, int] = Field(
         default_factory=dict,
         description="ルートファイルから検出したインフラツール名 → 使用リポジトリ数",
+    )
+    contribution_calendar: Optional[ContributionCalendar] = Field(
+        default=None,
+        description="直近1年のコントリビューションカレンダー（取得失敗時は None）",
     )
 
 
