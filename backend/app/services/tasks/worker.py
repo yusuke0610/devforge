@@ -207,13 +207,14 @@ def _finalize_completed(task_type: TaskType, user_id) -> None:
 def _finalize_dead_letter(
     task_type: TaskType, payload: dict, user_id, *, error: Exception
 ) -> None:
-    """終端ステータス（dead_letter）への更新と失敗通知をまとめて行う。"""
+    """終端ステータス（dead_letter）への更新と失敗通知を行う。
 
-    def work(db: Session) -> None:
-        _mark_dead_letter(db, task_type, payload, error=error)
-        _notify_if_real_user(db, task_type, user_id, "failed")
-
-    _run_in_new_session(work)
+    ``_mark_dead_letter`` は DB エラーを握りつぶす（rollback しない）ため、commit 失敗時に
+    セッションが失効状態のまま残りうる。通知作成が汚染セッションを再利用しないよう、
+    状態更新と通知はそれぞれ独立した新規セッションで実行する。
+    """
+    _run_in_new_session(lambda db: _mark_dead_letter(db, task_type, payload, error=error))
+    _run_in_new_session(lambda db: _notify_if_real_user(db, task_type, user_id, "failed"))
 
 
 def _finalize_retrying(

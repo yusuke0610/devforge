@@ -229,7 +229,7 @@ export function ClientEditor({
         className="danger"
         onClick={() => onRemoveClient(expIndex, clientIndex)}
       >
-        取引先を削除
+        {client.is_vacation ? "休業を削除" : "取引先を削除"}
       </button>
     </div>
   );

@@ -199,6 +199,7 @@ class TestRunGithubAnalysis:
 
         db_session.refresh(cache)
         assert cache.status == "completed"
+        assert cache.result is not None
         assert cache.result["contribution_calendar"]["total_contributions"] == 7
         assert cache.result["contribution_calendar"]["weeks"][0][0]["level"] == 2
         assert cache.warning_message is None
@@ -242,6 +243,7 @@ class TestRunGithubAnalysis:
 
         db_session.refresh(cache)
         assert cache.status == "completed"
+        assert cache.result is not None
         assert cache.result["contribution_calendar"] is None
         assert cache.warning_message is not None
 
