@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { getQualifications, getTechnologyStacks } from "../api";
-import type { MasterItem, TechStackMasterItem } from "../types";
+import type { MasterItem, TechStackMasterItem } from "../api/types";
 
 /** 汎用のキャッシュ付きデータ取得フック */
 function useCachedFetch<T>(

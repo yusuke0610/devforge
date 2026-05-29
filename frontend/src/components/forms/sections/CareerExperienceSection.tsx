@@ -7,7 +7,7 @@ import type {
   CareerFormState,
   CareerProjectForm,
 } from "../../../payloadBuilders";
-import type { TechStackMasterItem } from "../../../types";
+import type { TechStackMasterItem } from "../../../api/types";
 import { useCareerExperienceMutators } from "../../../hooks/career/useCareerExperienceMutators";
 import { useProjectModalState } from "../../../hooks/career/useProjectModalState";
 import type { UseResumeImportAssistReturn } from "../../../hooks/career/useResumeImportAssist";

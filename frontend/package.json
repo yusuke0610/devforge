@@ -8,7 +8,7 @@
     "build": "node scripts/gen-redirects.mjs && tsc -b && vite build",
     "preview": "vite build && wrangler pages dev dist --proxy 8080",
     "test": "npm run test:unit && npm run test:vitest",
-    "test:unit": "tsc --target ES2020 --module CommonJS --moduleResolution Node --strict --skipLibCheck --outDir .test-dist --rootDir src src/payloadBuilders.ts src/types.ts && node -e \"require('node:fs').writeFileSync('.test-dist/package.json', '{\\\"type\\\":\\\"commonjs\\\"}')\" && node --test tests/payloadBuilders.test.cjs",
+    "test:unit": "tsc --target ES2020 --module CommonJS --moduleResolution Node --strict --skipLibCheck --outDir .test-dist --rootDir src src/payloadBuilders.ts && node -e \"require('node:fs').writeFileSync('.test-dist/package.json', '{\\\"type\\\":\\\"commonjs\\\"}')\" && node --test tests/payloadBuilders.test.cjs",
     "test:vitest": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",

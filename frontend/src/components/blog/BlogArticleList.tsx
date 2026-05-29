@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import type { BlogArticle } from "../../types";
+import type { BlogArticleResponse } from "../../api/types";
 import { ZennIcon } from "../icons/ZennIcon";
 import { NoteIcon } from "../icons/NoteIcon";
 import { QiitaIcon } from "../icons/QiitaIcon";
@@ -11,7 +11,7 @@ type PlatformFilter = "all" | "zenn" | "note" | "qiita";
 const ARTICLES_PER_PAGE = 5;
 
 type BlogArticleListProps = {
-  articles: BlogArticle[];
+  articles: BlogArticleResponse[];
   filter: PlatformFilter;
   onFilterChange: (filter: PlatformFilter) => void;
 };
@@ -86,7 +86,7 @@ export function BlogArticleList({ articles, filter, onFilterChange }: BlogArticl
                 </div>
                 <div className={styles.articleMeta}>
                   {art.likes_count > 0 && <span>いいね: {art.likes_count}</span>}
-                  {art.tags.length > 0 && <span>タグ: {art.tags.join(", ")}</span>}
+                  {art.tags && art.tags.length > 0 && <span>タグ: {art.tags.join(", ")}</span>}
                   {art.summary && (
                     <span>
                       {art.summary.length > 80

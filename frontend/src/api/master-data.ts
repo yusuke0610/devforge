@@ -1,6 +1,6 @@
-import type { MasterItem, TechStackMasterItem } from "../types";
 import { request } from "./client";
 import { PATHS } from "./paths";
+import type { MasterItem, TechStackMasterItem } from "./types";
 
 export function getQualifications(): Promise<MasterItem[]> {
   return request<MasterItem[]>(PATHS.masterData.qualification);

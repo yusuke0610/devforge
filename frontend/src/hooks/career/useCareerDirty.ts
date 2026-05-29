@@ -6,7 +6,7 @@ import type {
   CareerFormState,
   CareerProjectForm,
 } from "../../payloadBuilders";
-import type { ResumeQualification } from "../../types";
+import type { ResumeQualificationItem } from "../../api/types";
 import { isDeepEqual } from "../../utils/deepEqual";
 
 /** プロジェクト単位の dirty 情報。`any` は配下含めた未保存有無。 */
@@ -199,8 +199,8 @@ function diffExperience(
 }
 
 function diffQualification(
-  current: ResumeQualification,
-  base: ResumeQualification | undefined,
+  current: ResumeQualificationItem,
+  base: ResumeQualificationItem | undefined,
 ): QualificationDirty {
   if (!base) {
     return { self: true, fields: { name: true, acquired_date: true } };

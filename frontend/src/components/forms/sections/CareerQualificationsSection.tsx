@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { blankResumeQualification } from "../../../constants";
 import type { QualificationDirty } from "../../../hooks/career/useCareerDirty";
 import type { CareerFormState } from "../../../payloadBuilders";
-import type { ResumeQualification } from "../../../types";
+import type { ResumeQualificationItem } from "../../../api/types";
 import shared from "../../../styles/shared.module.css";
 import { Collapsible } from "../../ui/Collapsible";
 import { DirtyDot } from "../../ui/DirtyDot";
@@ -12,7 +12,7 @@ import { Combobox } from "../Combobox";
 /** CareerQualificationsSection のプロパティ型 */
 type Props = {
   /** 資格データ配列 */
-  qualifications: ResumeQualification[];
+  qualifications: ResumeQualificationItem[];
   /** マスタから取得した資格名候補 */
   qualificationNames: string[];
   /** ローディング中（Skeleton 表示） */
@@ -38,7 +38,7 @@ export function CareerQualificationsSection({
   sectionDirty = false,
 }: Props) {
   /** 資格フィールド変更ハンドラ */
-  const updateField = (index: number, key: keyof ResumeQualification, value: string) => {
+  const updateField = (index: number, key: keyof ResumeQualificationItem, value: string) => {
     setForm((prev) => ({
       ...prev,
       qualifications: prev.qualifications.map((qualification, i) =>

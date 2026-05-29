@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type { BlogAccount } from "../../types";
+import type { BlogAccountResponse } from "../../api/types";
 import type { PlatformKey } from "../../hooks/blog/useBlogAccountManager";
 import { ZennIcon } from "../icons/ZennIcon";
 import { NoteIcon } from "../icons/NoteIcon";
@@ -30,7 +30,7 @@ const PLATFORMS = [
 ] as const;
 
 type BlogPlatformListProps = {
-  accountMap: Map<string, BlogAccount>;
+  accountMap: Map<string, BlogAccountResponse>;
   draftUsernames: Record<string, string>;
   setDraftUsernames: Dispatch<SetStateAction<Record<string, string>>>;
   savingPlatform: string | null;
