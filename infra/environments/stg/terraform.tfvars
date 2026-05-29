@@ -1,5 +1,6 @@
 project_id                     = "devforge-stg-20260404"
 app_name                       = "devforge"
+environment                    = "stg"
 template_version               = "v0.1.0"
 cors_origins                   = "https://devforge-stg.web.app,https://devforge-stg.firebaseapp.com"
 callback_base_url              = "https://devforge-stg.web.app"

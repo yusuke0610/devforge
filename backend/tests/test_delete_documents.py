@@ -1,46 +1,11 @@
 from fastapi.testclient import TestClient
 
-from conftest import auth_header
+from conftest import auth_header, make_resume_payload
 
 # ── 職務経歴書の削除 ──────────────────────────────────────────
 
 
-_RESUME_PAYLOAD = {
-    "full_name": "山田 太郎",
-    "career_summary": "キャリアサマリー",
-    "self_pr": "自己PR",
-    "experiences": [
-        {
-            "company": "Example株式会社",
-            "business_description": "SES事業",
-            "start_date": "2021-04",
-            "end_date": "2024-03",
-            "is_current": False,
-            "employee_count": "300",
-            "capital": "10",
-            "clients": [
-                {
-                    "name": "顧客A",
-                    "has_client": True,
-                    "projects": [
-                        {
-                            "name": "プロジェクトA",
-                            "start_date": "2021-04",
-                            "end_date": "2022-03",
-                            "is_current": False,
-                            "role": "SE",
-                            "description": "",
-                            "team": {"total": "5", "members": []},
-                            "technology_stacks": [],
-                            "phases": [],
-                        }
-                    ],
-                }
-            ],
-        }
-    ],
-    "qualifications": [{"acquired_date": "2020-04", "name": "応用情報技術者"}],
-}
+_RESUME_PAYLOAD = make_resume_payload()
 
 
 def test_delete_resume_success(client: TestClient) -> None:

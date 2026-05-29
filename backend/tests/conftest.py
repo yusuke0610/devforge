@@ -164,6 +164,53 @@ def client(db_session):
         module.execute_task = original
 
 
+def make_resume_payload(**overrides) -> dict:
+    """有効な職務経歴書 payload を生成する（トップレベルキーを overrides で上書き可）。
+
+    取引先・プロジェクト・体制まで含む完全な構造を返す。呼ぶたびに新しい dict を返すので
+    テスト間で共有しても副作用が無い。テスト固有の最小 payload や検証用の変種は
+    各テスト側でそのまま定義してよい（intent を読みやすく残すため）。
+    """
+    payload: dict = {
+        "full_name": "山田 太郎",
+        "career_summary": "キャリアサマリー",
+        "self_pr": "自己PR",
+        "experiences": [
+            {
+                "company": "Example株式会社",
+                "business_description": "SES事業",
+                "start_date": "2021-04",
+                "end_date": "2024-03",
+                "is_current": False,
+                "employee_count": "300",
+                "capital": "10",
+                "clients": [
+                    {
+                        "name": "顧客A",
+                        "has_client": True,
+                        "projects": [
+                            {
+                                "name": "プロジェクトA",
+                                "start_date": "2021-04",
+                                "end_date": "2022-03",
+                                "is_current": False,
+                                "role": "SE",
+                                "description": "",
+                                "team": {"total": "5", "members": []},
+                                "technology_stacks": [],
+                                "phases": [],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+        "qualifications": [{"acquired_date": "2020-04", "name": "応用情報技術者"}],
+    }
+    payload.update(overrides)
+    return payload
+
+
 def auth_header(client, username: str = "testuser") -> dict:
     """テスト用の認証 Cookie をセットするヘルパー。CSRF トークンをヘッダーに含む dict を返す。
 

@@ -240,7 +240,15 @@ def test_resume_round_trips_non_it_and_vacation(client: TestClient) -> None:
     data = resp.json()
 
     # 経歴は在籍期間の降順（新しい在籍が先）でソートされる。
-    experiences = {exp["company"]: exp for exp in data["experiences"]}
+    # dict 化すると順序が失われるため、変換前にリストの並びを明示検証する。
+    ordered = data["experiences"]
+    assert [exp["company"] for exp in ordered] == ["Example株式会社", "〇〇商事"]
+    end_dates = [exp["end_date"] for exp in ordered]
+    assert all(
+        prev >= curr for prev, curr in zip(end_dates, end_dates[1:], strict=False)
+    ), f"在籍期間の降順ソートが崩れている: {end_dates}"
+
+    experiences = {exp["company"]: exp for exp in ordered}
 
     non_it = experiences["〇〇商事"]
     assert non_it["is_it_company"] is False
