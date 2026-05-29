@@ -22,7 +22,7 @@ from ..schemas.github_link import (
     GitHubLinkRequest,
     ProgressResponse,
 )
-from ..schemas.shared import TaskStatusResponse
+from ..schemas.shared import TaskAcceptedResponse, TaskStatusResponse
 from ..services.tasks import AsyncTaskCacheService, TaskType
 
 logger = logging.getLogger(__name__)
@@ -98,7 +98,7 @@ def get_cache_status(
     )
 
 
-@router.post("/run", status_code=202)
+@router.post("/run", response_model=TaskAcceptedResponse, status_code=202)
 @limiter.limit("5/minute")
 async def start_github_link(
     request: Request,
@@ -124,7 +124,7 @@ async def start_github_link(
 
     # DB 最新状態を取得しつつ pending へアトミック遷移。進行中なら早期リターン
     if not service.try_reset_to_pending():
-        return {"status": cache.status}
+        return TaskAcceptedResponse(status=cache.status)
 
     try:
         await service.dispatch(
@@ -142,10 +142,10 @@ async def start_github_link(
     except Exception:
         _raise_dispatch_failed()
 
-    return {"status": "pending"}
+    return TaskAcceptedResponse(status="pending")
 
 
-@router.post("/run/retry", status_code=202)
+@router.post("/run/retry", response_model=TaskAcceptedResponse, status_code=202)
 @limiter.limit("5/minute")
 async def retry_github_link(
     request: Request,
@@ -212,4 +212,4 @@ async def retry_github_link(
     except Exception:
         _raise_dispatch_failed()
 
-    return {"status": "pending"}
+    return TaskAcceptedResponse(status="pending")

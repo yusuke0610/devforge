@@ -36,6 +36,9 @@ backend/local.sqlite
 backend/local.sqlite-shm
 backend/local.sqlite-wal
 
+# OpenAPI 型生成の中間生成物（ADR-0007）。コミット対象は frontend/src/api/generated.ts のみ。
+backend/openapi.json
+
 # Env files
 .env
 frontend/.env.local

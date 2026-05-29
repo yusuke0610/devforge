@@ -18,6 +18,17 @@ class TaskStatusResponse(BaseModel):
     error_code: str | None = None
 
 
+class TaskAcceptedResponse(BaseModel):
+    """非同期タスクの受付応答（202 Accepted）。
+
+    ``POST /github/run`` / ``POST /github/run/retry`` など、
+    バックグラウンドタスクを開始するエンドポイントで共通利用される受付レスポンス。
+    現在のタスクステータス（``pending`` 等）のみを返す。
+    """
+
+    status: str
+
+
 class SubProgress(BaseModel):
     """ステップ内の細粒度な進捗（例: リポジトリ詳細取得ステップ）。"""
 
