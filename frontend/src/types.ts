@@ -68,7 +68,16 @@ export type CareerClient = {
   name: string;
   has_client: boolean;
   projects: CareerProject[];
+  /** 休暇エントリか。true のとき取引先ではなく在籍中の休暇を表し vacation_* を使う。 */
+  is_vacation: boolean;
+  vacation_start_date: string;
+  vacation_end_date: string;
+  vacation_is_current: boolean;
+  vacation_description: string;
 };
+
+/** 資本金の単位。backend schemas/resume.py の Experience.capital_unit と対の DTO。 */
+export type CapitalUnit = "万円" | "百万円" | "千万円" | "億円";
 
 export type CareerExperience = {
   company: string;
@@ -78,6 +87,11 @@ export type CareerExperience = {
   is_current: boolean;
   employee_count: string;
   capital: string;
+  capital_unit: CapitalUnit;
+  /** IT 企業かどうか。false（非IT）の場合は取引先/プロジェクトを持たず description を使う。 */
+  is_it_company: boolean;
+  /** 非IT企業の職務内容を記述する自由記述欄（見出し「詳細」）。 */
+  description: string;
   clients: CareerClient[];
 };
 

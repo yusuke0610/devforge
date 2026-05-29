@@ -1,5 +1,6 @@
 import { VALIDATION_MESSAGES } from "./constants/messages";
 import type {
+  CapitalUnit,
   CareerClient,
   CareerExperience,
   CareerProject,
@@ -39,6 +40,11 @@ export type CareerClientForm = {
   name: string;
   has_client: boolean;
   projects: CareerProjectForm[];
+  is_vacation: boolean;
+  vacation_start_date: string;
+  vacation_end_date: string;
+  vacation_is_current: boolean;
+  vacation_description: string;
 };
 
 export type CareerExperienceForm = {
@@ -49,6 +55,9 @@ export type CareerExperienceForm = {
   is_current: boolean;
   employee_count: string;
   capital: string;
+  capital_unit: CapitalUnit;
+  is_it_company: boolean;
+  description: string;
   clients: CareerClientForm[];
 };
 
@@ -120,12 +129,29 @@ function buildProject(proj: CareerProjectForm): CareerProject {
 }
 
 function buildClient(client: CareerClientForm): CareerClient {
+  if (client.is_vacation) {
+    return {
+      name: "",
+      has_client: client.has_client,
+      projects: [],
+      is_vacation: true,
+      vacation_start_date: client.vacation_start_date.trim(),
+      vacation_end_date: client.vacation_is_current ? "" : client.vacation_end_date.trim(),
+      vacation_is_current: client.vacation_is_current,
+      vacation_description: client.vacation_description.trim(),
+    };
+  }
   return {
     name: client.has_client ? client.name.trim() : "",
     has_client: client.has_client,
     projects: client.projects
       .map(buildProject)
       .filter((p) => hasAnyText([p.name, p.description])),
+    is_vacation: false,
+    vacation_start_date: "",
+    vacation_end_date: "",
+    vacation_is_current: false,
+    vacation_description: "",
   };
 }
 
@@ -154,9 +180,18 @@ export function buildCareerPayload(state: CareerFormState): CareerResumePayload 
       is_current: exp.is_current,
       employee_count: exp.employee_count.trim(),
       capital: exp.capital.trim(),
-      clients: exp.clients
-        .map(buildClient)
-        .filter((c) => !c.has_client || c.name.trim() || c.projects.length > 0),
+      capital_unit: exp.capital_unit,
+      is_it_company: exp.is_it_company,
+      description: exp.is_it_company ? "" : exp.description.trim(),
+      clients: exp.is_it_company
+        ? exp.clients
+            .map(buildClient)
+            .filter((c) =>
+              c.is_vacation
+                ? hasAnyText([c.vacation_start_date, c.vacation_end_date, c.vacation_description])
+                : !c.has_client || c.name.trim() || c.projects.length > 0,
+            )
+        : [],
     }))
     .filter((exp) =>
       hasAnyText([exp.company, exp.business_description, exp.start_date, exp.end_date]),
@@ -172,7 +207,30 @@ export function buildCareerPayload(state: CareerFormState): CareerResumePayload 
     if (!exp.is_current && exp.start_date && exp.end_date && exp.end_date < exp.start_date) {
       throw new Error(VALIDATION_MESSAGES.DATE_RANGE_INVALID);
     }
+    if (!exp.is_it_company) {
+      if (!exp.description) {
+        throw new Error(VALIDATION_MESSAGES.EXPERIENCE_DESCRIPTION_REQUIRED);
+      }
+      continue;
+    }
     for (const client of exp.clients) {
+      if (client.is_vacation) {
+        if (!client.vacation_start_date) {
+          throw new Error(VALIDATION_MESSAGES.VACATION_START_DATE_REQUIRED);
+        }
+        if (!client.vacation_is_current && !client.vacation_end_date) {
+          throw new Error(VALIDATION_MESSAGES.VACATION_END_DATE_REQUIRED);
+        }
+        if (
+          !client.vacation_is_current &&
+          client.vacation_start_date &&
+          client.vacation_end_date &&
+          client.vacation_end_date < client.vacation_start_date
+        ) {
+          throw new Error(VALIDATION_MESSAGES.DATE_RANGE_INVALID);
+        }
+        continue;
+      }
       for (const proj of client.projects) {
         // 内容のあるプロジェクトは periods が 1 件以上あり、各期間の開始年月が必須。
         if (proj.periods.length === 0) {

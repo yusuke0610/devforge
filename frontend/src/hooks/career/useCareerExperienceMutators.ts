@@ -80,6 +80,48 @@ export function useCareerExperienceMutators(
     }));
   };
 
+  /** 「休暇」フラグ切り替えハンドラ */
+  const updateClientIsVacation = (expIndex: number, clientIndex: number, value: boolean) => {
+    setForm((prev) => ({
+      ...prev,
+      experiences: prev.experiences.map((exp, ei) => {
+        if (ei !== expIndex) return exp;
+        return {
+          ...exp,
+          clients: exp.clients.map((c, ci) =>
+            ci === clientIndex ? { ...c, is_vacation: value } : c,
+          ),
+        };
+      }),
+    }));
+  };
+
+  /** 休暇の「継続中」フラグ切り替えハンドラ（継続中なら終了年月をクリア） */
+  const updateClientVacationIsCurrent = (
+    expIndex: number,
+    clientIndex: number,
+    value: boolean,
+  ) => {
+    setForm((prev) => ({
+      ...prev,
+      experiences: prev.experiences.map((exp, ei) => {
+        if (ei !== expIndex) return exp;
+        return {
+          ...exp,
+          clients: exp.clients.map((c, ci) =>
+            ci === clientIndex
+              ? {
+                ...c,
+                vacation_is_current: value,
+                vacation_end_date: value ? "" : c.vacation_end_date,
+              }
+              : c,
+          ),
+        };
+      }),
+    }));
+  };
+
   /** 取引先追加ハンドラ */
   const addClient = (expIndex: number) => {
     setForm((prev) => ({
@@ -198,6 +240,8 @@ export function useCareerExperienceMutators(
     updateExperienceField,
     updateClientField,
     updateClientHasClient,
+    updateClientIsVacation,
+    updateClientVacationIsCurrent,
     addClient,
     removeClient,
     removeProject,

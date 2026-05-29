@@ -14,6 +14,24 @@ export interface GitHubLinkPayload {
   include_forks?: boolean;
 }
 
+/** コントリビューションカレンダーの 1 日分 */
+export interface ContributionDay {
+  /** ISO 8601 形式の日付 (YYYY-MM-DD) */
+  date: string;
+  /** その日のコントリビューション数 */
+  count: number;
+  /** GitHub の濃淡レベル (0–4) */
+  level: number;
+}
+
+/** 直近1年のコントリビューションカレンダー（GitHub の緑の四角） */
+export interface ContributionCalendar {
+  /** 期間内のコントリビューション総数 */
+  total_contributions: number;
+  /** 週ごとの日配列（列=週、各週は最大7日） */
+  weeks: ContributionDay[][];
+}
+
 export interface GitHubLinkResponse {
   username: string;
   repos_analyzed: number;
@@ -26,6 +44,8 @@ export interface GitHubLinkResponse {
   detected_devtools: Record<string, number>;
   /** ルートファイルから検出したインフラツール名 → 使用リポジトリ数 */
   detected_infras: Record<string, number>;
+  /** 直近1年のコントリビューションカレンダー（取得失敗時は null） */
+  contribution_calendar?: ContributionCalendar | null;
 }
 
 export interface CachedGitHubLinkResponse {

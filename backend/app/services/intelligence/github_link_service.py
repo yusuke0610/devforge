@@ -12,10 +12,12 @@ from datetime import datetime, timezone
 
 from ...core.encryption import decrypt_field
 from ...core.logging_utils import get_logger
+from ...core.messages import get_error
 from ...models import GitHubLinkCache
 from ..progress_service import set_progress
 from ..tasks.exceptions import NonRetryableError
 from ..tasks.handlers.base import SessionFactory
+from .github.contributions import fetch_contribution_calendar
 from .github_collector import GitHubUserNotFoundError, collect_repos
 from .pipeline import aggregate_intelligence
 from .response_mapper import map_pipeline_result
@@ -94,11 +96,17 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
                 db.commit()
         raise exc
 
+    # コントリビューションカレンダー取得（補助処理: 失敗しても連携は継続）
+    calendar = None
+    if token:
+        calendar = await fetch_contribution_calendar(payload["github_username"], token)
+
     # ステップ 3: スキル抽出（集計関数で一括処理）
     await set_progress(task_id, 3, _TOTAL_STEPS, "スキル集計中...")
     result = aggregate_intelligence(payload["github_username"], repos)
 
     response = map_pipeline_result(result)
+    response.contribution_calendar = calendar
     result_dict = response.model_dump()
 
     # ── フェーズC: 結果書き戻し（新セッション）─────────────────────────────
@@ -115,7 +123,10 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
         cache.result = result_dict
         cache.status = "completed"
         cache.error_message = None
-        cache.warning_message = None
+        # コントリビューション取得失敗は連携自体を失敗させず警告として残す
+        cache.warning_message = (
+            get_error("github_link.contribution_fetch_failed") if calendar is None else None
+        )
         cache.completed_at = _now()
         db.commit()
 

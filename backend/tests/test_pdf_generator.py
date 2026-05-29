@@ -32,6 +32,50 @@ def test_build_resume_pdf_returns_pdf_bytes() -> None:
     assert len(pdf_bytes) > 100
 
 
+def test_build_resume_pdf_with_non_it_and_vacation() -> None:
+    """非IT経歴と休暇エントリを含む payload でも PDF を生成できる。"""
+    payload = {
+        "full_name": "佐藤 花子",
+        "qualifications": [],
+        "career_summary": "職務要約",
+        "self_pr": "自己PR",
+        "experiences": [
+            {
+                "company": "〇〇商事",
+                "business_description": "小売業",
+                "start_date": "2016-04",
+                "end_date": "2019-03",
+                "is_current": False,
+                "is_it_company": False,
+                "description": "店舗運営・在庫管理を担当",
+                "clients": [],
+            },
+            {
+                "company": "Example株式会社",
+                "business_description": "SES事業",
+                "start_date": "2019-04",
+                "end_date": "2024-03",
+                "is_current": False,
+                "is_it_company": True,
+                "clients": [
+                    {
+                        "is_vacation": True,
+                        "vacation_start_date": "2020-04",
+                        "vacation_end_date": "2021-03",
+                        "vacation_is_current": False,
+                        "vacation_description": "育児休暇を取得",
+                    }
+                ],
+            },
+        ],
+    }
+
+    pdf_bytes = build_resume_pdf(payload)
+
+    assert pdf_bytes.startswith(b"%PDF")
+    assert len(pdf_bytes) > 100
+
+
 def test_parse_date_ym() -> None:
     assert _parse_date_ym("2020-04") == ("2020", "4")
     assert _parse_date_ym("2020-12-01") == ("2020", "12")

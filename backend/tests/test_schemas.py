@@ -1,5 +1,6 @@
 import pytest
 from app.schemas import (
+    Client,
     Experience,
     Project,
     ResumeCreate,
@@ -299,3 +300,73 @@ def test_project_end_date_none_is_rejected() -> None:
             is_current=True,
             technology_stacks=[],
         )
+
+
+def test_non_it_experience_with_description_and_no_clients() -> None:
+    """非IT経歴: is_it_company=False で取引先なし・詳細のみでも保存できる。"""
+    payload = experience_payload()
+    payload["is_it_company"] = False
+    payload["description"] = "店舗運営・在庫管理を担当"
+    payload["clients"] = []
+
+    exp = Experience(**payload)
+
+    assert exp.is_it_company is False
+    assert exp.description == "店舗運営・在庫管理を担当"
+    assert exp.clients == []
+
+
+def test_experience_defaults_to_it_company() -> None:
+    """経歴: is_it_company は既定 True（後方互換）。"""
+    exp = Experience(**experience_payload())
+    assert exp.is_it_company is True
+    assert exp.description == ""
+
+
+def test_vacation_client_accepts_valid_period() -> None:
+    """休暇: is_vacation=True で期間・詳細を保持できる。"""
+    client = Client(
+        is_vacation=True,
+        vacation_start_date="2020-04",
+        vacation_end_date="2021-03",
+        vacation_is_current=False,
+        vacation_description="育児休暇",
+    )
+    assert client.is_vacation is True
+    assert client.vacation_start_date == "2020-04"
+    assert client.vacation_end_date == "2021-03"
+
+
+def test_vacation_client_current_normalizes_end_to_empty() -> None:
+    """休暇: 継続中（vacation_is_current=True）なら終了年月は "" に正規化される。"""
+    client = Client(
+        is_vacation=True,
+        vacation_start_date="2020-04",
+        vacation_end_date="2021-03",
+        vacation_is_current=True,
+    )
+    assert client.vacation_end_date == ""
+
+
+def test_vacation_client_requires_start_date() -> None:
+    """休暇: 開始年月が空なら 422（日本語メッセージ）。"""
+    with pytest.raises(ValidationError, match="開始年月を入力してください"):
+        Client(is_vacation=True, vacation_start_date="", vacation_description="育児休暇")
+
+
+def test_vacation_client_end_before_start_is_rejected() -> None:
+    """休暇: 終了年月が開始年月より前ならエラー。"""
+    with pytest.raises(ValidationError, match="開始日は終了日より前"):
+        Client(
+            is_vacation=True,
+            vacation_start_date="2021-04",
+            vacation_end_date="2020-03",
+            vacation_is_current=False,
+        )
+
+
+def test_non_vacation_client_skips_vacation_validation() -> None:
+    """休暇でない取引先は vacation 期間が空でも検証対象外。"""
+    client = Client(name="クライアントA", has_client=True)
+    assert client.is_vacation is False
+    assert client.vacation_start_date == ""

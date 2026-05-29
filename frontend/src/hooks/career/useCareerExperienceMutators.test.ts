@@ -102,6 +102,89 @@ describe("useCareerExperienceMutators", () => {
     });
   });
 
+  describe("updateExperienceField (is_it_company)", () => {
+    it("is_it_company を false にできる（非IT切替）", () => {
+      const { result } = setup(buildForm());
+      act(() => {
+        result.current.mutators.updateExperienceField(0, "is_it_company", false);
+      });
+      expect(result.current.form.experiences[0].is_it_company).toBe(false);
+    });
+
+    it("description フィールドを更新できる", () => {
+      const { result } = setup(buildForm());
+      act(() => {
+        result.current.mutators.updateExperienceField(0, "description", "店舗運営を担当");
+      });
+      expect(result.current.form.experiences[0].description).toBe("店舗運営を担当");
+    });
+  });
+
+  describe("updateClientIsVacation", () => {
+    it("休暇フラグを true/false に切り替える", () => {
+      const { result } = setup(buildForm());
+      act(() => {
+        result.current.mutators.updateClientIsVacation(0, 0, true);
+      });
+      expect(result.current.form.experiences[0].clients[0].is_vacation).toBe(true);
+      act(() => {
+        result.current.mutators.updateClientIsVacation(0, 0, false);
+      });
+      expect(result.current.form.experiences[0].clients[0].is_vacation).toBe(false);
+    });
+  });
+
+  describe("updateClientVacationIsCurrent", () => {
+    it("継続中を true にすると vacation_end_date がクリアされる", () => {
+      const form = buildForm();
+      form.experiences[0].clients[0] = {
+        ...form.experiences[0].clients[0],
+        is_vacation: true,
+        vacation_start_date: "2020-04",
+        vacation_end_date: "2021-03",
+        vacation_is_current: false,
+      };
+      const { result } = setup(form);
+      act(() => {
+        result.current.mutators.updateClientVacationIsCurrent(0, 0, true);
+      });
+      const client = result.current.form.experiences[0].clients[0];
+      expect(client.vacation_is_current).toBe(true);
+      expect(client.vacation_end_date).toBe("");
+    });
+
+    it("継続中を false にしても vacation_end_date は保持される", () => {
+      const form = buildForm();
+      form.experiences[0].clients[0] = {
+        ...form.experiences[0].clients[0],
+        is_vacation: true,
+        vacation_start_date: "2020-04",
+        vacation_end_date: "2021-03",
+        vacation_is_current: true,
+      };
+      const { result } = setup(form);
+      act(() => {
+        result.current.mutators.updateClientVacationIsCurrent(0, 0, false);
+      });
+      expect(result.current.form.experiences[0].clients[0].vacation_end_date).toBe("2021-03");
+    });
+  });
+
+  describe("updateClientField (vacation fields)", () => {
+    it("vacation_start_date / vacation_description を更新できる", () => {
+      const { result } = setup(buildForm());
+      act(() => {
+        result.current.mutators.updateClientField(0, 0, "vacation_start_date", "2020-04");
+      });
+      act(() => {
+        result.current.mutators.updateClientField(0, 0, "vacation_description", "育児休暇");
+      });
+      const client = result.current.form.experiences[0].clients[0];
+      expect(client.vacation_start_date).toBe("2020-04");
+      expect(client.vacation_description).toBe("育児休暇");
+    });
+  });
+
   describe("removeExperience", () => {
     it("最後の1件は削除せず blank で置換する", () => {
       const { result } = setup(buildForm());

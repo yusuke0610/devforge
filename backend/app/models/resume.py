@@ -104,6 +104,12 @@ class ResumeExperience(Base):
     is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     employee_count: Mapped[str] = mapped_column(String(60), nullable=False, default="")
     capital: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    # 資本金の単位（万円 / 百万円 / 千万円 / 億円）。既定は後方互換のため「千万円」。
+    capital_unit: Mapped[str] = mapped_column(String(12), nullable=False, default="千万円")
+    # IT 企業かどうか。False（非IT）の場合は取引先/プロジェクトを持たず description を使う。
+    is_it_company: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # 非IT企業の職務内容を記述する自由記述欄（見出し「詳細」）。
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     client_rows: Mapped[list["ResumeClient"]] = relationship(
         back_populates="experience",
         cascade="all, delete-orphan",
@@ -138,6 +144,16 @@ class ResumeClient(Base):
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
     has_client: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # 休暇エントリ。True のとき取引先ではなく在籍中の休暇を表し vacation_* を使う。
+    is_vacation: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    vacation_start_date_value: Mapped[date | None] = mapped_column(
+        "vacation_start_date", Date, nullable=True
+    )
+    vacation_end_date_value: Mapped[date | None] = mapped_column(
+        "vacation_end_date", Date, nullable=True
+    )
+    vacation_is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    vacation_description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     project_rows: Mapped[list["ResumeProject"]] = relationship(
         back_populates="client",
         cascade="all, delete-orphan",
@@ -149,6 +165,15 @@ class ResumeClient(Base):
     def projects(self) -> list["ResumeProject"]:
         """プロジェクトを期間の降順でソートして返す。"""
         return sort_by_period_desc(list(self.project_rows))
+
+    @property
+    def vacation_start_date(self) -> str:
+        return format_year_month(self.vacation_start_date_value) or ""
+
+    @property
+    def vacation_end_date(self) -> str:
+        """DB の vacation_end_date が NULL（継続中）の場合は "" を返す。"""
+        return format_year_month(self.vacation_end_date_value) or ""
 
 
 class ResumeProject(Base):

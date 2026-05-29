@@ -1,3 +1,4 @@
+import { CAPITAL_UNITS } from "../../../constants";
 import type { CareerClientFieldKey, CareerExperienceFieldKey } from "../../../formTypes";
 import type { ExperienceDirty } from "../../../hooks/career/useCareerDirty";
 import {
@@ -31,6 +32,10 @@ type CareerExperienceEditorProps = {
   ) => void;
   /** 取引先「取引先なし」切替ハンドラ */
   onUpdateClientHasClient: (expIndex: number, clientIndex: number, value: boolean) => void;
+  /** 取引先「休暇」切替ハンドラ */
+  onUpdateClientIsVacation: (expIndex: number, clientIndex: number, value: boolean) => void;
+  /** 休暇「継続中」切替ハンドラ */
+  onUpdateClientVacationIsCurrent: (expIndex: number, clientIndex: number, value: boolean) => void;
   /** 取引先追加ハンドラ */
   onAddClient: (expIndex: number) => void;
   /** 取引先削除ハンドラ */
@@ -57,6 +62,8 @@ export function CareerExperienceEditor({
   onUpdateExperienceField,
   onUpdateClientField,
   onUpdateClientHasClient,
+  onUpdateClientIsVacation,
+  onUpdateClientVacationIsCurrent,
   onAddClient,
   onRemoveClient,
   onRemoveProject,
@@ -181,7 +188,7 @@ export function CareerExperienceEditor({
           <label>
             <span>
               資本金
-              <DirtyDot visible={Boolean(fieldDirty?.capital)} />
+              <DirtyDot visible={Boolean(fieldDirty?.capital || fieldDirty?.capital_unit)} />
             </span>
             <div className={styles.inputWithUnit}>
               <input
@@ -191,108 +198,261 @@ export function CareerExperienceEditor({
                 onChange={(e) => onUpdateExperienceField(expIndex, "capital", e.target.value)}
                 placeholder="例: 5"
               />
-              <span className={styles.unit}>千万円</span>
+              <select
+                className={styles.unitSelect}
+                value={exp.capital_unit}
+                onChange={(e) => onUpdateExperienceField(expIndex, "capital_unit", e.target.value)}
+                aria-label="資本金の単位"
+              >
+                {CAPITAL_UNITS.map((unit) => (
+                  <option key={unit} value={unit}>
+                    {unit}
+                  </option>
+                ))}
+              </select>
             </div>
           </label>
         </div>
 
-        {/* 取引先 */}
-        <div className={styles.stackSection}>
-          <h3>取引先</h3>
-          {exp.clients.map((client, clientIndex) => {
-            const clientDirty = dirty?.clients?.[clientIndex];
-            return (
-              <div key={`client-${expIndex}-${clientIndex}`} className={shared.entry}>
-                <div className={styles.clientHeader}>
-                  {client.has_client && (
-                    <label className={styles.clientNameLabel}>
+        {/* IT企業かどうか（非ITは取引先を持たず詳細のみ） */}
+        <label className={styles.clientCheckbox}>
+          <input
+            type="checkbox"
+            checked={exp.is_it_company}
+            onChange={(e) => onUpdateExperienceField(expIndex, "is_it_company", e.target.checked)}
+          />
+          <span>
+            IT企業
+            <DirtyDot visible={Boolean(fieldDirty?.is_it_company)} />
+          </span>
+        </label>
+
+        {!exp.is_it_company && (
+          <div className={styles.stackSection}>
+            <label>
+              <span className={shared.labelText}>
+                詳細
+                <span className={shared.requiredBadge}>必須</span>
+                <DirtyDot visible={Boolean(fieldDirty?.description)} />
+              </span>
+              <textarea
+                value={exp.description}
+                onChange={(e) =>
+                  onUpdateExperienceField(expIndex, "description", e.target.value)
+                }
+                rows={6}
+                placeholder="例: 店舗運営・在庫管理・スタッフ教育を担当…"
+              />
+            </label>
+          </div>
+        )}
+
+        {exp.is_it_company && (
+          <div className={styles.stackSection}>
+            <h3>取引先</h3>
+            {exp.clients.map((client, clientIndex) => {
+              const clientDirty = dirty?.clients?.[clientIndex];
+              return (
+                <div key={`client-${expIndex}-${clientIndex}`} className={shared.entry}>
+                  <div className={styles.clientHeader}>
+                    {!client.is_vacation && client.has_client && (
+                      <label className={styles.clientNameLabel}>
+                        <span>
+                          取引先名（呼称）
+                          <DirtyDot visible={Boolean(clientDirty?.self)} />
+                        </span>
+                        <input
+                          type="text"
+                          value={client.name}
+                          onChange={(e) =>
+                            onUpdateClientField(expIndex, clientIndex, "name", e.target.value)
+                          }
+                          placeholder="例: 〇〇社（略称）"
+                        />
+                      </label>
+                    )}
+                    {!client.is_vacation && (
+                      <label className={styles.clientCheckbox}>
+                        <input
+                          type="checkbox"
+                          checked={!client.has_client}
+                          onChange={(e) =>
+                            onUpdateClientHasClient(expIndex, clientIndex, !e.target.checked)
+                          }
+                        />
+                        {/* has_client=false で name 入力が消えた時にも未保存状態を可視化するため
+                          常時表示のチェックボックス側にも dot を出す。 */}
+                        <span>
+                          取引先なし
+                          <DirtyDot visible={Boolean(clientDirty?.self)} />
+                        </span>
+                      </label>
+                    )}
+                    <label className={styles.clientCheckbox}>
+                      <input
+                        type="checkbox"
+                        checked={client.is_vacation}
+                        onChange={(e) =>
+                          onUpdateClientIsVacation(expIndex, clientIndex, e.target.checked)
+                        }
+                      />
                       <span>
-                        取引先名（呼称）
+                        休暇
                         <DirtyDot visible={Boolean(clientDirty?.self)} />
                       </span>
-                      <input
-                        type="text"
-                        value={client.name}
-                        onChange={(e) =>
-                          onUpdateClientField(expIndex, clientIndex, "name", e.target.value)
-                        }
-                        placeholder="例: 〇〇社（略称）"
-                      />
                     </label>
-                  )}
-                  <label className={styles.clientCheckbox}>
-                    <input
-                      type="checkbox"
-                      checked={!client.has_client}
-                      onChange={(e) =>
-                        onUpdateClientHasClient(expIndex, clientIndex, !e.target.checked)
-                      }
-                    />
-                    {/* has_client=false で name 入力（と同じ行の DirtyDot）が消えた時にも
-                      未保存状態を可視化するため、常時表示のチェックボックス側にも dot を出す。 */}
-                    <span>
-                      取引先なし
-                      <DirtyDot visible={Boolean(clientDirty?.self)} />
-                    </span>
-                  </label>
-                </div>
+                  </div>
 
-                {/* プロジェクト一覧（サマリー表示） */}
-                <div className={styles.stackSection}>
-                  <h3>プロジェクト</h3>
-                  {client.projects.map((proj, projIndex) => {
-                    const projDirty = clientDirty?.projects?.[projIndex];
-                    return (
-                      <div
-                        key={`proj-${expIndex}-${clientIndex}-${projIndex}`}
-                        className={styles.projectSummaryRow}
-                      >
-                        <span className={styles.projectName}>
-                          {proj.name || "(未入力)"}
-                          <DirtyDot visible={Boolean(projDirty?.any)} />
-                        </span>
-                        <span className={styles.projectPeriod}>{projectSummary(proj)}</span>
-                        <div className={styles.projectActions}>
-                          <button
-                            type="button"
-                            onClick={() => onOpenProjectModal(expIndex, clientIndex, projIndex)}
+                  {client.is_vacation ? (
+                    /* 休暇: 期間 + 詳細 */
+                    <div className={styles.stackSection}>
+                      <div className={shared.inline}>
+                        <label>
+                          <span className={shared.labelText}>
+                            開始
+                            <span className={shared.requiredBadge}>必須</span>
+                          </span>
+                          <input
+                            type="month"
+                            value={client.vacation_start_date}
+                            onChange={(e) =>
+                              onUpdateClientField(
+                                expIndex,
+                                clientIndex,
+                                "vacation_start_date",
+                                e.target.value,
+                              )
+                            }
+                          />
+                        </label>
+                        <label>
+                          <span>継続の有無</span>
+                          <select
+                            value={client.vacation_is_current ? "current" : "ended"}
+                            onChange={(e) =>
+                              onUpdateClientVacationIsCurrent(
+                                expIndex,
+                                clientIndex,
+                                e.target.value === "current",
+                              )
+                            }
                           >
-                            編集
-                          </button>
-                          <button
-                            type="button"
-                            className="danger"
-                            onClick={() => onRemoveProject(expIndex, clientIndex, projIndex)}
-                          >
-                            削除
-                          </button>
-                        </div>
+                            <option value="ended">終了</option>
+                            <option value="current">継続中</option>
+                          </select>
+                        </label>
+                        {!client.vacation_is_current && (
+                          <label>
+                            <span className={shared.labelText}>
+                              終了
+                              <span className={shared.requiredBadge}>必須</span>
+                            </span>
+                            <input
+                              type="month"
+                              value={client.vacation_end_date}
+                              onChange={(e) =>
+                                onUpdateClientField(
+                                  expIndex,
+                                  clientIndex,
+                                  "vacation_end_date",
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          </label>
+                        )}
                       </div>
-                    );
-                  })}
+                      {validateDateRange(
+                        client.vacation_start_date,
+                        client.vacation_end_date,
+                        client.vacation_is_current,
+                      ) && (
+                        <p className={shared.error} style={{ fontSize: "0.85rem" }}>
+                          {validateDateRange(
+                            client.vacation_start_date,
+                            client.vacation_end_date,
+                            client.vacation_is_current,
+                          )}
+                        </p>
+                      )}
+                      <label>
+                        <span className={shared.labelText}>詳細</span>
+                        <textarea
+                          value={client.vacation_description}
+                          onChange={(e) =>
+                            onUpdateClientField(
+                              expIndex,
+                              clientIndex,
+                              "vacation_description",
+                              e.target.value,
+                            )
+                          }
+                          rows={4}
+                          placeholder="例: 育児休暇を取得。期間中にProgateでJavaScriptを学習…"
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    /* プロジェクト一覧（サマリー表示） */
+                    <div className={styles.stackSection}>
+                      <h3>プロジェクト</h3>
+                      {client.projects.map((proj, projIndex) => {
+                        const projDirty = clientDirty?.projects?.[projIndex];
+                        return (
+                          <div
+                            key={`proj-${expIndex}-${clientIndex}-${projIndex}`}
+                            className={styles.projectSummaryRow}
+                          >
+                            <span className={styles.projectName}>
+                              {proj.name || "(未入力)"}
+                              <DirtyDot visible={Boolean(projDirty?.any)} />
+                            </span>
+                            <span className={styles.projectPeriod}>{projectSummary(proj)}</span>
+                            <div className={styles.projectActions}>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onOpenProjectModal(expIndex, clientIndex, projIndex)
+                                }
+                              >
+                                編集
+                              </button>
+                              <button
+                                type="button"
+                                className="danger"
+                                onClick={() => onRemoveProject(expIndex, clientIndex, projIndex)}
+                              >
+                                削除
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => onOpenProjectModal(expIndex, clientIndex, null)}
+                      >
+                        プロジェクトを追加
+                      </button>
+                    </div>
+                  )}
+
                   <button
                     type="button"
-                    className="ghost"
-                    onClick={() => onOpenProjectModal(expIndex, clientIndex, null)}
+                    className="danger"
+                    onClick={() => onRemoveClient(expIndex, clientIndex)}
                   >
-                    プロジェクトを追加
+                    取引先を削除
                   </button>
                 </div>
-
-                <button
-                  type="button"
-                  className="danger"
-                  onClick={() => onRemoveClient(expIndex, clientIndex)}
-                >
-                  取引先を削除
-                </button>
-              </div>
-            );
-          })}
-          <button type="button" className="ghost" onClick={() => onAddClient(expIndex)}>
-            取引先を追加
-          </button>
-        </div>
+              );
+            })}
+            <button type="button" className="ghost" onClick={() => onAddClient(expIndex)}>
+              取引先を追加
+            </button>
+          </div>
+        )}
 
         <button type="button" className="danger" onClick={() => onRemoveExperience(expIndex)}>
           職務経歴を削除

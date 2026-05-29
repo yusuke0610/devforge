@@ -59,12 +59,35 @@ def build_resume_markdown(payload: dict[str, Any]) -> str:
                 lines.append(field_line("従業員数", f"{emp}名"))
             cap = _a(exp, "capital")
             if cap:
-                lines.append(field_line("資本金", f"{cap}千万円"))
+                cap_unit = _a(exp, "capital_unit", "千万円")
+                lines.append(field_line("資本金", f"{cap}{cap_unit}"))
             lines.append("")
+
+            if not _a(exp, "is_it_company", True):
+                # 非IT企業: 取引先/プロジェクトの代わりに詳細を出力
+                detail = _a(exp, "description")
+                if detail:
+                    lines.append(field_line("詳細", detail))
+                    lines.append("")
+                continue
 
             # clients → projects（後方互換含む正規化は shared に集約）
             clients = normalize_clients(exp)
             for client in clients:
+                if _a(client, "is_vacation", False):
+                    period = format_period(
+                        _a(client, "vacation_start_date"),
+                        _a(client, "vacation_end_date", ""),
+                        _a(client, "vacation_is_current", False),
+                    )
+                    lines.append("#### 休暇")
+                    lines.append("")
+                    lines.append(field_line("期間", period))
+                    vacation_detail = _a(client, "vacation_description")
+                    if vacation_detail:
+                        lines.append(field_line("詳細", vacation_detail))
+                    lines.append("")
+                    continue
                 client_name = _a(client, "name")
                 if client_name:
                     lines.append(f"#### {client_name}")

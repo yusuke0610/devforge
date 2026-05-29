@@ -5,6 +5,11 @@ FE 同期: 本モジュールの各 Item / レスポンス型は ``frontend/src/
 ``CareerProject`` / ``CareerClient`` / ``CareerExperience`` 等）と対になる DTO。
 言語境界のため codegen 未導入の手動同期で運用している（エラーコードの errors.py と同方針）。
 フィールドを増減・rename する場合は対応する FE type も同時に更新すること。
+
+非IT経歴: ``Experience.is_it_company=False`` のとき取引先/プロジェクトを持たず
+``Experience.description``（詳細）のみ使う。
+休暇: ``Client.is_vacation=True`` のとき取引先ではなく在籍中の休暇を表し、
+``Client.vacation_*``（期間・詳細）を使う。
 """
 
 from datetime import datetime
@@ -125,13 +130,44 @@ class Project(BaseModel):
         return data
 
 class Client(BaseModel):
-    """ユーザ（常駐先/クライアント企業）。"""
+    """ユーザ（常駐先/クライアント企業）。
+
+    ``is_vacation=True`` の場合は取引先ではなく在籍中の休暇（育児/介護/留学等）を表し、
+    name / projects の代わりに ``vacation_*`` 期間と詳細を保持する。
+    """
 
     name: str = Field(max_length=200, default="")
     has_client: bool = True
     projects: list[Project] = Field(default_factory=list)
+    # 休暇エントリ。True のとき vacation_* を期間・詳細として扱い projects は無視する。
+    is_vacation: bool = False
+    vacation_start_date: str = Field(default="", max_length=30)
+    # 継続中（vacation_is_current=True）の場合は "" を渡す契約。
+    vacation_end_date: str = Field(default="", max_length=30)
+    vacation_is_current: bool = False
+    vacation_description: str = Field(max_length=4500, default="")
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="after")
+    def validate_vacation_dates(self) -> "Client":
+        """休暇の期間を検証する（Experience.validate_dates と同じ契約）。
+
+        休暇でない取引先は検証対象外。開始年月は必須、継続中なら end を ""
+        に正規化し、それ以外は終了年月必須かつ end >= start を要求する。
+        """
+        if not self.is_vacation:
+            return self
+        if not self.vacation_start_date.strip():
+            raise ValueError(get_error("validation.start_date_required"))
+        if self.vacation_is_current:
+            self.vacation_end_date = ""
+            return self
+        if not self.vacation_end_date.strip():
+            raise ValueError(get_error("validation.end_date_required"))
+        if self.vacation_end_date < self.vacation_start_date:
+            raise ValueError(get_error("validation.date_range_invalid"))
+        return self
 
 
 class Experience(BaseModel):
@@ -145,6 +181,12 @@ class Experience(BaseModel):
     is_current: bool = False
     employee_count: str = Field(max_length=60, default="")
     capital: str = Field(max_length=120, default="")
+    # 資本金の単位。既定は後方互換のため「千万円」。FE の CapitalUnit と対の DTO。
+    capital_unit: Literal["万円", "百万円", "千万円", "億円"] = Field(default="千万円")
+    # IT 企業かどうか。False（非IT）の場合は取引先/プロジェクトを持たず description を使う。
+    is_it_company: bool = True
+    # 非IT企業の職務内容を記述する自由記述欄（見出し「詳細」）。business_description=事業内容 とは別。
+    description: str = Field(max_length=4500, default="")
     clients: list[Client] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
