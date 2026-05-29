@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import type { AuthUser } from "../router/guards";
 import type { Theme } from "../hooks/useTheme";
@@ -25,14 +25,15 @@ export function AuthenticatedLayout({
   onLogout: () => void;
 }) {
   const navigate = useNavigate();
-  const location = useLocation();
   // GitHub 連携オプション（フォーク含む）の開閉とチェック状態。
   const [githubOptionsOpen, setGithubOptionsOpen] = useState(false);
   const [includeForks, setIncludeForks] = useState(false);
 
   /**
    * GitHub 連携を実行する。
-   * 連携 API のトリガーはこのサイドバークリックのみ。
+   * 連携 API のトリガーはサブパネル内の「連携実行」ボタンのみ。
+   * サイドバー項目のクリックは画面遷移に徹し、連携リクエストは飛ばさない
+   * （不要なリクエストの温床になるため）。
    * 実行意図を runNonce としてページへ渡し、ダッシュボード側で
    * 連携実行（ポーリング）とエラー表示を担わせる。
    */
@@ -41,8 +42,6 @@ export function AuthenticatedLayout({
       state: { runNonce: Date.now(), includeForks },
     });
   };
-
-  const githubActive = location.pathname === "/github_link";
 
   return (
     <div className={shared.page}>
@@ -61,13 +60,14 @@ export function AuthenticatedLayout({
             {user.isGitHubUser && (
               <div className={styles.sidebarItemGroup}>
                 <div className={styles.sidebarItemRow}>
-                  <button
-                    type="button"
-                    className={`${styles.sidebarItem} ${githubActive ? styles.active : ""}`}
-                    onClick={triggerGitHubLink}
+                  <NavLink
+                    to="/github_link"
+                    className={({ isActive }) =>
+                      `${styles.sidebarItem} ${isActive ? styles.active : ""}`
+                    }
                   >
                     GitHub連携
-                  </button>
+                  </NavLink>
                   <button
                     type="button"
                     className={styles.sidebarChevron}
@@ -82,6 +82,13 @@ export function AuthenticatedLayout({
                 </div>
                 {githubOptionsOpen && (
                   <div className={styles.sidebarSubPanel}>
+                    <button
+                      type="button"
+                      className={styles.sidebarItem}
+                      onClick={triggerGitHubLink}
+                    >
+                      連携実行
+                    </button>
                     <label className={styles.sidebarCheckbox}>
                       <input
                         type="checkbox"
