@@ -1,16 +1,16 @@
 import { VALIDATION_MESSAGES } from "./constants/messages";
 import type {
   CapitalUnit,
-  CareerClient,
-  CareerExperience,
-  CareerProject,
-  CareerResumePayload,
-  CareerTechnologyStack,
+  Client,
+  Experience,
+  Project,
   ProjectPeriod,
   ProjectTeam,
-  ResumeQualification,
+  ResumeCreate,
+  ResumeQualificationItem,
   TeamMember,
-} from "./types";
+  TechnologyStackItem,
+} from "./api/types";
 
 export type TeamMemberForm = {
   role: string;
@@ -32,7 +32,7 @@ export type CareerProjectForm = {
     total: string;
     members: TeamMemberForm[];
   };
-  technology_stacks: CareerTechnologyStack[];
+  technology_stacks: TechnologyStackItem[];
   phases: string[];
 };
 
@@ -66,7 +66,7 @@ export type CareerFormState = {
   career_summary: string;
   self_pr: string;
   experiences: CareerExperienceForm[];
-  qualifications: ResumeQualification[];
+  qualifications: ResumeQualificationItem[];
 };
 
 export function hasAnyText(values: Array<string | null | undefined>): boolean {
@@ -111,7 +111,7 @@ function buildPeriod(p: CareerProjectPeriodForm): ProjectPeriod {
   };
 }
 
-function buildProject(proj: CareerProjectForm): CareerProject {
+function buildProject(proj: CareerProjectForm): Project {
   return {
     name: proj.name.trim(),
     periods: proj.periods.map(buildPeriod),
@@ -128,7 +128,7 @@ function buildProject(proj: CareerProjectForm): CareerProject {
   };
 }
 
-function buildClient(client: CareerClientForm): CareerClient {
+function buildClient(client: CareerClientForm): Client {
   if (client.is_vacation) {
     return {
       name: "",
@@ -155,7 +155,7 @@ function buildClient(client: CareerClientForm): CareerClient {
   };
 }
 
-export function buildCareerPayload(state: CareerFormState): CareerResumePayload {
+export function buildCareerPayload(state: CareerFormState): ResumeCreate {
   const full_name = state.full_name.trim();
   if (!full_name) {
     throw new Error(VALIDATION_MESSAGES.FULL_NAME_REQUIRED);
@@ -171,7 +171,7 @@ export function buildCareerPayload(state: CareerFormState): CareerResumePayload 
     throw new Error(VALIDATION_MESSAGES.SELF_PR_REQUIRED);
   }
 
-  const experiences: CareerExperience[] = state.experiences
+  const experiences: Experience[] = state.experiences
     .map((exp) => ({
       company: exp.company.trim(),
       business_description: exp.business_description.trim(),
@@ -189,7 +189,7 @@ export function buildCareerPayload(state: CareerFormState): CareerResumePayload 
             .filter((c) =>
               c.is_vacation
                 ? hasAnyText([c.vacation_start_date, c.vacation_end_date, c.vacation_description])
-                : !c.has_client || c.name.trim() || c.projects.length > 0,
+                : !c.has_client || c.name.trim() || (c.projects ?? []).length > 0,
             )
         : [],
     }))
@@ -213,7 +213,7 @@ export function buildCareerPayload(state: CareerFormState): CareerResumePayload 
       }
       continue;
     }
-    for (const client of exp.clients) {
+    for (const client of exp.clients ?? []) {
       if (client.is_vacation) {
         if (!client.vacation_start_date) {
           throw new Error(VALIDATION_MESSAGES.VACATION_START_DATE_REQUIRED);
@@ -231,12 +231,12 @@ export function buildCareerPayload(state: CareerFormState): CareerResumePayload 
         }
         continue;
       }
-      for (const proj of client.projects) {
+      for (const proj of client.projects ?? []) {
         // 内容のあるプロジェクトは periods が 1 件以上あり、各期間の開始年月が必須。
-        if (proj.periods.length === 0) {
+        if ((proj.periods ?? []).length === 0) {
           throw new Error(VALIDATION_MESSAGES.PROJECT_START_DATE_REQUIRED);
         }
-        for (const period of proj.periods) {
+        for (const period of proj.periods ?? []) {
           if (!period.start_date) {
             throw new Error(VALIDATION_MESSAGES.PROJECT_START_DATE_REQUIRED);
           }
@@ -256,7 +256,7 @@ export function buildCareerPayload(state: CareerFormState): CareerResumePayload 
     }
   }
 
-  const qualifications: ResumeQualification[] = state.qualifications
+  const qualifications: ResumeQualificationItem[] = state.qualifications
     .map((q) => ({
       acquired_date: q.acquired_date.trim(),
       name: q.name.trim(),

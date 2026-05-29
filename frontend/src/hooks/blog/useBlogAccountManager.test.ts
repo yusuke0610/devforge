@@ -5,10 +5,10 @@ import {
   SUCCESS_MESSAGES,
   blogLinkedSyncSuccessMessage,
 } from "../../constants/messages";
-import type { BlogAccount, BlogArticle } from "../../types";
+import type { BlogAccountResponse, BlogArticleResponse } from "../../api/types";
 
 /** テスト用のダミーアカウントデータ */
-const dummyAccounts: BlogAccount[] = [
+const dummyAccounts: BlogAccountResponse[] = [
   {
     id: "acc-1",
     platform: "zenn",
@@ -19,7 +19,7 @@ const dummyAccounts: BlogAccount[] = [
 ];
 
 /** テスト用のダミー記事データ */
-const dummyArticles: BlogArticle[] = [
+const dummyArticles: BlogArticleResponse[] = [
   {
     id: "art-1",
     platform: "zenn",

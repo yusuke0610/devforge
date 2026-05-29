@@ -1,4 +1,9 @@
-import type { CapitalUnit, CareerTechnologyStackCategory, ResumeQualification } from "./types";
+import type {
+  CapitalUnit,
+  ResumeQualificationItem,
+  TechnologyStackCategory,
+  TechnologyStackItem,
+} from "./api/types";
 import type {
   CareerClientForm,
   CareerExperienceForm,
@@ -6,9 +11,8 @@ import type {
   CareerProjectPeriodForm,
   TeamMemberForm,
 } from "./payloadBuilders";
-import type { CareerTechnologyStack } from "./types";
 
-export const blankResumeQualification: ResumeQualification = {
+export const blankResumeQualification: ResumeQualificationItem = {
   acquired_date: "",
   name: "",
 };
@@ -19,7 +23,7 @@ export const CAPITAL_UNITS: readonly CapitalUnit[] = ["万円", "百万円", "�
 /** 資本金の単位の既定値（後方互換のため「千万円」）。 */
 export const DEFAULT_CAPITAL_UNIT: CapitalUnit = "千万円";
 
-export const careerTechnologyStackCategories: CareerTechnologyStackCategory[] = [
+export const careerTechnologyStackCategories: TechnologyStackCategory[] = [
   "language",
   "framework",
   "os",
@@ -35,7 +39,7 @@ export const careerTechnologyStackCategories: CareerTechnologyStackCategory[] = 
   "ai_agent",
 ];
 
-export const careerTechnologyStackCategoryLabels: Record<CareerTechnologyStackCategory, string> = {
+export const careerTechnologyStackCategoryLabels: Record<TechnologyStackCategory, string> = {
   language: "言語",
   framework: "FW",
   os: "OS",
@@ -51,7 +55,7 @@ export const careerTechnologyStackCategoryLabels: Record<CareerTechnologyStackCa
   ai_agent: "AIエージェント",
 };
 
-export const blankCareerTechnologyStack: CareerTechnologyStack = {
+export const blankCareerTechnologyStack: TechnologyStackItem = {
   category: "language",
   name: "",
 };

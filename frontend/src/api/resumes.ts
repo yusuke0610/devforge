@@ -1,14 +1,14 @@
-import type { CareerResumePayload, CareerResumeResponse } from "../types";
 import { request } from "./client";
 import { downloadBlob, getBlobUrl } from "./download";
 import { PATHS } from "./paths";
+import type { ResumeCreate, ResumeResponse } from "./types";
 
-export function getLatestCareerResume(): Promise<CareerResumeResponse> {
-  return request<CareerResumeResponse>(PATHS.resumes.latest);
+export function getLatestCareerResume(): Promise<ResumeResponse> {
+  return request<ResumeResponse>(PATHS.resumes.latest);
 }
 
-export function createCareerResume(payload: CareerResumePayload): Promise<CareerResumeResponse> {
-  return request<CareerResumeResponse>(PATHS.resumes.base, {
+export function createCareerResume(payload: ResumeCreate): Promise<ResumeResponse> {
+  return request<ResumeResponse>(PATHS.resumes.base, {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -16,9 +16,9 @@ export function createCareerResume(payload: CareerResumePayload): Promise<Career
 
 export function updateCareerResume(
   id: string,
-  payload: CareerResumePayload,
-): Promise<CareerResumeResponse> {
-  return request<CareerResumeResponse>(PATHS.resumes.byId(id), {
+  payload: ResumeCreate,
+): Promise<ResumeResponse> {
+  return request<ResumeResponse>(PATHS.resumes.byId(id), {
     method: "PUT",
     body: JSON.stringify(payload),
   });

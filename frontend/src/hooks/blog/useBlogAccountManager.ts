@@ -15,7 +15,7 @@ import {
   blogSyncSuccessMessage,
   blogUsernameUpdatedSyncSuccessMessage,
 } from "../../constants/messages";
-import type { BlogAccount, BlogArticle } from "../../types";
+import type { BlogAccountResponse, BlogArticleResponse } from "../../api/types";
 
 export type PlatformKey = "zenn" | "note" | "qiita";
 
@@ -59,8 +59,8 @@ export function reduceActions(
  * ``savingPlatform`` / ``syncingPlatform`` 等の派生値で公開する。
  */
 export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita") {
-  const [accounts, setAccounts] = useState<BlogAccount[]>([]);
-  const [articles, setArticles] = useState<BlogArticle[]>([]);
+  const [accounts, setAccounts] = useState<BlogAccountResponse[]>([]);
+  const [articles, setArticles] = useState<BlogArticleResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);

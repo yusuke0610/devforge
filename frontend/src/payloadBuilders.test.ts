@@ -152,8 +152,8 @@ describe("buildCareerPayload (experiences)", () => {
         experiences: [blankExperience({ is_current: true, end_date: "2024-12" })],
       }),
     );
-    expect(payload.experiences[0].end_date).toBe("");
-    expect(payload.experiences[0].is_current).toBe(true);
+    expect(payload.experiences?.[0].end_date).toBe("");
+    expect(payload.experiences?.[0].is_current).toBe(true);
   });
 
   it("is_current=false で end_date 空ならエラー", () => {
@@ -192,8 +192,8 @@ describe("buildCareerPayload (experiences)", () => {
         experiences: [blankExperience({ capital: "5", capital_unit: "百万円" })],
       }),
     );
-    expect(payload.experiences[0].capital).toBe("5");
-    expect(payload.experiences[0].capital_unit).toBe("百万円");
+    expect(payload.experiences?.[0].capital).toBe("5");
+    expect(payload.experiences?.[0].capital_unit).toBe("百万円");
   });
 
   it("空欄だけの experience は filter で除外され、エラーにならない", () => {
@@ -236,9 +236,9 @@ describe("buildCareerPayload (projects/clients/team)", () => {
         ],
       }),
     );
-    const period = payload.experiences[0].clients[0].projects[0].periods[0];
-    expect(period.end_date).toBe("");
-    expect(period.is_current).toBe(true);
+    const period = payload.experiences?.[0].clients?.[0].projects?.[0].periods?.[0];
+    expect(period?.end_date).toBe("");
+    expect(period?.is_current).toBe(true);
   });
 
   it("内容のある project で期間の開始年月が空ならエラー", () => {
@@ -319,8 +319,8 @@ describe("buildCareerPayload (projects/clients/team)", () => {
         ],
       }),
     );
-    expect(payload.experiences[0].clients[0].name).toBe("");
-    expect(payload.experiences[0].clients[0].has_client).toBe(false);
+    expect(payload.experiences?.[0].clients?.[0].name).toBe("");
+    expect(payload.experiences?.[0].clients?.[0].has_client).toBe(false);
   });
 
   it("client.has_client=true で name 空かつ projects が中身なしなら除外される", () => {
@@ -339,7 +339,7 @@ describe("buildCareerPayload (projects/clients/team)", () => {
         ],
       }),
     );
-    expect(payload.experiences[0].clients).toEqual([]);
+    expect(payload.experiences?.[0].clients).toEqual([]);
   });
 
   it("team.members の空配列は payload でも空配列のまま", () => {
@@ -358,8 +358,8 @@ describe("buildCareerPayload (projects/clients/team)", () => {
         ],
       }),
     );
-    expect(payload.experiences[0].clients[0].projects[0].team.members).toEqual([]);
-    expect(payload.experiences[0].clients[0].projects[0].team.total).toBe("3");
+    expect(payload.experiences?.[0].clients?.[0].projects?.[0].team?.members).toEqual([]);
+    expect(payload.experiences?.[0].clients?.[0].projects?.[0].team?.total).toBe("3");
   });
 
   it("team.members は role と count が両方 truthy のものだけ残り、count は number 化される", () => {
@@ -390,7 +390,7 @@ describe("buildCareerPayload (projects/clients/team)", () => {
         ],
       }),
     );
-    const members = payload.experiences[0].clients[0].projects[0].team.members;
+    const members = payload.experiences?.[0].clients?.[0].projects?.[0].team?.members;
     expect(members).toEqual([
       { role: "PM", count: 1 },
       { role: "QA", count: 3 },
@@ -421,7 +421,7 @@ describe("buildCareerPayload (projects/clients/team)", () => {
         ],
       }),
     );
-    const stacks = payload.experiences[0].clients[0].projects[0].technology_stacks;
+    const stacks = payload.experiences?.[0].clients?.[0].projects?.[0].technology_stacks;
     expect(stacks).toEqual([
       { category: "language", name: "TypeScript" },
       { category: "db", name: "PostgreSQL" },
@@ -444,9 +444,9 @@ describe("buildCareerPayload (projects/clients/team)", () => {
         ],
       }),
     );
-    const project = payload.experiences[0].clients[0].projects[0];
-    expect(project.name).toBe("");
-    expect(project.description).toBe("開発の詳細");
+    const project = payload.experiences?.[0].clients?.[0].projects?.[0];
+    expect(project?.name).toBe("");
+    expect(project?.description).toBe("開発の詳細");
   });
 });
 
@@ -465,9 +465,9 @@ describe("buildCareerPayload (non-IT experience)", () => {
         ],
       }),
     );
-    expect(payload.experiences[0].is_it_company).toBe(false);
-    expect(payload.experiences[0].description).toBe("店舗運営を担当");
-    expect(payload.experiences[0].clients).toEqual([]);
+    expect(payload.experiences?.[0].is_it_company).toBe(false);
+    expect(payload.experiences?.[0].description).toBe("店舗運営を担当");
+    expect(payload.experiences?.[0].clients).toEqual([]);
   });
 
   it("非ITで description が空ならエラー", () => {
@@ -492,8 +492,8 @@ describe("buildCareerPayload (non-IT experience)", () => {
         ],
       }),
     );
-    expect(payload.experiences[0].description).toBe("");
-    expect(payload.experiences[0].clients).toHaveLength(1);
+    expect(payload.experiences?.[0].description).toBe("");
+    expect(payload.experiences?.[0].clients).toHaveLength(1);
   });
 });
 
@@ -517,13 +517,13 @@ describe("buildCareerPayload (vacation client)", () => {
         ],
       }),
     );
-    const client = payload.experiences[0].clients[0];
-    expect(client.is_vacation).toBe(true);
-    expect(client.name).toBe("");
-    expect(client.projects).toEqual([]);
-    expect(client.vacation_start_date).toBe("2020-04");
-    expect(client.vacation_end_date).toBe("2021-03");
-    expect(client.vacation_description).toBe("育児休暇");
+    const client = payload.experiences?.[0].clients?.[0];
+    expect(client?.is_vacation).toBe(true);
+    expect(client?.name).toBe("");
+    expect(client?.projects).toEqual([]);
+    expect(client?.vacation_start_date).toBe("2020-04");
+    expect(client?.vacation_end_date).toBe("2021-03");
+    expect(client?.vacation_description).toBe("育児休暇");
   });
 
   it("休暇が継続中なら vacation_end_date は空文字に正規化される", () => {
@@ -544,7 +544,7 @@ describe("buildCareerPayload (vacation client)", () => {
         ],
       }),
     );
-    expect(payload.experiences[0].clients[0].vacation_end_date).toBe("");
+    expect(payload.experiences?.[0].clients?.[0].vacation_end_date).toBe("");
   });
 
   it("休暇で開始年月が空ならエラー", () => {
@@ -614,7 +614,7 @@ describe("buildCareerPayload (vacation client)", () => {
         experiences: [blankExperience({ clients: [blankClient({ is_vacation: true })] })],
       }),
     );
-    expect(payload.experiences[0].clients).toEqual([]);
+    expect(payload.experiences?.[0].clients).toEqual([]);
   });
 });
 

@@ -12,7 +12,7 @@ import {
   type CareerProjectForm,
   type CareerProjectPeriodForm,
 } from "../../payloadBuilders";
-import type { CareerTechnologyStack, CareerTechnologyStackCategory } from "../../types";
+import type { TechnologyStackCategory, TechnologyStackItem } from "../../api/types";
 
 /**
  * 編集対象が無い（新規追加）場合の初期プロジェクトを生成する。
@@ -76,7 +76,7 @@ export function useProjectModalForm(project: CareerProjectForm | null) {
 
   const updateTechStack = (
     stackIndex: number,
-    key: keyof CareerTechnologyStack,
+    key: keyof TechnologyStackItem,
     value: string,
   ) => {
     setLocal((prev) => ({
@@ -84,7 +84,7 @@ export function useProjectModalForm(project: CareerProjectForm | null) {
       technology_stacks: prev.technology_stacks.map((stack, si) => {
         if (si !== stackIndex) return stack;
         if (key === "category") {
-          return { ...stack, category: value as CareerTechnologyStackCategory, name: "" };
+          return { ...stack, category: value as TechnologyStackCategory, name: "" };
         }
         return { ...stack, name: value };
       }),

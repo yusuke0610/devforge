@@ -1,6 +1,6 @@
 import { request } from "./client";
 import { PATHS } from "./paths";
-import type { BlogAccount, BlogArticle } from "../types";
+import type { BlogAccountResponse, BlogArticleResponse } from "./types";
 
 export interface BlogScoreArticle {
   id: string;
@@ -23,8 +23,8 @@ export interface BlogScoreResponse {
 /**
  * 連携アカウント一覧を取得する。
  */
-export function getBlogAccounts(): Promise<BlogAccount[]> {
-  return request<BlogAccount[]>(PATHS.blog.accounts);
+export function getBlogAccounts(): Promise<BlogAccountResponse[]> {
+  return request<BlogAccountResponse[]>(PATHS.blog.accounts);
 }
 
 /**
@@ -33,8 +33,8 @@ export function getBlogAccounts(): Promise<BlogAccount[]> {
 export function addBlogAccount(
   platform: "zenn" | "note" | "qiita",
   username: string,
-): Promise<BlogAccount> {
-  return request<BlogAccount>(PATHS.blog.accounts, {
+): Promise<BlogAccountResponse> {
+  return request<BlogAccountResponse>(PATHS.blog.accounts, {
     method: "POST",
     body: JSON.stringify({ platform, username }),
   });
@@ -46,8 +46,8 @@ export function addBlogAccount(
 export function updateBlogAccount(
   platform: "zenn" | "note" | "qiita",
   username: string,
-): Promise<BlogAccount> {
-  return request<BlogAccount>(PATHS.blog.accountByPlatform(platform), {
+): Promise<BlogAccountResponse> {
+  return request<BlogAccountResponse>(PATHS.blog.accountByPlatform(platform), {
     method: "PATCH",
     body: JSON.stringify({ username }),
   });
@@ -65,8 +65,8 @@ export async function deleteBlogAccount(id: string): Promise<void> {
 /**
  * DB の記事一覧を取得する。
  */
-export function getBlogArticles(platform?: string): Promise<BlogArticle[]> {
-  return request<BlogArticle[]>(PATHS.blog.articles(platform));
+export function getBlogArticles(platform?: string): Promise<BlogArticleResponse[]> {
+  return request<BlogArticleResponse[]>(PATHS.blog.articles(platform));
 }
 
 /**
