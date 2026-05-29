@@ -8,6 +8,16 @@ variable "app_name" {
   type        = string
 }
 
+variable "environment" {
+  description = "デプロイ環境名。stack_name や Cloud Run の ENVIRONMENT 等に伝播する。dev/stg/prod のいずれか。"
+  type        = string
+
+  validation {
+    condition     = contains(["dev", "stg", "prod"], var.environment)
+    error_message = "environment は dev / stg / prod のいずれかを指定してください。"
+  }
+}
+
 variable "region" {
   description = "GCP region used by the environment."
   type        = string

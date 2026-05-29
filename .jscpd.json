@@ -55,7 +55,13 @@
     "**/infra/environments/prod/moved.tf",
     "**/infra/environments/dev/outputs.tf",
     "**/infra/environments/stg/outputs.tf",
-    "**/infra/environments/prod/outputs.tf"
+    "**/infra/environments/prod/outputs.tf",
+    "**/infra/environments/dev/versions.tf",
+    "**/infra/environments/stg/versions.tf",
+    "**/infra/environments/prod/versions.tf",
+    "**/infra/environments/dev/main.tf",
+    "**/infra/environments/stg/main.tf",
+    "**/infra/environments/prod/main.tf"
   ],
   "reporters": ["json", "html", "markdown", "consoleFull"],
   "output": "report/dupe",

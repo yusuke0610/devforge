@@ -1,5 +1,6 @@
 project_id                     = "devforge-dev-20260311"
 app_name                       = "devforge"
+environment                    = "dev"
 template_version               = "v0.1.0"
 cors_origins                   = "https://devforge-dev-20260311.web.app,https://devforge-dev-20260311.firebaseapp.com"
 callback_base_url              = "https://devforge-dev-20260311.web.app"
