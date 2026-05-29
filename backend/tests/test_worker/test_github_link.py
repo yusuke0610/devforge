@@ -93,6 +93,8 @@ class TestRunGithubAnalysis:
     ):
         """フェーズC: 成功時に map_pipeline_result の出力が cache.result へ
         そのまま永続化され、error/warning がクリアされること（内容まで検証）。"""
+        from app.schemas.github_link import ContributionCalendar, ContributionDay
+
         user, cache = self._make_user_and_cache(db_session, "github:content-user")
         # 前回失敗の痕跡が成功時にクリアされることも併せて確認する
         cache.error_message = "前回の失敗"
@@ -100,6 +102,12 @@ class TestRunGithubAnalysis:
         db_session.commit()
 
         repos = self._sample_repos()
+        # コントリビューション取得が成功するケース。これにより新たな警告は出ず、
+        # 前回の warning_message がクリアされることを純粋に検証できる。
+        calendar = ContributionCalendar(
+            total_contributions=7,
+            weeks=[[ContributionDay(date="2024-03-01", count=3, level=2)]],
+        )
         sentinel_result = {
             "skills": [{"name": "Python", "score": 80}],
             "summary": "集計結果",
@@ -116,7 +124,7 @@ class TestRunGithubAnalysis:
             patch(
                 "app.services.intelligence.github_link_service.fetch_contribution_calendar",
                 new_callable=AsyncMock,
-                return_value=None,
+                return_value=calendar,
             ),
             patch("app.services.progress_service.set_progress", new_callable=AsyncMock),
             patch(
