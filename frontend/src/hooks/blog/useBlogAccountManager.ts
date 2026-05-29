@@ -8,7 +8,13 @@ import {
   getBlogArticles,
   syncBlogAccount,
 } from "../../api";
-import { FALLBACK_MESSAGES } from "../../constants/messages";
+import {
+  FALLBACK_MESSAGES,
+  SUCCESS_MESSAGES,
+  blogLinkedSyncSuccessMessage,
+  blogSyncSuccessMessage,
+  blogUsernameUpdatedSyncSuccessMessage,
+} from "../../constants/messages";
 import type { BlogAccount, BlogArticle } from "../../types";
 
 export type PlatformKey = "zenn" | "note" | "qiita";
@@ -152,8 +158,8 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
       await loadData();
       await attemptAutoSync(
         account.id,
-        (synced, total) => `${synced}件の記事を取得しました（合計: ${total}件）`,
-        "アカウントを連携しました",
+        blogLinkedSyncSuccessMessage,
+        SUCCESS_MESSAGES.BLOG_LINKED,
       );
     } catch (e) {
       setAccountError(e instanceof Error ? e.message : FALLBACK_MESSAGES.BLOG_LINK);
@@ -174,9 +180,7 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
     try {
       const result = await syncBlogAccount(account.id);
       await loadData();
-      setSuccess(
-        `${result.synced_count}件の新しい記事を取得しました（合計: ${result.total_count}件）`,
-      );
+      setSuccess(blogSyncSuccessMessage(result.synced_count, result.total_count));
     } catch (e) {
       setAccountError(e instanceof Error ? e.message : FALLBACK_MESSAGES.BLOG_SYNC_SIMPLE);
     } finally {
@@ -196,7 +200,7 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
     try {
       await deleteBlogAccount(account.id);
       await loadData();
-      setSuccess("アカウントを解除しました");
+      setSuccess(SUCCESS_MESSAGES.BLOG_UNLINKED);
     } catch (e) {
       setAccountError(e instanceof Error ? e.message : FALLBACK_MESSAGES.BLOG_UNLINK);
     } finally {
@@ -221,9 +225,8 @@ export function useBlogAccountManager(filter: "all" | "zenn" | "note" | "qiita")
       await loadData();
       await attemptAutoSync(
         account.id,
-        (synced, total) =>
-          `usernameを更新し、${synced}件の記事を取得しました（合計: ${total}件）`,
-        "usernameを更新しました。再同期してください。",
+        blogUsernameUpdatedSyncSuccessMessage,
+        SUCCESS_MESSAGES.BLOG_USERNAME_UPDATED,
       );
       return true;
     } catch (e) {

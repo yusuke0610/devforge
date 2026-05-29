@@ -1,6 +1,10 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { reduceActions, useBlogAccountManager } from "./useBlogAccountManager";
+import {
+  SUCCESS_MESSAGES,
+  blogLinkedSyncSuccessMessage,
+} from "../../constants/messages";
 import type { BlogAccount, BlogArticle } from "../../types";
 
 /** テスト用のダミーアカウントデータ */
@@ -144,7 +148,7 @@ describe("useBlogAccountManager", () => {
     await waitFor(() => {
       expect(api.getBlogAccounts).toHaveBeenCalledTimes(2);
     });
-    expect(result.current.success).toBe("アカウントを解除しました");
+    expect(result.current.success).toBe(SUCCESS_MESSAGES.BLOG_UNLINKED);
   });
 
   /** getBlogAccounts がエラーの場合、accountError がセットされること */
@@ -186,7 +190,7 @@ describe("useBlogAccountManager", () => {
       await result.current.handleSave("zenn");
     });
 
-    expect(result.current.success).toBe("3件の記事を取得しました（合計: 5件）");
+    expect(result.current.success).toBe(blogLinkedSyncSuccessMessage(3, 5));
     expect(result.current.accountError).toBeNull();
   });
 
@@ -217,7 +221,7 @@ describe("useBlogAccountManager", () => {
     });
 
     // 連携成功メッセージが出ること
-    expect(result.current.success).toBe("アカウントを連携しました");
+    expect(result.current.success).toBe(SUCCESS_MESSAGES.BLOG_LINKED);
     // 同期失敗エラーが accountError にセットされること
     expect(result.current.accountError).toBe("同期に失敗しました");
   });
@@ -258,6 +262,6 @@ describe("useBlogAccountManager", () => {
       expect(result.current.accounts[0]?.username).toBe("updated-user");
     });
     expect(result.current.accounts[0]?.last_synced_at).toBeNull();
-    expect(result.current.success).toBe("usernameを更新しました。再同期してください。");
+    expect(result.current.success).toBe(SUCCESS_MESSAGES.BLOG_USERNAME_UPDATED);
   });
 });

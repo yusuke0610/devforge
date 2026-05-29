@@ -30,6 +30,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/github-link", tags=["github-link"])
 
 
+def _raise_dispatch_failed() -> None:
+    """タスクのディスパッチに失敗したときの 500 エラーを送出する。"""
+    raise_app_error(
+        status_code=500,
+        code=ErrorCode.INTERNAL_ERROR,
+        message=get_error("task.dispatch_failed"),
+        action="しばらく待ってから再試行してください",
+    )
+
+
 def _get_or_create_cache(db: Session, user_id: str) -> GitHubLinkCache:
     """ユーザーのキャッシュレコードを取得、なければ作成する。"""
     cache = db.query(GitHubLinkCache).filter_by(user_id=user_id).first()
@@ -130,12 +140,7 @@ async def start_github_link(
             logger=logger,
         )
     except Exception:
-        raise_app_error(
-            status_code=500,
-            code=ErrorCode.INTERNAL_ERROR,
-            message=get_error("task.dispatch_failed"),
-            action="しばらく待ってから再試行してください",
-        )
+        _raise_dispatch_failed()
 
     return {"status": "pending"}
 
@@ -205,11 +210,6 @@ async def retry_github_link(
             logger=logger,
         )
     except Exception:
-        raise_app_error(
-            status_code=500,
-            code=ErrorCode.INTERNAL_ERROR,
-            message=get_error("task.dispatch_failed"),
-            action="しばらく待ってから再試行してください",
-        )
+        _raise_dispatch_failed()
 
     return {"status": "pending"}

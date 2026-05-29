@@ -10,6 +10,7 @@ import shared from "../../../styles/shared.module.css";
 import styles from "../CareerResumeForm.module.css";
 import { Collapsible } from "../../ui/Collapsible";
 import { DirtyDot } from "../../ui/DirtyDot";
+import { ClientEditor } from "./ClientEditor";
 
 /** CareerExperienceEditor のプロパティ型 */
 type CareerExperienceEditorProps = {
@@ -250,204 +251,23 @@ export function CareerExperienceEditor({
         {exp.is_it_company && (
           <div className={styles.stackSection}>
             <h3>取引先</h3>
-            {exp.clients.map((client, clientIndex) => {
-              const clientDirty = dirty?.clients?.[clientIndex];
-              return (
-                <div key={`client-${expIndex}-${clientIndex}`} className={shared.entry}>
-                  <div className={styles.clientHeader}>
-                    {!client.is_vacation && client.has_client && (
-                      <label className={styles.clientNameLabel}>
-                        <span>
-                          取引先名（呼称）
-                          <DirtyDot visible={Boolean(clientDirty?.self)} />
-                        </span>
-                        <input
-                          type="text"
-                          value={client.name}
-                          onChange={(e) =>
-                            onUpdateClientField(expIndex, clientIndex, "name", e.target.value)
-                          }
-                          placeholder="例: 〇〇社（略称）"
-                        />
-                      </label>
-                    )}
-                    {!client.is_vacation && (
-                      <label className={styles.clientCheckbox}>
-                        <input
-                          type="checkbox"
-                          checked={!client.has_client}
-                          onChange={(e) =>
-                            onUpdateClientHasClient(expIndex, clientIndex, !e.target.checked)
-                          }
-                        />
-                        {/* has_client=false で name 入力が消えた時にも未保存状態を可視化するため
-                          常時表示のチェックボックス側にも dot を出す。 */}
-                        <span>
-                          取引先なし
-                          <DirtyDot visible={Boolean(clientDirty?.self)} />
-                        </span>
-                      </label>
-                    )}
-                    <label className={styles.clientCheckbox}>
-                      <input
-                        type="checkbox"
-                        checked={client.is_vacation}
-                        onChange={(e) =>
-                          onUpdateClientIsVacation(expIndex, clientIndex, e.target.checked)
-                        }
-                      />
-                      <span>
-                        休暇
-                        <DirtyDot visible={Boolean(clientDirty?.self)} />
-                      </span>
-                    </label>
-                  </div>
-
-                  {client.is_vacation ? (
-                    /* 休暇: 期間 + 詳細 */
-                    <div className={styles.stackSection}>
-                      <div className={shared.inline}>
-                        <label>
-                          <span className={shared.labelText}>
-                            開始
-                            <span className={shared.requiredBadge}>必須</span>
-                          </span>
-                          <input
-                            type="month"
-                            value={client.vacation_start_date}
-                            onChange={(e) =>
-                              onUpdateClientField(
-                                expIndex,
-                                clientIndex,
-                                "vacation_start_date",
-                                e.target.value,
-                              )
-                            }
-                          />
-                        </label>
-                        <label>
-                          <span>継続の有無</span>
-                          <select
-                            value={client.vacation_is_current ? "current" : "ended"}
-                            onChange={(e) =>
-                              onUpdateClientVacationIsCurrent(
-                                expIndex,
-                                clientIndex,
-                                e.target.value === "current",
-                              )
-                            }
-                          >
-                            <option value="ended">終了</option>
-                            <option value="current">継続中</option>
-                          </select>
-                        </label>
-                        {!client.vacation_is_current && (
-                          <label>
-                            <span className={shared.labelText}>
-                              終了
-                              <span className={shared.requiredBadge}>必須</span>
-                            </span>
-                            <input
-                              type="month"
-                              value={client.vacation_end_date}
-                              onChange={(e) =>
-                                onUpdateClientField(
-                                  expIndex,
-                                  clientIndex,
-                                  "vacation_end_date",
-                                  e.target.value,
-                                )
-                              }
-                            />
-                          </label>
-                        )}
-                      </div>
-                      {validateDateRange(
-                        client.vacation_start_date,
-                        client.vacation_end_date,
-                        client.vacation_is_current,
-                      ) && (
-                        <p className={shared.error} style={{ fontSize: "0.85rem" }}>
-                          {validateDateRange(
-                            client.vacation_start_date,
-                            client.vacation_end_date,
-                            client.vacation_is_current,
-                          )}
-                        </p>
-                      )}
-                      <label>
-                        <span className={shared.labelText}>詳細</span>
-                        <textarea
-                          value={client.vacation_description}
-                          onChange={(e) =>
-                            onUpdateClientField(
-                              expIndex,
-                              clientIndex,
-                              "vacation_description",
-                              e.target.value,
-                            )
-                          }
-                          rows={4}
-                          placeholder="例: 育児休暇を取得。期間中にProgateでJavaScriptを学習…"
-                        />
-                      </label>
-                    </div>
-                  ) : (
-                    /* プロジェクト一覧（サマリー表示） */
-                    <div className={styles.stackSection}>
-                      <h3>プロジェクト</h3>
-                      {client.projects.map((proj, projIndex) => {
-                        const projDirty = clientDirty?.projects?.[projIndex];
-                        return (
-                          <div
-                            key={`proj-${expIndex}-${clientIndex}-${projIndex}`}
-                            className={styles.projectSummaryRow}
-                          >
-                            <span className={styles.projectName}>
-                              {proj.name || "(未入力)"}
-                              <DirtyDot visible={Boolean(projDirty?.any)} />
-                            </span>
-                            <span className={styles.projectPeriod}>{projectSummary(proj)}</span>
-                            <div className={styles.projectActions}>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  onOpenProjectModal(expIndex, clientIndex, projIndex)
-                                }
-                              >
-                                編集
-                              </button>
-                              <button
-                                type="button"
-                                className="danger"
-                                onClick={() => onRemoveProject(expIndex, clientIndex, projIndex)}
-                              >
-                                削除
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <button
-                        type="button"
-                        className="ghost"
-                        onClick={() => onOpenProjectModal(expIndex, clientIndex, null)}
-                      >
-                        プロジェクトを追加
-                      </button>
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    className="danger"
-                    onClick={() => onRemoveClient(expIndex, clientIndex)}
-                  >
-                    取引先を削除
-                  </button>
-                </div>
-              );
-            })}
+            {exp.clients.map((client, clientIndex) => (
+              <ClientEditor
+                key={`client-${expIndex}-${clientIndex}`}
+                client={client}
+                expIndex={expIndex}
+                clientIndex={clientIndex}
+                dirty={dirty?.clients?.[clientIndex]}
+                onUpdateClientField={onUpdateClientField}
+                onUpdateClientHasClient={onUpdateClientHasClient}
+                onUpdateClientIsVacation={onUpdateClientIsVacation}
+                onUpdateClientVacationIsCurrent={onUpdateClientVacationIsCurrent}
+                onRemoveProject={onRemoveProject}
+                onOpenProjectModal={onOpenProjectModal}
+                onRemoveClient={onRemoveClient}
+                projectSummary={projectSummary}
+              />
+            ))}
             <button type="button" className="ghost" onClick={() => onAddClient(expIndex)}>
               取引先を追加
             </button>

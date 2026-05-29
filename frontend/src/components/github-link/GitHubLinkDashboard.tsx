@@ -11,7 +11,7 @@ import {
 import { ErrorToast } from "../ui/ErrorToast";
 import { InlineSpinner } from "../ui/InlineSpinner";
 import { AsyncTaskLoading } from "../ui/AsyncTaskLoading";
-import { LOADING_MESSAGES, UI_MESSAGES } from "../../constants/messages";
+import { FALLBACK_MESSAGES, LOADING_MESSAGES, UI_MESSAGES } from "../../constants/messages";
 import { useAsyncTaskPage } from "../../hooks/useAsyncTaskPage";
 import { ContributionHeatmap } from "./ContributionHeatmap";
 import { LanguageBar } from "./LanguageBar";
@@ -57,7 +57,7 @@ export function GitHubLinkDashboard() {
       await runGitHubLink({ include_forks: includeForks });
       transitionToPolling();
     } catch (e) {
-      setError(toAppError(e, "連携に失敗しました"));
+      setError(toAppError(e, FALLBACK_MESSAGES.GITHUB_LINK));
     }
   };
 

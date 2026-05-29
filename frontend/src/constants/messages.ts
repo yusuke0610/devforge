@@ -62,6 +62,18 @@ export const FALLBACK_MESSAGES = {
   PREVIEW_FETCH: "プレビューの取得に失敗しました",
   AUTH_CHECK: "ログイン状態の確認に失敗しました。",
   GITHUB_OAUTH_START: "GitHub OAuth の開始に失敗しました",
+  GITHUB_LINK: "連携に失敗しました",
+} as const;
+
+/**
+ * 操作成功時にユーザーへ表示する文言（frontend 完結）。
+ * backend を経由しない「保存しました」「連携しました」等の success トーストに使う。
+ * 動的に件数を埋め込むものは下部の関数（blogSyncSuccessMessage 等）を使う。
+ */
+export const SUCCESS_MESSAGES = {
+  BLOG_LINKED: "アカウントを連携しました",
+  BLOG_UNLINKED: "アカウントを解除しました",
+  BLOG_USERNAME_UPDATED: "usernameを更新しました。再同期してください。",
 } as const;
 
 /** JSX に直書きされていた UI 文言（ErrorBoundary など） */
@@ -107,4 +119,19 @@ export const LOADING_MESSAGES = {
 /** ダウンロード失敗時のメッセージにファイル名を付与する。 */
 export function downloadFailureMessage(filename: string): string {
   return `${FALLBACK_MESSAGES.DOWNLOAD}: ${filename}`;
+}
+
+/** ブログ連携直後の自動同期成功文言（取得件数・合計件数を埋め込む）。 */
+export function blogLinkedSyncSuccessMessage(synced: number, total: number): string {
+  return `${synced}件の記事を取得しました（合計: ${total}件）`;
+}
+
+/** ブログ手動同期の成功文言（新規取得件数・合計件数を埋め込む）。 */
+export function blogSyncSuccessMessage(synced: number, total: number): string {
+  return `${synced}件の新しい記事を取得しました（合計: ${total}件）`;
+}
+
+/** username 更新直後の自動同期成功文言（取得件数・合計件数を埋め込む）。 */
+export function blogUsernameUpdatedSyncSuccessMessage(synced: number, total: number): string {
+  return `usernameを更新し、${synced}件の記事を取得しました（合計: ${total}件）`;
 }
