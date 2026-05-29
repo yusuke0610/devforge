@@ -116,7 +116,7 @@ class TestRunGithubAnalysis:
             patch(
                 "app.services.intelligence.github_link_service.fetch_contribution_calendar",
                 new_callable=AsyncMock,
-                return_value=MagicMock(),
+                return_value=None,
             ),
             patch("app.services.progress_service.set_progress", new_callable=AsyncMock),
             patch(
