@@ -33,7 +33,12 @@ export type UseAsyncTaskPageOptions<TResult> = {
   /**
    * タスクステータス取得関数（ポーリング用）。
    */
-  checkStatus: () => Promise<{ status: string; error_message?: string; error_code?: string }>;
+  // error_* は backend schema が `str | None`（生成型では `string | null`）のため null を許容する（ADR-0007 論点B）。
+  checkStatus: () => Promise<{
+    status: string;
+    error_message?: string | null;
+    error_code?: string | null;
+  }>;
   /**
    * 進捗取得関数（オプション）。
    * 指定した場合、ポーリングのたびに並走して呼ばれる。

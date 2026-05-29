@@ -2,11 +2,11 @@
 
 ## ステータス
 
-Proposed
+Accepted
 
 > 本 ADR は「BE の Pydantic schema と FE の TypeScript 型の二重定義に対し、OpenAPI から TS 型を自動生成する仕組みを導入するか」を扱う。
 > **採用方針は確定**：OpenAPI → TypeScript 型生成を導入し、frontend の手書き DTO 型を生成物へ**完全移行**する（手書き interface を残したまま alias で FE 独自名を温存する折衷案は採らない。詳細は「決定内容」参照）。リリース前のため呼び出し側 rename コストが低く、踏み込んだ移行が可能と判断した。
-> ただし status は `Proposed` のまま据え置く。後述の Phase 0 + Phase 1 パイロットが `make ci` green を満たし、CI ドリフト検知が機能することを確認できた時点で `Accepted` に昇格する。前提が崩れた場合は `Deprecated`（現状の手動同期を継続）に倒す。
+> Phase 0（基盤構築）+ Phase 1（`api/shared.ts` パイロット移行）が完了し、`make ci` green と CI ドリフト検知の機能（backend schema をわざと変えると `git diff --exit-code frontend/src/api/generated.ts` が fail する）を確認できたため、status を `Accepted` に昇格した（2026-05-29）。後続 Phase 2 / 3 は本 ADR の方針に従って進める。前提が崩れた場合は `Deprecated`（現状の手動同期を継続）に倒す。
 > 本 ADR の起票自体は領域横断リファクタ（`XR_apply`）のスコープ内だが、**パイプライン実装と型移行は本 ADR が定義する後続 PR で行う**（codegen は重い投資であり、env/docs 修正と束ねるとレビュー不能になるため）。
 
 ## コンテキスト
@@ -75,8 +75,8 @@ FastAPI が出力する OpenAPI スキーマから **`openapi-typescript`** で 
 
 | Phase | 対象 | 内容 | リスク |
 |---|---|---|---|
-| 0 | 前提・基盤 | ①`response_model` 棚卸し（未設定 14 個を「DTO 不要」と「schema 化必要」に仕分け）②不足 schema 追加 + `response_model` 付与（`/github/login-url`→`GitHubLoginUrlResponse`、202 系→共通 `TaskAcceptedResponse`）③`backend/scripts/export_openapi.py` 追加 ④`openapi-typescript` を devDependency 追加 ⑤`make codegen-types`（Nix wrap）⑥`generated.ts` 初回生成 ⑦CI ドリフト検知（`git diff --exit-code`）| 中 |
-| 1 | 読み取り（パイロット） | `api/shared.ts`（`TaskStatusResponse`、`/cache/status` は `response_model` 付き・死角なし）を完全移行。`make ci` green と「BE schema をわざと変えると CI が落ちる」ことを確認 | 低〜中 |
+| 0 ✅完了 | 前提・基盤 | ①`response_model` 棚卸し（未設定 14 個を「DTO 不要」と「schema 化必要」に仕分け）②不足 schema 追加 + `response_model` 付与（`/github/login-url`→`GitHubLoginUrlResponse`、202 系→共通 `TaskAcceptedResponse`）③`backend/scripts/export_openapi.py` 追加 ④`openapi-typescript` を devDependency 追加 ⑤`make codegen-types`（Nix wrap）⑥`generated.ts` 初回生成 ⑦CI ドリフト検知（`git diff --exit-code`）| 中 |
+| 1 ✅完了 | 読み取り（パイロット） | `api/shared.ts`（`TaskStatusResponse`）を完全移行。手書き interface を削除し、生成物の薄い再エクスポート層 `api/types.ts` へ統合。論点B（`str \| None`→`string \| null`）に伴い消費側 `useTaskPolling` / `useAsyncTaskPage` の `checkStatus` 契約を `string \| null` 許容へ更新。`make ci` green と「BE schema をわざと変えると `git diff --exit-code` が fail する」ことを確認済み | 低〜中 |
 | 2 | 主要レスポンス | `api/githubLink.ts`（`TaskProgress`→`ProgressResponse` 含む）・`api/auth.ts`（`AuthResponse`→`TokenResponse`）を完全移行。手書き interface を全削除し BE 名へ rename。E2E 必須 | 中 |
 | 3 | フォーム入出力含む | `types.ts` の `CareerResume*`（→`Resume*`）/ `BlogAccount`（→`BlogAccountResponse`）/ `MasterItem` 系を完全移行。`payloadBuilders.ts` / `formMappers.ts` の追従。E2E 必須 | 中〜高 |
 
