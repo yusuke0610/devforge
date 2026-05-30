@@ -5,6 +5,25 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
+# テストで使う想定 audience（= CLOUD_TASKS_SERVICE_URL）。
+_EXPECTED_AUDIENCE = "https://backend.example.com"
+
+
+def _fake_oidc_verifier(claims: dict):
+    """verify_oauth2_token の検証ダブルを生成する。
+
+    実物と同じく audience 不一致で ValueError を送出する。これにより
+    _verify_cloud_tasks_oidc() が audience=CLOUD_TASKS_SERVICE_URL を
+    渡さなくなった場合にテストが失敗し、audience チェックを回帰で固定できる。
+    """
+
+    def _verify(token, request, audience):
+        if audience != _EXPECTED_AUDIENCE:
+            raise ValueError(f"audience 不一致: {audience!r}")
+        return claims
+
+    return _verify
+
 
 class TestAdminTokenRequired:
     """master-data の書込系は admin Bearer token を要求する。"""
@@ -90,11 +109,13 @@ class TestInternalSecret:
         )
         monkeypatch.setattr(
             "app.routers.internal.id_token.verify_oauth2_token",
-            lambda token, request, audience: {
-                "iss": "https://accounts.google.com",
-                "email": "attacker@example.iam.gserviceaccount.com",
-                "email_verified": True,
-            },
+            _fake_oidc_verifier(
+                {
+                    "iss": "https://accounts.google.com",
+                    "email": "attacker@example.iam.gserviceaccount.com",
+                    "email_verified": True,
+                }
+            ),
         )
         resp = client.post(
             "/internal/tasks/github_link",
@@ -118,11 +139,13 @@ class TestInternalSecret:
         )
         monkeypatch.setattr(
             "app.routers.internal.id_token.verify_oauth2_token",
-            lambda token, request, audience: {
-                "iss": "https://accounts.google.com",
-                "email": "tasks@example.iam.gserviceaccount.com",
-                "email_verified": True,
-            },
+            _fake_oidc_verifier(
+                {
+                    "iss": "https://accounts.google.com",
+                    "email": "tasks@example.iam.gserviceaccount.com",
+                    "email_verified": True,
+                }
+            ),
         )
         resp = client.post(
             "/internal/tasks/totally-unknown-type",

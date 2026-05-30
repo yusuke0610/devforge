@@ -20,8 +20,10 @@ GITHUB_API = "https://api.github.com"
 # GitHub の owner（ユーザー/Organization）名と repo 名の許容パターン。
 # owner: 英数字とハイフンのみ。repo: 英数字 . _ - のみ。
 # API パスへ補間する前にこのパターンで検証し、不正文字によるパス操作・SSRF を防ぐ（多層防御）。
+# repo は連続ドット（".."）とドットのみの名前（"." / ".." 等）を否定先読みで拒否し、
+# パストラバーサル相当の入力を URL 補間前に弾く。
 _OWNER_PATTERN = re.compile(r"^[A-Za-z0-9-]{1,39}$")
-_REPO_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,100}$")
+_REPO_PATTERN = re.compile(r"^(?!.*\.\.)(?!\.+$)[A-Za-z0-9._-]{1,100}$")
 
 
 def _ensure_valid_owner(owner: str) -> None:

@@ -22,17 +22,20 @@ def test_github_link_run_rate_limited(client: TestClient) -> None:
 
     limiter.reset()
     statuses: list[int] = []
-    for _ in range(8):
-        resp = client.post(
-            "/api/github-link/run",
-            json={"include_forks": False},
-            headers=headers,
-        )
-        statuses.append(resp.status_code)
-        if resp.status_code == 429:
-            break
-    assert 429 in statuses, f"429 が観測されなかった: {statuses}"
-    limiter.reset()
+    try:
+        for _ in range(8):
+            resp = client.post(
+                "/api/github-link/run",
+                json={"include_forks": False},
+                headers=headers,
+            )
+            statuses.append(resp.status_code)
+            if resp.status_code == 429:
+                break
+        assert 429 in statuses, f"429 が観測されなかった: {statuses}"
+    finally:
+        # 失敗時もグローバルな limiter 状態を後続テストへ漏らさない
+        limiter.reset()
 
 
 def test_blog_sync_rate_limited(client: TestClient) -> None:
@@ -44,10 +47,13 @@ def test_blog_sync_rate_limited(client: TestClient) -> None:
     headers = auth_header(client, "rl-blog-user")
     limiter.reset()
     statuses: list[int] = []
-    for _ in range(13):
-        resp = client.post("/api/blog/accounts/nonexistent/sync", headers=headers)
-        statuses.append(resp.status_code)
-        if resp.status_code == 429:
-            break
-    assert 429 in statuses, f"429 が観測されなかった: {statuses}"
-    limiter.reset()
+    try:
+        for _ in range(13):
+            resp = client.post("/api/blog/accounts/nonexistent/sync", headers=headers)
+            statuses.append(resp.status_code)
+            if resp.status_code == 429:
+                break
+        assert 429 in statuses, f"429 が観測されなかった: {statuses}"
+    finally:
+        # 失敗時もグローバルな limiter 状態を後続テストへ漏らさない
+        limiter.reset()

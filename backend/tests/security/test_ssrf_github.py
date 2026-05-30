@@ -33,12 +33,15 @@ _MALICIOUS_OWNERS = [
 
 def _run(coro):
     """既存テストの event loop 前提を壊さず非同期関数を実行する。"""
+    original = asyncio.get_event_loop_policy().get_event_loop()
     loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
         return loop.run_until_complete(coro)
     finally:
         loop.close()
-        asyncio.set_event_loop(asyncio.new_event_loop())
+        # 一時 loop を閉じたら元の loop へ戻す（新規 loop を作って放置すると leak する）。
+        asyncio.set_event_loop(original)
 
 
 @pytest.mark.parametrize("bad", _MALICIOUS_OWNERS)
