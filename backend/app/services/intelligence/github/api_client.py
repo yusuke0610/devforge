@@ -5,6 +5,7 @@ GitHub REST API 呼び出しを担うモジュール。
 """
 
 import logging
+import re
 import time
 from typing import Any, Dict, List, Optional
 
@@ -15,6 +16,32 @@ from ....services.tasks.exceptions import NonRetryableError, RetryableError
 logger = logging.getLogger(__name__)
 
 GITHUB_API = "https://api.github.com"
+
+# GitHub の owner（ユーザー/Organization）名と repo 名の許容パターン。
+# owner: 英数字とハイフンのみ。repo: 英数字 . _ - のみ。
+# API パスへ補間する前にこのパターンで検証し、不正文字によるパス操作・SSRF を防ぐ（多層防御）。
+_OWNER_PATTERN = re.compile(r"^[A-Za-z0-9-]{1,39}$")
+_REPO_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,100}$")
+
+
+def _ensure_valid_owner(owner: str) -> None:
+    """owner（GitHub ユーザー/Org 名）が許容パターンに合致するか検証する。"""
+    if not _OWNER_PATTERN.fullmatch(owner or ""):
+        raise NonRetryableError(f"不正な GitHub ユーザー名: {owner!r}")
+
+
+def _ensure_valid_repo(repo: str) -> None:
+    """repo 名が許容パターンに合致するか検証する。"""
+    if not _REPO_PATTERN.fullmatch(repo or ""):
+        raise NonRetryableError(f"不正な GitHub リポジトリ名: {repo!r}")
+
+
+def _is_valid_owner_repo(owner: str, repo: str) -> bool:
+    """owner / repo が両方とも許容パターンに合致するか（多層防御の軽量判定）。"""
+    return bool(_OWNER_PATTERN.fullmatch(owner or "")) and bool(
+        _REPO_PATTERN.fullmatch(repo or "")
+    )
+
 
 # 一時障害とみなす HTTP ステータスコード
 _RETRYABLE_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
@@ -90,6 +117,7 @@ async def fetch_repos_raw(
     - 5xx も ``RetryableError`` を raise する
     - その他の 4xx は ``NonRetryableError`` を raise する
     """
+    _ensure_valid_owner(username)
     raw_repos: List[Dict[str, Any]] = []
     for page in range(1, max_pages + 1):
         resp = await client.get(
@@ -163,6 +191,9 @@ async def fetch_languages(
     repo: str,
 ) -> Dict[str, int]:
     """リポジトリの言語バイト数を取得する。"""
+    if not _is_valid_owner_repo(owner, repo):
+        logger.warning("不正な owner/repo をスキップ: %s/%s", owner, repo)
+        return {}
     try:
         resp = await client.get(f"/repos/{owner}/{repo}/languages")
         if resp.status_code == 403:
@@ -181,6 +212,9 @@ async def fetch_root_files(
     repo: str,
 ) -> List[str]:
     """リポジトリのルートレベルの注目すべきファイル名/ディレクトリ名を取得する。"""
+    if not _is_valid_owner_repo(owner, repo):
+        logger.warning("不正な owner/repo をスキップ: %s/%s", owner, repo)
+        return []
     try:
         resp = await client.get(f"/repos/{owner}/{repo}/contents/")
         if resp.status_code in (403, 404):
@@ -208,6 +242,9 @@ async def fetch_file_content(
     path: str,
 ) -> Optional[str]:
     """リポジトリから生のファイルコンテンツをダウンロードする。"""
+    if not _is_valid_owner_repo(owner, repo):
+        logger.warning("不正な owner/repo をスキップ: %s/%s", owner, repo)
+        return None
     try:
         resp = await client.get(
             f"/repos/{owner}/{repo}/contents/{path}",

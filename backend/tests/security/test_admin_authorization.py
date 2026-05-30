@@ -47,7 +47,7 @@ class TestAdminTokenRequired:
 
 
 class TestInternalSecret:
-    """Cloud Tasks コールバックには X-CloudTasks-QueueName を要求する。"""
+    """Cloud Tasks コールバックにはキューヘッダーと OIDC を要求する。"""
 
     def test_unknown_task_type_returns_400(self, client: TestClient) -> None:
         resp = client.post("/internal/tasks/totally-unknown-type", json={})
@@ -60,3 +60,76 @@ class TestInternalSecret:
         monkeypatch.setenv("TASK_RUNNER", "cloud_tasks")
         resp = client.post("/internal/tasks/github_link", json={"user_id": "x"})
         assert resp.status_code == 403
+
+    def test_missing_cloud_tasks_oidc_returns_403(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """TASK_RUNNER=cloud_tasks では OIDC Bearer token が無いと 403。"""
+        monkeypatch.setenv("TASK_RUNNER", "cloud_tasks")
+        monkeypatch.setenv("CLOUD_TASKS_SERVICE_URL", "https://backend.example.com")
+        monkeypatch.setenv(
+            "CLOUD_TASKS_SERVICE_ACCOUNT",
+            "tasks@example.iam.gserviceaccount.com",
+        )
+        resp = client.post(
+            "/internal/tasks/github_link",
+            json={"user_id": "x"},
+            headers={"X-CloudTasks-QueueName": "queue"},
+        )
+        assert resp.status_code == 403
+
+    def test_invalid_cloud_tasks_oidc_claims_return_403(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """OIDC の email が期待 SA と違う場合は 403。"""
+        monkeypatch.setenv("TASK_RUNNER", "cloud_tasks")
+        monkeypatch.setenv("CLOUD_TASKS_SERVICE_URL", "https://backend.example.com")
+        monkeypatch.setenv(
+            "CLOUD_TASKS_SERVICE_ACCOUNT",
+            "tasks@example.iam.gserviceaccount.com",
+        )
+        monkeypatch.setattr(
+            "app.routers.internal.id_token.verify_oauth2_token",
+            lambda token, request, audience: {
+                "iss": "https://accounts.google.com",
+                "email": "attacker@example.iam.gserviceaccount.com",
+                "email_verified": True,
+            },
+        )
+        resp = client.post(
+            "/internal/tasks/github_link",
+            json={"user_id": "x"},
+            headers={
+                "X-CloudTasks-QueueName": "queue",
+                "Authorization": "Bearer token",
+            },
+        )
+        assert resp.status_code == 403
+
+    def test_valid_cloud_tasks_oidc_reaches_handler(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """正しいキューヘッダーと OIDC なら内部ハンドラまで到達する。"""
+        monkeypatch.setenv("TASK_RUNNER", "cloud_tasks")
+        monkeypatch.setenv("CLOUD_TASKS_SERVICE_URL", "https://backend.example.com")
+        monkeypatch.setenv(
+            "CLOUD_TASKS_SERVICE_ACCOUNT",
+            "tasks@example.iam.gserviceaccount.com",
+        )
+        monkeypatch.setattr(
+            "app.routers.internal.id_token.verify_oauth2_token",
+            lambda token, request, audience: {
+                "iss": "https://accounts.google.com",
+                "email": "tasks@example.iam.gserviceaccount.com",
+                "email_verified": True,
+            },
+        )
+        resp = client.post(
+            "/internal/tasks/totally-unknown-type",
+            json={},
+            headers={
+                "X-CloudTasks-QueueName": "queue",
+                "Authorization": "Bearer token",
+            },
+        )
+        assert resp.status_code == 400

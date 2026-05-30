@@ -12,6 +12,8 @@ import logging
 import os
 
 from fastapi import APIRouter, HTTPException, Request
+from google.auth.transport.requests import Request as GoogleAuthRequest
+from google.oauth2 import id_token
 
 from ..core import env_keys
 from ..core.messages import get_error
@@ -24,16 +26,54 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/internal/tasks", tags=["internal"])
 
 
+def _get_bearer_token(request: Request) -> str:
+    """Authorization ヘッダーから Bearer token を取り出す。"""
+    authorization = request.headers.get("Authorization", "")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        return ""
+    return token.strip()
+
+
+def _verify_cloud_tasks_oidc(request: Request) -> bool:
+    """Cloud Tasks OIDC トークンの audience と発行元サービスアカウントを検証する。"""
+    expected_audience = os.environ.get(env_keys.CLOUD_TASKS_SERVICE_URL, "").strip()
+    expected_service_account = os.environ.get(env_keys.CLOUD_TASKS_SERVICE_ACCOUNT, "").strip()
+    token = _get_bearer_token(request)
+    if not expected_audience or not expected_service_account or not token:
+        return False
+
+    try:
+        claims = id_token.verify_oauth2_token(
+            token,
+            GoogleAuthRequest(),
+            audience=expected_audience,
+        )
+    except ValueError:
+        logger.warning("Cloud Tasks OIDC トークン検証に失敗しました", exc_info=True)
+        return False
+
+    issuer = claims.get("iss")
+    email = claims.get("email")
+    email_verified = claims.get("email_verified")
+    allowed_issuers = {"https://accounts.google.com", "accounts.google.com"}
+    return (
+        issuer in allowed_issuers
+        and email == expected_service_account
+        and email_verified is True
+    )
+
+
 def _verify_request(request: Request) -> bool:
     """Cloud Tasks からのリクエストか検証する。
 
-    TASK_RUNNER=cloud_tasks の場合のみ X-CloudTasks-QueueName ヘッダーを必須とする。
+    TASK_RUNNER=cloud_tasks の場合は X-CloudTasks-QueueName と OIDC を必須とする。
     未設定（空文字含む）はローカル／テスト環境とみなし無条件で許可する。
     """
     if os.environ.get(env_keys.TASK_RUNNER, "").strip() != "cloud_tasks":
         return True
     queue_name = request.headers.get("X-CloudTasks-QueueName")
-    return bool(queue_name)
+    return bool(queue_name) and _verify_cloud_tasks_oidc(request)
 
 
 def _get_max_attempts() -> int:

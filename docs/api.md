@@ -125,8 +125,8 @@ REST API エンドポイント一覧と、バックエンド／フロントエ�
 | `GCP_PROJECT_ID` | Cloud Tasks の GCP プロジェクト ID |
 | `CLOUD_TASKS_QUEUE` | Cloud Tasks のキュー名 |
 | `CLOUD_TASKS_LOCATION` | Cloud Tasks のロケーション（例: `asia-northeast1`） |
-| `CLOUD_TASKS_SERVICE_URL` | Cloud Tasks → Cloud Run コールバック先 URL |
-| `CLOUD_TASKS_SERVICE_ACCOUNT` | Cloud Tasks 実行用サービスアカウント |
+| `CLOUD_TASKS_SERVICE_URL` | Cloud Tasks → Cloud Run コールバック先 URL（OIDC audience としても検証） |
+| `CLOUD_TASKS_SERVICE_ACCOUNT` | Cloud Tasks 実行用サービスアカウント（OIDC `email` として検証） |
 | `TASK_MAX_ATTEMPTS` | タスク最大試行回数（リトライ判定で参照） |
 
 ### Redis（レートリミット等）
