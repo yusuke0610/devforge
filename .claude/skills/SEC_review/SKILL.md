@@ -31,8 +31,8 @@ description: Use when running a security review / vulnerability check against th
 /SEC_review full
 ```
 
-- **差分（デフォルト）**: `git diff --name-only origin/main...HEAD`。`origin/main` が無ければ `origin/dev`、それも無ければ `HEAD~1` にフォールバック。検出されたファイルのうち `backend/** frontend/** infra/**` に該当するものを対象にする。
-- **全体（`full`）**: `backend/** frontend/** infra/**` 全体を security.md 全項目で走査する。
+- **差分（デフォルト）**: `git diff --name-only origin/main...HEAD`。`origin/main` が無ければ `origin/dev`、それも無ければ `HEAD~1` にフォールバック。検出されたファイルのうち `backend/** frontend/** infra/** .github/workflows/**` に該当するものを対象にする。
+- **全体（`full`）**: `backend/** frontend/** infra/** .github/workflows/**` 全体を security.md 全項目で走査する。
 - 差分が空（コミットなし）なら全体スキャンに自動フォールバックし、その旨を 1 行で告げる。
 
 ```text

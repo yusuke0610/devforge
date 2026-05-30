@@ -308,11 +308,10 @@ jobs:
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Setup Node.js
+        # デプロイジョブは secrets にアクセスするため、汚染され得る npm キャッシュを復元しない。
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "20"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci --prefix frontend
@@ -410,11 +409,10 @@ jobs:
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Setup Node.js
+        # デプロイジョブは secrets にアクセスするため、汚染され得る npm キャッシュを復元しない。
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "20"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci --prefix frontend
@@ -513,11 +511,10 @@ jobs:
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Setup Node.js
+        # デプロイジョブは secrets にアクセスするため、汚染され得る npm キャッシュを復元しない。
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "20"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci --prefix frontend
