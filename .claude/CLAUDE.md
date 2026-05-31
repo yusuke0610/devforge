@@ -88,13 +88,26 @@ nix develop --command bash -c "cd frontend && npm run test:e2e"
 
 CI 定義: `.github/workflows/ci.yml`
 
+## 作業開始時のブランチ運用（デフォルト）
+
+**新しい作業に着手するときは、最初に main から作業ブランチを切る。** これはデフォルト挙動であり、合言葉や明示指示を待たない。
+
+- 作業開始時に `main`（または `master`）ブランチ上にいる場合、コードに触れる前に `git fetch origin main` してから `origin/main` 起点で feature ブランチを切る（例: `git switch -c feat/<topic> origin/main`）。
+- 既に feature ブランチ上にいる場合:
+  - 差分（未コミット変更 or main より進んだコミット）が**無い**ならそのまま継続してよい。
+  - 差分が**ある**場合は、別作業の続きと混ざる恐れがあるため**勝手に切り直さず、main から新しく作業ブランチを切るべきかユーザーに相談する**。今の差分を引き継ぐのか、退避（commit / stash）してから切るのかも併せて確認する。
+- ブランチ名は変更内容が分かる英語の kebab-case（`feat/` `fix/` `docs/` `refactor/` 等のプレフィックス）。
+- 例外: 単発の調査・閲覧のみでコミットを伴わない作業は、ブランチを切らなくてよい。
+
+これにより `main` への直接コミットを防ぐ。後続の stage / commit / pr フローはこのブランチ上で進める。
+
 ## コミット / PR フロー
 
 修正〜PR は **合言葉ベースの段階制御**で進める。各段で必ず止まる。diff 全文は会話に出さず（ユーザーがエディタで確認する）、要約と判断が必要な事案だけ提示する。
 
 | 合言葉 | やること |
 |---|---|
-| **stage** | 実装 → `make ci` → `git add` まで。`main` にいたら feature ブランチを `origin/main` 起点で切る。会話に「サマリ＋判断が必要な事案」を提示し、ユーザーのエディタ確認を待つ |
+| **stage** | 実装 → `make ci` → `git add` まで。作業開始時にブランチを切り損ねて `main` にいた場合はここで feature ブランチを `origin/main` 起点で切る（本来は「作業開始時のブランチ運用」で切る）。会話に「サマリ＋判断が必要な事案」を提示し、ユーザーのエディタ確認を待つ |
 | **commit** | コミットメッセージ案（**日本語**）を提示 → **ユーザー承認を待ってから** commit。承認は必須ゲート |
 | **pr** | `git fetch origin main` → `git log --oneline origin/main..HEAD` / `git diff --stat origin/main...HEAD` で**最新の main との差分を確認**（ローカルの古い `origin/main` 参照で誤認しないため）→ `git push` → `gh pr create`（**日本語**タイトル/本文、base = `main`）→ PR URL を返す |
 
