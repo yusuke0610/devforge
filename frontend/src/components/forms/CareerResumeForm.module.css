@@ -146,6 +146,41 @@
   padding-left: 1rem;
 }
 
+/* PDF パネルの開閉トグル。展開時はカラム右上に小さく配置する。 */
+.pdfToggle {
+  align-self: flex-end;
+  flex-shrink: 0;
+  margin-bottom: 0.4rem;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1;
+  border: 1px solid var(--border-input);
+  border-radius: 4px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.pdfToggle:hover {
+  background: var(--ghost-hover);
+}
+
+/* 折りたたみ時: 幅を CSS 変数に依らず固定の細いレールにし、トグルを縦書きで全高表示する。
+   panel 本体は JSX 側で非レンダリングなので、ここはレールの見た目だけを定義する。 */
+.pdfColCollapsed {
+  width: 2.5rem;
+  align-items: center;
+  padding-left: 0;
+}
+
+.pdfColCollapsed .pdfToggle {
+  writing-mode: vertical-rl;
+  align-self: center;
+  margin-bottom: 0;
+  padding: 0.6rem 0.2rem;
+  height: 100%;
+}
+
 /* 横幅が足りない時（2 カラムを並べると最小幅を割る幅）は縦積みに切り替える。
    閾値 = PDF 最小(280) + フォーム最小(360) + gap/splitter(38) ≒ 680px。
    これ未満では左右に並べず、フォームの下に PDF を全幅で積む（要素が切れない）。 */
@@ -173,5 +208,21 @@
     border-top: 1px solid var(--border, #e5e5e5);
     padding-left: 0;
     padding-top: 1rem;
+  }
+
+  /* 縦積みかつ折りたたみ時は、全幅の薄いバーにしてトグルを横書きへ戻す
+     （細い縦レールのままだと縦積みレイアウトで不自然なため）。 */
+  .pdfColCollapsed {
+    width: 100%;
+    min-height: auto;
+    align-items: stretch;
+    padding-top: 0.5rem;
+  }
+
+  .pdfColCollapsed .pdfToggle {
+    writing-mode: horizontal-tb;
+    align-self: flex-start;
+    height: auto;
+    padding: 0.3rem 0.6rem;
   }
 }

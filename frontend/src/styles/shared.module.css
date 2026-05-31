@@ -217,4 +217,13 @@
   .pageBody {
     padding: 1rem;
   }
+
+  /* 狭い画面では各セクションの余白を詰めて入力欄の表示幅を確保する。 */
+  .section {
+    padding: 0.8rem;
+  }
+
+  .form {
+    gap: 0.8rem;
+  }
 }
