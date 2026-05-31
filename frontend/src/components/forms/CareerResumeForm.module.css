@@ -168,6 +168,7 @@
 /* 折りたたみ時: 幅を CSS 変数に依らず固定の細いレールにし、トグルを縦書きで全高表示する。
    panel 本体は JSX 側で非レンダリングなので、ここはレールの見た目だけを定義する。 */
 .pdfColCollapsed {
+  position: relative;
   width: 2.5rem;
   align-items: center;
   padding-left: 0;
@@ -179,6 +180,23 @@
   margin-bottom: 0;
   padding: 0.6rem 0.2rem;
   height: 100%;
+}
+
+/* 折りたたみレールに表示する取り込み補助エラーのインジケータ。
+   トグルの上に小さな赤丸として固定し、クリックでパネルを展開する。 */
+.collapsedError {
+  position: absolute;
+  top: 0.4rem;
+  align-self: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border: none;
+  border-radius: 50%;
+  background: var(--error, #d33);
+  color: #fff;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
 }
 
 /* 横幅が足りない時（2 カラムを並べると最小幅を割る幅）は縦積みに切り替える。

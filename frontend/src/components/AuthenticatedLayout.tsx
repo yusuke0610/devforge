@@ -62,7 +62,7 @@ export function AuthenticatedLayout({
             »
           </button>
         )}
-        <aside className={styles.sidebar}>
+        <aside className={styles.sidebar} aria-hidden={sidebarCollapsed}>
           <div className={styles.sidebarHeader}>
             <p className={styles.sidebarTitle}>DevForge</p>
             <button

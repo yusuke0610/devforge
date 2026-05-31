@@ -95,6 +95,10 @@ export function useResumeImportAssist(): UseResumeImportAssistReturn {
     if (!selected) return;
     // 巨大ファイルは pdf.js の全ページ描画でブラウザがフリーズするため、描画前に弾く。
     if (selected.size > MAX_FILE_BYTES) {
+      // 前回選択した PDF が残ったままだと、エラー表示の裏で古い原本が描画され続けるため
+      // 選択状態をクリアしてからエラーを出す。
+      setFile(null);
+      setFileName(null);
       setError(IMPORT_ASSIST_MESSAGES.TOO_LARGE(MAX_FILE_MB));
       return;
     }

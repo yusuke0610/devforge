@@ -53,9 +53,15 @@
   background: var(--sidebar-hover-bg);
 }
 
-/* 折りたたみ時: サイドバーを画面外へスライドし、本文を全幅化。 */
+/* 折りたたみ時: サイドバーを画面外へスライドし、本文を全幅化。
+   visibility:hidden / pointer-events:none で内部のリンク・ボタンを
+   タブ順とポインタ操作の両方から除外する（画面外でも focus 可能なまま残さない）。
+   visibility はスライドアウト完了後に切り替わるよう遅延させ、展開時は即座に戻す。 */
 .sidebarCollapsed .sidebar {
   transform: translateX(-100%);
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 0.2s ease, visibility 0s linear 0.2s;
 }
 
 .sidebarCollapsed .mainContent {

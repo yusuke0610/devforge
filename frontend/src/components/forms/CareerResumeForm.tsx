@@ -268,6 +268,19 @@ export function CareerResumeForm() {
                 >
                   {pdfCollapsed ? "‹ PDF" : "›"}
                 </button>
+                {/* 折りたたみ中でも取り込み補助のエラー（サイズ超過・パース失敗）は隠さない。
+                    クリックでパネルを展開し、全文を ResumePdfTracePanel で表示できるようにする。 */}
+                {pdfCollapsed && assist.error && (
+                  <button
+                    type="button"
+                    className={layout.collapsedError}
+                    onClick={() => setPdfCollapsed(false)}
+                    title={assist.error}
+                    aria-label={UI_MESSAGES.PDF_PANEL_EXPAND}
+                  >
+                    !
+                  </button>
+                )}
                 {!pdfCollapsed && <ResumePdfTracePanel assist={assist} />}
               </aside>
             </div>
