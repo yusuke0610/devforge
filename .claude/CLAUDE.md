@@ -96,7 +96,7 @@ CI 定義: `.github/workflows/ci.yml`
 |---|---|
 | **stage** | 実装 → `make ci` → `git add` まで。`main` にいたら feature ブランチを `origin/main` 起点で切る。会話に「サマリ＋判断が必要な事案」を提示し、ユーザーのエディタ確認を待つ |
 | **commit** | コミットメッセージ案（**日本語**）を提示 → **ユーザー承認を待ってから** commit。承認は必須ゲート |
-| **pr** | `git push` → `gh pr create`（**日本語**タイトル/本文、base = `main`）→ PR URL を返す |
+| **pr** | `git fetch origin main` → `git log --oneline origin/main..HEAD` / `git diff --stat origin/main...HEAD` で**最新の main との差分を確認**（ローカルの古い `origin/main` 参照で誤認しないため）→ `git push` → `gh pr create`（**日本語**タイトル/本文、base = `main`）→ PR URL を返す |
 
 修正依頼時に「PR まで」等と言われたら、コミットメッセージ承認だけ挟んで一気通貫で進めてよい。段階を飛ばす指定も尊重する。
 
