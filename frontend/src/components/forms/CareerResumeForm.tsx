@@ -9,7 +9,7 @@ import {
   getLatestCareerResume,
   updateCareerResume,
 } from "../../api";
-import { IMPORT_ASSIST_MESSAGES } from "../../constants/messages";
+import { IMPORT_ASSIST_MESSAGES, UI_MESSAGES } from "../../constants/messages";
 import { createInitialCareerForm, mapCareerResumeToForm } from "../../formMappers";
 import { useCareerDirty } from "../../hooks/career/useCareerDirty";
 import { usePdfPanelLayout } from "../../hooks/career/usePdfPanelLayout";
@@ -32,6 +32,8 @@ import { CareerSelfPrSection } from "./sections/CareerSelfPrSection";
 
 export function CareerResumeForm() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // PDF 原本ビュー（右カラム）の折りたたみ状態。折りたたむと入力フォームが全幅に広がる。
+  const [pdfCollapsed, setPdfCollapsed] = useState(false);
   const assist = useResumeImportAssist();
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const splitRef = useRef<HTMLDivElement>(null);
@@ -241,18 +243,45 @@ export function CareerResumeForm() {
                 />
               </div>
 
-              {/* 中央: ドラッグでカラム幅を変えるスプリッター */}
-              <div
-                className={layout.splitter}
-                role="separator"
-                aria-orientation="vertical"
-                onMouseDown={startResize}
-              />
+              {/* 中央: ドラッグでカラム幅を変えるスプリッター（折りたたみ時は非表示）。 */}
+              {!pdfCollapsed && (
+                <div
+                  className={layout.splitter}
+                  role="separator"
+                  aria-orientation="vertical"
+                  onMouseDown={startResize}
+                />
+              )}
 
               {/* 右: PDF 原本ビュー（独立スクロール）。文字を選択して入力欄へ流し込む。
-                幅は CSS 変数 --pdf-col-width を CSS 側で参照（縦積み時は全幅へ上書き）。 */}
-              <aside className={layout.pdfCol}>
-                <ResumePdfTracePanel assist={assist} />
+                幅は CSS 変数 --pdf-col-width を CSS 側で参照（縦積み時は全幅へ上書き）。
+                折りたたみ時は細いレールになり、トグルだけを表示する。 */}
+              <aside className={`${layout.pdfCol} ${pdfCollapsed ? layout.pdfColCollapsed : ""}`}>
+                <button
+                  type="button"
+                  className={layout.pdfToggle}
+                  onClick={() => setPdfCollapsed((v) => !v)}
+                  aria-label={
+                    pdfCollapsed ? UI_MESSAGES.PDF_PANEL_EXPAND : UI_MESSAGES.PDF_PANEL_COLLAPSE
+                  }
+                  aria-expanded={!pdfCollapsed}
+                >
+                  {pdfCollapsed ? "‹ PDF" : "›"}
+                </button>
+                {/* 折りたたみ中でも取り込み補助のエラー（サイズ超過・パース失敗）は隠さない。
+                    クリックでパネルを展開し、全文を ResumePdfTracePanel で表示できるようにする。 */}
+                {pdfCollapsed && assist.error && (
+                  <button
+                    type="button"
+                    className={layout.collapsedError}
+                    onClick={() => setPdfCollapsed(false)}
+                    title={assist.error}
+                    aria-label={UI_MESSAGES.PDF_PANEL_EXPAND}
+                  >
+                    !
+                  </button>
+                )}
+                {!pdfCollapsed && <ResumePdfTracePanel assist={assist} />}
               </aside>
             </div>
           </div>

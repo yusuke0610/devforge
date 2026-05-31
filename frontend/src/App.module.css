@@ -17,6 +17,14 @@
   left: 0;
   bottom: 0;
   z-index: 100;
+  transition: transform 0.2s ease;
+}
+
+/* タイトル行 + 折りたたみボタンを横並びにするヘッダー。 */
+.sidebarHeader {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--sidebar-border);
 }
 
 .sidebarTitle {
@@ -24,8 +32,63 @@
   font-weight: 700;
   padding: 0 1.2rem 1rem;
   margin: 0;
-  border-bottom: 1px solid var(--sidebar-border);
+  flex: 1;
   color: var(--sidebar-title);
+}
+
+/* サイドバーを折りたたむボタン（ヘッダー右端）。 */
+.sidebarCollapseButton {
+  background: none;
+  border: none;
+  color: var(--sidebar-text);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0 1rem;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.sidebarCollapseButton:hover {
+  color: var(--sidebar-hover-text);
+  background: var(--sidebar-hover-bg);
+}
+
+/* 折りたたみ時: サイドバーを画面外へスライドし、本文を全幅化。
+   visibility:hidden / pointer-events:none で内部のリンク・ボタンを
+   タブ順とポインタ操作の両方から除外する（画面外でも focus 可能なまま残さない）。
+   visibility はスライドアウト完了後に切り替わるよう遅延させ、展開時は即座に戻す。 */
+.sidebarCollapsed .sidebar {
+  transform: translateX(-100%);
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 0.2s ease, visibility 0s linear 0.2s;
+}
+
+.sidebarCollapsed .mainContent {
+  margin-left: 0;
+}
+
+/* 折りたたみ中に表示する再展開ボタン（左上に固定）。 */
+.sidebarOpenButton {
+  position: fixed;
+  top: 0.6rem;
+  left: 0.6rem;
+  z-index: 110;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 6px;
+  padding: 0.3rem 0.65rem;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  transition: color 0.15s, background 0.15s;
+}
+
+.sidebarOpenButton:hover {
+  color: var(--sidebar-hover-text);
+  background: var(--sidebar-hover-bg);
 }
 
 .sidebarNav {
@@ -138,6 +201,7 @@
   overflow-y: auto;
   height: 100vh;
   background: var(--bg-page);
+  transition: margin-left 0.2s ease;
 }
 
 @media (max-width: 768px) {
@@ -160,12 +224,19 @@
     z-index: 100;
   }
 
-  .sidebarTitle {
-    padding: 0.8rem 1rem;
+  .sidebarHeader {
     border-bottom: none;
     border-right: 1px solid var(--sidebar-border);
+  }
+
+  .sidebarTitle {
+    padding: 0.8rem 1rem;
     white-space: nowrap;
     font-size: 1rem;
+  }
+
+  .sidebarCollapseButton {
+    padding: 0 0.7rem;
   }
 
   .sidebarNav {
@@ -197,5 +268,10 @@
   .mainContent {
     margin-left: 0;
     margin-top: var(--topbar-height);
+  }
+
+  /* モバイルでも折りたたみ時は本文を最上部まで広げる。 */
+  .sidebarCollapsed .mainContent {
+    margin-top: 0;
   }
 }

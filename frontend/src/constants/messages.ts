@@ -83,6 +83,10 @@ export const UI_MESSAGES = {
     "ページの表示中に問題が発生しました。再読み込みするか、ホームへ戻ってください。",
   GITHUB_LINK_EMPTY:
     "まだ連携データがありません。連携してアクティビティを可視化しましょう。",
+  SIDEBAR_COLLAPSE: "サイドバーを閉じる",
+  SIDEBAR_EXPAND: "サイドバーを開く",
+  PDF_PANEL_COLLAPSE: "PDFパネルを閉じる",
+  PDF_PANEL_EXPAND: "PDFパネルを開く",
 } as const;
 
 /** PDF 取り込み補助（PDF ビュー上の選択 → 流し込み）UI の文言 */
@@ -96,6 +100,9 @@ export const IMPORT_ASSIST_MESSAGES = {
   NO_TEXT:
     "このPDFから文字を選択できませんでした（スキャンPDFの可能性があります）。文字を選択できるPDFをお試しください。",
   RENDER_FAILED: "PDFの表示に失敗しました。別のファイルをお試しください。",
+  /** ファイルサイズが上限を超えた場合（ブラウザのフリーズ/メモリ枯渇を防ぐためのガード）。 */
+  TOO_LARGE: (limitMb: number) =>
+    `ファイルサイズが大きすぎます（上限${limitMb}MB）。ページ数の少ないPDFや、軽量化したPDFをお試しください。`,
   NO_TARGET: "先にフォームの入力欄をクリックして、流し込み先を選んでください。",
   TAB_FALLBACK: "PDF",
   ZOOM_IN: "拡大",

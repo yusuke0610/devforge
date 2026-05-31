@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import type { AuthUser } from "../router/guards";
 import type { Theme } from "../hooks/useTheme";
+import { UI_MESSAGES } from "../constants/messages";
 import { NotificationBell } from "./NotificationBell";
 import { UserMenu } from "./UserMenu";
 import { ChevronDownIcon } from "./icons/ChevronDownIcon";
@@ -28,6 +29,8 @@ export function AuthenticatedLayout({
   // GitHub 連携オプション（フォーク含む）の開閉とチェック状態。
   const [githubOptionsOpen, setGithubOptionsOpen] = useState(false);
   const [includeForks, setIncludeForks] = useState(false);
+  // サイドバーの折りたたみ状態。折りたたむと本文領域が全幅に広がる。
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   /**
    * GitHub 連携を実行する。
@@ -45,9 +48,32 @@ export function AuthenticatedLayout({
 
   return (
     <div className={shared.page}>
-      <div className={styles.appLayout}>
-        <aside className={styles.sidebar}>
-          <p className={styles.sidebarTitle}>DevForge</p>
+      <div
+        className={`${styles.appLayout} ${sidebarCollapsed ? styles.sidebarCollapsed : ""}`}
+      >
+        {/* 折りたたみ中のみ表示する、サイドバーを再展開するための固定ボタン。 */}
+        {sidebarCollapsed && (
+          <button
+            type="button"
+            className={styles.sidebarOpenButton}
+            aria-label={UI_MESSAGES.SIDEBAR_EXPAND}
+            onClick={() => setSidebarCollapsed(false)}
+          >
+            »
+          </button>
+        )}
+        <aside className={styles.sidebar} aria-hidden={sidebarCollapsed}>
+          <div className={styles.sidebarHeader}>
+            <p className={styles.sidebarTitle}>DevForge</p>
+            <button
+              type="button"
+              className={styles.sidebarCollapseButton}
+              aria-label={UI_MESSAGES.SIDEBAR_COLLAPSE}
+              onClick={() => setSidebarCollapsed(true)}
+            >
+              «
+            </button>
+          </div>
           <nav className={styles.sidebarNav}>
             <NavLink
               to="/career"

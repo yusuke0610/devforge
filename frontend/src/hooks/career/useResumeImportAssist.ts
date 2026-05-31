@@ -15,6 +15,18 @@ import { IMPORT_ASSIST_MESSAGES } from "../../constants/messages";
  * フォーカスを戻し、選択状態（:focus の緑枠）を維持して連続流し込みできるようにする。
  */
 
+/**
+ * 取り込み可能な PDF の最大バイト数（20MB）。
+ *
+ * このガードは Cloud Run のコスト対策ではない（取り込みは pdf.js による
+ * ブラウザ内描画のみで、PDF バイト列はサーバーに送信されない）。目的は
+ * 巨大ファイルを {@link PdfDocumentView} が全ページ一括レンダリングして
+ * ブラウザがフリーズ/OOM するのを防ぐこと。職務経歴書 PDF は通常数 MB のため、
+ * 明らかに異常な巨大ファイルだけを弾く緩めの閾値にしている。
+ */
+const MAX_FILE_BYTES = 20 * 1024 * 1024;
+const MAX_FILE_MB = MAX_FILE_BYTES / (1024 * 1024);
+
 /** controlled input/textarea に値を流し込み、React の onChange を発火させる。 */
 function assignToElement(el: HTMLInputElement | HTMLTextAreaElement, text: string): void {
   const isTextarea = el.tagName === "TEXTAREA";
@@ -81,6 +93,15 @@ export function useResumeImportAssist(): UseResumeImportAssistReturn {
     const selected = e.target.files?.[0];
     e.target.value = ""; // 同じファイルを再選択できるようにリセット
     if (!selected) return;
+    // 巨大ファイルは pdf.js の全ページ描画でブラウザがフリーズするため、描画前に弾く。
+    if (selected.size > MAX_FILE_BYTES) {
+      // 前回選択した PDF が残ったままだと、エラー表示の裏で古い原本が描画され続けるため
+      // 選択状態をクリアしてからエラーを出す。
+      setFile(null);
+      setFileName(null);
+      setError(IMPORT_ASSIST_MESSAGES.TOO_LARGE(MAX_FILE_MB));
+      return;
+    }
     setError(null);
     setFile(selected);
     setFileName(selected.name);
