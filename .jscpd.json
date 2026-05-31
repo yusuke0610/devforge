@@ -29,7 +29,7 @@
     "docs",
     ".claude",
     "README.md",
-    "AGENT.md",
+    "AGENTS.md",
     "flake.nix",
     "Makefile"
   ],
