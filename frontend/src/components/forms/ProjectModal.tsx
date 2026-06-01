@@ -268,10 +268,10 @@ export function ProjectModal({
               labelAdornment={<DirtyDot visible={dirty.fields.description} />}
             />
 
-            {/* 技術スタック */}
+            {/* スキルセット */}
             <div className={styles.stackSection}>
               <h3>
-                技術スタック ※プルダウンにないものはテキストで入力できます。
+                スキルセット ※プルダウンにないものはテキストで入力できます。
                 <DirtyDot visible={dirty.technology_stacks} />
               </h3>
               <div className={styles.stackGrid}>
@@ -299,7 +299,7 @@ export function ProjectModal({
                       type="button"
                       className={styles.chipRemove}
                       onClick={() => removeTechStack(stackIndex)}
-                      aria-label="技術スタックを削除"
+                      aria-label="スキルセットを削除"
                     >
                       &times;
                     </button>

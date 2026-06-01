@@ -67,7 +67,7 @@ export function ClientEditor({
         {!client.is_vacation && client.has_client && (
           <label className={styles.clientNameLabel}>
             <span>
-              取引先名（呼称）
+              案件名
               <DirtyDot visible={Boolean(dirty?.self)} />
             </span>
             <input

@@ -144,7 +144,7 @@ def build_resume_markdown(payload: dict[str, Any]) -> str:
                             f"{CATEGORY_LABELS.get(c, c)}: {', '.join(ns)}"
                             for c, ns in grouped.items()
                         ]
-                        lines.append(field_line("技術スタック", " / ".join(parts)))
+                        lines.append(field_line("スキルセット", " / ".join(parts)))
                     lines.append("")
 
     self_pr = payload.get("self_pr", "")

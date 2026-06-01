@@ -14,6 +14,7 @@
 }
 
 body {
+  margin: 0;
   font-family: "NotoSansJP", sans-serif;
   font-size: 9pt;
   line-height: 1.6;
@@ -110,16 +111,17 @@ h2 {
   margin: 3mm 0 2mm 0;
   padding-bottom: 1mm;
   border-bottom: 2px solid #333;
-  /* 取引先名見出しの孤立防止 */
+  /* 案件名見出しの孤立防止 */
   page-break-after: avoid;
 }
 
 /* プロジェクトテーブル */
 .project {
   margin-bottom: 2mm;
-  /* 1 案件（ヘッダ＋テーブル）は途中で割らず可読性を保つ。
-     会社ブロックはページ跨ぎ可、分割回避はこの単位で行う。 */
-  page-break-inside: avoid;
+  /* 案件が残りスペースに収まらない時に丸ごと次ページへ送られると、
+     枠付き company 内に大きな余白が残る。ページを詰めるため分割を許可する
+     （長い案件はページ境界で割れるが、余白を残すより詰めることを優先）。
+     分割時の列見出しは project-table の thead で繰り返す。 */
 }
 
 .project-header {
@@ -150,15 +152,12 @@ h2 {
 }
 
 .project-table td.desc {
-  width: 60%;
+  /* 体制カラムを廃止した分を業務内容へ割り当てる */
+  width: 75%;
 }
 
 .project-table td.env {
   width: 25%;
-}
-
-.project-table td.team {
-  width: 15%;
 }
 
 /* 業務内容カラム内のラベル */
