@@ -84,6 +84,44 @@
   color: var(--text-muted);
 }
 
+/* 空状態のドロップゾーン。クリックでファイル選択、ドラッグ&ドロップで読み込む。 */
+.dropzone {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1.5rem;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  border: 1.5px dashed var(--border-input);
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.dropzone:hover {
+  border-color: var(--accent, #4a90d9);
+  color: var(--text-secondary);
+  background: var(--ghost-hover);
+}
+
+/* パネル全体へのドラッグ中ハイライト（ファイル読み込み済みでも上に重ねてドロップ可）。 */
+.dragActive {
+  outline: 2px dashed var(--accent, #4a90d9);
+  outline-offset: -4px;
+  border-radius: 8px;
+}
+
+.dragActive .dropzone {
+  border-color: var(--accent, #4a90d9);
+  color: var(--text-secondary);
+  background: var(--ghost-hover);
+}
+
 /* スキャン PDF（テキストレイヤーなし）の警告 */
 .warning {
   font-size: 0.85rem;
@@ -113,4 +151,50 @@
   border-radius: 4px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Markdown 原本の本文。整形描画した HTML をここに流し込む（テキスト選択で流し込み）。
+   フォントサイズは zoom 倍率を em で受け取り、見出し/リスト等は em 相対で追従させる。 */
+.markdownBody {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.8rem 1rem;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  line-height: 1.7;
+  word-break: break-word;
+}
+
+.markdownBody :first-child {
+  margin-top: 0;
+}
+
+.markdownBody h1,
+.markdownBody h2,
+.markdownBody h3 {
+  line-height: 1.3;
+}
+
+.markdownBody pre {
+  overflow: auto;
+  padding: 0.6em;
+  border-radius: 4px;
+  background: var(--bg-header);
+}
+
+.markdownBody code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.markdownBody table {
+  border-collapse: collapse;
+}
+
+.markdownBody th,
+.markdownBody td {
+  border: 1px solid var(--border);
+  padding: 0.3em 0.5em;
 }

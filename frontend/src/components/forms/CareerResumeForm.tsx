@@ -9,10 +9,10 @@ import {
   getLatestCareerResume,
   updateCareerResume,
 } from "../../api";
-import { IMPORT_ASSIST_MESSAGES, UI_MESSAGES } from "../../constants/messages";
+import { UI_MESSAGES } from "../../constants/messages";
 import { createInitialCareerForm, mapCareerResumeToForm } from "../../formMappers";
 import { useCareerDirty } from "../../hooks/career/useCareerDirty";
-import { usePdfPanelLayout } from "../../hooks/career/usePdfPanelLayout";
+import { useImportPanelLayout } from "../../hooks/career/useImportPanelLayout";
 import { useResumeImportAssist } from "../../hooks/career/useResumeImportAssist";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
 import { buildCareerPayload } from "../../payloadBuilders";
@@ -23,7 +23,7 @@ import shared from "../../styles/shared.module.css";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { Skeleton } from "../ui/Skeleton";
 import { PdfPreviewModal } from "./PdfPreviewModal";
-import { ResumePdfTracePanel } from "./ResumePdfTracePanel";
+import { ResumeSourceTracePanel } from "./ResumeSourceTracePanel";
 import layout from "./CareerResumeForm.module.css";
 import { CareerBasicInfoSection } from "./sections/CareerBasicInfoSection";
 import { CareerExperienceSection } from "./sections/CareerExperienceSection";
@@ -35,9 +35,8 @@ export function CareerResumeForm() {
   // PDF 原本ビュー（右カラム）の折りたたみ状態。折りたたむと入力フォームが全幅に広がる。
   const [pdfCollapsed, setPdfCollapsed] = useState(false);
   const assist = useResumeImportAssist();
-  const pdfInputRef = useRef<HTMLInputElement>(null);
   const splitRef = useRef<HTMLDivElement>(null);
-  const { width: pdfWidth, startResize } = usePdfPanelLayout(splitRef);
+  const { width: pdfWidth, startResize } = useImportPanelLayout(splitRef);
   const {
     form,
     setForm,
@@ -125,20 +124,7 @@ export function CareerResumeForm() {
         <div className={shared.pageHeader}>
           <h1>職務経歴書</h1>
           <div className={shared.pageHeaderActions}>
-            {/* PDF 取り込み（従来のヘッダー位置）。選択した PDF を右カラムに原本表示する */}
-            <input
-              ref={pdfInputRef}
-              type="file"
-              accept="application/pdf"
-              style={{ display: "none" }}
-              onChange={assist.handleFileChange}
-              aria-label={IMPORT_ASSIST_MESSAGES.SELECT_FILE}
-            />
-            <button type="button" className="ghost" onClick={() => pdfInputRef.current?.click()}>
-              {assist.file
-                ? IMPORT_ASSIST_MESSAGES.RESELECT_FILE
-                : IMPORT_ASSIST_MESSAGES.SELECT_FILE}
-            </button>
+            {/* ファイル取り込みは右カラムの原本ビュー（ドラッグ&ドロップ / クリック）に集約。 */}
             <button type="submit" className="primary" disabled={!canSubmit || saving}>
               {saveButtonText}
             </button>
@@ -253,7 +239,7 @@ export function CareerResumeForm() {
                 />
               )}
 
-              {/* 右: PDF 原本ビュー（独立スクロール）。文字を選択して入力欄へ流し込む。
+              {/* 右: 原本ビュー（独立スクロール）。文字を選択して入力欄へ流し込む。
                 幅は CSS 変数 --pdf-col-width を CSS 側で参照（縦積み時は全幅へ上書き）。
                 折りたたみ時は細いレールになり、トグルだけを表示する。 */}
               <aside className={`${layout.pdfCol} ${pdfCollapsed ? layout.pdfColCollapsed : ""}`}>
@@ -262,26 +248,26 @@ export function CareerResumeForm() {
                   className={layout.pdfToggle}
                   onClick={() => setPdfCollapsed((v) => !v)}
                   aria-label={
-                    pdfCollapsed ? UI_MESSAGES.PDF_PANEL_EXPAND : UI_MESSAGES.PDF_PANEL_COLLAPSE
+                    pdfCollapsed ? UI_MESSAGES.SOURCE_PANEL_EXPAND : UI_MESSAGES.SOURCE_PANEL_COLLAPSE
                   }
                   aria-expanded={!pdfCollapsed}
                 >
-                  {pdfCollapsed ? "‹ PDF" : "›"}
+                  {pdfCollapsed ? "«" : "»"}
                 </button>
                 {/* 折りたたみ中でも取り込み補助のエラー（サイズ超過・パース失敗）は隠さない。
-                    クリックでパネルを展開し、全文を ResumePdfTracePanel で表示できるようにする。 */}
+                    クリックでパネルを展開し、全文を ResumeSourceTracePanel で表示できるようにする。 */}
                 {pdfCollapsed && assist.error && (
                   <button
                     type="button"
                     className={layout.collapsedError}
                     onClick={() => setPdfCollapsed(false)}
                     title={assist.error}
-                    aria-label={UI_MESSAGES.PDF_PANEL_EXPAND}
+                    aria-label={UI_MESSAGES.SOURCE_PANEL_EXPAND}
                   >
                     !
                   </button>
                 )}
-                {!pdfCollapsed && <ResumePdfTracePanel assist={assist} />}
+                {!pdfCollapsed && <ResumeSourceTracePanel assist={assist} />}
               </aside>
             </div>
           </div>

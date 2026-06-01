@@ -85,26 +85,32 @@ export const UI_MESSAGES = {
     "まだ連携データがありません。連携してアクティビティを可視化しましょう。",
   SIDEBAR_COLLAPSE: "サイドバーを閉じる",
   SIDEBAR_EXPAND: "サイドバーを開く",
-  PDF_PANEL_COLLAPSE: "PDFパネルを閉じる",
-  PDF_PANEL_EXPAND: "PDFパネルを開く",
+  SOURCE_PANEL_COLLAPSE: "原本パネルを閉じる",
+  SOURCE_PANEL_EXPAND: "原本パネルを開く",
 } as const;
 
-/** PDF 取り込み補助（PDF ビュー上の選択 → 流し込み）UI の文言 */
+/** ファイル取り込み補助（PDF / Markdown 原本上の選択 → 流し込み）UI の文言 */
 export const IMPORT_ASSIST_MESSAGES = {
-  TITLE: "PDFから下書きを取り込む",
-  HINT: "フォームの入力欄をクリックして選ぶ（緑枠）と、右のPDF上で選択した文字がその欄に流し込まれます。テキスト欄は続けて選択で追記できます。",
-  SELECT_FILE: "PDFから取り込み",
-  RESELECT_FILE: "PDFを選び直す",
-  RENDERING: "PDFを表示中...",
-  EMPTY: "PDFを選ぶと、ここに原本が表示されます。文字をドラッグで選択して入力欄へ流し込めます。",
+  TITLE: "ファイルから下書きを取り込む",
+  HINT: "フォームの入力欄をクリックして選ぶ（緑枠）と、右の原本上で選択した文字がその欄に流し込まれます。テキスト欄は続けて選択で追記できます。",
+  SELECT_FILE: "ファイルから取り込み",
+  RESELECT_FILE: "ファイルを選び直す",
+  RENDERING: "ファイルを表示中...",
+  EMPTY: "PDFまたはMarkdownを選ぶと、ここに原本が表示されます。文字をドラッグで選択して入力欄へ流し込めます。",
+  /** 空状態のドロップゾーン文言（ドラッグ&ドロップ or クリックで選択）。 */
+  DROPZONE: "PDF / Markdown をここにドラッグ＆ドロップ、またはクリックして選択。原本の文字を選ぶと入力欄へ流し込めます。",
+  /** ドラッグ中にドロップゾーンへ重ねたときの文言。 */
+  DROP_ACTIVE: "ここにドロップして読み込む",
   NO_TEXT:
     "このPDFから文字を選択できませんでした（スキャンPDFの可能性があります）。文字を選択できるPDFをお試しください。",
-  RENDER_FAILED: "PDFの表示に失敗しました。別のファイルをお試しください。",
+  RENDER_FAILED: "ファイルの表示に失敗しました。別のファイルをお試しください。",
+  /** 対応していない拡張子/形式のファイルが選択された場合。 */
+  UNSUPPORTED_TYPE: "対応していない形式です。PDFまたはMarkdown（.md）を選んでください。",
   /** ファイルサイズが上限を超えた場合（ブラウザのフリーズ/メモリ枯渇を防ぐためのガード）。 */
   TOO_LARGE: (limitMb: number) =>
-    `ファイルサイズが大きすぎます（上限${limitMb}MB）。ページ数の少ないPDFや、軽量化したPDFをお試しください。`,
+    `ファイルサイズが大きすぎます（上限${limitMb}MB）。ページ数の少ないPDFや、軽量化したファイルをお試しください。`,
   NO_TARGET: "先にフォームの入力欄をクリックして、流し込み先を選んでください。",
-  TAB_FALLBACK: "PDF",
+  TAB_FALLBACK: "ファイル",
   ZOOM_IN: "拡大",
   ZOOM_OUT: "縮小",
 } as const;

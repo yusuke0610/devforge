@@ -9,11 +9,11 @@ import {
 } from "../../constants";
 import { useProjectFormDirty } from "../../hooks/career/useProjectFormDirty";
 import { useProjectModalForm } from "../../hooks/career/useProjectModalForm";
-import { usePdfPanelLayout } from "../../hooks/career/usePdfPanelLayout";
+import { useImportPanelLayout } from "../../hooks/career/useImportPanelLayout";
 import type { UseResumeImportAssistReturn } from "../../hooks/career/useResumeImportAssist";
 import { Combobox } from "./Combobox";
 import { MarkdownTextarea } from "./MarkdownTextarea";
-import { ResumePdfTracePanel } from "./ResumePdfTracePanel";
+import { ResumeSourceTracePanel } from "./ResumeSourceTracePanel";
 import { DirtyDot } from "../ui/DirtyDot";
 import shared from "../../styles/shared.module.css";
 import styles from "./ProjectModal.module.css";
@@ -68,7 +68,7 @@ export function ProjectModal({
   // 入力フォームと PDF カラムの比率をスプリッターのドラッグで変える。
   // PDF カラムは右側なので「幅 = コンテナ右端 - マウス X」。reservedGap はカラム間のスプリッター(6px)。
   const bodyWrapRef = useRef<HTMLDivElement>(null);
-  const { width: pdfWidth, startResize } = usePdfPanelLayout(bodyWrapRef, {
+  const { width: pdfWidth, startResize } = useImportPanelLayout(bodyWrapRef, {
     initialWidth: 440,
     minWidth: 240,
     minFormWidth: 320,
@@ -345,7 +345,7 @@ export function ProjectModal({
                 onMouseDown={startResize}
               />
               <aside className={styles.blocksColumn}>
-                <ResumePdfTracePanel assist={assist} />
+                <ResumeSourceTracePanel assist={assist} />
               </aside>
             </>
           )}

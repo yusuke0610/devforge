@@ -1,6 +1,5 @@
 import { useMemo, type ReactNode } from "react";
-import { marked } from "marked";
-import DOMPurify from "dompurify";
+import { renderMarkdown } from "../../utils/markdown";
 import shared from "../../styles/shared.module.css";
 import styles from "./MarkdownTextarea.module.css";
 
@@ -25,13 +24,7 @@ type Props = {
  * Markdownテキストエリア。入力内容をリアルタイムでプレビュー表示する。
  */
 export function MarkdownTextarea({ label, value, onChange, rows = 3, placeholder, required, labelAdornment }: Props) {
-  const renderedHtml = useMemo(() => {
-    if (!value) return "";
-    // marked は HTML をサニタイズしないため（v5 以降 sanitize オプション廃止）、
-    // DOMPurify を通して XSS（<script> / onerror 等）を除去してから描画する。
-    const rawHtml = marked.parse(value, { async: false }) as string;
-    return DOMPurify.sanitize(rawHtml);
-  }, [value]);
+  const renderedHtml = useMemo(() => renderMarkdown(value), [value]);
 
   return (
     <div className={styles.wrapper}>

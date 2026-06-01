@@ -5,10 +5,10 @@ import type { CareerProjectForm } from "../../payloadBuilders";
 import type { UseResumeImportAssistReturn } from "../../hooks/career/useResumeImportAssist";
 
 // 取り込みパネルは react-pdf / pdf.js を遅延ロードするため、ProjectModal の単体テストでは
-// スタブに差し替える。ここでは「PDF がある時だけ右カラムに再掲されるか」だけを検証する。
-const PANEL_MARKER = "PDF原本ビュー(stub)";
-vi.mock("./ResumePdfTracePanel", () => ({
-  ResumePdfTracePanel: () => <div>{PANEL_MARKER}</div>,
+// スタブに差し替える。ここでは「ファイルがある時だけ右カラムに再掲されるか」だけを検証する。
+const PANEL_MARKER = "原本ビュー(stub)";
+vi.mock("./ResumeSourceTracePanel", () => ({
+  ResumeSourceTracePanel: () => <div>{PANEL_MARKER}</div>,
 }));
 
 const invalidDateProject: CareerProjectForm = {
@@ -37,8 +37,10 @@ const makeAssist = (
 ): UseResumeImportAssistReturn => ({
   file: new File(["%PDF-1.4"], "resume.pdf", { type: "application/pdf" }),
   fileName: "resume.pdf",
+  kind: "pdf",
   error: null,
   handleFileChange: vi.fn(),
+  acceptFile: vi.fn(),
   fillSelection: vi.fn(),
   setError: vi.fn(),
   ...overrides,

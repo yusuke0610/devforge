@@ -146,48 +146,56 @@
   padding-left: 1rem;
 }
 
-/* PDF パネルの開閉トグル。展開時はカラム右上に小さく配置する。 */
+/* 原本パネルの開閉トグル。展開時はカラム右上にシェブロンだけを配置する。
+   サイドバーの折りたたみボタン（.sidebarCollapseButton）と同じく、枠なし・
+   背景なしのシェブロンで表現する。 */
 .pdfToggle {
   align-self: flex-end;
   flex-shrink: 0;
   margin-bottom: 0.4rem;
-  padding: 0.15rem 0.5rem;
-  font-size: 0.85rem;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.1rem;
   line-height: 1;
-  border: 1px solid var(--border-input);
-  border-radius: 4px;
-  background: var(--bg-input);
-  color: var(--text-primary);
+  padding: 0 0.5rem;
   cursor: pointer;
+  transition: color 0.15s, background 0.15s;
 }
 
 .pdfToggle:hover {
+  color: var(--text-primary);
   background: var(--ghost-hover);
 }
 
-/* 折りたたみ時: 幅を CSS 変数に依らず固定の細いレールにし、トグルを縦書きで全高表示する。
+/* 折りたたみ時: 幅を固定の細いレールにし、上部にトグルだけを置く。
    panel 本体は JSX 側で非レンダリングなので、ここはレールの見た目だけを定義する。 */
 .pdfColCollapsed {
-  position: relative;
   width: 2.5rem;
   align-items: center;
   padding-left: 0;
 }
 
+/* 折りたたみ時の再展開ボタン。サイドバーの再展開ボタン（.sidebarOpenButton）と同じく
+   枠付き・角丸・影付きのコンパクトなシェブロンにする。 */
 .pdfColCollapsed .pdfToggle {
-  writing-mode: vertical-rl;
   align-self: center;
+  margin-top: 0.4rem;
   margin-bottom: 0;
-  padding: 0.6rem 0.2rem;
-  height: 100%;
+  padding: 0.3rem 0.55rem;
+  font-size: 1rem;
+  border: 1px solid var(--border-input);
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-card);
 }
 
 /* 折りたたみレールに表示する取り込み補助エラーのインジケータ。
-   トグルの上に小さな赤丸として固定し、クリックでパネルを展開する。 */
+   トグルの下に小さな赤丸として並べ、クリックでパネルを展開する。 */
 .collapsedError {
-  position: absolute;
-  top: 0.4rem;
   align-self: center;
+  margin-top: 0.4rem;
   width: 1.4rem;
   height: 1.4rem;
   border: none;
@@ -228,7 +236,7 @@
     padding-top: 1rem;
   }
 
-  /* 縦積みかつ折りたたみ時は、全幅の薄いバーにしてトグルを横書きへ戻す
+  /* 縦積みかつ折りたたみ時は、全幅の薄いバーにしてトグルを左寄せにする
      （細い縦レールのままだと縦積みレイアウトで不自然なため）。 */
   .pdfColCollapsed {
     width: 100%;
@@ -238,9 +246,7 @@
   }
 
   .pdfColCollapsed .pdfToggle {
-    writing-mode: horizontal-tb;
     align-self: flex-start;
-    height: auto;
-    padding: 0.3rem 0.6rem;
+    margin-top: 0;
   }
 }

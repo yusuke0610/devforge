@@ -3,7 +3,7 @@ import type { MouseEvent as ReactMouseEvent, RefObject } from "react";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { usePdfPanelLayout } from "./usePdfPanelLayout";
+import { useImportPanelLayout } from "./useImportPanelLayout";
 
 /** getBoundingClientRect を固定したコンテナ要素を作る（jsdom は既定で 0 を返すため）。 */
 function makeContainerRef(right: number, width: number): RefObject<HTMLElement | null> {
@@ -29,7 +29,7 @@ function mouse(type: string, clientX: number): MouseEvent {
 
 const noopMouseEvent = { preventDefault: () => {} } as unknown as ReactMouseEvent;
 
-describe("usePdfPanelLayout", () => {
+describe("useImportPanelLayout", () => {
   afterEach(() => {
     document.body.style.cursor = "";
     document.body.style.userSelect = "";
@@ -38,7 +38,7 @@ describe("usePdfPanelLayout", () => {
   it("初期幅を返す", () => {
     const ref = makeContainerRef(1000, 900);
     const { result } = renderHook(() =>
-      usePdfPanelLayout(ref, { initialWidth: 360, minWidth: 280, minFormWidth: 360 }),
+      useImportPanelLayout(ref, { initialWidth: 360, minWidth: 280, minFormWidth: 360 }),
     );
 
     expect(result.current.width).toBe(360);
@@ -47,7 +47,7 @@ describe("usePdfPanelLayout", () => {
   it("ドラッグで幅が変わり、最小/最大でクランプされる", () => {
     const ref = makeContainerRef(1000, 900);
     const { result } = renderHook(() =>
-      usePdfPanelLayout(ref, { initialWidth: 360, minWidth: 280, minFormWidth: 360 }),
+      useImportPanelLayout(ref, { initialWidth: 360, minWidth: 280, minFormWidth: 360 }),
     );
 
     act(() => result.current.startResize(noopMouseEvent));
@@ -68,7 +68,7 @@ describe("usePdfPanelLayout", () => {
   it("reservedGap を増やすと最大幅がその分だけ狭くなる", () => {
     const ref = makeContainerRef(1000, 900);
     const { result } = renderHook(() =>
-      usePdfPanelLayout(ref, { minWidth: 280, minFormWidth: 360, reservedGap: 100 }),
+      useImportPanelLayout(ref, { minWidth: 280, minFormWidth: 360, reservedGap: 100 }),
     );
 
     act(() => result.current.startResize(noopMouseEvent));
@@ -80,7 +80,7 @@ describe("usePdfPanelLayout", () => {
   it("mouseup 後の mousemove は幅に影響しない", () => {
     const ref = makeContainerRef(1000, 900);
     const { result } = renderHook(() =>
-      usePdfPanelLayout(ref, { initialWidth: 360, minWidth: 280, minFormWidth: 360 }),
+      useImportPanelLayout(ref, { initialWidth: 360, minWidth: 280, minFormWidth: 360 }),
     );
 
     act(() => result.current.startResize(noopMouseEvent));

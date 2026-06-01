@@ -2,41 +2,41 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, RefObject } from "react";
 
 /**
- * PDF 取り込みパネルのレイアウト（左右リサイズ）を管理するフック。
+ * 取り込み原本パネルのレイアウト（左右リサイズ）を管理するフック。
  *
- * - リサイズ: フォームとパネルの間のスプリッターをドラッグして PDF カラム幅を変える。
- *   PDF は右カラムなので「幅 = コンテナ右端 - マウス X」。左にドラッグするほど広がる。
+ * - リサイズ: フォームとパネルの間のスプリッターをドラッグして原本カラム幅を変える。
+ *   原本は右カラムなので「幅 = コンテナ右端 - マウス X」。左にドラッグするほど広がる。
  *
- * 幅は最小 PDF 幅とフォームの最小確保幅でクランプする。
+ * 幅は最小原本幅とフォームの最小確保幅でクランプする。
  */
 
 type Options = {
-  /** PDF カラムの初期幅(px) */
+  /** 原本カラムの初期幅(px) */
   initialWidth?: number;
-  /** PDF カラムの最小幅(px) */
+  /** 原本カラムの最小幅(px) */
   minWidth?: number;
   /** リサイズ時にフォーム側へ最低限残す幅(px) */
   minFormWidth?: number;
   /**
-   * カラム間に存在しフォームにも PDF にも属さない固定幅(px)。
+   * カラム間に存在しフォームにも原本にも属さない固定幅(px)。
    * `.split` の gap(1rem×2=32px) + スプリッター(6px) ≒ 38px。
    * これを差し引いてクランプしないと、フォームの確保幅が gap 分だけ削られ
-   * 入力欄が PDF カラムに覆い被さって切れる。
+   * 入力欄が原本カラムに覆い被さって切れる。
    */
   reservedGap?: number;
 };
 
-export type UsePdfPanelLayoutReturn = {
-  /** PDF カラムの現在幅(px) */
+export type UseImportPanelLayoutReturn = {
+  /** 原本カラムの現在幅(px) */
   width: number;
   /** スプリッターの mousedown で呼ぶ。ドラッグ中の幅追従を開始する。 */
   startResize: (e: ReactMouseEvent) => void;
 };
 
-export function usePdfPanelLayout(
+export function useImportPanelLayout(
   containerRef: RefObject<HTMLElement | null>,
   options: Options = {},
-): UsePdfPanelLayoutReturn {
+): UseImportPanelLayoutReturn {
   const { initialWidth = 360, minWidth = 280, minFormWidth = 360, reservedGap = 38 } = options;
 
   const [width, setWidth] = useState(initialWidth);
