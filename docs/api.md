@@ -106,17 +106,6 @@ REST API エンドポイント一覧と、バックエンド／フロントエ�
 |---|---|
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth クライアント情報 |
 
-### LLM（Ollama / Vertex AI）
-
-| 変数 | 用途 |
-|---|---|
-| `LLM_PROVIDER` | `ollama` または `vertex` |
-| `OLLAMA_BASE_URL` | Ollama エンドポイント（`LLM_PROVIDER=ollama` 時必須） |
-| `OLLAMA_MODEL` | Ollama 利用時のモデル名（デフォルト: `gemma3:4b`） |
-| `OLLAMA_TIMEOUT` | Ollama 生成タイムアウト秒数（デフォルト: `1200`） |
-| `VERTEX_PROJECT_ID` / `VERTEX_LOCATION` | Vertex AI 利用時の設定 |
-| `VERTEX_MODEL` | Vertex AI 利用時のモデル名（デフォルト: `gemini-2.5-flash-lite`） |
-
 ### 非同期タスク（Cloud Tasks）
 
 | 変数 | 用途 |

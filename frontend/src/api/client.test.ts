@@ -149,8 +149,8 @@ describe("api/client request", () => {
       "fetch",
       vi.fn().mockResolvedValue(
         makeResponse(503, {
-          code: "LLM_UNAVAILABLE",
-          message: "AI 分析サービスが一時的に利用できません",
+          code: "GITHUB_RATE_LIMITED",
+          message: "GitHub API の制限に達しました（1時間あたりの上限）",
           action: "しばらく待ってから再試行してください",
           error_id: "err-1234",
         }),
@@ -158,8 +158,8 @@ describe("api/client request", () => {
     );
 
     await expect(request("/api/test")).rejects.toMatchObject({
-      code: "LLM_UNAVAILABLE",
-      message: "AI 分析サービスが一時的に利用できません",
+      code: "GITHUB_RATE_LIMITED",
+      message: "GitHub API の制限に達しました（1時間あたりの上限）",
       errorId: "err-1234",
     } satisfies Partial<ApiError>);
   });
@@ -170,13 +170,13 @@ describe("api/client request", () => {
       "fetch",
       vi.fn().mockResolvedValue(
         makeResponse(503, {
-          detail: "AI キャリアパス分析サービスが利用できません。LLM の設定または接続状態を確認してください。",
+          detail: "外部サービスが一時的に利用できません。接続状態を確認してください。",
         }),
       ),
     );
 
     await expect(request("/api/test")).rejects.toThrow(
-      "AI キャリアパス分析サービスが利用できません。LLM の設定または接続状態を確認してください。",
+      "外部サービスが一時的に利用できません。接続状態を確認してください。",
     );
   });
 

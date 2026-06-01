@@ -22,7 +22,6 @@ Claude Code では対象パス編集時に自動ロードされる領域別ル�
 - [.claude/rules/backend/python.md](./.claude/rules/backend/python.md) — Python コーディング規約
 - [.claude/rules/backend/database.md](./.claude/rules/backend/database.md) — DB / マイグレーション
 - [.claude/rules/backend/auth-security.md](./.claude/rules/backend/auth-security.md) — 認証・認可
-- [.claude/rules/backend/llm.md](./.claude/rules/backend/llm.md) — LLM 連携
 - [.claude/rules/backend/test.md](./.claude/rules/backend/test.md) — テスト方針
 
 ### frontend（`frontend/` を触るとき）

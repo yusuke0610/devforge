@@ -15,7 +15,6 @@ severity フィールドにより Cloud Logging のログレベルとして自�
   duration_ms : int  - 処理時間（ミリ秒）
   operation   : str  - 計測対象の操作名（metrics.py が付与）
   platform    : str  - "qiita" | "zenn" | "note" 等
-  model       : str  - "vertex" | "ollama"
   error_type  : str  - 例外クラス名
   http_status : int  - HTTP ステータスコード
   error_id    : str  - エラー追跡 ID

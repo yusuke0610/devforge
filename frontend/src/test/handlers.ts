@@ -73,7 +73,7 @@ export const errorHandlers = {
     () =>
       HttpResponse.json({
         status: "dead_letter",
-        error_message: "LLM タイムアウト",
+        error_message: "分析処理がタイムアウトしました",
       }),
   ),
 };

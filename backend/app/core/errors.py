@@ -26,9 +26,6 @@ class ErrorCode(str, Enum):
     # GitHub
     GITHUB_RATE_LIMITED = "GITHUB_RATE_LIMITED"
     GITHUB_USER_NOT_FOUND = "GITHUB_USER_NOT_FOUND"
-    # LLM
-    LLM_TIMEOUT = "LLM_TIMEOUT"
-    LLM_UNAVAILABLE = "LLM_UNAVAILABLE"
     # バリデーション
     VALIDATION_ERROR = "VALIDATION_ERROR"
     # 外部 API
@@ -109,10 +106,6 @@ def infer_error_code(status_code: int, detail: Any = None) -> ErrorCode:
 
     if "GitHubユーザーが見つかりません" in message:
         return ErrorCode.GITHUB_USER_NOT_FOUND
-    if "タイムアウト" in message:
-        return ErrorCode.LLM_TIMEOUT
-    if ("LLM" in message or "AI " in message or "AI分析" in message) and "利用できません" in message:
-        return ErrorCode.LLM_UNAVAILABLE
 
     if status_code == 401:
         return ErrorCode.AUTH_REQUIRED

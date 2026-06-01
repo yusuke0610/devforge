@@ -6,7 +6,7 @@
   - ``measure_block``      : 非同期コンテキストマネージャ
 
 出力ログ例 (JSON フォーマット時):
-  {"severity": "INFO", "message": "performance", "operation": "llm.summarize",
+  {"severity": "INFO", "message": "performance", "operation": "github_collector.fetch",
    "duration_ms": 3241, "status": "success", "request_id": "550e8400-..."}
 
 エラー時は status="error", error_type="TimeoutError" を付与して re-raise する。
@@ -55,8 +55,8 @@ def measure_time_async(operation: str) -> Callable[[F], F]:
 
     使用例::
 
-        @measure_time_async("llm.summarize")
-        async def summarize(...): ...
+        @measure_time_async("github_collector.fetch")
+        async def fetch_repositories(...): ...
     """
 
     def decorator(fn: F) -> F:

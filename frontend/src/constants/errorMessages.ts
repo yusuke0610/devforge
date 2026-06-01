@@ -35,14 +35,6 @@ export const ERROR_CONFIG: Record<
     message: "GitHub ユーザーが見つかりません",
     recovery: { label: "ユーザー名を見直す", fn: null },
   },
-  LLM_TIMEOUT: {
-    message: "AI 分析がタイムアウトしました",
-    recovery: { label: "再分析する", fn: null },
-  },
-  LLM_UNAVAILABLE: {
-    message: "AI 分析サービスが一時的に利用できません",
-    recovery: { label: "後で再試行", fn: null },
-  },
   QIITA_RATE_LIMITED: {
     message: "Qiita API の制限に達しました",
     recovery: { label: "1時間後に再試行", fn: null },

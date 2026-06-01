@@ -64,20 +64,6 @@ INTERNAL_SECRET = "INTERNAL_SECRET"
 APP_VERSION = "APP_VERSION"
 ENVIRONMENT = "ENVIRONMENT"
 
-# --- LLM ---
-
-LLM_PROVIDER = "LLM_PROVIDER"
-VERTEX_PROJECT_ID = "VERTEX_PROJECT_ID"
-VERTEX_LOCATION = "VERTEX_LOCATION"
-VERTEX_MODEL = "VERTEX_MODEL"
-# Ollama プロバイダ（休眠インフラ・温存）。ローカル開発では docker-compose.yml の
-# environment ブロックで注入する。本番（Cloud Run）には注入していない。
-# なお `OLLAMA_KEEP_ALIVE`（docker-compose.yml の ollama サービス側）は
-# Ollama サーバ自身の設定であり backend は参照しないため、ここには定義しない。
-OLLAMA_BASE_URL = "OLLAMA_BASE_URL"
-OLLAMA_MODEL = "OLLAMA_MODEL"
-OLLAMA_TIMEOUT = "OLLAMA_TIMEOUT"
-
 # --- 非同期タスク（Cloud Tasks / Local BackgroundTasks） ---
 
 TASK_RUNNER = "TASK_RUNNER"
