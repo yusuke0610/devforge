@@ -28,8 +28,7 @@ def _run(coro):
 def test_github_link_timeout_propagates(db_session: Session, session_factory) -> None:
     """collect_repos で asyncio.TimeoutError が発生した場合に例外が伝播することを確認する。"""
     user = UserRepository(db_session).create(
-        "github:timeout-user",
-        hashed_password=None,
+        "timeout-user",
         email="timeout@example.com",
     )
     cache = GitHubLinkCache(user_id=user.id, status="pending")

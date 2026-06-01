@@ -18,7 +18,7 @@ _SERVICE_VERIFY_PATCH = "app.services.blog.account_service.verify_user_exists"
 def test_resume_create_does_not_transfer_ownership(client: TestClient) -> None:
     """POST /api/resumes に他人の user_id を混ぜても、その他人は所有者にならない。"""
     db = client._db_session
-    UserRepository(db).create("victim-a", hashed_password=None, email="victim-a@example.com")
+    UserRepository(db).create("victim-a", email="victim-a@example.com")
     victim = UserRepository(db).get_by_username("victim-a")
 
     headers = auth_header(client, "attacker-a")
@@ -39,7 +39,7 @@ def test_resume_create_does_not_transfer_ownership(client: TestClient) -> None:
 def test_resume_update_does_not_transfer_ownership(client: TestClient) -> None:
     """PUT /api/resumes/{id} に他人の user_id を混ぜても所有者が移らない。"""
     db = client._db_session
-    UserRepository(db).create("victim-b", hashed_password=None, email="victim-b@example.com")
+    UserRepository(db).create("victim-b", email="victim-b@example.com")
     victim = UserRepository(db).get_by_username("victim-b")
 
     headers = auth_header(client, "attacker-b")
@@ -65,7 +65,7 @@ def test_resume_update_does_not_transfer_ownership(client: TestClient) -> None:
 def test_blog_account_create_does_not_transfer_ownership(client: TestClient) -> None:
     """POST /api/blog/accounts に他人の user_id を混ぜても、その他人は所有者にならない。"""
     db = client._db_session
-    UserRepository(db).create("victim-blog-a", hashed_password=None, email="victim-blog-a@example.com")
+    UserRepository(db).create("victim-blog-a", email="victim-blog-a@example.com")
     victim = UserRepository(db).get_by_username("victim-blog-a")
 
     headers = auth_header(client, "attacker-blog-a")
@@ -89,7 +89,7 @@ def test_blog_account_create_does_not_transfer_ownership(client: TestClient) -> 
 def test_blog_account_update_does_not_transfer_ownership(client: TestClient) -> None:
     """PATCH /api/blog/accounts/{platform} に他人の user_id を混ぜても所有者が移らない。"""
     db = client._db_session
-    UserRepository(db).create("victim-blog-b", hashed_password=None, email="victim-blog-b@example.com")
+    UserRepository(db).create("victim-blog-b", email="victim-blog-b@example.com")
     victim = UserRepository(db).get_by_username("victim-blog-b")
 
     headers = auth_header(client, "attacker-blog-b")

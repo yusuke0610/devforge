@@ -61,7 +61,7 @@ class TestExecuteTask:
         内部関数 _mark_dead_letter の呼び出し引数ではなく結果 DB state を検証する
         （test_retry_flow.py と同じ契約を、実装詳細に結合しない形で守る）。"""
         user = UserRepository(db_session).create(
-            "github:dead-letter-user", hashed_password=None, email="dl@test.com",
+            "dead-letter-user", email="dl@test.com",
         )
         cache = GitHubLinkCache(user_id=user.id, status="processing")
         db_session.add(cache)
@@ -129,7 +129,7 @@ class TestSafeRollback:
         テストとして空回りしていた。
         """
         user = UserRepository(db_session).create(
-            "rollback-test-user", hashed_password=None, email="rollback@test.com"
+            "rollback-test-user", email="rollback@test.com"
         )
         first_cache = GitHubLinkCache(user_id=user.id, status="processing")
         db_session.add(first_cache)

@@ -7,8 +7,8 @@ class UserRepository:
     def __init__(self, db):
         self.db = db
 
-    def create(self, username: str, hashed_password: str | None = None, email: str | None = None) -> User:
-        user = User(username=username, hashed_password=hashed_password, email=email)
+    def create(self, username: str, email: str | None = None) -> User:
+        user = User(username=username, email=email)
         self.db.add(user)
         self.db.commit()
         self.db.refresh(user)
@@ -24,7 +24,7 @@ class UserRepository:
         return self.db.scalar(select(User).where(User.github_id == github_id))
 
     def create_github_user(self, username: str, github_id: int) -> User:
-        user = User(username=username, hashed_password=None, github_id=github_id)
+        user = User(username=username, github_id=github_id)
         self.db.add(user)
         self.db.commit()
         self.db.refresh(user)

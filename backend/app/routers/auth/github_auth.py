@@ -95,7 +95,7 @@ async def authenticate_github_user(
     user = repo.get_by_github_id(github_id)
     if not user:
         user = repo.create_github_user(
-            username=f"github:{github_login}",
+            username=github_login,
             github_id=github_id,
         )
         log_event(logging.INFO, "github_user_created", username=user.username)

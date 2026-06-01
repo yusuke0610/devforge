@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test";
 
 /** テスト用認証済みユーザー情報 */
 export const TEST_USER = {
-  username: "github:e2e-test-user",
+  username: "e2e-test-user",
   is_github_user: true,
 };
 

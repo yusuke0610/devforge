@@ -108,7 +108,7 @@ async def start_github_link(
     db: Session = Depends(get_db),
 ):
     """GitHub 連携パイプラインをバックグラウンドで開始する。"""
-    if not user.username.startswith("github:"):
+    if user.github_id is None:
         raise_app_error(
             status_code=403,
             code=ErrorCode.AUTH_REQUIRED,
@@ -116,7 +116,7 @@ async def start_github_link(
             action="GitHub アカウントでログインし直してください",
         )
 
-    github_username = user.username.removeprefix("github:")
+    github_username = user.username
 
     # 進行中のタスクがあればそのステータスを返す
     cache = _get_or_create_cache(db, user.id)
@@ -159,7 +159,7 @@ async def retry_github_link(
     ``dead_letter`` 状態のキャッシュのみ再実行可能。
     ``retry_count`` を 0 にリセットし、ステータスを ``pending`` に戻して再ディスパッチする。
     """
-    if not user.username.startswith("github:"):
+    if user.github_id is None:
         raise_app_error(
             status_code=403,
             code=ErrorCode.AUTH_REQUIRED,
@@ -184,7 +184,7 @@ async def retry_github_link(
             action="タスクの完了または失敗を待ってから再試行してください",
         )
 
-    github_username = user.username.removeprefix("github:")
+    github_username = user.username
     include_forks = payload.include_forks if payload else False
 
     # DB 最新状態を取得しつつアトミック遷移。並列リトライ競合を防ぐ

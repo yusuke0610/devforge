@@ -204,16 +204,19 @@ def make_resume_payload(**overrides) -> dict:
     return payload
 
 
-def auth_header(client, username: str = "testuser") -> dict:
+def auth_header(client, username: str = "testuser", *, github_id: int | None = None) -> dict:
     """テスト用の認証 Cookie をセットするヘルパー。CSRF トークンをヘッダーに含む dict を返す。
 
     DB にユーザーを直接作成し、JWT Cookie をセットする。
     /auth/register や /auth/login エンドポイントには依存しない。
+
+    GitHub 連携を要するエンドポイント（github_id ベースのガード）をテストする場合は
+    ``github_id`` を渡して GitHub ユーザーとして作成する。
     """
     db = client._db_session
     repo = UserRepository(db)
     if not repo.get_by_username(username):
-        repo.create(username, hashed_password=None, email=f"{username}@example.com")
+        repo.create(username, email=f"{username}@example.com")
 
     access_token = create_access_token(username)
     refresh_token, jti = create_refresh_token(username)
@@ -223,6 +226,8 @@ def auth_header(client, username: str = "testuser") -> dict:
     user = repo.get_by_username(username)
     if user:
         user.refresh_jti = jti
+        if github_id is not None:
+            user.github_id = github_id
         db.commit()
 
     session_payload = json.dumps({"access_token": access_token, "refresh_token": refresh_token})

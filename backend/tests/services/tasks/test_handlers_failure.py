@@ -36,7 +36,6 @@ def _make_user(db: Session, username: str):
     """テスト用ユーザーを作成する。"""
     return UserRepository(db).create(
         username,
-        hashed_password=None,
         email=f"{username}@test.com",
     )
 
