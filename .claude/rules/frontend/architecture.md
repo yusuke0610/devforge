@@ -43,7 +43,7 @@ frontend/src/
 │   ├── useAuthSession.ts        # 認証セッション状態
 │   ├── useTheme.ts
 │   ├── blog/                    # useBlogAccountManager
-│   └── career/                  # useCareerDirty / useCareerExperienceMutators / useProjectModalForm / useProjectModalState / useProjectFormDirty / usePhotoUpload / usePdfPanelLayout / useResumeImportAssist
+│   └── career/                  # useCareerDirty / useCareerExperienceMutators / useProjectModalForm / useProjectModalState / useProjectFormDirty / usePhotoUpload / useImportPanelLayout / useResumeImportAssist
 ├── api/
 │   ├── client.ts                # fetch ラッパー（Cookie 認証、401 ハンドリング）
 │   └── *.ts                     # ドメイン別 API モジュール（auth, blog, resumes, master-data, notifications, download, ai-resume, githubLink）

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Document, Page } from "react-pdf";
 
 import { IMPORT_ASSIST_MESSAGES } from "../../constants/messages";
-import styles from "./ResumePdfTracePanel.module.css";
+import styles from "./ResumeSourceTracePanel.module.css";
 // worker 設定（副作用 import）。このモジュールごと React.lazy で遅延ロードされる。
 import "../../utils/pdfjs";
 
@@ -24,7 +24,7 @@ const MIN_TEXT_CHARS = 20;
  * react-pdf で PDF を描画し、テキスト選択を「流し込み」に変換する内側ビュー。
  *
  * 重い react-pdf / pdf.js / テキストレイヤー CSS をこのモジュールに閉じ込め、
- * {@link ResumePdfTracePanel} から React.lazy で遅延ロードして初期バンドルから切り離す。
+ * {@link ResumeSourceTracePanel} から React.lazy で遅延ロードして初期バンドルから切り離す。
  * 流し込み先の決定（最後にフォーカスした入力欄）は useResumeImportAssist 側が担うため、
  * ここは「選択文字列を onFill に渡す」ことだけに専念する。
  */

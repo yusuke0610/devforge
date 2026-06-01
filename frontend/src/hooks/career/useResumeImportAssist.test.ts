@@ -28,7 +28,7 @@ describe("useResumeImportAssist", () => {
     document.body.innerHTML = "";
   });
 
-  it("handleFileChange で file と fileName を保持する", () => {
+  it("handleFileChange で file と fileName を保持する（PDF は kind=pdf）", () => {
     const { result } = renderHook(() => useResumeImportAssist());
     const file = new File(["%PDF-1.4"], "resume.pdf", { type: "application/pdf" });
 
@@ -36,6 +36,50 @@ describe("useResumeImportAssist", () => {
 
     expect(result.current.file).toBe(file);
     expect(result.current.fileName).toBe("resume.pdf");
+    expect(result.current.kind).toBe("pdf");
+  });
+
+  it(".md ファイルは kind=markdown として受け付ける", () => {
+    const { result } = renderHook(() => useResumeImportAssist());
+    const file = new File(["# 見出し"], "resume.md", { type: "text/markdown" });
+
+    act(() => result.current.handleFileChange(makeChangeEvent(file)));
+
+    expect(result.current.file).toBe(file);
+    expect(result.current.fileName).toBe("resume.md");
+    expect(result.current.kind).toBe("markdown");
+  });
+
+  it("MIME が空でも拡張子 .markdown で markdown と判定する", () => {
+    const { result } = renderHook(() => useResumeImportAssist());
+    const file = new File(["# 見出し"], "resume.markdown", { type: "" });
+
+    act(() => result.current.handleFileChange(makeChangeEvent(file)));
+
+    expect(result.current.kind).toBe("markdown");
+  });
+
+  it("未対応の拡張子は弾いてエラーを出す（file は保持しない）", () => {
+    const { result } = renderHook(() => useResumeImportAssist());
+    const file = new File(["hello"], "note.txt", { type: "text/plain" });
+
+    act(() => result.current.handleFileChange(makeChangeEvent(file)));
+
+    expect(result.current.file).toBeNull();
+    expect(result.current.kind).toBeNull();
+    expect(result.current.error).toBe(IMPORT_ASSIST_MESSAGES.UNSUPPORTED_TYPE);
+  });
+
+  it("2MB を超える Markdown は弾いてエラーを出す", () => {
+    const { result } = renderHook(() => useResumeImportAssist());
+    const huge = new File(["# 見出し"], "huge.md", { type: "text/markdown" });
+    Object.defineProperty(huge, "size", { value: 3 * 1024 * 1024, configurable: true });
+
+    act(() => result.current.handleFileChange(makeChangeEvent(huge)));
+
+    expect(result.current.file).toBeNull();
+    expect(result.current.kind).toBeNull();
+    expect(result.current.error).toBe(IMPORT_ASSIST_MESSAGES.TOO_LARGE(2));
   });
 
   it("20MB を超える巨大ファイルは弾いてエラーを出す（file は保持しない）", () => {
@@ -69,6 +113,28 @@ describe("useResumeImportAssist", () => {
     expect(result.current.file).toBeNull();
     expect(result.current.fileName).toBeNull();
     expect(result.current.error).toBe(IMPORT_ASSIST_MESSAGES.TOO_LARGE(20));
+  });
+
+  it("acceptFile（ドロップ等）は input を介さず File を直接受け入れる", () => {
+    const { result } = renderHook(() => useResumeImportAssist());
+    const file = new File(["# 見出し"], "dropped.md", { type: "text/markdown" });
+
+    act(() => result.current.acceptFile(file));
+
+    expect(result.current.file).toBe(file);
+    expect(result.current.fileName).toBe("dropped.md");
+    expect(result.current.kind).toBe("markdown");
+  });
+
+  it("acceptFile に未対応ファイルを渡すとエラーを出す", () => {
+    const { result } = renderHook(() => useResumeImportAssist());
+    const file = new File(["hello"], "note.txt", { type: "text/plain" });
+
+    act(() => result.current.acceptFile(file));
+
+    expect(result.current.file).toBeNull();
+    expect(result.current.kind).toBeNull();
+    expect(result.current.error).toBe(IMPORT_ASSIST_MESSAGES.UNSUPPORTED_TYPE);
   });
 
   it("fillSelection はフォーカス中の入力欄へ流し込む", () => {
