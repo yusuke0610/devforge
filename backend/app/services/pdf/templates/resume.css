@@ -39,13 +39,17 @@ h2 {
   border-bottom: 2px solid #333;
   padding-bottom: 1mm;
   margin: 6mm 0 3mm 0;
+  /* 見出しがページ末尾に孤立して直後の本文だけ次ページに行くのを防ぐ */
+  page-break-after: avoid;
 }
 
 /* 会社ブロック */
 .company {
   border: 0.5px solid #666;
   margin-bottom: 3mm;
-  page-break-inside: avoid;
+  /* 会社ブロック全体を 1 ページに固めると、収まらない時に丸ごと次ページへ送られ、
+     直前（職務要約など）に大きな空白が残る。ページ跨ぎを許可してページを詰める。
+     代わりに分割を避けるのは下位の .project 単位で行う。 */
 }
 
 .company-header {
@@ -54,6 +58,8 @@ h2 {
   font-size: 10pt;
   font-weight: bold;
   border-bottom: 0.3px solid #999;
+  /* ヘッダがページ末尾に孤立し本文だけ次ページに分かれるのを防ぐ */
+  page-break-after: avoid;
 }
 
 .company-info {
@@ -104,11 +110,16 @@ h2 {
   margin: 3mm 0 2mm 0;
   padding-bottom: 1mm;
   border-bottom: 2px solid #333;
+  /* 取引先名見出しの孤立防止 */
+  page-break-after: avoid;
 }
 
 /* プロジェクトテーブル */
 .project {
   margin-bottom: 2mm;
+  /* 1 案件（ヘッダ＋テーブル）は途中で割らず可読性を保つ。
+     会社ブロックはページ跨ぎ可、分割回避はこの単位で行う。 */
+  page-break-inside: avoid;
 }
 
 .project-header {
