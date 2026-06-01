@@ -40,6 +40,9 @@ export default function MarkdownDocumentView({ file, zoom = 1, onFill, onError }
       })
       .catch(() => {
         if (cancelled) return;
+        // 失敗時も loading（RENDERING）表示から抜けるよう html を確定させる。
+        // 本文は空にし、失敗の通知は onError 経由でパネルのエラー欄に出す。
+        setHtml("");
         onError(IMPORT_ASSIST_MESSAGES.RENDER_FAILED);
       });
     return () => {

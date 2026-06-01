@@ -165,7 +165,7 @@
   background: var(--bg-input);
   color: var(--text-primary);
   line-height: 1.7;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .markdownBody :first-child {
