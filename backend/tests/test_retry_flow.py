@@ -343,8 +343,6 @@ class TestRetryEndpoints:
         assert cache.status == "pending"
         assert cache.retry_count == 0
         assert cache.error_message is None
-        assert cache.retry_count == 0
-        assert cache.error_message is None
 
     def test_retry_returns_404_when_no_cache(self, client: TestClient):
         """連携キャッシュが未作成なら 404（先に連携を実行させる）。"""

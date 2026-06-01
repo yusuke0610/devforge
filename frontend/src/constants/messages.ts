@@ -88,6 +88,7 @@ export const UI_MESSAGES = {
   SOURCE_PANEL_COLLAPSE: "原本パネルを閉じる",
   SOURCE_PANEL_EXPAND: "原本パネルを開く",
   REPORT_ISSUE: "GitHub Issueに報告",
+  OPENS_IN_NEW_TAB: "（新しいタブで開きます）",
   COPYRIGHT: "© 2026 DevForge",
 } as const;
 
