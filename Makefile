@@ -24,7 +24,7 @@ help:
 	@echo "  generate-keys     JWT RSA 鍵ペアを生成"
 	@echo ""
 	@echo "ローカル開発"
-	@echo "  dev               docker-compose で API + Ollama を起動"
+	@echo "  dev               docker-compose で API を起動"
 	@echo "  dev-build         再ビルドして起動"
 	@echo "  dev-down          docker-compose を停止"
 	@echo "  dev-frontend      Frontend 開発サーバーを起動 (Vite / localhost:5173)"

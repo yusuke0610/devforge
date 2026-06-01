@@ -170,23 +170,6 @@ def get_internal_secret() -> str:
     return secret
 
 
-def get_llm_provider() -> str:
-    return os.environ.get(env_keys.LLM_PROVIDER, "ollama")
-
-
-def get_vertex_project_id() -> str:
-    return os.environ.get(env_keys.VERTEX_PROJECT_ID, "")
-
-
-def get_vertex_location() -> str:
-    return os.environ.get(env_keys.VERTEX_LOCATION, "asia-northeast1")
-
-
-def get_vertex_model(default: str) -> str:
-    """Vertex AI のモデル名を取得する。default は呼び出し元（Vertex クライアント）の既定値を渡す。"""
-    return os.environ.get(env_keys.VERTEX_MODEL, default)
-
-
 def get_log_format() -> str:
     """ログフォーマット指定（json / text / 空）を小文字で取得する。"""
     return os.getenv(env_keys.LOG_FORMAT, "").strip().lower()

@@ -89,23 +89,6 @@ resource "google_cloud_run_v2_service" "app" {
       }
 
       env {
-        name  = "LLM_PROVIDER"
-        value = "vertex"
-      }
-      env {
-        name  = "VERTEX_PROJECT_ID"
-        value = var.project_id
-      }
-      env {
-        name  = "VERTEX_LOCATION"
-        value = var.region
-      }
-      env {
-        name  = "VERTEX_MODEL"
-        value = "gemini-2.5-flash-lite"
-      }
-
-      env {
         name  = "TASK_RUNNER"
         value = var.task_runner
       }

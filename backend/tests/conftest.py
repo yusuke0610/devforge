@@ -42,9 +42,6 @@ os.environ.setdefault("GITHUB_CLIENT_SECRET", "test-github-client-secret")
 os.environ.setdefault("FIELD_ENCRYPTION_KEY", "pVo6M_raAWEpAv25F4p4RziywsjfPENokI10DZbNO7E=")
 os.environ.setdefault("CORS_ORIGINS", "http://localhost:8788")
 os.environ.setdefault("TASK_RUNNER", "local")
-os.environ.setdefault("OLLAMA_BASE_URL", "http://localhost:11434")
-os.environ.setdefault("OLLAMA_MODEL", "gemma3:4b")
-os.environ.setdefault("OLLAMA_TIMEOUT", "1200")
 os.environ.setdefault("UPSTASH_REDIS_URL", "redis://redis:6379")
 os.environ.setdefault("UPSTASH_REDIS_TOKEN", "")
 os.environ.setdefault("GCP_PROJECT_ID", "")
@@ -55,10 +52,6 @@ os.environ.setdefault("CLOUD_TASKS_SERVICE_ACCOUNT", "")
 os.environ.setdefault("COOKIE_SECURE", "true")
 os.environ.setdefault("COOKIE_SAMESITE", "lax")
 os.environ.setdefault("ADMIN_TOKEN", "test-admin-token")
-os.environ.setdefault("LLM_PROVIDER", "ollama")
-os.environ.setdefault("VERTEX_PROJECT_ID", "")
-os.environ.setdefault("VERTEX_LOCATION", "")
-os.environ.setdefault("VERTEX_MODEL", "")
 os.environ.setdefault("ENVIRONMENT", "local")
 os.environ.setdefault("INTERNAL_SECRET", "")
 os.environ.setdefault("TASK_MAX_ATTEMPTS", "3")
@@ -97,7 +90,7 @@ def session_factory(tmp_path):
     ハンドラの ``run(session_factory, payload)`` 引数に渡す前提。本番の
     ``SessionLocal`` と同様に「呼ぶたびに新セッション」を提供する。
 
-    libSQL の Hrana 失効回避策で、ハンドラは LLM 前後でセッションを開閉する設計に
+    libSQL の Hrana 失効回避策で、ハンドラは外部 API 前後でセッションを開閉する設計に
     なっており、テストでも同じインターフェイスで呼べるよう本ファクトリを使う。
     ``expire_on_commit=False`` は本番 ``SessionLocal`` と揃える。
     """

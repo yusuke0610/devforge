@@ -2,7 +2,7 @@
 
 ## ステータス
 
-Accepted
+Superseded by ADR-0008
 
 ## コンテキスト
 
@@ -95,3 +95,7 @@ Vertex AI は「設定されていれば動く前提」、Ollama は「起動し
 ## 関連リンク
 
 - [ADR-0004 PR](https://github.com/yusuke0610/devforge/pulls)
+
+---
+
+2026-05-31: LLM をサービス内で使う可能性が低くルールベース設計に統一したため、本 ADR で定義した LLM プロバイダ抽象化・関連 env・依存・ErrorCode を撤去した。詳細は [ADR-0008](0008-remove-llm-to-rule-based-design.md) を参照。

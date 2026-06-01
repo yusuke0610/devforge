@@ -23,9 +23,6 @@ export const ERROR_CODES = [
   // GitHub
   "GITHUB_RATE_LIMITED",
   "GITHUB_USER_NOT_FOUND",
-  // LLM
-  "LLM_TIMEOUT",
-  "LLM_UNAVAILABLE",
   // バリデーション
   "VALIDATION_ERROR",
   // 外部 API

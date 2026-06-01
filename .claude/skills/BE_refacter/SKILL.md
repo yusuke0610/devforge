@@ -13,7 +13,6 @@ description: Use when reviewing or planning refactors for the DevForge FastAPI b
 - `.claude/rules/backend/database.md`
 - `.claude/rules/backend/auth-security.md`
 - `.claude/rules/common/duplication.md`（DRY / 重複検知ポリシー）
-- LLM やブログ AI 分析を含む場合だけ `.claude/rules/backend/llm.md`
 - `report/dupe/jscpd-report.json` が存在すれば最新を読み込み、backend に該当する clone を抽出して Duplication Findings の素材にする
 
 ## 対象
@@ -62,7 +61,7 @@ description: Use when reviewing or planning refactors for the DevForge FastAPI b
 - 大きいファイルを洗う: `rg --files backend/app backend/tests | xargs wc -l | sort -nr | head -n 30`
 - まず以下の境界で構造を把握する
   - router: HTTP 入出力、認証、rate limit、エラー変換
-  - service: ビジネスロジック、外部 API、LLM、PDF/Markdown 生成
+  - service: ビジネスロジック、外部 API、PDF/Markdown 生成
   - repository: 永続化と問い合わせ
   - schema/model: API 契約、DB 契約
   - tests: ルータ、サービス、純粋関数、外部依存のモック
@@ -105,7 +104,7 @@ description: Use when reviewing or planning refactors for the DevForge FastAPI b
 - 純粋関数の分岐、スコア計算、日付処理、マッピング
 - router の認証、認可、validation、HTTP status、エラーメッセージ変換
 - repository の upsert、一意制約、削除 cascade、ユーザー境界
-- 外部 API や LLM の timeout / unavailable / partial failure
+- 外部 API の timeout / unavailable / partial failure
 - マイグレーション後の不変条件
 - セキュリティ設定: cookie, CSRF, GitHub OAuth state, rate limit
 
@@ -118,7 +117,7 @@ description: Use when reviewing or planning refactors for the DevForge FastAPI b
 
 - **本質的重複**（抽出すべき）: ドメインロジック / バリデーション / スコア計算 / エラーマッピング / API パスや env 名リテラル / DTO 変換ロジック
 - **偶発的重複**（抽出しない）: SQLAlchemy の `created_at` / `updated_at` 定義などの boilerplate、Pydantic schema の field 列、pytest fixture の minimal scaffolding、import 文の塊
-- **意味的重複**（jscpd では拾えない）: 変数名やシグネチャは違うが「同じ判断・同じ整形・同じ I/O パターン」を行うコード。grep + 目視で別途探す。例: 似た Cloud Tasks エンキューロジック、似た LLM 呼び出しエラーハンドリング、似たエラー → HTTPException 変換
+- **意味的重複**（jscpd では拾えない）: 変数名やシグネチャは違うが「同じ判断・同じ整形・同じ I/O パターン」を行うコード。grep + 目視で別途探す。例: 似た Cloud Tasks エンキューロジック、似たエラー → HTTPException 変換
 
 本質的重複は「3 回目で抽出（Rule of Three）」を守る。2 箇所だけの重複は **記録するが、抽出は次の重複出現時まで保留**。
 

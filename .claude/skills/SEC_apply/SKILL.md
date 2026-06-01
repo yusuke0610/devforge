@@ -93,7 +93,7 @@ Missing Exploit Tests: 4
    - 不審な新規依存（typosquatting / dependency confusion / postinstall）は導入を止め、代替を提案。
 8. **Missing Exploit Tests（攻撃者視点の回帰テスト）**:
    - レポートの「Missing Exploit Tests」と、今回直した設計穴を **攻撃が失敗することを assert** するテストで固定する。
-   - `.claude/rules/backend/test.md` 準拠: DB はモックせず実 SQLite セッション、外部 API（GitHub / LLM / Cloud Tasks / Redis）はモック。失敗パスは `pytest.raises` か HTTP status assert で必ず明示検証（silent return を許容しない）。
+   - `.claude/rules/backend/test.md` 準拠: DB はモックせず実 SQLite セッション、外部 API（GitHub / Cloud Tasks / Redis）はモック。失敗パスは `pytest.raises` か HTTP status assert で必ず明示検証（silent return を許容しない）。
    - テスト名に守る仕様を書く（例: `test_他人のresumeはget_404` / `test_internal_secret欠落は拒否` / `test_state不一致のoauth_callbackは拒否`）。
    - 配置先は既存方針: 認可/エンドポイントは `tests/test_<router>.py`、認証は `tests/test_auth.py` / `tests/test_oauth_flow.py`、タスクは `tests/test_worker_*.py`。
 

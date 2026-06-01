@@ -21,7 +21,7 @@ paths:
 
 ## セキュリティ
 
-- 外部 API 呼び出しや LLM 実行のような**高コスト endpoint**には rate limit を付けること（`slowapi`）
+- 外部 API 呼び出しのような**高コスト endpoint**には rate limit を付けること（`slowapi`）
 - OAuth 開始 URL は backend で発行し、許可された `CORS_ORIGINS` のみをリダイレクト先に使うこと
 - Cookie 認証を使う変更では `Secure` / `SameSite` / CORS の整合を必ず確認すること
 - Cloudflare Pages → Cloud Run 間は `INTERNAL_SECRET` ヘッダで認証する（local 環境では省略可）

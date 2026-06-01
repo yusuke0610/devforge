@@ -4,8 +4,6 @@ services:
     container_name: devforge-api
     restart: unless-stopped
     depends_on:
-      ollama:
-        condition: service_healthy
       redis:
         condition: service_healthy
       libsql:
@@ -21,20 +19,11 @@ services:
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
-      LLM_PROVIDER: ${LLM_PROVIDER}
-      # OLLAMA_* の名前の正本は backend/app/core/env_keys.py（OLLAMA_BASE_URL / OLLAMA_MODEL / OLLAMA_TIMEOUT）。
-      # 下記 ollama サービスの OLLAMA_KEEP_ALIVE は Ollama サーバ自身の設定で backend は参照しない。
-      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
-      OLLAMA_MODEL: ${OLLAMA_MODEL}
-      OLLAMA_TIMEOUT: ${OLLAMA_TIMEOUT}
       UPSTASH_REDIS_URL: ${UPSTASH_REDIS_URL}
       UPSTASH_REDIS_TOKEN: ${UPSTASH_REDIS_TOKEN}
       COOKIE_SECURE: ${COOKIE_SECURE}
       COOKIE_SAMESITE: ${COOKIE_SAMESITE}
       ADMIN_TOKEN: ${ADMIN_TOKEN}
-      VERTEX_PROJECT_ID: ${VERTEX_PROJECT_ID}
-      VERTEX_LOCATION: ${VERTEX_LOCATION}
-      VERTEX_MODEL: ${VERTEX_MODEL}
       TASK_RUNNER: ${TASK_RUNNER}
       GCP_PROJECT_ID: ${GCP_PROJECT_ID}
       CLOUD_TASKS_QUEUE: ${CLOUD_TASKS_QUEUE}
@@ -53,22 +42,6 @@ services:
     # Linux で host.docker.internal を解決するための設定（macOS / Windows では不要だが指定しても無害）
     extra_hosts:
       - "host.docker.internal:host-gateway"
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: devforge-ollama
-    restart: unless-stopped
-    environment:
-      OLLAMA_KEEP_ALIVE: 30m
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    healthcheck:
-      test: ["CMD", "ollama", "ps"]
-      interval: 5s
-      timeout: 5s
-      retries: 15
 
   redis:
     image: redis:7-alpine
@@ -97,5 +70,4 @@ services:
       - libsql_data:/var/lib/sqld
 
 volumes:
-  ollama_data:
   libsql_data:

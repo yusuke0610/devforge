@@ -169,8 +169,8 @@ describe("GitHubLinkDashboard", () => {
       http.post("*/api/github-link/run", () =>
         HttpResponse.json(
           {
-            code: "LLM_UNAVAILABLE",
-            message: "AI 分析サービスが一時的に利用できません",
+            code: "INTERNAL_ERROR",
+            message: "分析サービスが一時的に利用できません",
             error_id: "err-ui-500",
           },
           { status: 503 },
@@ -183,7 +183,7 @@ describe("GitHubLinkDashboard", () => {
     await waitFor(() => {
       // エラーメッセージが表示されること（アプリがクラッシュしないこと）
       expect(
-        screen.getByText(/AI 分析サービスが一時的に利用できません/),
+        screen.getByText(/分析サービスが一時的に利用できません/),
       ).toBeInTheDocument();
       expect(screen.getByText(/エラーID: err-ui-500/)).toBeInTheDocument();
     });

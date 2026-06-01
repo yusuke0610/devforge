@@ -37,7 +37,7 @@ nix develop --command bash -c "cd backend && .venv/bin/python -m pytest tests/te
    - 新規サービス関数 → 主要分岐ごとに 1 ケース
    - タスクハンドラ → 成功 / `NonRetryableError` / `RetryableError` の 3 パス
 3. **失敗パスを明示的に検証している**: 例外を `pytest.raises(ExpectedError)` で必ず assert する。silent return を許容するテスト（過去の `test_no_cache_returns_early` のようなもの）は書かない
-4. **モックは最小限**: DB はモックしない（実 SQLite セッションを使う）。外部サービス（GitHub API / LLM / Cloud Tasks / Redis）はモックする
+4. **モックは最小限**: DB はモックしない（実 SQLite セッションを使う）。外部サービス（GitHub API / Cloud Tasks / Redis）はモックする
 5. **lint が pass**: `make lint-backend` も同時に通ること
 
 ## アンチパターン

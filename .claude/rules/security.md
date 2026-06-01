@@ -43,7 +43,6 @@ backend 内で文字列リテラル `os.getenv("XXX")` を使うことは禁止�
 
 - **Pydantic バリデーション必須**: API エンドポイントへの入力はすべて `app/schemas/` の Pydantic モデルで型・制約を検証する。`Any` 型や `dict` 型の素通しは避ける
 - **SQL インジェクション防止**: SQLAlchemy ORM / Core のパラメータバインドを使う。文字列連結でクエリを組み立てることは禁止
-- **LLM プロンプトへのユーザー入力**: ユーザー由来の文字列を LLM プロンプトに埋め込む場合は `backend/app/services/llm/sanitizer.py` を通す
 
 ### Frontend
 
@@ -125,6 +124,6 @@ AI エージェントがコードを変更した後に確認する項目:
 - [ ] `dangerouslySetInnerHTML` / `innerHTML` の新規使用がないか
 - [ ] ログに個人情報・認証情報が出力されないか
 - [ ] 新規エンドポイントに認証ガード（`get_current_user` 依存）が付いているか
-- [ ] 高コスト処理（外部 API 呼び出し・LLM 実行）に rate limit があるか（`slowapi`）
+- [ ] 高コスト処理（外部 API 呼び出し等）に rate limit があるか（`slowapi`）
 - [ ] `target="_blank"` に `rel="noopener noreferrer"` が付いているか
 - [ ] 新規 IAM ロール付与に最小権限の原則を守っているか

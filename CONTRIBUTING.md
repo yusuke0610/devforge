@@ -71,6 +71,7 @@ docs/adr/XXXX-kebab-case-title.md
 | [ADR-0001](docs/adr/0001-sqlite-gcs-backup.md) | SQLite + GCS バックアップ方式の採用 | Accepted |
 | [ADR-0002](docs/adr/0002-jwt-cookie-auth.md) | JWT + Cookie 認証方式の採用 | Accepted |
 | [ADR-0003](docs/adr/0003-redux-toolkit-persist.md) | Redux Toolkit + redux-persist の採用 | Accepted |
-| [ADR-0004](docs/adr/0004-llm-provider-abstraction.md) | LLM プロバイダ抽象化（Ollama/Vertex AI） | Accepted |
+| [ADR-0004](docs/adr/0004-llm-provider-abstraction.md) | LLM プロバイダ抽象化（Ollama/Vertex AI） | Superseded by ADR-0008 |
 | [ADR-0005](docs/adr/0005-cloudrun-single-instance.md) | Cloud Run single instance 構成の採用 | Accepted |
 | [ADR-0006](docs/adr/0006-tanstack-query.md) | TanStack Query 導入検討 | Proposed |
+| [ADR-0008](docs/adr/0008-remove-llm-to-rule-based-design.md) | LLM プロバイダ抽象化の撤去とルールベース設計への統一 | Accepted |

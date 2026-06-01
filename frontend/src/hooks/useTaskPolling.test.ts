@@ -50,7 +50,7 @@ describe("useTaskPolling", () => {
   it("dead_letter になったとき onFailed が呼ばれる", async () => {
     const checkStatus = vi.fn().mockResolvedValue({
       status: "dead_letter",
-      error_message: "LLM タイムアウト",
+      error_message: "分析処理がタイムアウトしました",
     });
     const { result, onCompleted, onFailed } = setup(checkStatus);
 
@@ -62,7 +62,7 @@ describe("useTaskPolling", () => {
       expect(onFailed).toHaveBeenCalledWith(
         expect.objectContaining({
           code: "INTERNAL_ERROR",
-          message: "LLM タイムアウト",
+          message: "分析処理がタイムアウトしました",
         }),
       );
     });

@@ -8,7 +8,7 @@
 worker 側で本基底クラスが提供する共通ロジックを通じて行う。
 
 ``run`` が ``session_factory`` を受け取るのは、libSQL (Hrana over HTTP) の idle
-stream timeout に対する根本対策のため。LLM や外部 API のような長時間処理の前後で
+stream timeout に対する根本対策のため。外部 API 呼び出しのような長時間処理の前後で
 セッションを開閉し、stream を都度更新する。``get_record`` は短命セッション内で
 呼ばれる前提で ``Session`` を受け取る。
 """
@@ -38,6 +38,6 @@ class TaskHandler(ABC):
     async def run(self, session_factory: SessionFactory, payload: dict) -> None:
         """タスク本体を実行する。
 
-        長時間処理（LLM / 外部 API）の前後でセッションを開閉し、libSQL の
+        長時間処理（外部 API 呼び出し等）の前後でセッションを開閉し、libSQL の
         idle stream timeout を避ける。状態遷移は呼び出し側 (worker) が担う。
         """

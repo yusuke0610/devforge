@@ -21,10 +21,6 @@
 |---|---|---|
 | GITHUB_CLIENT_ID | GitHub OAuth Client ID | stg用アプリを別途登録すること |
 | GITHUB_CLIENT_SECRET | GitHub OAuth Client Secret | stg用アプリを別途登録すること |
-| LLM_PROVIDER | LLMプロバイダ | `vertex` |
-| VERTEX_PROJECT_ID | Vertex AI 用 GCP プロジェクトID | `devforge-stg` |
-| VERTEX_LOCATION | Vertex AI リージョン | `asia-northeast1` |
-| VERTEX_MODEL | 使用モデル | ⚠️ `gemini-2.5-flash-lite` は2026/7/22退役。後継: `gemini-2.0-flash` |
 
 ## 手動作業チェックリスト
 

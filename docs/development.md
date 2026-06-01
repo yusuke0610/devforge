@@ -37,7 +37,7 @@ make generate-keys   # JWT RS256 鍵ペアを生成
 cp backend/.env.example backend/.env  # 環境変数を埋める
 ```
 
-#### Docker 起動（推奨: FastAPI + Ollama + Redis + libSQL）
+#### Docker 起動（推奨: FastAPI + Redis + libSQL）
 
 ```bash
 make dev             # docker compose up
@@ -48,13 +48,10 @@ make dev-down        # 停止
 `docker-compose.yml` で以下のサービスをまとめて起動する:
 
 - `api`: FastAPI（`backend/Dockerfile` をビルド）
-- `ollama`: LLM ランタイム（`ollama/ollama:latest`、`gemma3:4b` を自動 pull）
 - `redis`: レート制限・キャッシュ
 - `libsql`: libSQL サーバー（`ghcr.io/tursodatabase/libsql-server`）。`/var/lib/sqld` を `libsql_data` ボリュームに永続化
 
 DB 接続先は compose 内で `TURSO_DATABASE_URL=http://libsql:8080` に固定されている。
-
-> **方針**: Ollama はコンテナまたは Nix 環境内で動かす想定。ホスト OS に直接 `ollama serve` する運用はサポート外。
 
 #### フロントエンド単体起動（バックエンドは docker / 別途）
 

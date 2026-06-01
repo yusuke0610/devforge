@@ -58,7 +58,7 @@ backend/app/
 │   │   ├── scorer.py
 │   │   ├── sync_service.py
 │   │   └── tech_keywords.json
-│   ├── intelligence/            # GitHub 連携パイプラインと LLM 連携
+│   ├── intelligence/            # GitHub 連携パイプライン（決定論的・ルールベース）
 │   │   ├── pipeline.py
 │   │   ├── github_collector.py
 │   │   ├── github_link_service.py
@@ -67,14 +67,7 @@ backend/app/
 │   │   │   └── repo_analyzer.py
 │   │   ├── response_mapper.py
 │   │   ├── skill_extractor.py
-│   │   ├── skill_taxonomy/      # スキル分類（言語・トピック・キーワードマップ）
-│   │   └── llm/                 # LLM クライアント実装（休眠インフラ・温存）
-│   │       ├── base.py
-│   │       ├── factory.py
-│   │       ├── ollama_client.py
-│   │       └── vertex_client.py
-│   ├── llm/                     # LLM 入出力サニタイザ（intelligence/llm とは別・休眠）
-│   │   └── sanitizer.py
+│   │   └── skill_taxonomy/      # スキル分類（言語・トピック・キーワードマップ）
 │   ├── tasks/                   # 非同期タスク基盤（Cloud Tasks / ローカル）
 │   │   ├── base.py              # TaskType 定義（現状 GITHUB_LINK のみ）
 │   │   ├── exceptions.py        # RetryableError / NonRetryableError
@@ -92,15 +85,12 @@ backend/app/
 │   └── shared/                  # ドメイン横断の service util
 │       ├── resume_format.py     # レジュメ整形の共通ロジック（md/pdf 共有）
 │       └── sort_utils.py
-├── prompts/             # LLM プロンプトテンプレート（MD）
 ├── fonts/               # PDF 生成用フォント
 └── utils/
-    └── prompt_loader.py # プロンプトファイルローダ
 ```
 
 ## 主要モジュールのポイント
 
 - **routers/auth/ と routers/blog/**: いずれもパッケージ化されている。auth は `endpoints` / `github_auth` / `oauth_flow` / `token_manager`、blog は `accounts` / `score` / `sync` に責務分割
 - **services/tasks/**: Cloud Tasks（本番）と BackgroundTasks（ローカル）を共通の `execute_task` でディスパッチ。状態遷移（`processing` / `completed` / `dead_letter` / `retrying`）は worker が担う。現在登録されているタスクは `GITHUB_LINK` の 1 種類のみだが、`AsyncTaskCacheService` / `TaskHandler` は新規タスク追加の拡張ポイントとして汎用化してある（インライン化しない）
-- **services/intelligence/**: GitHub 連携 → スキル集計パイプライン。`github_link_service` → `pipeline` → `github_collector` → `skill_extractor` が live 経路
-- **services/llm/ と services/intelligence/llm/**: 別物。前者は入出力サニタイザ等の横断 util、後者は LLM プロバイダクライアント（Ollama / Vertex AI を `LLMClient` 抽象で切替）の実装。**両者とも現状どの live エンドポイントからも到達しない休眠インフラ**で、将来用に温存している。デッドコードとして削除しないこと
+- **services/intelligence/**: GitHub 連携 → スキル集計パイプライン。`github_link_service` → `pipeline` → `github_collector` → `skill_extractor` が live 経路。LLM は使わず決定論的（ルールベース）に処理する（LLM プロバイダ抽象化は ADR-0008 で撤去済み）

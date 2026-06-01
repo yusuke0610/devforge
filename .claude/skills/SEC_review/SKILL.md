@@ -77,7 +77,7 @@ description: Use when running a security review / vulnerability check against th
 - **OAuth フローの設計**: GitHub OAuth の `state` が backend Cookie で検証されているか（frontend のみ検証は不可）、`redirect_uri` が許可リスト内に固定されているか（オープンリダイレクト防止）。
 - **トークンライフサイクル**: アクセス/リフレッシュトークンの失効・ローテーション、ログアウト時の Cookie 破棄、リフレッシュトークン再利用検知の有無。
 - **マスアサインメント**: Pydantic スキーマが更新系で「ユーザーが書き換えてはいけないフィールド」（`user_id` / `role` / `is_admin` 相当 / タイムスタンプ）まで受け付けていないか。入力スキーマと DB モデルのフィールド差を確認。
-- **ビジネスロジック濫用**: rate limit のない高コスト経路（LLM / 外部 API / PDF 生成）を繰り返し叩くコスト増幅、冪等性のない副作用の二重実行。
+- **ビジネスロジック濫用**: rate limit のない高コスト経路（外部 API / PDF 生成）を繰り返し叩くコスト増幅、冪等性のない副作用の二重実行。
 - **エラー / 例外からの情報漏洩**: スタックトレースや内部パス・SQL をユーザー向けレスポンスに返していないか（`detail` に生例外を載せていないか）。
 - **暗号設計**: `FIELD_ENCRYPTION_KEY`（Fernet）で暗号化すべき機微フィールドが平文保存されていないか。鍵の取り違え・固定 IV 等。
 
@@ -113,7 +113,7 @@ description: Use when running a security review / vulnerability check against th
 
 ### 5. LLM プロンプトのサニタイズ
 
-- ユーザー由来文字列を `services/llm/sanitizer.py` を通さずプロンプトに埋め込んでいないか: `rg -n 'prompt|messages=' backend/app/services` 周辺を目視
+- 本プロジェクトは LLM 連携を廃止済み（ADR-0008）。現状この観点は該当なし。将来 LLM 連携を再導入する場合のみ、ユーザー由来文字列をプロンプトに埋め込む際のサニタイズ要否を検討する
 
 ### 6. Frontend XSS
 
@@ -132,7 +132,7 @@ description: Use when running a security review / vulnerability check against th
 
 ### 9. Rate limit
 
-- 高コスト処理（外部 API / LLM 実行）に `slowapi` の `@limiter.limit` が付いているか
+- 高コスト処理（外部 API 呼び出し等）に `slowapi` の `@limiter.limit` が付いているか
 
 ### 10. ファイルアップロード
 
