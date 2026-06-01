@@ -87,6 +87,13 @@ export const UI_MESSAGES = {
   SIDEBAR_EXPAND: "サイドバーを開く",
   SOURCE_PANEL_COLLAPSE: "原本パネルを閉じる",
   SOURCE_PANEL_EXPAND: "原本パネルを開く",
+  REPORT_ISSUE: "GitHub Issueに報告",
+  COPYRIGHT: "© 2026 DevForge",
+} as const;
+
+/** 外部リンク URL（GitHub リポジトリ / Issue 報告先など）の SSoT */
+export const EXTERNAL_LINKS = {
+  ISSUE_REPORT: "https://github.com/yusuke0610/devforge/issues",
 } as const;
 
 /** ファイル取り込み補助（PDF / Markdown 原本上の選択 → 流し込み）UI の文言 */

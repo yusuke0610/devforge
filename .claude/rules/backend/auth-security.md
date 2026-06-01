@@ -7,7 +7,7 @@ paths:
 
 ## 認証
 
-- **認証方式**: GitHub OAuth のみ。パスワード認証は実装していない（`User.hashed_password` は nullable のまま、OAuth 専用設計）
+- **認証方式**: GitHub OAuth のみ。パスワード認証は実装していない（`users` テーブルにパスワード関連カラムは持たない、OAuth 専用設計）
 - **JWT**: `python-jose[cryptography]`、RS256 署名（`JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY`）
 - **トークン有効期間**:
   - アクセストークン: 15 分（Cookie 名 `access_token`）

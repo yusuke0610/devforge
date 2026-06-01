@@ -12,10 +12,9 @@ from ._helpers import run_sync as _run
 
 
 class TestRunGithubAnalysis:
-    def _make_user_and_cache(self, db: Session, username="github:gh-user"):
+    def _make_user_and_cache(self, db: Session, username="gh-user"):
         user = UserRepository(db).create(
             username,
-            hashed_password=None,
             email=f"{username}@test.com",
         )
         cache = GitHubLinkCache(user_id=user.id, status="pending")
@@ -95,7 +94,7 @@ class TestRunGithubAnalysis:
         そのまま永続化され、error/warning がクリアされること（内容まで検証）。"""
         from app.schemas.github_link import ContributionCalendar, ContributionDay
 
-        user, cache = self._make_user_and_cache(db_session, "github:content-user")
+        user, cache = self._make_user_and_cache(db_session, "content-user")
         # 前回失敗の痕跡が成功時にクリアされることも併せて確認する
         cache.error_message = "前回の失敗"
         cache.warning_message = "前回の警告"
@@ -169,7 +168,7 @@ class TestRunGithubAnalysis:
         warning_message が立たないこと。"""
         from app.schemas.github_link import ContributionCalendar, ContributionDay
 
-        user, cache = self._make_user_and_cache(db_session, "github:calendar-user")
+        user, cache = self._make_user_and_cache(db_session, "calendar-user")
         repos = self._sample_repos()
         calendar = ContributionCalendar(
             total_contributions=7,
@@ -217,7 +216,7 @@ class TestRunGithubAnalysis:
     ):
         """コントリビューション取得失敗（None）でも連携は completed のままで、
         warning_message が立つこと。"""
-        user, cache = self._make_user_and_cache(db_session, "github:warn-user")
+        user, cache = self._make_user_and_cache(db_session, "warn-user")
         repos = self._sample_repos()
 
         with (
@@ -301,7 +300,7 @@ class TestRunGithubAnalysis:
         """GitHubUserNotFoundError 発生時に status が dead_letter になること。"""
         from app.services.intelligence.github.api_client import GitHubUserNotFoundError
 
-        user, cache = self._make_user_and_cache(db_session, "github:notfound")
+        user, cache = self._make_user_and_cache(db_session, "notfound")
 
         with (
             patch(

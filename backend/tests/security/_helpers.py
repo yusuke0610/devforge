@@ -46,5 +46,5 @@ def ensure_user(db, username: str) -> User:
     repo = UserRepository(db)
     user = repo.get_by_username(username)
     if not user:
-        user = repo.create(username, hashed_password=None, email=f"{username}@example.com")
+        user = repo.create(username, email=f"{username}@example.com")
     return user

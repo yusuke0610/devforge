@@ -104,7 +104,7 @@ def refresh(
     set_auth_cookies(response, user.username, db)
     return TokenResponse(
         username=user.username,
-        is_github_user=user.username.startswith("github:"),
+        is_github_user=user.github_id is not None,
     )
 
 
@@ -138,7 +138,7 @@ def me(request: Request, current_user=Depends(get_current_user)) -> TokenRespons
     """現在のログインユーザー情報を返す。"""
     return TokenResponse(
         username=current_user.username,
-        is_github_user=current_user.username.startswith("github:"),
+        is_github_user=current_user.github_id is not None,
     )
 
 

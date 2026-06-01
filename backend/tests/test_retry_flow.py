@@ -73,7 +73,7 @@ def _setup_github_link_test(
     yield する mock_notify で `_create_notification` の呼び出し有無を検証できる。
     """
     user = UserRepository(db_session).create(
-        f"github:{suffix}", hashed_password=None, email=f"{suffix}@test.com",
+        suffix, email=f"{suffix}@test.com",
     )
     cache = GitHubLinkCache(user_id=user.id, status=initial_status)
     db_session.add(cache)
@@ -316,15 +316,15 @@ class TestRetryEndpoints:
     """`POST /{resource}/retry` が失敗状態をリセットし再ディスパッチすること。"""
 
     def test_intelligence_retry_requires_github_user(self, client: TestClient):
-        """GitHub 以外のユーザーは GitHub 連携リトライを実行できない。"""
+        """github_id を持たないユーザーは GitHub 連携リトライを実行できない。"""
         headers = auth_header(client, "non-github-user")
         resp = client.post("/api/github-link/run/retry", headers=headers)
         assert resp.status_code == 403
 
     def test_intelligence_retry_resets_cache(self, client: TestClient):
-        headers = auth_header(client, "github:retry-intel-user")
+        headers = auth_header(client, "retry-intel-user", github_id=999)
         db = client._db_session
-        user = UserRepository(db).get_by_username("github:retry-intel-user")
+        user = UserRepository(db).get_by_username("retry-intel-user")
 
         cache = GitHubLinkCache(
             user_id=user.id,
@@ -348,15 +348,15 @@ class TestRetryEndpoints:
 
     def test_retry_returns_404_when_no_cache(self, client: TestClient):
         """連携キャッシュが未作成なら 404（先に連携を実行させる）。"""
-        headers = auth_header(client, "github:retry-nocache-user")
+        headers = auth_header(client, "retry-nocache-user", github_id=999)
         resp = client.post("/api/github-link/run/retry", headers=headers)
         assert resp.status_code == 404
 
     @pytest.mark.parametrize("status", ["completed", "processing", "pending", "retrying"])
     def test_retry_returns_409_when_not_dead_letter(self, client: TestClient, status: str):
         """dead_letter 以外（completed / processing 等）の状態では再実行できず 409。"""
-        username = f"github:retry-409-{status}"
-        headers = auth_header(client, username)
+        username = f"retry-409-{status}"
+        headers = auth_header(client, username, github_id=999)
         db = client._db_session
         user = UserRepository(db).get_by_username(username)
 
@@ -374,9 +374,9 @@ class TestRetryEndpoints:
     def test_retry_returns_409_on_concurrent_reset_race(self, client: TestClient):
         """is_retryable_terminal は通過しても、並列競合で try_reset_to_pending が
         False を返したら 409 にすること（TOCTOU ガード）。"""
-        headers = auth_header(client, "github:retry-race-user")
+        headers = auth_header(client, "retry-race-user", github_id=999)
         db = client._db_session
-        user = UserRepository(db).get_by_username("github:retry-race-user")
+        user = UserRepository(db).get_by_username("retry-race-user")
 
         cache = GitHubLinkCache(user_id=user.id, status="dead_letter", retry_count=2)
         db.add(cache)
@@ -401,7 +401,7 @@ def test_is_final_at_last_attempt(db_session: Session):
     # この境界条件は TestExecuteTaskRetryBranching.test_retryable_error_on_final_attempt
     # で既にカバーしているが、ここで明示的にパラメトリックに確認する。
     user = UserRepository(db_session).create(
-        "github:boundary-user", hashed_password=None, email="boundary@test.com",
+        "boundary-user", email="boundary@test.com",
     )
     cache = GitHubLinkCache(user_id=user.id, status="processing")
     db_session.add(cache)

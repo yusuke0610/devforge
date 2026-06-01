@@ -295,7 +295,9 @@ def test_github_callback_post_does_not_require_cookie(client) -> None:
         )
 
     assert response.status_code == 200
-    assert response.json()["username"] == "github:octo-post"
+    # username に "github:" プレフィックスを付けない（素の login 名で保存する）
+    assert response.json()["username"] == "octo-post"
+    assert response.json()["is_github_user"] is True
     assert "access_token=" in response.headers["set-cookie"]
     # GitHub への redirect_uri も /github/callback でトークン交換していることを確認する
     posted_kwargs = mock_http.post.call_args.kwargs
