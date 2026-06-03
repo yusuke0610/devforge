@@ -6,10 +6,13 @@ import {
   type CareerExperienceForm,
   type CareerProjectForm,
 } from "../../../payloadBuilders";
+import { UI_MESSAGES } from "../../../constants/messages";
 import shared from "../../../styles/shared.module.css";
 import styles from "../CareerResumeForm.module.css";
 import { Collapsible } from "../../ui/Collapsible";
+import { DeleteIconButton } from "../../ui/DeleteIconButton";
 import { DirtyDot } from "../../ui/DirtyDot";
+import { PlusIcon } from "../../icons/PlusIcon";
 import { ClientEditor } from "./ClientEditor";
 
 /** CareerExperienceEditor のプロパティ型 */
@@ -83,6 +86,12 @@ export function CareerExperienceEditor({
             {exp.company || "(会社名未入力)"}
             <DirtyDot visible={Boolean(dirty?.any)} />
           </>
+        }
+        headerActions={
+          <DeleteIconButton
+            label={UI_MESSAGES.RESUME_DELETE_EXPERIENCE}
+            onClick={() => onRemoveExperience(expIndex)}
+          />
         }
       >
         {/* 会社名:事業内容:IT企業 = 4.5:5:0.5 の幅比で配置 */}
@@ -276,15 +285,16 @@ export function CareerExperienceEditor({
                 projectSummary={projectSummary}
               />
             ))}
-            <button type="button" className="ghost" onClick={() => onAddClient(expIndex)}>
+            <button
+              type="button"
+              className={`ghost ${styles.addButton}`}
+              onClick={() => onAddClient(expIndex)}
+            >
+              <PlusIcon />
               取引先を追加
             </button>
           </div>
         )}
-
-        <button type="button" className="danger" onClick={() => onRemoveExperience(expIndex)}>
-          職務経歴を削除
-        </button>
       </Collapsible>
     </div>
   );
