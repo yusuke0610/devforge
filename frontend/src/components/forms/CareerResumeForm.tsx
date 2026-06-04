@@ -1,4 +1,4 @@
-import { CSSProperties, FormEvent, useRef, useState } from "react";
+import { CSSProperties, FormEvent, useMemo, useRef, useState } from "react";
 
 import {
   createCareerResume,
@@ -16,11 +16,13 @@ import { useImportPanelLayout } from "../../hooks/career/useImportPanelLayout";
 import { useResumeImportAssist } from "../../hooks/career/useResumeImportAssist";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
 import { buildCareerPayload } from "../../payloadBuilders";
+import { buildCareerChanges } from "../../utils/careerDiff";
 import type { CareerTextFieldKey } from "../../formTypes";
 import { useQualifications, useTechnologyStacks } from "../../hooks/useMasterData";
 import { usePdfActions } from "../../hooks/usePdfActions";
 import shared from "../../styles/shared.module.css";
 import { ConfirmDialog } from "../ConfirmDialog";
+import { CareerSaveConfirmDialog } from "./CareerSaveConfirmDialog";
 import { Skeleton } from "../ui/Skeleton";
 import { PdfPreviewModal } from "./PdfPreviewModal";
 import { ResumeSourceTracePanel } from "./ResumeSourceTracePanel";
@@ -32,6 +34,8 @@ import { CareerSelfPrSection } from "./sections/CareerSelfPrSection";
 
 export function CareerResumeForm() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // 保存時の変更点確認ダイアログの表示状態。
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   // PDF 原本ビュー（右カラム）の折りたたみ状態。折りたたむと入力フォームが全幅に広がる。
   const [pdfCollapsed, setPdfCollapsed] = useState(false);
   const assist = useResumeImportAssist();
@@ -69,6 +73,15 @@ export function CareerResumeForm() {
   /** 未保存マーク（🔴）の表示判定に使う dirty マップ */
   const dirty = useCareerDirty(form, baseline);
 
+  /**
+   * baseline（保存済み）と form（編集中）の変更点リスト。保存確認ダイアログで表示する。
+   * baseline が未ロード（null）のときは form 同士を比較して変更なし扱いにする。
+   */
+  const changes = useMemo(
+    () => buildCareerChanges(form, baseline ?? form),
+    [form, baseline],
+  );
+
   const {
     downloading,
     previewUrl,
@@ -98,9 +111,20 @@ export function CareerResumeForm() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const onSubmit = async (event: FormEvent) => {
+  const onSubmit = (event: FormEvent) => {
     event.preventDefault();
+    // 変更が無ければ確認を挟まずそのまま保存。変更があれば確認ダイアログを開く。
+    if (changes.length === 0) {
+      void save();
+      return;
+    }
+    setShowSaveConfirm(true);
+  };
+
+  /** 確認ダイアログで「この内容で保存」を押したときの確定処理。 */
+  const handleConfirmSave = async () => {
     await save();
+    setShowSaveConfirm(false);
   };
 
   const handleDelete = async () => {
@@ -117,6 +141,15 @@ export function CareerResumeForm() {
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}
           confirming={deleting}
+        />
+      )}
+      {showSaveConfirm && (
+        <CareerSaveConfirmDialog
+          changes={changes}
+          saving={saving}
+          onConfirm={handleConfirmSave}
+          onCancel={() => setShowSaveConfirm(false)}
+          onRollback={(change) => setForm((prev) => change.rollback(prev))}
         />
       )}
       {previewUrl && <PdfPreviewModal previewUrl={previewUrl} onClose={closePreview} />}

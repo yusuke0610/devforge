@@ -137,6 +137,80 @@ export const LOADING_MESSAGES = {
   GITHUB_LINK: "GitHubプロフィールを取得中...",
 } as const;
 
+/**
+ * 経歴書 保存時の変更点確認ダイアログのラベル（セグメント名・フィールド名）。
+ * `utils/careerDiff.ts` が「職歴1 ＞ 取引先2 ＞ 案件名」のような人間可読パスを組み立てる際に参照する。
+ */
+export const CAREER_DIFF_LABELS = {
+  // トップレベル
+  FULL_NAME: "氏名",
+  CAREER_SUMMARY: "職務要約",
+  SELF_PR: "自己PR",
+  // 配列のセグメント名（末尾に連番が付く: 「職歴1」）
+  EXPERIENCE: "職歴",
+  CLIENT: "取引先",
+  PROJECT: "プロジェクト",
+  PERIOD: "期間",
+  TEAM_MEMBER: "メンバー",
+  TECH_STACK: "技術スタック",
+  PHASE: "フェーズ",
+  QUALIFICATION: "資格",
+  // 職歴フィールド
+  COMPANY: "会社名",
+  BUSINESS_DESCRIPTION: "事業内容",
+  START_DATE: "開始年月",
+  END_DATE: "終了年月",
+  IS_CURRENT: "在職中",
+  EMPLOYEE_COUNT: "従業員数",
+  CAPITAL: "資本金",
+  CAPITAL_UNIT: "資本金単位",
+  IS_IT_COMPANY: "IT企業",
+  DESCRIPTION: "詳細",
+  // 取引先フィールド
+  CLIENT_NAME: "取引先名",
+  HAS_CLIENT: "取引先あり",
+  IS_VACATION: "休暇",
+  VACATION_START_DATE: "休暇開始年月",
+  VACATION_END_DATE: "休暇終了年月",
+  VACATION_IS_CURRENT: "休暇継続中",
+  VACATION_DESCRIPTION: "休暇内容",
+  // プロジェクトフィールド
+  PROJECT_NAME: "案件名",
+  ROLE: "役割",
+  PROJECT_DESCRIPTION: "案件詳細",
+  TEAM_TOTAL: "体制人数",
+  // 体制メンバーフィールド
+  MEMBER_ROLE: "役割",
+  MEMBER_COUNT: "人数",
+  // 技術スタックフィールド
+  TECH_CATEGORY: "カテゴリ",
+  TECH_NAME: "技術名",
+  // 資格フィールド
+  QUALIFICATION_NAME: "資格名",
+  ACQUIRED_DATE: "取得日",
+} as const;
+
+/** 経歴書 保存時の変更点確認ダイアログの固定文言・表示記号。 */
+export const DIFF_DIALOG_MESSAGES = {
+  TITLE: "変更内容の確認",
+  DESCRIPTION: "保存前に変更点を確認できます。「元に戻す」で項目ごとに編集前の値へ戻せます。",
+  CONFIRM: "この内容で保存",
+  CANCEL: "キャンセル",
+  ROLLBACK: "元に戻す",
+  NO_CHANGES: "変更はありません。",
+  /** 空文字の値を表示するときの代替テキスト */
+  EMPTY_VALUE: "（空）",
+  /** パスセグメントの区切り（「職歴1 ＞ 会社名」） */
+  PATH_SEPARATOR: " ＞ ",
+  /** 種別バッジの文言 */
+  ADDED_LABEL: "追加",
+  REMOVED_LABEL: "削除",
+  MODIFIED_LABEL: "修正",
+  /** boolean 値の表示 */
+  BOOL_TRUE: "あり",
+  BOOL_FALSE: "なし",
+} as const;
+
 /** ダウンロード失敗時のメッセージにファイル名を付与する。 */
 export function downloadFailureMessage(filename: string): string {
   return `${FALLBACK_MESSAGES.DOWNLOAD}: ${filename}`;
