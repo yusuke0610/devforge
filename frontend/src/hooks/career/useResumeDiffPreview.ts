@@ -19,8 +19,12 @@ export type ResumeDiffPreview = {
   error: string | null;
 };
 
-/** 編集中プレビュー再取得の debounce（連続ロールバック・編集対策）。 */
-const EDITED_DEBOUNCE_MS = 300;
+/**
+ * 編集中プレビュー再取得の遅延。diff モーダル表示中に form が変わるのはロールバック操作のみで、
+ * 連続入力は発生しないため即時反映（0ms）にする。setTimeout 自体は effect 本体での同期 setState を
+ * 避ける（react-hooks/set-state-in-effect 回避）目的で残す。
+ */
+const EDITED_DEBOUNCE_MS = 0;
 
 /** form/baseline を payload 化する（render 中に評価し、effect 内の同期 setState を避ける）。 */
 function toPayload(state: CareerFormState | null): { payload?: ResumeCreate; error?: string } {
@@ -36,7 +40,7 @@ function toPayload(state: CareerFormState | null): { payload?: ResumeCreate; err
  * baseline（保存済み）と form（編集中）を backend のプレビュー API で整形 HTML 化するフック。
  *
  * - baseline はモーダルを開いている間不変なので、開いた時に 1 回だけ取得する。
- * - form は編集・ロールバックで変わるため debounce して再取得する。
+ * - form はロールバックで変わるため、その都度（即時に）再取得して右ペインへ反映する。
  * - payload 化できない（未保存の空 baseline・入力不正）場合はクラッシュせず安全側に倒す
  *   （baseline=null 表示 / form=エラーメッセージ）。payload 化は render 中（useMemo）で評価する。
  */
@@ -70,7 +74,7 @@ export function useResumeDiffPreview(
     };
   }, [enabled, baselinePayload]);
 
-  // 編集中プレビュー: enabled の間、form 変化のたびに debounce 取得。
+  // 編集中プレビュー: enabled の間、form 変化のたびに即時取得（ロールバックを右ペインへ反映）。
   useEffect(() => {
     if (!enabled || !edited.payload) return;
     const payload = edited.payload;
