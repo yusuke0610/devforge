@@ -1,6 +1,10 @@
 import base64
 
-from app.services.pdf.generators.resume_generator import build_resume_pdf
+from app.services.pdf.generators.resume_generator import (
+    _build_html,
+    build_resume_pdf,
+    build_resume_preview,
+)
 from app.services.pdf.utils.pdf_utils import (
     decode_photo as _decode_photo,
 )
@@ -74,6 +78,109 @@ def test_build_resume_pdf_with_non_it_and_vacation() -> None:
 
     assert pdf_bytes.startswith(b"%PDF")
     assert len(pdf_bytes) > 100
+
+
+def test_build_html_annotates_data_fp() -> None:
+    """_build_html が careerDiff のパスと一致する data-fp を各値ノードに付与する。"""
+    payload = {
+        "full_name": "山田太郎",
+        "career_summary": "要約",
+        "self_pr": "PR",
+        "qualifications": [{"acquired_date": "2020-04", "name": "応用情報技術者"}],
+        "experiences": [
+            {
+                "company": "Example株式会社",
+                "business_description": "SES事業",
+                "start_date": "2020-04",
+                "end_date": "2024-03",
+                "is_current": False,
+                "is_it_company": True,
+                "clients": [
+                    {
+                        "name": "取引先A",
+                        "has_client": True,
+                        "projects": [
+                            {
+                                "name": "案件X",
+                                "role": "SE",
+                                "periods": [
+                                    {"start_date": "2020-04", "end_date": "2021-03"}
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+
+    html = _build_html(payload)
+
+    assert 'data-fp="full_name"' in html
+    assert 'data-fp="career_summary"' in html
+    assert 'data-fp="self_pr"' in html
+    assert 'data-fp="experiences.0.company"' in html
+    assert 'data-fp="experiences.0.business_description"' in html
+    assert 'data-fp="experiences.0.clients.0.name"' in html
+    assert 'data-fp="experiences.0.clients.0.projects.0.role"' in html
+    assert 'data-fp="experiences.0.clients.0.projects.0.technology_stacks"' in html
+    assert 'data-fp="qualifications.0.name"' in html
+    # 折りたたみ用の項目コンテナ（data-unit）も付与される
+    assert 'data-unit="experiences.0"' in html
+    assert 'data-unit="experiences.0.clients.0.projects.0"' in html
+    assert 'data-unit="qualifications.0"' in html
+
+
+def test_build_resume_pdf_still_works_with_annotations() -> None:
+    """data-fp 付与後も PDF 生成は従来どおり成功する（属性はレイアウトに影響しない）。"""
+    payload = {
+        "full_name": "山田太郎",
+        "career_summary": "要約",
+        "self_pr": "PR",
+        "qualifications": [],
+        "experiences": [
+            {
+                "company": "Example株式会社",
+                "business_description": "SES事業",
+                "start_date": "2020-04",
+                "end_date": "2024-03",
+                "is_current": False,
+                "is_it_company": True,
+                "clients": [
+                    {
+                        "name": "取引先A",
+                        "has_client": True,
+                        "projects": [
+                            {
+                                "name": "案件X",
+                                "role": "SE",
+                                "periods": [
+                                    {"start_date": "2020-04", "end_date": "2021-03"}
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+    pdf_bytes = build_resume_pdf(payload)
+    assert pdf_bytes.startswith(b"%PDF")
+
+
+def test_build_resume_preview_returns_html_and_screen_css() -> None:
+    """プレビューは (data-fp 付き HTML, 画面用 CSS) を返し、CSS は @font-face を含まない。"""
+    payload = {
+        "full_name": "山田太郎",
+        "career_summary": "要約",
+        "self_pr": "PR",
+        "qualifications": [],
+        "experiences": [],
+    }
+    html, css = build_resume_preview(payload)
+    assert 'data-fp="full_name"' in html
+    assert "@font-face" not in css
+    assert ".company" in css
 
 
 def test_parse_date_ym() -> None:

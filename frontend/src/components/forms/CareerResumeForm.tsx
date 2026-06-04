@@ -13,6 +13,7 @@ import { UI_MESSAGES } from "../../constants/messages";
 import { createInitialCareerForm, mapCareerResumeToForm } from "../../formMappers";
 import { useCareerDirty } from "../../hooks/career/useCareerDirty";
 import { useImportPanelLayout } from "../../hooks/career/useImportPanelLayout";
+import { useResumeDiffPreview } from "../../hooks/career/useResumeDiffPreview";
 import { useResumeImportAssist } from "../../hooks/career/useResumeImportAssist";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
 import { buildCareerPayload } from "../../payloadBuilders";
@@ -22,7 +23,7 @@ import { useQualifications, useTechnologyStacks } from "../../hooks/useMasterDat
 import { usePdfActions } from "../../hooks/usePdfActions";
 import shared from "../../styles/shared.module.css";
 import { ConfirmDialog } from "../ConfirmDialog";
-import { CareerSaveConfirmDialog } from "./CareerSaveConfirmDialog";
+import { CareerDiffModal } from "./CareerDiffModal";
 import { Skeleton } from "../ui/Skeleton";
 import { PdfPreviewModal } from "./PdfPreviewModal";
 import { ResumeSourceTracePanel } from "./ResumeSourceTracePanel";
@@ -74,13 +75,16 @@ export function CareerResumeForm() {
   const dirty = useCareerDirty(form, baseline);
 
   /**
-   * baseline（保存済み）と form（編集中）の変更点リスト。保存確認ダイアログで表示する。
-   * baseline が未ロード（null）のときは form 同士を比較して変更なし扱いにする。
+   * baseline（保存済み）と form（編集中）の変更点リスト。左右 diff モーダルのサイドバーと
+   * ハイライト突合に使う。baseline が未ロード（null）のときは form 同士を比較して変更なし扱い。
    */
   const changes = useMemo(
     () => buildCareerChanges(form, baseline ?? form),
     [form, baseline],
   );
+
+  /** 左右 diff モーダル用の整形 HTML プレビュー（保存済み / 編集中）。開いている間だけ取得する。 */
+  const preview = useResumeDiffPreview(form, baseline, showSaveConfirm);
 
   const {
     downloading,
@@ -144,8 +148,13 @@ export function CareerResumeForm() {
         />
       )}
       {showSaveConfirm && (
-        <CareerSaveConfirmDialog
+        <CareerDiffModal
           changes={changes}
+          baselineHtml={preview.baselineHtml}
+          editedHtml={preview.editedHtml}
+          css={preview.css}
+          loading={preview.loading}
+          error={preview.error}
           saving={saving}
           onConfirm={handleConfirmSave}
           onCancel={() => setShowSaveConfirm(false)}

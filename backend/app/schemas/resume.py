@@ -246,3 +246,15 @@ class ResumeResponse(ResumeBase):
     def serialize_as_jst(self, dt: datetime) -> str:
         """UTC datetime を JST (UTC+9) の ISO 8601 文字列にシリアライズする。"""
         return to_jst(dt).isoformat()
+
+
+class ResumePreviewResponse(BaseModel):
+    """保存前プレビュー（左右 diff 表示）用の整形済み HTML と画面用 CSS。
+
+    DB を更新せず、編集中 payload を PDF と同じレイアウトに整形した HTML を返す。
+    HTML 内の各値ノードには form パス（``data-fp``）が付与され、FE が変更箇所の
+    ハイライト・スクロール先特定に使う。
+    """
+
+    html: str
+    css: str

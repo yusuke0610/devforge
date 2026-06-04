@@ -30,6 +30,7 @@ export const PATHS = {
   resumes: {
     base: "/api/resumes",
     latest: "/api/resumes/latest",
+    preview: "/api/resumes/preview",
     byId: (id: string) => `/api/resumes/${id}`,
     pdf: (id: string) => `/api/resumes/${id}/pdf`,
     markdown: (id: string) => `/api/resumes/${id}/markdown`,

@@ -1,0 +1,245 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal {
+  background: var(--bg-card);
+  border-radius: 12px;
+  width: 94vw;
+  height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  padding: 1rem 1.25rem 0.5rem;
+}
+
+.title {
+  margin: 0 0 0.25rem;
+  font-size: 1.1rem;
+}
+
+.description {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted, #666);
+  line-height: 1.5;
+}
+
+/* 左ペイン / 右ペイン / サイドバー の 3 カラム。 */
+.body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr 320px;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem 0.75rem;
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.paneHead {
+  flex-shrink: 0;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: var(--bg-page, #f5f5f5);
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.frame {
+  flex: 1;
+  border: none;
+  width: 100%;
+  background: #fff;
+}
+
+.placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted, #888);
+  font-size: 0.85rem;
+  padding: 1rem;
+  text-align: center;
+}
+
+/* 右ペインの再取得中インジケータ（既存表示の上に重ねる）。 */
+.refetching {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  font-size: 0.7rem;
+  color: var(--text-muted, #888);
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.sidebarHead {
+  flex-shrink: 0;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: var(--bg-page, #f5f5f5);
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.4rem;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* 行本体はクリックでスクロールするボタン。装飾はテキストブロック風に戻す。 */
+.rowMain {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  border: none;
+  border-radius: 0;
+  padding: 0.45rem 0.55rem;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.rowHead {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.2rem;
+}
+
+.badge {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  color: #fff;
+}
+
+.modified {
+  background: #ca8a04;
+}
+
+.added {
+  background: #16a34a;
+}
+
+.removed {
+  background: #dc2626;
+}
+
+.label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.values {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+}
+
+.oldValue {
+  color: var(--text-muted, #888);
+  text-decoration: line-through;
+  word-break: break-word;
+}
+
+.arrow {
+  color: var(--text-muted, #888);
+}
+
+.newValue {
+  color: var(--text-primary, #111);
+  font-weight: 500;
+  word-break: break-word;
+}
+
+/* VSCode の diff の revert 矢印風。各変更行を編集前（保存済み）へ戻すアイコンボタン。 */
+.rollback {
+  flex-shrink: 0;
+  align-self: center;
+  margin-right: 0.4rem;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  line-height: 1;
+  background: transparent;
+  color: var(--accent, #c96442);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+}
+
+.rollback:hover:not(:disabled) {
+  background: rgba(201, 100, 66, 0.12);
+  border-color: var(--accent, #c96442);
+}
+
+.empty {
+  margin: 0;
+  padding: 0.75rem;
+  color: var(--text-muted, #666);
+  font-size: 0.85rem;
+}
+
+.actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--border-color, #e0e0e0);
+}

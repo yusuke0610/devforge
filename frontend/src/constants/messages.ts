@@ -190,7 +190,7 @@ export const CAREER_DIFF_LABELS = {
   ACQUIRED_DATE: "取得日",
 } as const;
 
-/** 経歴書 保存時の変更点確認ダイアログの固定文言・表示記号。 */
+/** 経歴書 保存時の変更点確認ダイアログ／左右 diff モーダルの固定文言・表示記号。 */
 export const DIFF_DIALOG_MESSAGES = {
   TITLE: "変更内容の確認",
   DESCRIPTION: "保存前に変更点を確認できます。「元に戻す」で項目ごとに編集前の値へ戻せます。",
@@ -209,7 +209,26 @@ export const DIFF_DIALOG_MESSAGES = {
   /** boolean 値の表示 */
   BOOL_TRUE: "あり",
   BOOL_FALSE: "なし",
+  /** 左右 diff ペインの見出し */
+  PANE_BASELINE: "保存済み",
+  PANE_EDITED: "編集中",
+  /** プレビュー生成中・取得失敗・保存済みデータなしの文言 */
+  PREVIEW_LOADING: "プレビューを生成中...",
+  PREVIEW_FAILED: "プレビューの生成に失敗しました。",
+  BASELINE_EMPTY: "保存済みデータがありません。",
+  /** 変更点サイドバーの見出し */
+  CHANGES_HEADING: "変更点",
 } as const;
+
+/** 左右 diff で「変更なし領域」を畳んだときの展開ラベル（件数を埋め込む）。 */
+export function foldedSectionLabel(count: number): string {
+  return `変更なし ${count} 項目を表示`;
+}
+
+/** 左右 diff の編集中ペインで、削除された項目の跡に出すプレースホルダ文言。 */
+export function removedStubLabel(text: string): string {
+  return `（削除）${text}`;
+}
 
 /** ダウンロード失敗時のメッセージにファイル名を付与する。 */
 export function downloadFailureMessage(filename: string): string {
