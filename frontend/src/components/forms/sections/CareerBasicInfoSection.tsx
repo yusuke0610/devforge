@@ -1,3 +1,5 @@
+import type { CareerFieldLocator } from "../../../payloadBuilders";
+import { useFocusOnMatch } from "../../../hooks/useFocusOnMatch";
 import shared from "../../../styles/shared.module.css";
 import { DirtyDot } from "../../ui/DirtyDot";
 import { Skeleton } from "../../ui/Skeleton";
@@ -17,6 +19,8 @@ type Props = {
   fullNameDirty?: boolean;
   /** 職務要約フィールドが未保存か */
   careerSummaryDirty?: boolean;
+  /** バリデーション失敗フィールドの位置情報（フォーカス・赤枠用） */
+  focusLocator?: CareerFieldLocator | null;
 };
 
 /**
@@ -30,7 +34,13 @@ export function CareerBasicInfoSection({
   onChange,
   fullNameDirty = false,
   careerSummaryDirty = false,
+  focusLocator = null,
 }: Props) {
+  const fullNameInvalid = focusLocator?.kind === "full_name";
+  const careerSummaryInvalid = focusLocator?.kind === "career_summary";
+  const fullNameRef = useFocusOnMatch<HTMLInputElement>(fullNameInvalid);
+  const careerSummaryRef = useFocusOnMatch<HTMLTextAreaElement>(careerSummaryInvalid);
+
   return (
     <section className={shared.section}>
       <label>
@@ -42,11 +52,13 @@ export function CareerBasicInfoSection({
           <Skeleton height="38px" />
         ) : (
           <input
+            ref={fullNameRef}
             type="text"
             value={fullName}
             onChange={(e) => onChange("full_name", e.target.value)}
             placeholder="例: 山田 太郎"
             required
+            aria-invalid={fullNameInvalid || undefined}
           />
         )}
       </label>
@@ -60,6 +72,8 @@ export function CareerBasicInfoSection({
           rows={4}
           required
           labelAdornment={<DirtyDot visible={careerSummaryDirty} />}
+          textareaRef={careerSummaryRef}
+          invalid={careerSummaryInvalid}
         />
       )}
     </section>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type Ref } from "react";
 
 import styles from "./Combobox.module.css";
 
@@ -8,10 +8,22 @@ type ComboboxProps = {
   options: string[];
   placeholder?: string;
   allowCustom?: boolean;
+  /** 内部 input への ref（バリデーション失敗時のフォーカス用） */
+  inputRef?: Ref<HTMLInputElement>;
+  /** バリデーション失敗フィールドとして強調するか（aria-invalid を付与） */
+  invalid?: boolean;
 };
 
 /** 検索可能なプルダウンコンポーネント */
-export function Combobox({ value, onChange, options, placeholder, allowCustom = false }: ComboboxProps) {
+export function Combobox({
+  value,
+  onChange,
+  options,
+  placeholder,
+  allowCustom = false,
+  inputRef,
+  invalid,
+}: ComboboxProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(value);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -86,6 +98,7 @@ export function Combobox({ value, onChange, options, placeholder, allowCustom = 
   return (
     <div className={styles.container} ref={containerRef}>
       <input
+        ref={inputRef}
         type="text"
         value={query}
         onChange={(e) => {
@@ -100,6 +113,7 @@ export function Combobox({ value, onChange, options, placeholder, allowCustom = 
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
+        aria-invalid={invalid || undefined}
       />
       {open && filtered.length > 0 && (
         <ul className={styles.dropdown} ref={listRef} role="listbox">

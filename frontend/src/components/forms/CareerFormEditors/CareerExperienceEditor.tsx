@@ -1,9 +1,11 @@
 import { CAPITAL_UNITS } from "../../../constants";
 import type { CareerClientFieldKey, CareerExperienceFieldKey } from "../../../formTypes";
 import type { ExperienceDirty } from "../../../hooks/career/useCareerDirty";
+import { useFocusOnMatch } from "../../../hooks/useFocusOnMatch";
 import {
   validateDateRange,
   type CareerExperienceForm,
+  type CareerFieldLocator,
   type CareerProjectForm,
 } from "../../../payloadBuilders";
 import { UI_MESSAGES } from "../../../constants/messages";
@@ -54,6 +56,10 @@ type CareerExperienceEditorProps = {
   projectSummary: (proj: CareerProjectForm) => string;
   /** この経歴の dirty 情報。未指定なら 🔴 表示なし。 */
   dirty?: ExperienceDirty;
+  /** バリデーション失敗フィールドの位置情報（フォーカス・赤枠・折りたたみ展開用） */
+  focusLocator?: CareerFieldLocator | null;
+  /** フォーカス発火の nonce（折りたたみ自動展開の再発火鍵） */
+  focusNonce?: number;
 };
 
 /**
@@ -75,12 +81,36 @@ export function CareerExperienceEditor({
   onRemoveExperience,
   projectSummary,
   dirty,
+  focusLocator = null,
+  focusNonce = 0,
 }: CareerExperienceEditorProps) {
   const fieldDirty = dirty?.fields;
+
+  /** この経歴の指定フィールドがバリデーション失敗対象か */
+  const expField = (field: "company" | "business_description" | "start_date" | "end_date" | "description") =>
+    focusLocator?.kind === "experience" &&
+    focusLocator.expIndex === expIndex &&
+    focusLocator.field === field;
+
+  const companyRef = useFocusOnMatch<HTMLInputElement>(expField("company"));
+  const businessRef = useFocusOnMatch<HTMLInputElement>(expField("business_description"));
+  const startDateRef = useFocusOnMatch<HTMLInputElement>(expField("start_date"));
+  const endDateRef = useFocusOnMatch<HTMLInputElement>(expField("end_date"));
+  const descriptionRef = useFocusOnMatch<HTMLTextAreaElement>(expField("description"));
+
+  // この経歴を対象とするエラー（経歴フィールド・休暇・プロジェクト）なら折りたたみを開く。
+  const targetsThisExp =
+    (focusLocator?.kind === "experience" ||
+      focusLocator?.kind === "vacation" ||
+      focusLocator?.kind === "project") &&
+    focusLocator.expIndex === expIndex;
+  const forceOpenKey = targetsThisExp ? focusNonce : null;
+
   return (
     <div className={shared.entry}>
       <Collapsible
         variant="entry"
+        forceOpenKey={forceOpenKey}
         title={
           <>
             {exp.company || "(会社名未入力)"}
@@ -105,9 +135,11 @@ export function CareerExperienceEditor({
               <DirtyDot visible={Boolean(fieldDirty?.company)} />
             </span>
             <input
+              ref={companyRef}
               type="text"
               value={exp.company}
               onChange={(e) => onUpdateExperienceField(expIndex, "company", e.target.value)}
+              aria-invalid={expField("company") || undefined}
             />
           </label>
           <label>
@@ -117,12 +149,14 @@ export function CareerExperienceEditor({
               <DirtyDot visible={Boolean(fieldDirty?.business_description)} />
             </span>
             <input
+              ref={businessRef}
               type="text"
               value={exp.business_description}
               onChange={(e) =>
                 onUpdateExperienceField(expIndex, "business_description", e.target.value)
               }
               placeholder="例: SES事業、受託開発"
+              aria-invalid={expField("business_description") || undefined}
             />
           </label>
           {/* IT企業かどうか（非ITは案件を持たず詳細のみ）。会社名・事業内容と同じ行に配置。
@@ -155,9 +189,11 @@ export function CareerExperienceEditor({
               <DirtyDot visible={Boolean(fieldDirty?.start_date)} />
             </span>
             <input
+              ref={startDateRef}
               type="month"
               value={exp.start_date}
               onChange={(e) => onUpdateExperienceField(expIndex, "start_date", e.target.value)}
+              aria-invalid={expField("start_date") || undefined}
             />
           </label>
           <label>
@@ -183,9 +219,11 @@ export function CareerExperienceEditor({
                 <DirtyDot visible={Boolean(fieldDirty?.end_date)} />
               </span>
               <input
+                ref={endDateRef}
                 type="month"
                 value={exp.end_date}
                 onChange={(e) => onUpdateExperienceField(expIndex, "end_date", e.target.value)}
+                aria-invalid={expField("end_date") || undefined}
               />
             </label>
           )}
@@ -254,12 +292,14 @@ export function CareerExperienceEditor({
                 <DirtyDot visible={Boolean(fieldDirty?.description)} />
               </span>
               <textarea
+                ref={descriptionRef}
                 value={exp.description}
                 onChange={(e) =>
                   onUpdateExperienceField(expIndex, "description", e.target.value)
                 }
                 rows={6}
                 placeholder="例: 店舗運営・在庫管理・スタッフ教育を担当…"
+                aria-invalid={expField("description") || undefined}
               />
             </label>
           </div>
@@ -283,6 +323,7 @@ export function CareerExperienceEditor({
                 onOpenProjectModal={onOpenProjectModal}
                 onRemoveClient={onRemoveClient}
                 projectSummary={projectSummary}
+                focusLocator={focusLocator}
               />
             ))}
             <button

@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, type ReactNode, type Ref } from "react";
 import { renderMarkdown } from "../../utils/markdown";
 import shared from "../../styles/shared.module.css";
 import styles from "./MarkdownTextarea.module.css";
@@ -18,12 +18,26 @@ type Props = {
   required?: boolean;
   /** ラベル横に追加する装飾要素（例: 未保存マーク 🔴） */
   labelAdornment?: ReactNode;
+  /** textarea への ref（バリデーション失敗時のフォーカス用） */
+  textareaRef?: Ref<HTMLTextAreaElement>;
+  /** バリデーション失敗フィールドとして強調するか（aria-invalid を付与） */
+  invalid?: boolean;
 };
 
 /**
  * Markdownテキストエリア。入力内容をリアルタイムでプレビュー表示する。
  */
-export function MarkdownTextarea({ label, value, onChange, rows = 3, placeholder, required, labelAdornment }: Props) {
+export function MarkdownTextarea({
+  label,
+  value,
+  onChange,
+  rows = 3,
+  placeholder,
+  required,
+  labelAdornment,
+  textareaRef,
+  invalid,
+}: Props) {
   const renderedHtml = useMemo(() => renderMarkdown(value), [value]);
 
   return (
@@ -35,11 +49,13 @@ export function MarkdownTextarea({ label, value, onChange, rows = 3, placeholder
       </span>
       <div className={styles.editorRow}>
         <textarea
+          ref={textareaRef}
           rows={rows}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           required={required}
+          aria-invalid={invalid || undefined}
           className={styles.editor}
         />
         {value && (

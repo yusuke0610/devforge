@@ -87,4 +87,23 @@ describe("ProjectModal", () => {
     );
     expect(screen.queryByText(PANEL_MARKER)).not.toBeInTheDocument();
   });
+
+  /** autoFocus 指定で該当期間の開始入力にフォーカス＆ aria-invalid が付くこと */
+  it("autoFocus で指定された期間の開始入力にフォーカスし aria-invalid を付ける", () => {
+    render(
+      <ProjectModal
+        project={emptyProject}
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+        techStackNamesByCategory={new Map()}
+        autoFocus={{ periodIndex: 0, field: "start_date" }}
+      />,
+    );
+    // 「開始」ラベルの month input が対象。
+    const startInput = document.querySelector(
+      'input[type="month"][aria-invalid="true"]',
+    ) as HTMLInputElement | null;
+    expect(startInput).not.toBeNull();
+    expect(document.activeElement).toBe(startInput);
+  });
 });
