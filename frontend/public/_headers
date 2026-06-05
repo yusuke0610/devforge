@@ -1,0 +1,7 @@
+# kuromoji（校正機能の形態素解析）辞書の配信ヘッダ（Cloudflare Pages 用）。
+# .gz を gzip 転送エンコーディング扱いさせず、生の gzip バイト列として返す
+# （kuromoji が自前で gunzip するため）。octet-stream 指定で edge の自動圧縮も避ける。
+# 辞書は不変なので長期キャッシュする。
+/kuromoji-dict/*
+  Content-Type: application/octet-stream
+  Cache-Control: public, max-age=31536000, immutable

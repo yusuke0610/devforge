@@ -63,6 +63,7 @@ export const FALLBACK_MESSAGES = {
   AUTH_CHECK: "ログイン状態の確認に失敗しました。",
   GITHUB_OAUTH_START: "GitHub OAuth の開始に失敗しました",
   GITHUB_LINK: "連携に失敗しました",
+  PROOFREAD: "文章の校正に失敗しました。",
 } as const;
 
 /**
@@ -231,6 +232,26 @@ export const DIFF_DIALOG_MESSAGES = {
   /** 変更点サイドバーの見出し */
   CHANGES_HEADING: "変更点",
 } as const;
+
+/**
+ * 保存確認ダイアログ内の文章校正（誤字脱字・表記ゆれ）セクションの文言。
+ * 指摘メッセージ本文は textlint 由来の外部正本なのでここには持たず、そのまま表示する。
+ */
+export const PROOFREAD_MESSAGES = {
+  /** サイドバーの校正セクション見出し。 */
+  HEADING: "校正の指摘",
+  /** 校正処理中の表示。 */
+  LOADING: "文章を校正中...",
+  /** 指摘ゼロ件のときの表示。 */
+  NONE: "校正の指摘はありません。",
+  /** セクションの補足（保存はブロックしない旨）。 */
+  HINT: "保存はブロックされません。気になる箇所のみ修正してください。",
+} as const;
+
+/** 校正セクションで、指摘件数をフィールド見出しに添えるラベル。 */
+export function proofreadIssueCountLabel(count: number): string {
+  return `${count}件`;
+}
 
 /** 左右 diff で「変更なし領域」を畳んだときの展開ラベル（件数を埋め込む）。 */
 export function foldedSectionLabel(count: number): string {

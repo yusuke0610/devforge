@@ -14,6 +14,7 @@ import { SUCCESS_MESSAGES, UI_MESSAGES } from "../../constants/messages";
 import { createInitialCareerForm, mapCareerResumeToForm } from "../../formMappers";
 import { useCareerDirty } from "../../hooks/career/useCareerDirty";
 import { useImportPanelLayout } from "../../hooks/career/useImportPanelLayout";
+import { useProofread } from "../../hooks/career/useProofread";
 import { useResumeDiffPreview } from "../../hooks/career/useResumeDiffPreview";
 import { useResumeImportAssist } from "../../hooks/career/useResumeImportAssist";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
@@ -86,15 +87,22 @@ export function CareerResumeForm() {
 
   /**
    * baseline（保存済み）と form（編集中）の変更点リスト。左右 diff モーダルのサイドバーと
-   * ハイライト突合に使う。baseline が未ロード（null）のときは form 同士を比較して変更なし扱い。
+   * ハイライト突合に使う。
+   *
+   * baseline が未ロード（null = 新規作成の初回保存）のときは「空フォーム」を基準にする。
+   * これにより初回保存でも全項目が「追加」として変更点に立ち、確認ダイアログが開く
+   * （= 初回も校正を見せる）。既存データで差分が無い場合は changes が空のまま直接保存される。
    */
   const changes = useMemo(
-    () => buildCareerChanges(form, baseline ?? form),
+    () => buildCareerChanges(form, baseline ?? createInitialCareerForm()),
     [form, baseline],
   );
 
   /** 左右 diff モーダル用の整形 HTML プレビュー（保存済み / 編集中）。開いている間だけ取得する。 */
   const preview = useResumeDiffPreview(form, baseline, showSaveConfirm);
+
+  /** 保存確認ダイアログが開いている間、編集中フォームを校正する（誤字脱字・表記ゆれ）。 */
+  const proofread = useProofread(form, showSaveConfirm);
 
   const {
     downloading,
@@ -207,6 +215,9 @@ export function CareerResumeForm() {
           loading={preview.loading}
           error={preview.error}
           saving={saving}
+          issues={proofread.issues}
+          proofreading={proofread.proofreading}
+          proofreadError={proofread.error}
           onConfirm={handleConfirmSave}
           onCancel={() => setShowSaveConfirm(false)}
           onRollback={(change) => setForm((prev) => change.rollback(prev))}

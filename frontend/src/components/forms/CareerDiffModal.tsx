@@ -1,6 +1,12 @@
 import { useMemo, useRef } from "react";
 
-import { DIFF_DIALOG_MESSAGES as D } from "../../constants/messages";
+import {
+  DIFF_DIALOG_MESSAGES as D,
+  PROOFREAD_MESSAGES as P,
+  proofreadIssueCountLabel,
+} from "../../constants/messages";
+import { groupIssuesByField } from "../../proofread/issueFormat";
+import type { ProofreadIssue } from "../../proofread/types";
 import type { CareerChange, ChangeKind } from "../../utils/careerDiff";
 import {
   annotateHtml,
@@ -63,6 +69,9 @@ export function CareerDiffModal({
   loading,
   error,
   saving,
+  issues,
+  proofreading,
+  proofreadError,
   onConfirm,
   onCancel,
   onRollback,
@@ -74,6 +83,12 @@ export function CareerDiffModal({
   loading: boolean;
   error: string | null;
   saving: boolean;
+  /** 編集中フォームの校正指摘（フィールド横断）。 */
+  issues: ProofreadIssue[];
+  /** 校正処理中フラグ。 */
+  proofreading: boolean;
+  /** 校正失敗時のメッセージ（null なら正常）。 */
+  proofreadError: string | null;
   onConfirm: () => void;
   onCancel: () => void;
   onRollback: (change: CareerChange) => void;
@@ -82,6 +97,9 @@ export function CareerDiffModal({
   const hasChanges = changes.length > 0;
 
   const pathKindMap = useMemo(() => buildPathKindMap(changes), [changes]);
+
+  /** 校正指摘をフィールド単位にまとめる（セクション内の見出しグルーピング用）。 */
+  const issueGroups = useMemo(() => groupIssuesByField(issues), [issues]);
 
   // 着色（annotateHtml）→ 変更なし領域を畳む（foldUnchanged）の順で整形する。
   const baselineDoc = useMemo(() => {
@@ -164,7 +182,7 @@ export function CareerDiffModal({
             {loading && editedDoc && <div className={styles.refetching}>{D.PREVIEW_LOADING}</div>}
           </section>
 
-          {/* 変更点サイドバー */}
+          {/* 変更点 + 校正の指摘サイドバー */}
           <aside className={styles.sidebar}>
             <div className={styles.sidebarHead}>{D.CHANGES_HEADING}</div>
             {hasChanges ? (
@@ -208,6 +226,46 @@ export function CareerDiffModal({
             ) : (
               <p className={styles.empty}>{D.NO_CHANGES}</p>
             )}
+
+            {/* 校正の指摘（誤字脱字・表記ゆれ）。青系・控えめ。保存はブロックしない。 */}
+            <div className={styles.proofreadSection}>
+              <div className={styles.proofreadHead}>
+                <span>{P.HEADING}</span>
+                {proofreading && <span className={styles.proofreadLoading}>{P.LOADING}</span>}
+              </div>
+              {proofreadError ? (
+                <p className={styles.proofreadEmpty}>{proofreadError}</p>
+              ) : issueGroups.length > 0 ? (
+                <ul className={styles.proofreadList}>
+                  {issueGroups.map((group) => (
+                    <li key={group.fieldId} className={styles.proofreadGroup}>
+                      <div className={styles.proofreadGroupHead}>
+                        <span className={styles.proofreadFieldLabel}>{group.fieldLabel}</span>
+                        <span className={styles.proofreadCount}>
+                          {proofreadIssueCountLabel(group.issues.length)}
+                        </span>
+                      </div>
+                      <ul className={styles.proofreadItems}>
+                        {group.issues.map((issue, i) => (
+                          <li
+                            key={`${issue.ruleId}:${issue.index}:${i}`}
+                            className={styles.proofreadItem}
+                          >
+                            <p className={styles.proofreadMessage}>{issue.message}</p>
+                            {issue.excerpt && (
+                              <p className={styles.proofreadExcerpt}>{issue.excerpt}</p>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                !proofreading && <p className={styles.proofreadEmpty}>{P.NONE}</p>
+              )}
+              <p className={styles.proofreadHint}>{P.HINT}</p>
+            </div>
           </aside>
         </div>
 
