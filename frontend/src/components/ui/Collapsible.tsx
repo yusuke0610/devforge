@@ -12,6 +12,12 @@ type CollapsibleProps = {
   headerActions?: ReactNode;
   /** 見出しの見た目バリアント（section=セクション見出し相当 / entry=エントリ見出し相当） */
   variant?: "section" | "entry";
+  /**
+   * この値が（null/undefined 以外へ）変化したら強制的に開く。
+   * バリデーション失敗時に該当フィールドを含むパネルを自動展開してフォーカスするために使う。
+   * 内部の開閉 state はそのままなので、展開後にユーザーが再度畳むことは可能。
+   */
+  forceOpenKey?: string | number | null;
   /** 折りたたみ対象の中身 */
   children: ReactNode;
 };
@@ -25,9 +31,19 @@ export function Collapsible({
   defaultOpen = true,
   headerActions,
   variant = "section",
+  forceOpenKey,
   children,
 }: CollapsibleProps) {
   const [open, setOpen] = useState(defaultOpen);
+
+  // forceOpenKey が（前回適用値と異なる非 null 値へ）変化したら強制的に開く。
+  // レンダー中に直前の値と比較して setState する React 公式パターン
+  // （useEffect 内で setState するより推奨される）。展開後の再折りたたみは可能。
+  const [appliedForceKey, setAppliedForceKey] = useState<string | number | null>(null);
+  if (forceOpenKey != null && forceOpenKey !== appliedForceKey) {
+    setAppliedForceKey(forceOpenKey);
+    setOpen(true);
+  }
 
   return (
     <div>

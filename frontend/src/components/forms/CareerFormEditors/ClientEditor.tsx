@@ -1,8 +1,10 @@
 import type { CareerClientFieldKey } from "../../../formTypes";
 import type { ClientDirty } from "../../../hooks/career/useCareerDirty";
+import { useFocusOnMatch } from "../../../hooks/useFocusOnMatch";
 import {
   validateDateRange,
   type CareerClientForm,
+  type CareerFieldLocator,
   type CareerProjectForm,
 } from "../../../payloadBuilders";
 import { UI_MESSAGES } from "../../../constants/messages";
@@ -43,6 +45,8 @@ type ClientEditorProps = {
   onRemoveClient: (expIndex: number, clientIndex: number) => void;
   /** プロジェクトサマリーテキストを生成する関数 */
   projectSummary: (proj: CareerProjectForm) => string;
+  /** バリデーション失敗フィールドの位置情報（休暇期間のフォーカス・赤枠用） */
+  focusLocator?: CareerFieldLocator | null;
 };
 
 /**
@@ -63,7 +67,18 @@ export function ClientEditor({
   onOpenProjectModal,
   onRemoveClient,
   projectSummary,
+  focusLocator = null,
 }: ClientEditorProps) {
+  /** この取引先の休暇期間フィールドがバリデーション失敗対象か */
+  const vacationField = (field: "start_date" | "end_date") =>
+    focusLocator?.kind === "vacation" &&
+    focusLocator.expIndex === expIndex &&
+    focusLocator.clientIndex === clientIndex &&
+    focusLocator.field === field;
+
+  const vacationStartRef = useFocusOnMatch<HTMLInputElement>(vacationField("start_date"));
+  const vacationEndRef = useFocusOnMatch<HTMLInputElement>(vacationField("end_date"));
+
   return (
     <div className={shared.entry}>
       <div className={styles.clientHeader}>
@@ -124,11 +139,13 @@ export function ClientEditor({
                 <span className={shared.requiredBadge}>必須</span>
               </span>
               <input
+                ref={vacationStartRef}
                 type="month"
                 value={client.vacation_start_date}
                 onChange={(e) =>
                   onUpdateClientField(expIndex, clientIndex, "vacation_start_date", e.target.value)
                 }
+                aria-invalid={vacationField("start_date") || undefined}
               />
             </label>
             <label>
@@ -154,11 +171,13 @@ export function ClientEditor({
                   <span className={shared.requiredBadge}>必須</span>
                 </span>
                 <input
+                  ref={vacationEndRef}
                   type="month"
                   value={client.vacation_end_date}
                   onChange={(e) =>
                     onUpdateClientField(expIndex, clientIndex, "vacation_end_date", e.target.value)
                   }
+                  aria-invalid={vacationField("end_date") || undefined}
                 />
               </label>
             )}

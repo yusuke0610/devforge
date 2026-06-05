@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
 import type { ExperienceDirty } from "../../../hooks/career/useCareerDirty";
 import type {
   CareerExperienceForm,
+  CareerFieldLocator,
   CareerFormState,
   CareerProjectForm,
 } from "../../../payloadBuilders";
@@ -32,6 +33,10 @@ type CareerExperienceSectionProps = {
   sectionDirty?: boolean;
   /** PDF 取り込み補助。プロジェクトモーダル内に取り込みパネルを再掲するため受け渡す */
   assist?: UseResumeImportAssistReturn;
+  /** バリデーション失敗フィールドの位置情報（フォーカス・赤枠・折りたたみ展開用） */
+  focusLocator?: CareerFieldLocator | null;
+  /** フォーカス発火の nonce（折りたたみ自動展開の再発火鍵） */
+  focusNonce?: number;
 };
 
 /**
@@ -46,6 +51,8 @@ export function CareerExperienceSection({
   experiencesDirty,
   sectionDirty = false,
   assist,
+  focusLocator = null,
+  focusNonce = 0,
 }: CareerExperienceSectionProps) {
   /** カテゴリごとの技術スタック名称マップを生成する */
   const techStackNamesByCategory = useMemo(() => {
@@ -62,6 +69,30 @@ export function CareerExperienceSection({
 
   const { modalTarget, setModalTarget, modalProject, handleProjectSave, closeModal } =
     useProjectModalState(mutators.getProject, mutators.onProjectSave);
+
+  // プロジェクト配下のバリデーションエラー時は該当プロジェクトのモーダルを自動で開く。
+  // focusLocator は保存のたびに新しい参照になるため、同じプロジェクトでも再発火する。
+  useEffect(() => {
+    if (focusLocator?.kind === "project") {
+      setModalTarget({
+        expIndex: focusLocator.expIndex,
+        clientIndex: focusLocator.clientIndex,
+        projIndex: focusLocator.projIndex,
+      });
+    }
+    // setModalTarget は state setter で安定。focusLocator の変化のみで発火させる。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusLocator]);
+
+  // 開いているモーダルが該当プロジェクトなら、フォーカスすべき期間入力を渡す。
+  const projectAutoFocus =
+    modalTarget &&
+    focusLocator?.kind === "project" &&
+    focusLocator.expIndex === modalTarget.expIndex &&
+    focusLocator.clientIndex === modalTarget.clientIndex &&
+    focusLocator.projIndex === modalTarget.projIndex
+      ? { periodIndex: focusLocator.periodIndex, field: focusLocator.field }
+      : undefined;
 
   /** プロジェクトの期間サマリーテキストを生成する（複数期間は「、」区切り） */
   const projectSummary = (proj: CareerProjectForm) => {
@@ -92,6 +123,7 @@ export function CareerExperienceSection({
           onClose={closeModal}
           techStackNamesByCategory={techStackNamesByCategory}
           assist={assist}
+          autoFocus={projectAutoFocus}
         />
       )}
 
@@ -116,6 +148,8 @@ export function CareerExperienceSection({
           onRemoveExperience={mutators.removeExperience}
           projectSummary={projectSummary}
           dirty={experiencesDirty?.[expIndex]}
+          focusLocator={focusLocator}
+          focusNonce={focusNonce}
         />
       ))}
 

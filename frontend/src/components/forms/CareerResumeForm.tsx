@@ -1,4 +1,5 @@
-import { CSSProperties, FormEvent, useMemo, useRef, useState } from "react";
+import { CSSProperties, FormEvent, useCallback, useMemo, useRef, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 
 import {
   createCareerResume,
@@ -16,7 +17,8 @@ import { useImportPanelLayout } from "../../hooks/career/useImportPanelLayout";
 import { useResumeDiffPreview } from "../../hooks/career/useResumeDiffPreview";
 import { useResumeImportAssist } from "../../hooks/career/useResumeImportAssist";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
-import { buildCareerPayload } from "../../payloadBuilders";
+import { buildCareerPayload, validateCareerForm } from "../../payloadBuilders";
+import type { CareerFieldLocator, CareerFormState } from "../../payloadBuilders";
 import { buildCareerChanges } from "../../utils/careerDiff";
 import type { CareerTextFieldKey } from "../../formTypes";
 import { useQualifications, useTechnologyStacks } from "../../hooks/useMasterData";
@@ -52,6 +54,8 @@ export function CareerResumeForm() {
     deleting,
     error: formError,
     success: formSuccess,
+    setError,
+    setSuccess,
     save,
     deleteDoc,
     saveButtonText,
@@ -111,12 +115,43 @@ export function CareerResumeForm() {
   /** フォームデータ・技術スタック・資格の3つが揃った時に送信可能 */
   const canSubmit = !loading && !techLoading && !qualLoading;
 
+  /**
+   * バリデーション失敗フィールドの位置と nonce。保存時にセットし、
+   * 該当入力へのフォーカス・赤枠表示・折りたたみ自動展開に使う。
+   * nonce は「同じフィールドで再度保存した時」も折りたたみ展開 effect を再発火させるための鍵。
+   */
+  const [focusTarget, setFocusTarget] = useState<{
+    locator: CareerFieldLocator;
+    nonce: number;
+  } | null>(null);
+  const focusNonceRef = useRef(0);
+
+  /** 編集が入ったらフォーカス強調を解除する（赤枠を消す）setForm ラッパー。 */
+  const setFormAndClearFocus = useCallback<Dispatch<SetStateAction<CareerFormState>>>(
+    (action) => {
+      setFocusTarget(null);
+      setForm(action);
+    },
+    [setForm],
+  );
+
   const onChangeField = (key: CareerTextFieldKey, value: string) => {
+    setFocusTarget(null);
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
+    // 保存前にフォーム全体を検証し、最初のエラーフィールドへフォーカスする。
+    const validation = validateCareerForm(form);
+    if (validation) {
+      setError(validation.message);
+      setSuccess(null);
+      focusNonceRef.current += 1;
+      setFocusTarget({ locator: validation.locator, nonce: focusNonceRef.current });
+      return;
+    }
+    setFocusTarget(null);
     // 変更が無ければ確認を挟まずそのまま保存。変更があれば確認ダイアログを開く。
     if (changes.length === 0) {
       void save();
@@ -130,6 +165,9 @@ export function CareerResumeForm() {
     await save();
     setShowSaveConfirm(false);
   };
+
+  const focusLocator = focusTarget?.locator ?? null;
+  const focusNonce = focusTarget?.nonce ?? 0;
 
   const handleDelete = async () => {
     await deleteDoc();
@@ -162,7 +200,10 @@ export function CareerResumeForm() {
         />
       )}
       {previewUrl && <PdfPreviewModal previewUrl={previewUrl} onClose={closePreview} />}
-      <form onSubmit={onSubmit}>
+      {/* noValidate: 必須チェックはブラウザ標準ではなく validateCareerForm に一本化する。
+          標準の required バブルが先に発火すると、該当フィールドへの独自フォーカス・赤枠・
+          日本語メッセージが出せず挙動が不統一になるため抑止する。 */}
+      <form onSubmit={onSubmit} noValidate>
         <div className={shared.pageHeader}>
           <h1>職務経歴書</h1>
           <div className={shared.pageHeaderActions}>
@@ -228,6 +269,7 @@ export function CareerResumeForm() {
                   onChange={onChangeField}
                   fullNameDirty={dirty.full_name}
                   careerSummaryDirty={dirty.career_summary}
+                  focusLocator={focusLocator}
                 />
 
                 {/* 職務経歴セクション */}
@@ -244,11 +286,13 @@ export function CareerResumeForm() {
                 ) : (
                   <CareerExperienceSection
                     experiences={form.experiences}
-                    setForm={setForm}
+                    setForm={setFormAndClearFocus}
                     techStackOptions={techStackOptions}
                     experiencesDirty={dirty.experiences}
                     sectionDirty={dirty.experiencesAny}
                     assist={assist}
+                    focusLocator={focusLocator}
+                    focusNonce={focusNonce}
                   />
                 )}
 
@@ -257,9 +301,11 @@ export function CareerResumeForm() {
                   qualifications={form.qualifications}
                   qualificationNames={qualificationNames}
                   loading={loading}
-                  setForm={setForm}
+                  setForm={setFormAndClearFocus}
                   qualificationsDirty={dirty.qualifications}
                   sectionDirty={dirty.qualificationsAny}
+                  focusLocator={focusLocator}
+                  focusNonce={focusNonce}
                 />
 
                 {/* 自己PR */}
@@ -268,6 +314,7 @@ export function CareerResumeForm() {
                   loading={loading}
                   onChange={(v) => onChangeField("self_pr", v)}
                   dirty={dirty.self_pr}
+                  focusLocator={focusLocator}
                 />
               </div>
 

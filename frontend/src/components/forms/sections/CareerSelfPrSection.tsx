@@ -1,3 +1,5 @@
+import type { CareerFieldLocator } from "../../../payloadBuilders";
+import { useFocusOnMatch } from "../../../hooks/useFocusOnMatch";
 import shared from "../../../styles/shared.module.css";
 import { DirtyDot } from "../../ui/DirtyDot";
 import { Skeleton } from "../../ui/Skeleton";
@@ -13,13 +15,24 @@ type Props = {
   onChange: (value: string) => void;
   /** 未保存変更があるか */
   dirty?: boolean;
+  /** バリデーション失敗フィールドの位置情報（フォーカス・赤枠用） */
+  focusLocator?: CareerFieldLocator | null;
 };
 
 /**
  * 職務経歴書の「自己PR」セクション。
  * 元 CareerResumeForm の JSX をセクション単位で読みやすくするための切り出し。
  */
-export function CareerSelfPrSection({ selfPr, loading, onChange, dirty = false }: Props) {
+export function CareerSelfPrSection({
+  selfPr,
+  loading,
+  onChange,
+  dirty = false,
+  focusLocator = null,
+}: Props) {
+  const invalid = focusLocator?.kind === "self_pr";
+  const selfPrRef = useFocusOnMatch<HTMLTextAreaElement>(invalid);
+
   return (
     <section className={shared.section}>
       {loading ? (
@@ -32,6 +45,8 @@ export function CareerSelfPrSection({ selfPr, loading, onChange, dirty = false }
           rows={4}
           required
           labelAdornment={<DirtyDot visible={dirty} />}
+          textareaRef={selfPrRef}
+          invalid={invalid}
         />
       )}
     </section>

@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildCareerPayload,
   hasAnyText,
+  validateCareerForm,
   validateDateRange,
   type CareerClientForm,
   type CareerExperienceForm,
@@ -647,5 +648,161 @@ describe("buildCareerPayload (qualifications)", () => {
       }),
     );
     expect(payload.qualifications).toEqual([{ acquired_date: "2024-01-01", name: "基本情報" }]);
+  });
+});
+
+// ── validateCareerForm: locator 付き検証 ─────────────────────────
+
+describe("validateCareerForm (locator)", () => {
+  it("問題が無ければ null を返す", () => {
+    expect(validateCareerForm(baseState())).toBeNull();
+  });
+
+  it("氏名が空なら full_name locator", () => {
+    const result = validateCareerForm(baseState({ full_name: " " }));
+    expect(result?.locator).toEqual({ kind: "full_name" });
+    expect(result?.message).toContain("氏名");
+  });
+
+  it("職務要約が空なら career_summary locator", () => {
+    const result = validateCareerForm(baseState({ career_summary: "" }));
+    expect(result?.locator).toEqual({ kind: "career_summary" });
+  });
+
+  it("自己PR が空なら self_pr locator", () => {
+    const result = validateCareerForm(baseState({ self_pr: "" }));
+    expect(result?.locator).toEqual({ kind: "self_pr" });
+  });
+
+  it("会社名が空なら該当 experience の company locator（元 index 保持）", () => {
+    const result = validateCareerForm(
+      baseState({
+        experiences: [
+          // 1 件目は空欄だけ（除外される）、2 件目で会社名のみ欠落させる。
+          blankExperience({
+            company: "",
+            business_description: "",
+            start_date: "",
+            end_date: "",
+          }),
+          blankExperience({ company: "" }),
+        ],
+      }),
+    );
+    expect(result?.locator).toEqual({ kind: "experience", expIndex: 1, field: "company" });
+  });
+
+  it("離職年月が空なら experience の end_date locator", () => {
+    const result = validateCareerForm(
+      baseState({
+        experiences: [blankExperience({ is_current: false, end_date: "  " })],
+      }),
+    );
+    expect(result?.locator).toEqual({ kind: "experience", expIndex: 0, field: "end_date" });
+  });
+
+  it("非IT で詳細が空なら experience の description locator", () => {
+    const result = validateCareerForm(
+      baseState({
+        experiences: [blankExperience({ is_it_company: false, description: "  " })],
+      }),
+    );
+    expect(result?.locator).toEqual({ kind: "experience", expIndex: 0, field: "description" });
+  });
+
+  it("休暇の開始年月が空なら vacation の start_date locator", () => {
+    const result = validateCareerForm(
+      baseState({
+        experiences: [
+          blankExperience({
+            clients: [
+              blankClient({
+                is_vacation: true,
+                vacation_start_date: "",
+                vacation_description: "育児休暇",
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(result?.locator).toEqual({
+      kind: "vacation",
+      expIndex: 0,
+      clientIndex: 0,
+      field: "start_date",
+    });
+  });
+
+  it("プロジェクト期間の開始年月が空なら project の start_date locator（各 index 保持）", () => {
+    const result = validateCareerForm(
+      baseState({
+        experiences: [
+          blankExperience({
+            clients: [
+              blankClient({
+                name: "顧客A",
+                has_client: true,
+                projects: [blankProject({ periods: [blankPeriod({ start_date: "" })] })],
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(result?.locator).toEqual({
+      kind: "project",
+      expIndex: 0,
+      clientIndex: 0,
+      projIndex: 0,
+      periodIndex: 0,
+      field: "start_date",
+    });
+  });
+
+  it("プロジェクト期間の終了年月が空なら project の end_date locator", () => {
+    const result = validateCareerForm(
+      baseState({
+        experiences: [
+          blankExperience({
+            clients: [
+              blankClient({
+                name: "顧客A",
+                has_client: true,
+                projects: [
+                  blankProject({ periods: [blankPeriod({ is_current: false, end_date: "" })] }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(result?.locator).toEqual({
+      kind: "project",
+      expIndex: 0,
+      clientIndex: 0,
+      projIndex: 0,
+      periodIndex: 0,
+      field: "end_date",
+    });
+  });
+
+  it("資格の名称が空なら qualification の name locator", () => {
+    const result = validateCareerForm(
+      baseState({
+        qualifications: [{ acquired_date: "2024-01", name: "" }],
+      }),
+    );
+    expect(result?.locator).toEqual({ kind: "qualification", index: 0, field: "name" });
+  });
+
+  it("資格の取得日が空なら qualification の acquired_date locator", () => {
+    const result = validateCareerForm(
+      baseState({
+        qualifications: [{ acquired_date: "", name: "基本情報" }],
+      }),
+    );
+    expect(result?.locator).toEqual({ kind: "qualification", index: 0, field: "acquired_date" });
   });
 });

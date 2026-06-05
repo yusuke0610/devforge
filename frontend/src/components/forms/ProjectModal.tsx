@@ -1,15 +1,17 @@
 import { useRef, type CSSProperties } from "react";
 
-import type { CareerProjectForm } from "../../payloadBuilders";
+import type { CareerProjectForm, CareerProjectPeriodForm } from "../../payloadBuilders";
 import {
   careerTechnologyStackCategories,
   careerTechnologyStackCategoryLabels,
   phaseOptions,
   teamRoleOptions,
 } from "../../constants";
+import type { CareerProjectPeriodFieldKey } from "../../formTypes";
 import { useProjectFormDirty } from "../../hooks/career/useProjectFormDirty";
 import { useProjectModalForm } from "../../hooks/career/useProjectModalForm";
 import { useImportPanelLayout } from "../../hooks/career/useImportPanelLayout";
+import { useFocusOnMatch } from "../../hooks/useFocusOnMatch";
 import type { UseResumeImportAssistReturn } from "../../hooks/career/useResumeImportAssist";
 import { Combobox } from "./Combobox";
 import { MarkdownTextarea } from "./MarkdownTextarea";
@@ -33,7 +35,89 @@ type ProjectModalProps = {
    * 奪うため、子モーダルを開いている間でも流し込めるようモーダル内に再掲する。
    */
   assist?: UseResumeImportAssistReturn;
+  /**
+   * バリデーション失敗時に自動フォーカスする期間入力の指定。
+   * `CareerExperienceSection` が保存エラー検出時にモーダルを開いて渡す。
+   */
+  autoFocus?: { periodIndex: number; field: "start_date" | "end_date" };
 };
+
+/** プロジェクト期間 1 行分の入力。期間は可変長のため別コンポーネントにして focus hook を使う。 */
+type ProjectPeriodRowProps = {
+  period: CareerProjectPeriodForm;
+  periodIndex: number;
+  canRemove: boolean;
+  autoFocus?: { periodIndex: number; field: "start_date" | "end_date" };
+  onUpdate: (periodIndex: number, key: CareerProjectPeriodFieldKey, value: string | boolean) => void;
+  onRemove: (periodIndex: number) => void;
+};
+
+function ProjectPeriodRow({
+  period,
+  periodIndex,
+  canRemove,
+  autoFocus,
+  onUpdate,
+  onRemove,
+}: ProjectPeriodRowProps) {
+  const startInvalid = autoFocus?.periodIndex === periodIndex && autoFocus.field === "start_date";
+  const endInvalid = autoFocus?.periodIndex === periodIndex && autoFocus.field === "end_date";
+  const startRef = useFocusOnMatch<HTMLInputElement>(startInvalid);
+  const endRef = useFocusOnMatch<HTMLInputElement>(endInvalid);
+
+  return (
+    <div className={styles.inline}>
+      <label>
+        <span className={shared.labelText}>
+          開始
+          <span className={shared.requiredBadge}>必須</span>
+        </span>
+        <input
+          ref={startRef}
+          type="month"
+          value={period.start_date}
+          onChange={(e) => onUpdate(periodIndex, "start_date", e.target.value)}
+          aria-invalid={startInvalid || undefined}
+        />
+      </label>
+      <label>
+        <span>参画状況</span>
+        <select
+          value={period.is_current ? "current" : "ended"}
+          onChange={(e) => onUpdate(periodIndex, "is_current", e.target.value === "current")}
+        >
+          <option value="ended">終了</option>
+          <option value="current">参画中</option>
+        </select>
+      </label>
+      {!period.is_current && (
+        <label>
+          <span className={shared.labelText}>
+            終了
+            <span className={shared.requiredBadge}>必須</span>
+          </span>
+          <input
+            ref={endRef}
+            type="month"
+            value={period.end_date}
+            onChange={(e) => onUpdate(periodIndex, "end_date", e.target.value)}
+            aria-invalid={endInvalid || undefined}
+          />
+        </label>
+      )}
+      {canRemove && (
+        <button
+          type="button"
+          className={styles.chipRemove}
+          onClick={() => onRemove(periodIndex)}
+          aria-label="期間を削除"
+        >
+          &times;
+        </button>
+      )}
+    </div>
+  );
+}
 
 export function ProjectModal({
   project,
@@ -41,6 +125,7 @@ export function ProjectModal({
   onClose,
   techStackNamesByCategory,
   assist,
+  autoFocus,
 }: ProjectModalProps) {
   const {
     local,
@@ -125,56 +210,15 @@ export function ProjectModal({
                 <DirtyDot visible={dirty.periods} />
               </h3>
               {local.periods.map((period, periodIndex) => (
-                <div key={`period-${periodIndex}`} className={styles.inline}>
-                  <label>
-                    <span className={shared.labelText}>
-                      開始
-                      <span className={shared.requiredBadge}>必須</span>
-                    </span>
-                    <input
-                      type="month"
-                      value={period.start_date}
-                      onChange={(e) => updatePeriodField(periodIndex, "start_date", e.target.value)}
-                    />
-                  </label>
-                  <label>
-                    <span>参画状況</span>
-                    <select
-                      value={period.is_current ? "current" : "ended"}
-                      onChange={(e) =>
-                        updatePeriodField(periodIndex, "is_current", e.target.value === "current")
-                      }
-                    >
-                      <option value="ended">終了</option>
-                      <option value="current">参画中</option>
-                    </select>
-                  </label>
-                  {!period.is_current && (
-                    <label>
-                      <span className={shared.labelText}>
-                        終了
-                        <span className={shared.requiredBadge}>必須</span>
-                      </span>
-                      <input
-                        type="month"
-                        value={period.end_date}
-                        onChange={(e) =>
-                          updatePeriodField(periodIndex, "end_date", e.target.value)
-                        }
-                      />
-                    </label>
-                  )}
-                  {local.periods.length > 1 && (
-                    <button
-                      type="button"
-                      className={styles.chipRemove}
-                      onClick={() => removePeriod(periodIndex)}
-                      aria-label="期間を削除"
-                    >
-                      &times;
-                    </button>
-                  )}
-                </div>
+                <ProjectPeriodRow
+                  key={`period-${periodIndex}`}
+                  period={period}
+                  periodIndex={periodIndex}
+                  canRemove={local.periods.length > 1}
+                  autoFocus={autoFocus}
+                  onUpdate={updatePeriodField}
+                  onRemove={removePeriod}
+                />
               ))}
               <button type="button" className={`ghost ${styles.chipAdd}`} onClick={addPeriod}>
                 + 期間を追加

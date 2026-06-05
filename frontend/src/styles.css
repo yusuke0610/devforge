@@ -194,6 +194,25 @@ select:focus {
   outline-offset: 1px;
 }
 
+/* バリデーション失敗フィールドの強調（保存時にフォーカスされる入力に付与される） */
+input[aria-invalid="true"],
+textarea[aria-invalid="true"],
+select[aria-invalid="true"] {
+  border-color: var(--error);
+}
+
+input[aria-invalid="true"]:focus,
+textarea[aria-invalid="true"]:focus,
+select[aria-invalid="true"]:focus,
+/* import-assign-form の :focus 緑枠（同詳細度・後勝ち）に負けないよう詳細度を上げる。
+   バリデーション失敗フィールドはフォーカス中でも赤を優先する。 */
+.import-assign-form input[aria-invalid="true"]:focus,
+.import-assign-form textarea[aria-invalid="true"]:focus,
+.import-assign-form select[aria-invalid="true"]:focus {
+  outline-color: var(--error);
+  border-color: var(--error);
+}
+
 button {
   border: none;
   border-radius: 8px;
