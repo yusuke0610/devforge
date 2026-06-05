@@ -25,7 +25,7 @@ type ProjectModalProps = {
   onSave: (project: CareerProjectForm) => void;
   /** 閉じるコールバック */
   onClose: () => void;
-  /** カテゴリごとの技術スタック名称リスト */
+  /** カテゴリごとのスキルセット名称リスト */
   techStackNamesByCategory: Map<string, string[]>;
   /**
    * PDF 取り込み補助。PDF が選択されている時はモーダル内の右カラムに原本ビューを再掲する。
