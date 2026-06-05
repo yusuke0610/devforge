@@ -76,6 +76,30 @@ function unitChanged(unitPath: string, map: Map<string, ChangeKind>): boolean {
   return matchKind(unitPath, map) !== null;
 }
 
+/**
+ * prefix 直下で「先頭（最小 index）の既存兄弟（data-unit）」を探す。
+ *
+ * 先頭削除（index=0）や直前の兄弟が全て不在のケースでは後方探索でアンカーが取れない。
+ * 削除により残存項目は前へ詰められて再採番されるため、削除位置に対応する edited 側の
+ * インデックスは一致しない。そこで「残っている兄弟リストの先頭」をアンカーにし、その直前へ
+ * スタブを挿入する。`prefix.N`（N は数値、それ以上ネストしない直接の子）のみを対象にする。
+ */
+function findForwardAnchor(doc: Document, prefix: string): Element | null {
+  let best: Element | null = null;
+  let bestK = Number.POSITIVE_INFINITY;
+  doc.querySelectorAll(`[data-unit^="${prefix}."]`).forEach((el) => {
+    const unit = el.getAttribute("data-unit");
+    if (!unit) return;
+    const rest = unit.slice(prefix.length + 1);
+    if (rest.includes(".")) return; // 直接の子（孫は対象外）
+    const k = Number(rest);
+    if (!Number.isInteger(k) || k >= bestK) return;
+    bestK = k;
+    best = el;
+  });
+  return best;
+}
+
 /** 削除プレースホルダ要素を作る（テーブル内なら tr、それ以外は div）。 */
 function makeRemovedStub(doc: Document, anchor: Element, text: string, fp: string): Element {
   if (anchor.tagName === "TR") {
@@ -127,6 +151,9 @@ export function injectRemovedPlaceholders(html: string, changes: CareerChange[])
     for (let k = index - 1; k >= 0 && !anchor; k--) {
       anchor = doc.querySelector(`[data-unit="${prefix}.${k}"]`);
     }
+    // 後方アンカーは「直後」へ、前方アンカー（先頭削除のフォールバック）は「直前」へ挿入する。
+    const insertBeforeAnchor = anchor === null;
+    if (!anchor) anchor = findForwardAnchor(doc, prefix);
     if (!anchor || !anchor.parentElement) continue;
 
     const stub = makeRemovedStub(
@@ -135,7 +162,7 @@ export function injectRemovedPlaceholders(html: string, changes: CareerChange[])
       removedStubLabel(change.oldValue || change.label),
       change.path.join("."),
     );
-    anchor.parentElement.insertBefore(stub, anchor.nextSibling);
+    anchor.parentElement.insertBefore(stub, insertBeforeAnchor ? anchor : anchor.nextSibling);
     lastByPrefix.set(prefix, stub);
   }
 

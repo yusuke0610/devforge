@@ -56,6 +56,33 @@ def _format_period(start: str, end: str, is_current: bool) -> str:
     return f"{s}〜{e}"
 
 
+def _format_period_html(
+    start: str,
+    end: str,
+    is_current: bool,
+    *,
+    fp: str,
+    start_key: str,
+    end_key: str,
+    current_key: str,
+) -> str:
+    """1 期間を per-field の data-fp 付き span に分けてフォーマットする。
+
+    開始日は ``{fp}.{start_key}``、終了側は在籍状況に応じて在職中なら ``{fp}.{current_key}``
+    （「現在」テキスト）、それ以外は ``{fp}.{end_key}`` に紐づける。期間全体を start_date だけに
+    紐づけると end_date / is_current の編集が左右 diff でハイライトされないため、フィールド単位で
+    分割する。表示テキストは ``_format_period`` と同一なので PDF レイアウトは不変。
+    """
+    s = start.replace("-", " 年 ") + " 月" if "-" in start else start
+    start_span = f'<span data-fp="{fp}.{start_key}">{_esc(s)}</span>'
+    if is_current:
+        end_span = f'<span data-fp="{fp}.{current_key}">現在</span>'
+    else:
+        e = end.replace("-", " 年 ") + " 月" if "-" in end else end
+        end_span = f'<span data-fp="{fp}.{end_key}">{_esc(e)}</span>'
+    return f"{start_span}〜{end_span}"
+
+
 def _format_periods(periods: list) -> str:
     """複数期間を「、」区切りで連結してフォーマットする（Project 用）。"""
     parts: list[str] = []
@@ -152,17 +179,25 @@ def _build_project_html(project, fp: str) -> str:
 
 def _build_vacation_html(client, fp: str) -> str:
     """休暇エントリ1件分のHTMLを組み立てる（期間 + 詳細）。fp = この取引先の data-fp プレフィックス。"""
-    period = _format_period(
-        _a(client, "vacation_start_date"),
-        _a(client, "vacation_end_date", ""),
-        _a(client, "vacation_is_current", False),
-    )
-    header = f"休暇　{_esc(period)}" if period else "休暇"
+    start = _a(client, "vacation_start_date")
+    if start:
+        period_html = _format_period_html(
+            start,
+            _a(client, "vacation_end_date", ""),
+            _a(client, "vacation_is_current", False),
+            fp=fp,
+            start_key="vacation_start_date",
+            end_key="vacation_end_date",
+            current_key="vacation_is_current",
+        )
+        header = f"休暇　{period_html}"
+    else:
+        header = "休暇"
     description = _a(client, "vacation_description")
     body = _md(description) if description else "-"
     return (
         f'<div class="vacation" data-unit="{fp}">'
-        f'<div class="vacation-header" data-fp="{fp}.vacation_start_date">{header}</div>'
+        f'<div class="vacation-header">{header}</div>'
         f'<div class="vacation-body" data-fp="{fp}.vacation_description">{body}</div>'
         f"</div>"
     )
@@ -206,10 +241,14 @@ def _build_html(resume: dict) -> str:
         parts.append("<p>-</p>")
     else:
         for i, exp in enumerate(experiences):
-            period = _format_period(
+            period_html = _format_period_html(
                 _a(exp, "start_date"),
                 _a(exp, "end_date", ""),
                 _a(exp, "is_current", False),
+                fp=f"experiences.{i}",
+                start_key="start_date",
+                end_key="end_date",
+                current_key="is_current",
             )
             company = _esc(_a(exp, "company"))
 
@@ -236,7 +275,7 @@ def _build_html(resume: dict) -> str:
             parts.append(f'<div class="company" data-unit="experiences.{i}">')
             parts.append(
                 '<div class="company-header">'
-                f'<span data-fp="experiences.{i}.start_date">{period}</span>　'
+                f"{period_html}　"
                 f'<span data-fp="experiences.{i}.company">{company}</span></div>',
             )
             parts.append(

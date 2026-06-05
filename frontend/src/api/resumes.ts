@@ -1,18 +1,11 @@
 import { request } from "./client";
 import { downloadBlob, getBlobUrl } from "./download";
 import { PATHS } from "./paths";
-import type { ResumeCreate, ResumeResponse } from "./types";
+import type { ResumeCreate, ResumePreviewResponse, ResumeResponse } from "./types";
 
-/**
- * 保存前プレビュー（左右 diff 表示）のレスポンス。
- * backend `schemas/resume.py:ResumePreviewResponse` のミラー（OpenAPI 生成物には未反映のため手書き）。
- */
-export type ResumePreviewResponse = {
-  /** PDF と同じレイアウトに整形した HTML（各値ノードに data-fp 付き） */
-  html: string;
-  /** 画面表示用 CSS（PDF 専用フォント定義を除いたもの） */
-  css: string;
-};
+// 保存前プレビュー（左右 diff 表示）のレスポンス型は OpenAPI 生成物（generated.ts）から
+// 取り込んだ ResumePreviewResponse を types.ts 経由で再エクスポートする。
+export type { ResumePreviewResponse };
 
 export function getLatestCareerResume(): Promise<ResumeResponse> {
   return request<ResumeResponse>(PATHS.resumes.latest);

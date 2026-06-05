@@ -67,6 +67,21 @@ describe("useResumeDiffPreview", () => {
     expect(mockPreview).toHaveBeenCalledTimes(1);
   });
 
+  it("baseline=null のときは baselineHtml を null にする（古い左ペインを出さない）", async () => {
+    const { result, rerender } = renderHook(
+      ({ b }: { b: CareerFormState | null }) => useResumeDiffPreview(validForm, b, true),
+      { initialProps: { b: baseline as CareerFormState | null } },
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(350);
+    });
+    expect(result.current.baselineHtml).toBe("<p>preview</p>");
+
+    // baseline が無くなったら（未保存化）キャッシュ済みでも null に倒す
+    rerender({ b: null });
+    expect(result.current.baselineHtml).toBeNull();
+  });
+
   it("無効化中(enabled=false)は何もしない", async () => {
     renderHook(() => useResumeDiffPreview(validForm, baseline, false));
     await act(async () => {

@@ -172,6 +172,19 @@ describe("injectRemovedPlaceholders", () => {
     expect(stub?.querySelector("td")?.textContent).toContain("AWS SAA");
   });
 
+  it("先頭削除(index=0)は後続の兄弟の直前にスタブを挿入する", () => {
+    // index 0 が削除され、編集中 HTML には後続だった項目が残っている
+    const html = '<div data-unit="experiences.0">B社</div>';
+    const out = injectRemovedPlaceholders(html, [change(["experiences", 0], "removed", "A社")]);
+    const doc = new DOMParser().parseFromString(out, "text/html");
+    const stub = doc.querySelector(".diff-removed-stub");
+    expect(stub).not.toBeNull();
+    expect(stub?.textContent).toContain("A社");
+    // 後続兄弟の直前（= 先頭）に入る
+    const next = doc.querySelector('[data-unit="experiences.0"]');
+    expect(next?.previousElementSibling).toBe(stub);
+  });
+
   it("削除が無ければ何もしない", () => {
     const html = '<div data-unit="experiences.0">A</div>';
     expect(injectRemovedPlaceholders(html, [change(["full_name"], "modified")])).toBe(html);

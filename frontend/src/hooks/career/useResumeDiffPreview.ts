@@ -98,14 +98,21 @@ export function useResumeDiffPreview(
     return () => {
       active = false;
       clearTimeout(handle);
+      // クリーンアップ（モーダルを閉じる / form 変化で再取得）時は loading を確定的に下ろす。
+      // active ガードにより finally の setLoading(false) がスキップされても残留しないようにする。
+      setLoading(false);
     };
   }, [enabled, edited]);
 
   // 入力不正は editedHtml を null にしてエラーを優先表示する。
   const editedHtml = edited.error ? null : (editedPreview?.html ?? null);
 
+  // baseline はキャッシュ（baselinePreview）由来なので、現在の入力で baseline が無効化
+  // （未保存で baseline=null / プレビュー無効）された場合は古い左ペインを出さないよう null に倒す。
+  const baselineHtml = enabled && baselinePayload ? (baselinePreview?.html ?? null) : null;
+
   return {
-    baselineHtml: baselinePreview?.html ?? null,
+    baselineHtml,
     editedHtml,
     css: editedPreview?.css ?? baselinePreview?.css ?? "",
     loading,

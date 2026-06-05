@@ -121,6 +121,10 @@ def test_build_html_annotates_data_fp() -> None:
     assert 'data-fp="self_pr"' in html
     assert 'data-fp="experiences.0.company"' in html
     assert 'data-fp="experiences.0.business_description"' in html
+    # 期間はフィールド単位の span に分割し、start_date / end_date を個別に紐づける
+    # （end_date / is_current の編集も左右 diff でハイライトできるようにするため）
+    assert 'data-fp="experiences.0.start_date"' in html
+    assert 'data-fp="experiences.0.end_date"' in html
     assert 'data-fp="experiences.0.clients.0.name"' in html
     assert 'data-fp="experiences.0.clients.0.projects.0.role"' in html
     assert 'data-fp="experiences.0.clients.0.projects.0.technology_stacks"' in html
@@ -129,6 +133,45 @@ def test_build_html_annotates_data_fp() -> None:
     assert 'data-unit="experiences.0"' in html
     assert 'data-unit="experiences.0.clients.0.projects.0"' in html
     assert 'data-unit="qualifications.0"' in html
+
+
+def test_build_html_period_binds_is_current() -> None:
+    """在職中の期間は「現在」を is_current に、休暇期間は各日付フィールドに紐づける。"""
+    payload = {
+        "full_name": "山田太郎",
+        "career_summary": "要約",
+        "self_pr": "PR",
+        "qualifications": [],
+        "experiences": [
+            {
+                "company": "Example株式会社",
+                "business_description": "SES事業",
+                "start_date": "2020-04",
+                "end_date": "",
+                "is_current": True,
+                "is_it_company": True,
+                "clients": [
+                    {
+                        "name": "取引先A",
+                        "has_client": True,
+                        "is_vacation": True,
+                        "vacation_start_date": "2021-01",
+                        "vacation_end_date": "2021-03",
+                        "vacation_is_current": False,
+                        "vacation_description": "休養",
+                    }
+                ],
+            }
+        ],
+    }
+
+    html = _build_html(payload)
+
+    # 在職中: 「現在」テキストは is_current に紐づく
+    assert 'data-fp="experiences.0.is_current">現在</span>' in html
+    # 休暇期間も start/end が個別の span になる
+    assert 'data-fp="experiences.0.clients.0.vacation_start_date"' in html
+    assert 'data-fp="experiences.0.clients.0.vacation_end_date"' in html
 
 
 def test_build_resume_pdf_still_works_with_annotations() -> None:

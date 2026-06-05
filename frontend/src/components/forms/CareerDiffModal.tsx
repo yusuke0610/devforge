@@ -110,7 +110,13 @@ export function CareerDiffModal({
   };
 
   return (
-    <div className={styles.overlay} onClick={onCancel}>
+    <div
+      className={styles.overlay}
+      onClick={() => {
+        // 保存処理中は背景クリックでの閉じ操作を無効化する（処理中状態を隠さない）。
+        if (!saving) onCancel();
+      }}
+    >
       <div
         className={styles.modal}
         onClick={(e) => e.stopPropagation()}
