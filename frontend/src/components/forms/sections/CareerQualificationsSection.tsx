@@ -3,10 +3,14 @@ import { blankResumeQualification } from "../../../constants";
 import type { QualificationDirty } from "../../../hooks/career/useCareerDirty";
 import type { CareerFormState } from "../../../payloadBuilders";
 import type { ResumeQualificationItem } from "../../../api/types";
+import { UI_MESSAGES } from "../../../constants/messages";
 import shared from "../../../styles/shared.module.css";
+import styles from "../CareerResumeForm.module.css";
 import { Collapsible } from "../../ui/Collapsible";
+import { DeleteIconButton } from "../../ui/DeleteIconButton";
 import { DirtyDot } from "../../ui/DirtyDot";
 import { Skeleton } from "../../ui/Skeleton";
+import { PlusIcon } from "../../icons/PlusIcon";
 import { Combobox } from "../Combobox";
 
 /** CareerQualificationsSection のプロパティ型 */
@@ -87,43 +91,47 @@ export function CareerQualificationsSection({
               const rowDirty = qualificationsDirty?.[index];
               return (
                 <div key={`qualification-${index}`} className={shared.entry}>
-                  {/* 資格名:取得日 = 7:3 の幅比で配置 */}
-                  <div className={shared.inline} style={{ gridTemplateColumns: "7fr 3fr" }}>
-                    <label>
-                      <span className={shared.labelText}>
-                        資格名
-                        <span className={shared.requiredBadge}>必須</span>
-                        ※プルダウンにないものはテキストで入力できます。
-                        <DirtyDot visible={Boolean(rowDirty?.fields.name)} />
-                      </span>
-                      <Combobox
-                        value={qualification.name}
-                        onChange={(val) => updateField(index, "name", val)}
-                        options={qualificationNames}
-                        placeholder="例: 基本情報技術者試験"
-                        allowCustom
-                      />
-                    </label>
-                    <label>
-                      <span className={shared.labelText}>
-                        取得日
-                        <span className={shared.requiredBadge}>必須</span>
-                        <DirtyDot visible={Boolean(rowDirty?.fields.acquired_date)} />
-                      </span>
-                      <input
-                        type="month"
-                        value={qualification.acquired_date}
-                        onChange={(e) => updateField(index, "acquired_date", e.target.value)}
-                      />
-                    </label>
+                  <div className={styles.qualificationRow}>
+                    {/* 資格名:取得日 = 7:3 の幅比で配置 */}
+                    <div className={shared.inline} style={{ gridTemplateColumns: "7fr 3fr" }}>
+                      <label>
+                        <span className={shared.labelText}>
+                          資格名
+                          <span className={shared.requiredBadge}>必須</span>
+                          ※プルダウンにないものはテキストで入力できます。
+                          <DirtyDot visible={Boolean(rowDirty?.fields.name)} />
+                        </span>
+                        <Combobox
+                          value={qualification.name}
+                          onChange={(val) => updateField(index, "name", val)}
+                          options={qualificationNames}
+                          placeholder="例: 基本情報技術者試験"
+                          allowCustom
+                        />
+                      </label>
+                      <label>
+                        <span className={shared.labelText}>
+                          取得日
+                          <span className={shared.requiredBadge}>必須</span>
+                          <DirtyDot visible={Boolean(rowDirty?.fields.acquired_date)} />
+                        </span>
+                        <input
+                          type="month"
+                          value={qualification.acquired_date}
+                          onChange={(e) => updateField(index, "acquired_date", e.target.value)}
+                        />
+                      </label>
+                    </div>
+                    <DeleteIconButton
+                      label={UI_MESSAGES.RESUME_DELETE_QUALIFICATION}
+                      onClick={() => removeRow(index)}
+                    />
                   </div>
-                  <button type="button" className="danger" onClick={() => removeRow(index)}>
-                    資格を削除
-                  </button>
                 </div>
               );
             })}
-            <button type="button" className="ghost" onClick={addRow}>
+            <button type="button" className={`ghost ${styles.addButton}`} onClick={addRow}>
+              <PlusIcon />
               資格を追加
             </button>
           </>

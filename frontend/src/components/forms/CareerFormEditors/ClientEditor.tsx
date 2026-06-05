@@ -5,9 +5,12 @@ import {
   type CareerClientForm,
   type CareerProjectForm,
 } from "../../../payloadBuilders";
+import { UI_MESSAGES } from "../../../constants/messages";
 import shared from "../../../styles/shared.module.css";
 import styles from "../CareerResumeForm.module.css";
+import { DeleteIconButton } from "../../ui/DeleteIconButton";
 import { DirtyDot } from "../../ui/DirtyDot";
+import { PlusIcon } from "../../icons/PlusIcon";
 
 /** ClientEditor のプロパティ型 */
 type ClientEditorProps = {
@@ -104,6 +107,11 @@ export function ClientEditor({
             <DirtyDot visible={Boolean(dirty?.self)} />
           </span>
         </label>
+        <DeleteIconButton
+          label={client.is_vacation ? UI_MESSAGES.RESUME_DELETE_VACATION : UI_MESSAGES.RESUME_DELETE_CLIENT}
+          onClick={() => onRemoveClient(expIndex, clientIndex)}
+          className={styles.headerDelete}
+        />
       </div>
 
       {client.is_vacation ? (
@@ -203,34 +211,24 @@ export function ClientEditor({
                   >
                     編集
                   </button>
-                  <button
-                    type="button"
-                    className="danger"
+                  <DeleteIconButton
+                    label={UI_MESSAGES.RESUME_DELETE_PROJECT}
                     onClick={() => onRemoveProject(expIndex, clientIndex, projIndex)}
-                  >
-                    削除
-                  </button>
+                  />
                 </div>
               </div>
             );
           })}
           <button
             type="button"
-            className="ghost"
+            className={`ghost ${styles.addButton}`}
             onClick={() => onOpenProjectModal(expIndex, clientIndex, null)}
           >
+            <PlusIcon />
             プロジェクトを追加
           </button>
         </div>
       )}
-
-      <button
-        type="button"
-        className="danger"
-        onClick={() => onRemoveClient(expIndex, clientIndex)}
-      >
-        {client.is_vacation ? "休業を削除" : "取引先を削除"}
-      </button>
     </div>
   );
 }
