@@ -12,9 +12,11 @@ import { useCareerExperienceMutators } from "../../../hooks/career/useCareerExpe
 import { useProjectModalState } from "../../../hooks/career/useProjectModalState";
 import type { UseResumeImportAssistReturn } from "../../../hooks/career/useResumeImportAssist";
 import shared from "../../../styles/shared.module.css";
+import styles from "../CareerResumeForm.module.css";
 import { CareerExperienceEditor } from "../CareerFormEditors/CareerExperienceEditor";
 import { ProjectModal } from "../ProjectModal";
 import { DirtyDot } from "../../ui/DirtyDot";
+import { PlusIcon } from "../../icons/PlusIcon";
 
 /** CareerExperienceSection のプロパティ型 */
 type CareerExperienceSectionProps = {
@@ -117,7 +119,12 @@ export function CareerExperienceSection({
         />
       ))}
 
-      <button type="button" className="ghost" onClick={mutators.addExperience}>
+      <button
+        type="button"
+        className={`ghost ${styles.addButton}`}
+        onClick={mutators.addExperience}
+      >
+        <PlusIcon />
         職務経歴を追加
       </button>
     </section>

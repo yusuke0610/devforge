@@ -25,7 +25,7 @@ type ProjectModalProps = {
   onSave: (project: CareerProjectForm) => void;
   /** 閉じるコールバック */
   onClose: () => void;
-  /** カテゴリごとの技術スタック名称リスト */
+  /** カテゴリごとのスキルセット名称リスト */
   techStackNamesByCategory: Map<string, string[]>;
   /**
    * PDF 取り込み補助。PDF が選択されている時はモーダル内の右カラムに原本ビューを再掲する。
@@ -268,10 +268,10 @@ export function ProjectModal({
               labelAdornment={<DirtyDot visible={dirty.fields.description} />}
             />
 
-            {/* 技術スタック */}
+            {/* スキルセット */}
             <div className={styles.stackSection}>
               <h3>
-                技術スタック ※プルダウンにないものはテキストで入力できます。
+                スキルセット ※プルダウンにないものはテキストで入力できます。
                 <DirtyDot visible={dirty.technology_stacks} />
               </h3>
               <div className={styles.stackGrid}>
@@ -299,7 +299,7 @@ export function ProjectModal({
                       type="button"
                       className={styles.chipRemove}
                       onClick={() => removeTechStack(stackIndex)}
-                      aria-label="技術スタックを削除"
+                      aria-label="スキルセットを削除"
                     >
                       &times;
                     </button>

@@ -69,6 +69,24 @@ def _format_periods(periods: list) -> str:
     return "、".join(parts)
 
 
+def _format_team(project) -> str:
+    """体制の人数情報を「6名（PM：1名、SE：6名）」形式の1行文字列にする。
+
+    後方互換（旧 scale → team）の正規化は shared に集約。情報が無ければ空文字を返す。
+    """
+    team = normalize_team(project)
+    if not team:
+        return ""
+    total = _a(team, "total")
+    total_text = f"{_esc(total)}名" if total else ""
+    members = _a(team, "members", [])
+    member_strs = [
+        f"{_esc(_a(m, 'role'))}：{_esc(_a(m, 'count', 0))}名" for m in members if _a(m, "role")
+    ]
+    member_text = f"（{'、'.join(member_strs)}）" if member_strs else ""
+    return f"{total_text}{member_text}"
+
+
 def _build_project_html(project, fp: str) -> str:
     """プロジェクト1件分のHTMLを組み立てる（fp = このプロジェクトの data-fp プレフィックス）"""
     # ヘッダー（3行構成: 期間/プロジェクト名、役割、工程）
@@ -86,8 +104,11 @@ def _build_project_html(project, fp: str) -> str:
         line1_parts.append(f'<span data-fp="{fp}.name">{_esc(name)}</span>')
     line1 = "　／　".join(line1_parts) if line1_parts else ""
 
-    # 2行目: 役割
-    line2 = f'役割：<span data-fp="{fp}.role">{_esc(role)}</span>' if role else ""
+    # 2行目: 役割（体制の人数情報を「、体制：…」として役割の右側に併記する）
+    team_text = _format_team(project)
+    role_part = f'役割：<span data-fp="{fp}.role">{_esc(role)}</span>' if role else ""
+    team_part = f'体制：<span data-fp="{fp}.team">{team_text}</span>' if team_text else ""
+    line2 = "、".join(p for p in [role_part, team_part] if p)
 
     # 3行目: 工程
     line3 = ""
@@ -107,7 +128,7 @@ def _build_project_html(project, fp: str) -> str:
         left_parts.append(_md(description))
     left_content = "".join(left_parts) if left_parts else "-"
 
-    # 右カラム: 開発環境（技術スタック）
+    # 右カラム: スキルセット（技術スタックのカテゴリ別表示）
     stacks = _a(project, "technology_stacks", [])
     grouped = group_stacks_by_category(stacks)
     right_parts: list[str] = []
@@ -118,28 +139,13 @@ def _build_project_html(project, fp: str) -> str:
         )
     right_content = "<br/>".join(right_parts) if right_parts else "-"
 
-    # 体制（後方互換: 旧 scale → team の正規化は shared に集約）
-    team = normalize_team(project)
-    team_parts: list[str] = []
-    if team:
-        total = _a(team, "total")
-        if total:
-            team_parts.append(f"{_esc(total)}名")
-        members = _a(team, "members", [])
-        member_strs = [
-            f"{_esc(_a(m, 'role'))}:{_a(m, 'count', 0)}" for m in members if _a(m, "role")
-        ]
-        if member_strs:
-            team_parts.append(" / ".join(member_strs))
-    team_text = "<br/>".join(team_parts) if team_parts else "-"
-
+    # 体制は表のカラムではなく役割行に併記する（line2 で処理済み）。
     return (
         f'<div class="project" data-unit="{fp}">{header_html}'
         f'<table class="project-table">'
-        f"<tr><th>業務内容</th><th>開発環境</th><th>体制</th></tr>"
-        f'<tr><td class="desc" data-fp="{fp}.description">{left_content}</td>'
-        f'<td class="env" data-fp="{fp}.technology_stacks">{right_content}</td>'
-        f'<td class="team" data-fp="{fp}.team">{team_text}</td></tr>'
+        f"<thead><tr><th>業務内容</th><th>スキルセット</th></tr></thead>"
+        f'<tbody><tr><td class="desc" data-fp="{fp}.description">{left_content}</td>'
+        f'<td class="env" data-fp="{fp}.technology_stacks">{right_content}</td></tr></tbody>'
         f"</table></div>"
     )
 
@@ -258,7 +264,7 @@ def _build_html(resume: dict) -> str:
                     client_name = _a(client, "name")
                     if client_name:
                         parts.append(
-                            '<div class="client-name">取引先名：'
+                            '<div class="client-name">案件名：'
                             f'<span data-fp="{client_fp}.name">{_esc(client_name)}</span></div>',
                         )
                     projects = _a(client, "projects", [])

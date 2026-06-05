@@ -79,6 +79,31 @@
   flex-wrap: wrap;
 }
 
+/* 取引先見出しの削除アイコンを行右端に寄せる。入力欄の下端に高さを合わせる。 */
+.headerDelete {
+  margin-left: auto;
+  margin-bottom: 0.4rem;
+}
+
+/* 資格1行: 入力フィールド群（資格名+取得日）を flex:1 で広げ、右端に削除アイコンを上寄せで置く。 */
+.qualificationRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.qualificationRow > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+/* アイコン+テキストの追加ボタン。アイコンとラベルを縦中央で揃える。 */
+.addButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .clientNameLabel {
   flex: 1;
   min-width: 200px;
@@ -93,6 +118,20 @@
   font-size: 0.9rem;
   margin-bottom: 0 !important;
   /* 入力欄の高さに合わせて調整 */
+  height: 2.6rem;
+  white-space: nowrap;
+}
+
+/* 会社名・事業内容と同じグリッド行に並べる IT企業トグル。
+   ラベル（グローバル label { display: grid }）の下段にこのトグルを置き、
+   入力欄と同じ高さ・同じ段で横並びにする（上段は labelText スペーサで高さを合わせる）。 */
+.companyTypeToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  /* 入力欄の高さに合わせる */
   height: 2.6rem;
   white-space: nowrap;
 }

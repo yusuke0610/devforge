@@ -90,6 +90,12 @@ export const UI_MESSAGES = {
   REPORT_ISSUE: "GitHub Issueに報告",
   OPENS_IN_NEW_TAB: "（新しいタブで開きます）",
   COPYRIGHT: "© 2026 DevForge",
+  // 職務経歴書フォームの項目削除アイコン（aria-label / title 用）
+  RESUME_DELETE_EXPERIENCE: "職務経歴を削除",
+  RESUME_DELETE_CLIENT: "取引先を削除",
+  RESUME_DELETE_VACATION: "休業を削除",
+  RESUME_DELETE_PROJECT: "プロジェクトを削除",
+  RESUME_DELETE_QUALIFICATION: "資格を削除",
 } as const;
 
 /** 外部リンク URL（GitHub リポジトリ / Issue 報告先など）の SSoT */

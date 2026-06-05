@@ -1,7 +1,7 @@
 import type { ChangeEvent } from "react";
 
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { IMPORT_ASSIST_MESSAGES } from "../../constants/messages";
 import { useResumeImportAssist } from "./useResumeImportAssist";
@@ -137,29 +137,53 @@ describe("useResumeImportAssist", () => {
     expect(result.current.error).toBe(IMPORT_ASSIST_MESSAGES.UNSUPPORTED_TYPE);
   });
 
-  it("fillSelection はフォーカス中の入力欄へ流し込む", () => {
+  it("fillSelection はフォーカス中の入力欄のカーソル位置へ挿入する", () => {
     const { result } = renderHook(() => useResumeImportAssist());
     const input = document.createElement("input");
     input.type = "text";
+    input.value = "株式会社";
     document.body.appendChild(input);
     act(() => focusAndRegister(input));
+    // 「株式会社|」の末尾にカーソルを置く。
+    input.setSelectionRange(4, 4);
 
-    act(() => result.current.fillSelection("株式会社ABC"));
+    act(() => result.current.fillSelection("ABC"));
 
     expect(input.value).toBe("株式会社ABC");
     expect(result.current.error).toBeNull();
   });
 
-  it("textarea には改行で追記する", () => {
+  it("textarea にはカーソル位置へ挿入する（末尾改行追記しない）", () => {
     const { result } = renderHook(() => useResumeImportAssist());
     const textarea = document.createElement("textarea");
     textarea.value = "既存テキスト";
     document.body.appendChild(textarea);
     act(() => focusAndRegister(textarea));
+    // 「既存|テキスト」の位置にカーソルを置く。
+    textarea.setSelectionRange(2, 2);
 
-    act(() => result.current.fillSelection("追記分"));
+    act(() => result.current.fillSelection("挿入分"));
 
-    expect(textarea.value).toBe("既存テキスト\n追記分");
+    expect(textarea.value).toBe("既存挿入分テキスト");
+  });
+
+  it("execCommand が使える環境ではカーソル位置挿入に execCommand を使う（undo 履歴の保持）", () => {
+    const { result } = renderHook(() => useResumeImportAssist());
+    const textarea = document.createElement("textarea");
+    document.body.appendChild(textarea);
+    act(() => focusAndRegister(textarea));
+    // jsdom には execCommand が無い/no-op のため、true を返すスタブで主経路を通す。
+    const execCommand = vi.fn().mockReturnValue(true);
+    Object.defineProperty(document, "execCommand", { value: execCommand, configurable: true });
+
+    try {
+      act(() => result.current.fillSelection("挿入分"));
+
+      expect(execCommand).toHaveBeenCalledWith("insertText", false, "挿入分");
+    } finally {
+      // 後続テストへ影響しないよう execCommand スタブを除去する。
+      delete (document as unknown as { execCommand?: unknown }).execCommand;
+    }
   });
 
   it("流し込み先が未選択ならエラーを出す", () => {

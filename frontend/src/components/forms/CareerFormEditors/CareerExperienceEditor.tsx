@@ -6,10 +6,13 @@ import {
   type CareerExperienceForm,
   type CareerProjectForm,
 } from "../../../payloadBuilders";
+import { UI_MESSAGES } from "../../../constants/messages";
 import shared from "../../../styles/shared.module.css";
 import styles from "../CareerResumeForm.module.css";
 import { Collapsible } from "../../ui/Collapsible";
+import { DeleteIconButton } from "../../ui/DeleteIconButton";
 import { DirtyDot } from "../../ui/DirtyDot";
+import { PlusIcon } from "../../icons/PlusIcon";
 import { ClientEditor } from "./ClientEditor";
 
 /** CareerExperienceEditor のプロパティ型 */
@@ -84,8 +87,15 @@ export function CareerExperienceEditor({
             <DirtyDot visible={Boolean(dirty?.any)} />
           </>
         }
+        headerActions={
+          <DeleteIconButton
+            label={UI_MESSAGES.RESUME_DELETE_EXPERIENCE}
+            onClick={() => onRemoveExperience(expIndex)}
+          />
+        }
       >
-        <div className={shared.inline}>
+        {/* 会社名:事業内容:IT企業 = 4.5:5:0.5 の幅比で配置 */}
+        <div className={shared.inline} style={{ gridTemplateColumns: "4.5fr 5fr 0.5fr" }}>
           <label>
             {/* グローバル CSS で label { display: grid } のため、テキストと DirtyDot を span で
               束ねないと別々の行になる。span で 1 グリッド行に束ねることでラベル右側に並べる。 */}
@@ -114,6 +124,26 @@ export function CareerExperienceEditor({
               }
               placeholder="例: SES事業、受託開発"
             />
+          </label>
+          {/* IT企業かどうか（非ITは案件を持たず詳細のみ）。会社名・事業内容と同じ行に配置。
+              上段は labelText のスペーサで隣のラベル行と高さを合わせ、下段のトグルを入力欄と横並びにする。 */}
+          <label>
+            <span className={shared.labelText} aria-hidden="true">
+              &nbsp;
+            </span>
+            <span className={styles.companyTypeToggle}>
+              <input
+                type="checkbox"
+                checked={exp.is_it_company}
+                onChange={(e) =>
+                  onUpdateExperienceField(expIndex, "is_it_company", e.target.checked)
+                }
+              />
+              <span>
+                IT企業
+                <DirtyDot visible={Boolean(fieldDirty?.is_it_company)} />
+              </span>
+            </span>
           </label>
         </div>
 
@@ -215,19 +245,6 @@ export function CareerExperienceEditor({
           </label>
         </div>
 
-        {/* IT企業かどうか（非ITは取引先を持たず詳細のみ） */}
-        <label className={styles.clientCheckbox}>
-          <input
-            type="checkbox"
-            checked={exp.is_it_company}
-            onChange={(e) => onUpdateExperienceField(expIndex, "is_it_company", e.target.checked)}
-          />
-          <span>
-            IT企業
-            <DirtyDot visible={Boolean(fieldDirty?.is_it_company)} />
-          </span>
-        </label>
-
         {!exp.is_it_company && (
           <div className={styles.stackSection}>
             <label>
@@ -250,7 +267,7 @@ export function CareerExperienceEditor({
 
         {exp.is_it_company && (
           <div className={styles.stackSection}>
-            <h3>取引先</h3>
+            <h3>案件情報</h3>
             {exp.clients.map((client, clientIndex) => (
               <ClientEditor
                 key={`client-${expIndex}-${clientIndex}`}
@@ -268,15 +285,16 @@ export function CareerExperienceEditor({
                 projectSummary={projectSummary}
               />
             ))}
-            <button type="button" className="ghost" onClick={() => onAddClient(expIndex)}>
+            <button
+              type="button"
+              className={`ghost ${styles.addButton}`}
+              onClick={() => onAddClient(expIndex)}
+            >
+              <PlusIcon />
               取引先を追加
             </button>
           </div>
         )}
-
-        <button type="button" className="danger" onClick={() => onRemoveExperience(expIndex)}>
-          職務経歴を削除
-        </button>
       </Collapsible>
     </div>
   );
