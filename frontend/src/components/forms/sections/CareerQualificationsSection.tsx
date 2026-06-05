@@ -87,7 +87,8 @@ export function CareerQualificationsSection({
               const rowDirty = qualificationsDirty?.[index];
               return (
                 <div key={`qualification-${index}`} className={shared.entry}>
-                  <div className={shared.inline}>
+                  {/* 資格名:取得日 = 7:3 の幅比で配置 */}
+                  <div className={shared.inline} style={{ gridTemplateColumns: "7fr 3fr" }}>
                     <label>
                       <span className={shared.labelText}>
                         資格名

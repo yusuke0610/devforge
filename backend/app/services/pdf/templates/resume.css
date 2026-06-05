@@ -14,6 +14,7 @@
 }
 
 body {
+  margin: 0;
   font-family: "NotoSansJP", sans-serif;
   font-size: 9pt;
   line-height: 1.6;
@@ -39,13 +40,17 @@ h2 {
   border-bottom: 2px solid #333;
   padding-bottom: 1mm;
   margin: 6mm 0 3mm 0;
+  /* 見出しがページ末尾に孤立して直後の本文だけ次ページに行くのを防ぐ */
+  page-break-after: avoid;
 }
 
 /* 会社ブロック */
 .company {
   border: 0.5px solid #666;
   margin-bottom: 3mm;
-  page-break-inside: avoid;
+  /* 会社ブロック全体を 1 ページに固めると、収まらない時に丸ごと次ページへ送られ、
+     直前（職務要約など）に大きな空白が残る。ページ跨ぎを許可してページを詰める。
+     代わりに分割を避けるのは下位の .project 単位で行う。 */
 }
 
 .company-header {
@@ -54,6 +59,8 @@ h2 {
   font-size: 10pt;
   font-weight: bold;
   border-bottom: 0.3px solid #999;
+  /* ヘッダがページ末尾に孤立し本文だけ次ページに分かれるのを防ぐ */
+  page-break-after: avoid;
 }
 
 .company-info {
@@ -104,11 +111,17 @@ h2 {
   margin: 3mm 0 2mm 0;
   padding-bottom: 1mm;
   border-bottom: 2px solid #333;
+  /* 案件名見出しの孤立防止 */
+  page-break-after: avoid;
 }
 
 /* プロジェクトテーブル */
 .project {
   margin-bottom: 2mm;
+  /* 案件が残りスペースに収まらない時に丸ごと次ページへ送られると、
+     枠付き company 内に大きな余白が残る。ページを詰めるため分割を許可する
+     （長い案件はページ境界で割れるが、余白を残すより詰めることを優先）。
+     分割時の列見出しは project-table の thead で繰り返す。 */
 }
 
 .project-header {
@@ -139,15 +152,12 @@ h2 {
 }
 
 .project-table td.desc {
-  width: 60%;
+  /* 体制カラムを廃止した分を業務内容へ割り当てる */
+  width: 75%;
 }
 
 .project-table td.env {
   width: 25%;
-}
-
-.project-table td.team {
-  width: 15%;
 }
 
 /* 業務内容カラム内のラベル */

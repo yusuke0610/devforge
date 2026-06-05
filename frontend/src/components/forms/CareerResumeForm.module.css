@@ -97,6 +97,20 @@
   white-space: nowrap;
 }
 
+/* 会社名・事業内容と同じグリッド行に並べる IT企業トグル。
+   ラベル（グローバル label { display: grid }）の下段にこのトグルを置き、
+   入力欄と同じ高さ・同じ段で横並びにする（上段は labelText スペーサで高さを合わせる）。 */
+.companyTypeToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  /* 入力欄の高さに合わせる */
+  height: 2.6rem;
+  white-space: nowrap;
+}
+
 /* split の親。コンテナクエリの基準にする（split に実際に割り当てられる幅で縦積み判定）。
    ビューポート幅ではなくこの幅で判定することで、サイドバー展開/折りたたみにも追従する。 */
 .splitWrap {
