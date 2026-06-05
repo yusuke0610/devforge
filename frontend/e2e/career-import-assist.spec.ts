@@ -91,7 +91,7 @@ test.describe("職務経歴書 ファイル取り込み補助", () => {
     await expect(page.getByText("dropped.md")).toBeVisible();
   });
 
-  test("原本上で選択した文字がフォーカス中の入力欄へ流し込まれる", async ({ page }) => {
+  test("原本上で選択した文字がフォーカス中の入力欄のカーソル位置へ挿入される", async ({ page }) => {
     await importInput(page).setInputFiles({
       name: "resume.md",
       mimeType: "text/markdown",
@@ -99,7 +99,8 @@ test.describe("職務経歴書 ファイル取り込み補助", () => {
     });
     await expect(markdownBody(page).getByText("取り込みテスト項目")).toBeVisible();
 
-    // 流し込み先として氏名欄をフォーカス（focusin で「最後にフォーカスした入力欄」に記録される）
+    // 流し込み先として氏名欄（モックで "山田 太郎" がロード済み）をフォーカスする
+    // （focusin で「最後にフォーカスした入力欄」に記録される）。
     const nameInput = page.getByPlaceholder("例: 山田 太郎");
     await nameInput.click();
 
@@ -116,7 +117,11 @@ test.describe("職務経歴書 ファイル取り込み補助", () => {
       target.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
     });
 
-    await expect(nameInput).toHaveValue("取り込みテスト項目");
+    // 既存値 "山田 太郎" を置換せず、カーソル位置へ挿入される（旧仕様では全置換され
+    // "取り込みテスト項目" だけになっていた）。このプログラム的な選択操作では caret が
+    // 先頭に戻るため先頭挿入になるが、検証の主眼は「既存値が保持されること」。
+    // カーソル位置挿入そのものの精緻な検証はユニットテスト側が担う。
+    await expect(nameInput).toHaveValue("取り込みテスト項目山田 太郎");
   });
 
   test("拡張子が pdf/md 以外（.txt）だと未対応エラーを表示し描画しない", async ({ page }) => {

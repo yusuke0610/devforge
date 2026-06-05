@@ -53,15 +53,37 @@ function detectKind(file: File): ImportFileKind | null {
   return null;
 }
 
-/** controlled input/textarea に値を流し込み、React の onChange を発火させる。 */
+/**
+ * controlled input/textarea のカーソル位置に値を流し込み、React の onChange を発火させる。
+ *
+ * native value セッターで全置換 + 末尾改行追記していた旧実装は、(1) カーソル位置を無視して
+ * 末尾に改行付きで追記される、(2) ブラウザの undo 履歴に乗らず Cmd+Z で戻せない、という
+ * 2 つの不満があった。`document.execCommand("insertText")` はカーソル位置に挿入しつつ
+ * ネイティブの undo 履歴に記録し、`input` イベントも自然発火して React の onChange に反映される。
+ * execCommand は非推奨 API だが、プログラム挿入で undo を保つ代替手段が無いため採用する。
+ */
 function assignToElement(el: HTMLInputElement | HTMLTextAreaElement, text: string): void {
-  const isTextarea = el.tagName === "TEXTAREA";
-  const proto = isTextarea ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+  el.focus();
+  if (typeof document.execCommand === "function" && document.execCommand("insertText", false, text)) {
+    return;
+  }
+  // フォールバック（execCommand 非対応環境: jsdom 等）。
+  // selectionStart/End からカーソル位置に挿入し、native setter + input イベントで React に反映する。
+  insertAtCaretFallback(el, text);
+}
+
+/** execCommand が使えない環境向けに、カーソル位置への挿入を手動で再現するフォールバック。 */
+function insertAtCaretFallback(el: HTMLInputElement | HTMLTextAreaElement, text: string): void {
+  const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
   if (!setter) return;
-  // テキストエリアは追記（複数箇所を続けて流し込めるように）、その他は置換
-  const next = isTextarea && el.value.trim() ? `${el.value}\n${text}` : text;
+  const start = el.selectionStart ?? el.value.length;
+  const end = el.selectionEnd ?? el.value.length;
+  const next = `${el.value.slice(0, start)}${text}${el.value.slice(end)}`;
   setter.call(el, next);
+  // caret を挿入したテキストの直後に移動し、続けて流し込めるようにする。
+  const caret = start + text.length;
+  el.setSelectionRange(caret, caret);
   el.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
@@ -171,9 +193,9 @@ export function useResumeImportAssist(): UseResumeImportAssistReturn {
       return;
     }
     setError(null);
+    // assignToElement が挿入前に el へフォーカスするため（緑枠を維持し、続けて流し込める）、
+    // ここで改めて focus する必要はない。
     assignToElement(el, trimmed);
-    // 流し込み先にフォーカスを戻す（緑枠を維持し、続けて流し込めるようにする）
-    el.focus();
   }, []);
 
   return {
