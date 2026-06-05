@@ -63,7 +63,7 @@ CLAUDE.md にある通り「PEP8 を守るな、PEP8 を理解した上で抽象
 2. **純粋関数 / 文字列変換 / 日付処理** → `frontend/src/utils/`
 3. **API クライアントの共通パターン** → `frontend/src/api/client.ts` のラッパー追加
 4. **フォーム入出力変換** → `frontend/src/formMappers.ts` / `frontend/src/payloadBuilders.ts`
-5. **共通 UI コンポーネント** → `frontend/src/components/ui/`（ErrorToast, Skeleton 等の配置例）
+5. **共通 UI コンポーネント** → `frontend/src/components/ui/`（toast/, Skeleton 等の配置例）
 6. **型定義** → `frontend/src/types.ts` / `frontend/src/formTypes.ts`
 
 ### Infra (OpenTofu)

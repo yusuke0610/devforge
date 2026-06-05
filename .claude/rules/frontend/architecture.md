@@ -32,7 +32,7 @@ frontend/src/
 │   ├── auth/                    # LoginForm, RegisterForm
 │   ├── blog/                    # BlogPage
 │   ├── icons/                   # アイコンコンポーネント（Bell, Eye, Qiita, Zenn 等）
-│   └── ui/                      # 汎用 UI（ErrorToast, InlineSpinner, Skeleton, AsyncTaskLoading）
+│   └── ui/                      # 汎用 UI（toast/（ToastProvider/useToast）, InlineSpinner, Skeleton, AsyncTaskLoading）
 ├── hooks/
 │   ├── useDocumentForm.ts       # フォーム CRUD の共通フック（loading / saving / error 管理）
 │   ├── useMasterData.ts         # マスタデータのモジュールレベルキャッシュ

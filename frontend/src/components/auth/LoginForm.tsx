@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { initiateGitHubLogin } from "../../api";
+import { useMessageToast } from "../ui/toast";
 import shared from "../../styles/shared.module.css";
 import styles from "./LoginForm.module.css";
 
@@ -10,6 +11,9 @@ export function LoginForm({
   githubError?: string | null;
 }) {
   const [isLoading, setIsLoading] = useState(false);
+
+  // OAuth 失敗などのログインエラーをトーストで通知する（手動クローズ）。
+  useMessageToast(githubError, "error");
 
   const handleGitHubLogin = async () => {
     setIsLoading(true);
@@ -31,7 +35,6 @@ export function LoginForm({
         ) : (
           <div className={styles.loginBox}>
             <h1 className={styles.loginTitle}>DevForge</h1>
-            {githubError && <p className={styles.errorMessage}>{githubError}</p>}
             <div className={styles.loginActions}>
               <button
                 type="button"

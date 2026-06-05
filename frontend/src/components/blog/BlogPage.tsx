@@ -5,8 +5,8 @@ import { BlogScoreCard } from "./BlogScoreCard";
 import { BlogPlatformList } from "./BlogPlatformList";
 import { BlogArticleList } from "./BlogArticleList";
 import { InlineSpinner } from "../ui/InlineSpinner";
+import { useMessageToast } from "../ui/toast";
 import shared from "../../styles/shared.module.css";
-import styles from "./BlogPage.module.css";
 
 type PlatformFilter = "all" | "zenn" | "note" | "qiita";
 
@@ -32,6 +32,10 @@ export function BlogPage() {
     handleDelete,
   } = useBlogAccountManager(filter);
 
+  // アカウント連携/同期/解除の成否をトーストで通知する（成功は自動消去、失敗は手動クローズ）。
+  useMessageToast(success, "success");
+  useMessageToast(accountError, "error");
+
   if (loading) {
     return (
       <>
@@ -52,9 +56,6 @@ export function BlogPage() {
       </div>
 
       <div className={shared.pageBody}>
-        {accountError && <p className={styles.errorMessage}>{accountError}</p>}
-        {success && <p className={styles.successMessage}>{success}</p>}
-
         <BlogPlatformList
           accountMap={accountMap}
           draftUsernames={draftUsernames}
