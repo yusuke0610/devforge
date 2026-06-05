@@ -116,7 +116,7 @@ export function CareerExperienceEditor({
               placeholder="例: SES事業、受託開発"
             />
           </label>
-          {/* IT企業かどうか（非ITは取引先を持たず詳細のみ）。会社名・事業内容と同じ行に配置。
+          {/* IT企業かどうか（非ITは案件を持たず詳細のみ）。会社名・事業内容と同じ行に配置。
               上段は labelText のスペーサで隣のラベル行と高さを合わせ、下段のトグルを入力欄と横並びにする。 */}
           <label>
             <span className={shared.labelText} aria-hidden="true">
