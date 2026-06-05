@@ -193,9 +193,9 @@ export function useResumeImportAssist(): UseResumeImportAssistReturn {
       return;
     }
     setError(null);
+    // assignToElement が挿入前に el へフォーカスするため（緑枠を維持し、続けて流し込める）、
+    // ここで改めて focus する必要はない。
     assignToElement(el, trimmed);
-    // 流し込み先にフォーカスを戻す（緑枠を維持し、続けて流し込めるようにする）
-    el.focus();
   }, []);
 
   return {
