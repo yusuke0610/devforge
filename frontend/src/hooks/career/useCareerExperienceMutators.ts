@@ -206,6 +206,14 @@ export function useCareerExperienceMutators(
   };
 
   /**
+   * 指定座標の client が現在持つプロジェクト数を返す。
+   * 新規プロジェクトを末尾に追加した際の確定 index 算出に使う。
+   */
+  const getProjectCount = (expIndex: number, clientIndex: number): number => {
+    return experiences[expIndex]?.clients[clientIndex]?.projects.length ?? 0;
+  };
+
+  /**
    * モーダルで保存されたプロジェクトをフォームに反映する。
    * useProjectModalState に渡すコールバック用。
    */
@@ -248,6 +256,7 @@ export function useCareerExperienceMutators(
     addExperience,
     removeExperience,
     getProject,
+    getProjectCount,
     onProjectSave,
   };
 }

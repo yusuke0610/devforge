@@ -1,0 +1,8 @@
+/* 入力モーダルの右下に出す文字数カウント。 */
+.charCount {
+  align-self: flex-end;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1;
+  user-select: none;
+}

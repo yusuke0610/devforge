@@ -68,7 +68,7 @@ export function CareerExperienceSection({
   const mutators = useCareerExperienceMutators(experiences, setForm);
 
   const { modalTarget, setModalTarget, modalProject, handleProjectSave, closeModal } =
-    useProjectModalState(mutators.getProject, mutators.onProjectSave);
+    useProjectModalState(mutators.getProject, mutators.onProjectSave, mutators.getProjectCount);
 
   // プロジェクト配下のバリデーションエラー時は該当プロジェクトのモーダルを自動で開く。
   // focusLocator は保存のたびに新しい参照になるため、同じプロジェクトでも再発火する。

@@ -1,0 +1,58 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+/* 内容プレビュー兼編集ボタン。クリックでモーダルを開く。 */
+.trigger {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid var(--border-input, var(--border));
+  border-radius: 6px;
+  padding: 0.55rem 0.7rem;
+  background: var(--bg-card);
+  min-height: 2.4rem;
+}
+
+.trigger:hover {
+  border-color: var(--accent);
+}
+
+.trigger.invalid {
+  border-color: var(--error);
+}
+
+/* 値のプレビュー（1 行に切り詰め）。 */
+.preview {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.empty {
+  color: var(--text-muted);
+}
+
+/* 「編集」リンク風ラベル。 */
+.editLabel {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+}

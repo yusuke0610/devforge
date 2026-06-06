@@ -89,7 +89,7 @@ test.describe("職務経歴書 未保存マーク", () => {
     await setupResumeApi(page);
   });
 
-  test("ProjectModal 内でフィールドを編集すると該当ラベル横に 🔴 が出る", async ({ page }) => {
+  test("ProjectModal でフィールドを編集すると即時にフォームへ反映され 🔴 が出る", async ({ page }) => {
     // baseResume を上書きして 1 件のプロジェクトを持たせる
     const baseResumeWithProject = {
       id: "resume-1",
@@ -143,17 +143,16 @@ test.describe("職務経歴書 未保存マーク", () => {
     // 初期状態: dirty なし
     await expect(page.getByTestId("dirty-dot")).toHaveCount(0);
 
-    // プロジェクト「編集」ボタンを押す
-    await page.getByRole("button", { name: "編集" }).click();
+    // プロジェクト「編集」ボタンを押す（自己PR/職務要約の編集ボタンと区別するため完全一致）
+    await page.getByRole("button", { name: "編集", exact: true }).click();
 
-    // モーダル内のプロジェクト名を変更
+    // モーダル内のプロジェクト名を変更（入力は即時にフォームへ反映される）
     const projectNameInput = page.getByPlaceholder("例: エネルギー業界 IoT Web API アプリ新規開発");
     await projectNameInput.fill("既存プロジェクト改");
 
-    // モーダル内で 🔴 が表示される（タイトル横とプロジェクト名ラベル横）
+    // 即時反映により、モーダル背後のフォーム側に未保存マーク 🔴 が現れる
+    // （即時保存化に伴いモーダル内には 🔴 を出さない設計）
     await expect(page.getByTestId("dirty-dot").first()).toBeVisible();
-    const dotCount = await page.getByTestId("dirty-dot").count();
-    expect(dotCount).toBeGreaterThanOrEqual(2);
   });
 
   test("新規ユーザー（DB データなし）で氏名を編集すると 🔴 が表示される", async ({ page }) => {

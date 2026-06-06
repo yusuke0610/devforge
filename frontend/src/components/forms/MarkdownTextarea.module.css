@@ -10,6 +10,21 @@
   align-items: stretch;
 }
 
+/* fill 指定時はモーダルなど親の高さいっぱいに入力欄を伸長する。 */
+.fill {
+  flex: 1;
+  min-height: 0;
+}
+
+.fill .editorRow {
+  flex: 1;
+  min-height: 0;
+}
+
+.fill .editor {
+  resize: none;
+}
+
 .editor {
   flex: 1;
   min-width: 0;

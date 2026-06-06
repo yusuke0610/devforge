@@ -3,7 +3,7 @@ import { useFocusOnMatch } from "../../../hooks/useFocusOnMatch";
 import shared from "../../../styles/shared.module.css";
 import { DirtyDot } from "../../ui/DirtyDot";
 import { Skeleton } from "../../ui/Skeleton";
-import { MarkdownTextarea } from "../MarkdownTextarea";
+import { MarkdownFieldTrigger } from "../MarkdownFieldTrigger";
 
 /** CareerBasicInfoSection のプロパティ型 */
 type Props = {
@@ -15,6 +15,8 @@ type Props = {
   loading: boolean;
   /** フィールド変更ハンドラ */
   onChange: (key: "full_name" | "career_summary", value: string) => void;
+  /** 職務要約の入力モーダルを開く */
+  onEditCareerSummary: () => void;
   /** 氏名フィールドが未保存か */
   fullNameDirty?: boolean;
   /** 職務要約フィールドが未保存か */
@@ -25,6 +27,7 @@ type Props = {
 
 /**
  * 職務経歴書の「基本情報」セクション。氏名と職務要約を表示する。
+ * 職務要約は入力欄がノイズになるため専用モーダルに逃がし、ここではプレビュー + 編集ボタンを置く。
  * CareerResumeForm の JSX をセクション単位で読みやすくするための切り出し。
  */
 export function CareerBasicInfoSection({
@@ -32,6 +35,7 @@ export function CareerBasicInfoSection({
   careerSummary,
   loading,
   onChange,
+  onEditCareerSummary,
   fullNameDirty = false,
   careerSummaryDirty = false,
   focusLocator = null,
@@ -39,7 +43,6 @@ export function CareerBasicInfoSection({
   const fullNameInvalid = focusLocator?.kind === "full_name";
   const careerSummaryInvalid = focusLocator?.kind === "career_summary";
   const fullNameRef = useFocusOnMatch<HTMLInputElement>(fullNameInvalid);
-  const careerSummaryRef = useFocusOnMatch<HTMLTextAreaElement>(careerSummaryInvalid);
 
   return (
     <section className={shared.section}>
@@ -62,20 +65,14 @@ export function CareerBasicInfoSection({
           />
         )}
       </label>
-      {loading ? (
-        <Skeleton height="110px" />
-      ) : (
-        <MarkdownTextarea
-          label="職務要約"
-          value={careerSummary}
-          onChange={(v) => onChange("career_summary", v)}
-          rows={4}
-          required
-          labelAdornment={<DirtyDot visible={careerSummaryDirty} />}
-          textareaRef={careerSummaryRef}
-          invalid={careerSummaryInvalid}
-        />
-      )}
+      <MarkdownFieldTrigger
+        label="職務要約"
+        value={careerSummary}
+        loading={loading}
+        dirty={careerSummaryDirty}
+        invalid={careerSummaryInvalid}
+        onEdit={onEditCareerSummary}
+      />
     </section>
   );
 }
