@@ -26,6 +26,7 @@ const KIND_LABEL: Record<ChangeKind, string> = {
 /**
  * iframe 内に注入する diff 着色 CSS。backend の resume.css に追記する形で srcDoc に埋め込む。
  * 緑=追加 / 赤=削除 / 黄=修正。VSCode 系 diff の配色に寄せる。
+ * 校正指摘は青の波線（diff の背景色と重ねても潰れないよう下線で表現）。
  */
 const DIFF_CSS = `
   body { margin: 0; padding: 12px 16px; background: #fff; }
@@ -33,6 +34,11 @@ const DIFF_CSS = `
   .diff-added { background: rgba(22,163,74,0.18); box-shadow: 0 0 0 1px rgba(22,163,74,0.45); }
   .diff-removed { background: rgba(220,38,38,0.16); box-shadow: 0 0 0 1px rgba(220,38,38,0.40); }
   .diff-modified { background: rgba(234,179,8,0.25); box-shadow: 0 0 0 1px rgba(234,179,8,0.50); }
+  .diff-proofread {
+    text-decoration: underline wavy #2563eb;
+    text-decoration-skip-ink: none;
+    text-underline-offset: 2px;
+  }
   details.fold { margin: 3px 0; }
   summary.fold-summary {
     cursor: pointer; list-style: none; font-size: 8pt; color: #6b7280;
@@ -101,7 +107,14 @@ export function CareerDiffModal({
   /** 校正指摘をフィールド単位にまとめる（セクション内の見出しグルーピング用）。 */
   const issueGroups = useMemo(() => groupIssuesByField(issues), [issues]);
 
+  /** 校正指摘のあるフィールド id 集合（編集中ペインの青マーク／折りたたみ除外に使う）。 */
+  const proofreadFieldIds = useMemo(
+    () => new Set(issues.map((issue) => issue.fieldId)),
+    [issues],
+  );
+
   // 着色（annotateHtml）→ 変更なし領域を畳む（foldUnchanged）の順で整形する。
+  // baseline（保存済み）側は校正マークを付けない（指摘は編集中フォームに対するもの）。
   const baselineDoc = useMemo(() => {
     if (baselineHtml === null) return null;
     return buildSrcDoc(css, foldUnchanged(annotateHtml(baselineHtml, pathKindMap), pathKindMap));
@@ -109,11 +122,12 @@ export function CareerDiffModal({
 
   const editedDoc = useMemo(() => {
     if (editedHtml === null) return null;
-    // 着色 → 削除跡のプレースホルダ挿入 → 変更なし領域の折りたたみ、の順で整形する。
-    const annotated = annotateHtml(editedHtml, pathKindMap);
+    // 着色（差分＋校正青マーク）→ 削除跡のプレースホルダ挿入 → 変更なし領域の折りたたみ。
+    // 校正指摘のある項目は畳まないよう foldUnchanged にも fieldId 集合を渡す。
+    const annotated = annotateHtml(editedHtml, pathKindMap, proofreadFieldIds);
     const withStubs = injectRemovedPlaceholders(annotated, changes);
-    return buildSrcDoc(css, foldUnchanged(withStubs, pathKindMap));
-  }, [editedHtml, css, pathKindMap, changes]);
+    return buildSrcDoc(css, foldUnchanged(withStubs, pathKindMap, proofreadFieldIds));
+  }, [editedHtml, css, pathKindMap, changes, proofreadFieldIds]);
 
   /** 変更点行クリックで、右ペイン（編集中）の該当ノードへスクロールする。 */
   const scrollToChange = (change: CareerChange) => {

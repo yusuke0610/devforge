@@ -41,8 +41,9 @@ function pushText(
 export function collectCareerTexts(form: CareerFormState): CareerTextItem[] {
   const items: CareerTextItem[] = [];
 
+  // 並び順は PDF レイアウト（職務要約 → 職務経歴 → 資格 → 自己PR）に合わせ、
+  // 左右ペイン・変更点リストと校正セクションの縦順を一致させる。
   pushText(items, "career_summary", [L.CAREER_SUMMARY], form.career_summary);
-  pushText(items, "self_pr", [L.SELF_PR], form.self_pr);
 
   form.experiences.forEach((exp, expIndex) => {
     if (!experienceIncluded(exp)) return;
@@ -97,6 +98,9 @@ export function collectCareerTexts(form: CareerFormState): CareerTextItem[] {
     const qualSeg = [`${L.QUALIFICATION}${index + 1}`];
     pushText(items, `qualifications.${index}.name`, [...qualSeg, L.QUALIFICATION_NAME], qual.name);
   });
+
+  // 自己PR は PDF 上で最後に来るため末尾に収集する。
+  pushText(items, "self_pr", [L.SELF_PR], form.self_pr);
 
   return items;
 }
