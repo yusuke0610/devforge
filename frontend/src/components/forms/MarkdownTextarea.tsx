@@ -22,6 +22,8 @@ type Props = {
   textareaRef?: Ref<HTMLTextAreaElement>;
   /** バリデーション失敗フィールドとして強調するか（aria-invalid を付与） */
   invalid?: boolean;
+  /** 親（モーダル等）の高さいっぱいに伸長するか（既定 false でインライン用途は不変） */
+  fill?: boolean;
 };
 
 /**
@@ -37,11 +39,12 @@ export function MarkdownTextarea({
   labelAdornment,
   textareaRef,
   invalid,
+  fill = false,
 }: Props) {
   const renderedHtml = useMemo(() => renderMarkdown(value), [value]);
 
   return (
-    <div className={styles.wrapper}>
+    <div className={`${styles.wrapper} ${fill ? styles.fill : ""}`}>
       <span className={shared.labelText}>
         {label}
         {required && <span className={shared.requiredBadge}>必須</span>}

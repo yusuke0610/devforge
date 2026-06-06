@@ -90,6 +90,15 @@ export const UI_MESSAGES = {
   SIDEBAR_EXPAND: "サイドバーを開く",
   SOURCE_PANEL_COLLAPSE: "原本パネルを閉じる",
   SOURCE_PANEL_EXPAND: "原本パネルを開く",
+  // 入力モーダルの × 閉じるボタン（aria-label）
+  MODAL_CLOSE: "閉じる",
+  // 入力モーダル化したフィールドが未入力のときのプレビュー表示
+  FIELD_NOT_ENTERED: "未入力",
+  // 入力モーダルへ逃がしたフィールドの表示名（モーダルタイトル / トリガラベル）
+  FIELD_SELF_PR: "自己PR",
+  FIELD_CAREER_SUMMARY: "職務要約",
+  // プレビュー + 編集ボタン（トリガ）の「編集」ラベル
+  EDIT: "編集",
   // トースト通知（右上に表示する成功/エラーの一時通知）
   TOAST_REGION_LABEL: "通知",
   TOAST_DISMISS: "通知を閉じる",
@@ -278,4 +287,9 @@ export function blogSyncSuccessMessage(synced: number, total: number): string {
 /** username 更新直後の自動同期成功文言（取得件数・合計件数を埋め込む）。 */
 export function blogUsernameUpdatedSyncSuccessMessage(synced: number, total: number): string {
   return `usernameを更新し、${synced}件の記事を取得しました（合計: ${total}件）`;
+}
+
+/** 入力モーダルの文字数カウント表示（空白を除いた文字数）。 */
+export function charCountLabel(count: number): string {
+  return `${count} 文字`;
 }

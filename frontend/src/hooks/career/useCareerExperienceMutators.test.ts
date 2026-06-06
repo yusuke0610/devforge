@@ -285,4 +285,21 @@ describe("useCareerExperienceMutators", () => {
       expect(projects[0].name).toBe("編集済プロジェクト");
     });
   });
+
+  describe("getProjectCount", () => {
+    it("該当 client の現在のプロジェクト数を返す", () => {
+      const form = buildForm();
+      form.experiences[0].clients[0].projects = [
+        ...form.experiences[0].clients[0].projects,
+        { ...blankCareerProject, name: "プロジェクトY" },
+      ];
+      const { result } = setup(form);
+      expect(result.current.mutators.getProjectCount(0, 0)).toBe(2);
+    });
+
+    it("存在しない座標では 0 を返す", () => {
+      const { result } = setup(buildForm());
+      expect(result.current.mutators.getProjectCount(9, 9)).toBe(0);
+    });
+  });
 });

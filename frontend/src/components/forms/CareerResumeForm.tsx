@@ -28,6 +28,7 @@ import { useMessageToast } from "../ui/toast";
 import shared from "../../styles/shared.module.css";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { CareerDiffModal } from "./CareerDiffModal";
+import { MarkdownFieldModal } from "./MarkdownFieldModal";
 import { Skeleton } from "../ui/Skeleton";
 import { PdfPreviewModal } from "./PdfPreviewModal";
 import { ResumeSourceTracePanel } from "./ResumeSourceTracePanel";
@@ -43,6 +44,8 @@ export function CareerResumeForm() {
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   // PDF 原本ビュー（右カラム）の折りたたみ状態。折りたたむと入力フォームが全幅に広がる。
   const [pdfCollapsed, setPdfCollapsed] = useState(false);
+  // 自己PR / 職務要約の入力モーダルの対象フィールド（null で閉じている）。
+  const [editingField, setEditingField] = useState<"career_summary" | "self_pr" | null>(null);
   const assist = useResumeImportAssist();
   const splitRef = useRef<HTMLDivElement>(null);
   const { width: pdfWidth, startResize } = useImportPanelLayout(splitRef);
@@ -169,6 +172,14 @@ export function CareerResumeForm() {
       setValidationError(validation.message);
       focusNonceRef.current += 1;
       setFocusTarget({ locator: validation.locator, nonce: focusNonceRef.current });
+      // 自己PR / 職務要約はモーダルへ逃がしているため、該当フィールドの失敗時はモーダルを自動で開く
+      // （隠れた textarea には直接フォーカスできないため）。
+      if (
+        validation.locator.kind === "career_summary" ||
+        validation.locator.kind === "self_pr"
+      ) {
+        setEditingField(validation.locator.kind);
+      }
       return;
     }
     setValidationError(null);
@@ -224,6 +235,20 @@ export function CareerResumeForm() {
         />
       )}
       {previewUrl && <PdfPreviewModal previewUrl={previewUrl} onClose={closePreview} />}
+      {editingField && (
+        <MarkdownFieldModal
+          title={
+            editingField === "self_pr"
+              ? UI_MESSAGES.FIELD_SELF_PR
+              : UI_MESSAGES.FIELD_CAREER_SUMMARY
+          }
+          value={form[editingField]}
+          onChange={(v) => onChangeField(editingField, v)}
+          onClose={() => setEditingField(null)}
+          assist={assist}
+          invalid={focusLocator?.kind === editingField}
+        />
+      )}
       {/* noValidate: 必須チェックはブラウザ標準ではなく validateCareerForm に一本化する。
           標準の required バブルが先に発火すると、該当フィールドへの独自フォーカス・赤枠・
           日本語メッセージが出せず挙動が不統一になるため抑止する。 */}
@@ -290,6 +315,7 @@ export function CareerResumeForm() {
                   careerSummary={form.career_summary}
                   loading={loading}
                   onChange={onChangeField}
+                  onEditCareerSummary={() => setEditingField("career_summary")}
                   fullNameDirty={dirty.full_name}
                   careerSummaryDirty={dirty.career_summary}
                   focusLocator={focusLocator}
@@ -335,7 +361,7 @@ export function CareerResumeForm() {
                 <CareerSelfPrSection
                   selfPr={form.self_pr}
                   loading={loading}
-                  onChange={(v) => onChangeField("self_pr", v)}
+                  onEdit={() => setEditingField("self_pr")}
                   dirty={dirty.self_pr}
                   focusLocator={focusLocator}
                 />
@@ -360,7 +386,9 @@ export function CareerResumeForm() {
                   className={layout.pdfToggle}
                   onClick={() => setPdfCollapsed((v) => !v)}
                   aria-label={
-                    pdfCollapsed ? UI_MESSAGES.SOURCE_PANEL_EXPAND : UI_MESSAGES.SOURCE_PANEL_COLLAPSE
+                    pdfCollapsed
+                      ? UI_MESSAGES.SOURCE_PANEL_EXPAND
+                      : UI_MESSAGES.SOURCE_PANEL_COLLAPSE
                   }
                   aria-expanded={!pdfCollapsed}
                 >

@@ -14,3 +14,17 @@ export function renderMarkdown(md: string): string {
   const rawHtml = marked.parse(md, { async: false }) as string;
   return DOMPurify.sanitize(rawHtml);
 }
+
+/**
+ * Markdown を描画後の表示テキスト（記法・タグを除いたプレーンテキスト）に変換する。
+ *
+ * 文字数カウントなど「見た目の本文量」を測る用途に使う。
+ * `**太字**` の `*` やリンク記法 `[]()` の URL、見出しの `#` などはカウント対象から外れる。
+ * sanitize 済み HTML を `DOMParser` で解釈し（live DOM へは挿入しない）textContent を取り出す。
+ */
+export function markdownToPlainText(md: string): string {
+  const html = renderMarkdown(md);
+  if (!html) return "";
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return doc.body.textContent ?? "";
+}

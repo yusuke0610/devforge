@@ -1,0 +1,137 @@
+/* サイドバーを覆わず（操作可能なまま残し）、その右のコンテンツ領域いっぱいにモーダルを開く。
+   overlay 自体を left:サイドバー幅 から始めるので、z-index がサイドバー(100)より上でも
+   サイドバーは露出したままになる。 */
+.overlay {
+  position: fixed;
+  inset: 0;
+  left: var(--sidebar-width);
+  background: var(--overlay-bg);
+  display: flex;
+  padding: 1.2rem;
+  z-index: 1000;
+}
+
+/* モーダルはコンテンツ領域いっぱいに広げる（職務経歴書ページと同等の作業領域を確保）。 */
+.modal {
+  background: var(--bg-card);
+  border-radius: 12px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* モバイルはサイドバーが上部バーになるため、その下から全幅で開く。 */
+@media (max-width: 768px) {
+  .overlay {
+    left: 0;
+    top: var(--topbar-height);
+    padding: 0.8rem;
+  }
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--border);
+  font-weight: 700;
+}
+
+/* ヘッダー右の × 閉じるボタン（ProjectModal の chipRemove と同等の見た目）。 */
+.closeButton {
+  all: unset;
+  cursor: pointer;
+  font-size: 1.4rem;
+  line-height: 1;
+  padding: 0 0.4rem;
+  color: var(--text-muted);
+  border-radius: 4px;
+}
+
+.closeButton:hover {
+  color: var(--danger, #e53e3e);
+  background: rgba(229, 62, 62, 0.1);
+}
+
+/* キーボード操作時のフォーカスを可視化する（all:unset で消えるネイティブ outline の代替）。 */
+.closeButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ヘッダー下の領域。左=入力フォーム / 右=取り込みブロックの 2 カラム。
+   スプリッターのドラッグで左右の比率を変えられる。 */
+.bodyWrap {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+/* 入力フォームと PDF カラムの境界。ドラッグで左右比率を変える。 */
+.splitter {
+  flex-shrink: 0;
+  align-self: stretch;
+  width: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  cursor: col-resize;
+  transition: background 0.15s;
+}
+
+.splitter:hover {
+  background: var(--accent);
+}
+
+/* モーダル内に再掲する取り込み原本ビュー（タブ固定・ページ部のみスクロール）。
+   幅は CSS 変数 --pdf-col-width で可変（縦積み時は下のメディアクエリで全幅に上書き）。
+   inline style ではなく変数経由にすることで、縦積み時の全幅化を CSS 側で上書きできる。 */
+.blocksColumn {
+  width: var(--pdf-col-width, 320px);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border-left: 1px solid var(--border);
+  padding: 1rem;
+}
+
+/* 横幅が狭い時は左右 2 カラムをやめ、フォームの下に原本を全幅で縦積みする。 */
+@media (max-width: 700px) {
+  .bodyWrap {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  /* 縦積み時はモーダル全体スクロールに委ねる（カラム個別スクロールを解除） */
+  .body {
+    overflow-y: visible;
+  }
+
+  /* 縦積み時はドラッグでの左右リサイズを無効化 */
+  .splitter {
+    display: none;
+  }
+
+  /* 幅指定を上書きして全幅。区切りは左ボーダーから上ボーダーへ。 */
+  .blocksColumn {
+    width: 100%;
+    min-height: 60vh;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+}
