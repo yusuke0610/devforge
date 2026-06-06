@@ -53,10 +53,15 @@ const CONTAINER_FIELD_ORDER: Record<string, string[]> = {
   qualifications: ["name", "acquired_date"],
 };
 
+/** 未知のセグメントを既知フィールドより後ろへ寄せる基準値（文字コードで安定ソート）。 */
+const UNKNOWN_FIELD_RANK_BASE = 400;
+/** コンテナの並びが特定できない名前付きセグメントのランク（末尾側へ）。 */
+const UNKNOWN_CONTAINER_FIELD_RANK = 500;
+
 /** 既知の並びにあればその index、無ければ末尾側（文字コードで安定ソート）に寄せる。 */
 function orderIndex(list: string[], seg: string): number {
   const i = list.indexOf(seg);
-  return i >= 0 ? i : 400 + (seg.charCodeAt(0) || 0);
+  return i >= 0 ? i : UNKNOWN_FIELD_RANK_BASE + (seg.charCodeAt(0) || 0);
 }
 
 /**
@@ -72,7 +77,7 @@ function rankTuple(path: string): number[] {
     if (/^\d+$/.test(seg)) return Number(seg);
     const containerName = i >= 2 && /^\d+$/.test(segs[i - 1]) ? segs[i - 2] : null;
     const order = containerName ? CONTAINER_FIELD_ORDER[containerName] : null;
-    return order ? orderIndex(order, seg) : 500;
+    return order ? orderIndex(order, seg) : UNKNOWN_CONTAINER_FIELD_RANK;
   });
 }
 

@@ -22,7 +22,7 @@ Accepted
 - 実行場所: 専用 Web Worker（`src/proofread/proofread.worker.ts`）。textlint / kuromoji 一式は動的 import で worker チャンクへ分割し、初期バンドル・初回描画から切り離す。
 - 形態素解析辞書（kuromoji）: `frontend/public/kuromoji-dict/`（約18MB）に静的配信。worker から `globalThis.kuromojin.dicPath = "/kuromoji-dict"`（ルート相対）で参照。
 - UI 統合: メインスレッドは `ProofreadIssue[]` という安定インターフェースのみ知る。`useProofread` フックが保存確認ダイアログ表示中だけ校正を起動し、結果を `CareerDiffModal` 右サイドバー下部に「校正の指摘」として青系・控えめに表示する。**保存はブロックしない**（警告のみ）。
-- 辞書ロード失敗時は形態素解析依存ルール（二重助詞・冗長表現など10ルール）を除外し、prh + 非依存ルールで継続する（グレースフルデグラデーション）。
+- 辞書ロード失敗時は形態素解析依存ルール（二重助詞・冗長表現など11ルール）を除外し、prh + 非依存ルールで継続する（グレースフルデグラデーション）。
 
 ## 代替案
 

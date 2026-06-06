@@ -23,8 +23,10 @@ function kuromojiDictRaw(): Plugin {
           next();
           return;
         }
+        // 先頭スラッシュを除いて確実に publicDir 相対で解決する（join の絶対パス扱いを回避）。
         // パストラバーサル防止のため normalize 後に publicDir 配下であることを担保する。
-        const filePath = normalize(join(publicDir, url));
+        const relativePath = url.replace(/^\/+/, "");
+        const filePath = normalize(join(publicDir, relativePath));
         if (!filePath.startsWith(publicDir)) {
           res.statusCode = 403;
           res.end();

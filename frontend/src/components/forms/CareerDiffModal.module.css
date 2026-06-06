@@ -189,7 +189,7 @@
 .label {
   font-size: 0.78rem;
   font-weight: 600;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .values {
@@ -203,7 +203,7 @@
 .oldValue {
   color: var(--text-muted, #888);
   text-decoration: line-through;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .arrow {
@@ -213,7 +213,7 @@
 .newValue {
   color: var(--text-primary, #111);
   font-weight: 500;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 /* VSCode の diff の revert 矢印風。各変更行を編集前（保存済み）へ戻すアイコンボタン。 */
@@ -284,14 +284,14 @@
   color: var(--text-primary, #1f2937);
   line-height: 1.4;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .proofreadExcerpt {
   margin: 0.15rem 0 0;
   font-size: 0.68rem;
   color: var(--text-muted, #6b7280);
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .proofreadEmpty {
