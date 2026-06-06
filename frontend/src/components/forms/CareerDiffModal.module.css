@@ -106,6 +106,10 @@
 
 .sidebarHead {
   flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
   padding: 0.4rem 0.7rem;
   font-size: 0.8rem;
   font-weight: 700;
@@ -120,37 +124,45 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-.row {
+/* 1 フィールド分のレビュー項目（差分＋校正をまとめたカード）。 */
+.entry {
   display: flex;
-  align-items: stretch;
-  gap: 0.4rem;
+  flex-direction: column;
   border: 1px solid var(--border-color, #e0e0e0);
   border-radius: 6px;
   overflow: hidden;
 }
 
-/* 行本体はクリックでスクロールするボタン。装飾はテキストブロック風に戻す。 */
-.rowMain {
-  flex: 1;
-  min-width: 0;
+/* 見出し（クリックで右ペインの該当箇所へスクロール）。 */
+.entryHead {
   text-align: left;
-  background: transparent;
+  background: var(--bg-page, #f7f7f8);
   color: inherit;
   border: none;
-  border-radius: 0;
-  padding: 0.45rem 0.55rem;
-  font-weight: 400;
+  border-bottom: 1px solid var(--border-color, #ececec);
+  padding: 0.35rem 0.55rem;
   cursor: pointer;
 }
 
-.rowHead {
+/* 差分行: バッジ＋旧→新 と 元に戻すボタン。 */
+.entryDiff {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  margin-bottom: 0.2rem;
+  padding: 0.35rem 0.5rem 0.35rem 0.55rem;
+}
+
+.diffMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
 .badge {
@@ -177,7 +189,7 @@
 .label {
   font-size: 0.78rem;
   font-weight: 600;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .values {
@@ -191,7 +203,7 @@
 .oldValue {
   color: var(--text-muted, #888);
   text-decoration: line-through;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .arrow {
@@ -201,14 +213,13 @@
 .newValue {
   color: var(--text-primary, #111);
   font-weight: 500;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 /* VSCode の diff の revert 矢印風。各変更行を編集前（保存済み）へ戻すアイコンボタン。 */
 .rollback {
   flex-shrink: 0;
   align-self: center;
-  margin-right: 0.4rem;
   width: 26px;
   height: 26px;
   padding: 0;
@@ -242,4 +253,59 @@
   justify-content: flex-end;
   padding: 0.75rem 1.25rem;
   border-top: 1px solid var(--border-color, #e0e0e0);
+}
+
+.proofreadLoading {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: #3b82f6;
+}
+
+/* 校正の指摘リスト（青系・控えめ）。エントリ内の差分の下に続く。 */
+.entryIssues {
+  list-style: none;
+  margin: 0;
+  padding: 0.3rem 0.5rem 0.4rem 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  background: rgba(37, 99, 235, 0.05);
+  border-top: 1px solid rgba(37, 99, 235, 0.18);
+}
+
+.proofreadItem {
+  border-left: 2px solid rgba(37, 99, 235, 0.45);
+  padding-left: 0.45rem;
+}
+
+.proofreadMessage {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--text-primary, #1f2937);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.proofreadExcerpt {
+  margin: 0.15rem 0 0;
+  font-size: 0.68rem;
+  color: var(--text-muted, #6b7280);
+  overflow-wrap: break-word;
+}
+
+.proofreadEmpty {
+  margin: 0;
+  padding: 0 0.7rem 0.4rem;
+  font-size: 0.74rem;
+  color: var(--text-muted, #6b7280);
+}
+
+.proofreadHint {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.35rem 0.7rem 0.5rem;
+  font-size: 0.66rem;
+  color: #2563eb;
+  line-height: 1.4;
 }
