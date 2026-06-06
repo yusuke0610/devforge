@@ -1,5 +1,6 @@
 import type { CareerFieldLocator } from "../../../payloadBuilders";
 import { useFocusOnMatch } from "../../../hooks/useFocusOnMatch";
+import { UI_MESSAGES } from "../../../constants/messages";
 import shared from "../../../styles/shared.module.css";
 import { DirtyDot } from "../../ui/DirtyDot";
 import { Skeleton } from "../../ui/Skeleton";
@@ -66,7 +67,7 @@ export function CareerBasicInfoSection({
         )}
       </label>
       <MarkdownFieldTrigger
-        label="職務要約"
+        label={UI_MESSAGES.FIELD_CAREER_SUMMARY}
         value={careerSummary}
         loading={loading}
         dirty={careerSummaryDirty}

@@ -237,7 +237,11 @@ export function CareerResumeForm() {
       {previewUrl && <PdfPreviewModal previewUrl={previewUrl} onClose={closePreview} />}
       {editingField && (
         <MarkdownFieldModal
-          title={editingField === "self_pr" ? "自己PR" : "職務要約"}
+          title={
+            editingField === "self_pr"
+              ? UI_MESSAGES.FIELD_SELF_PR
+              : UI_MESSAGES.FIELD_CAREER_SUMMARY
+          }
           value={form[editingField]}
           onChange={(v) => onChangeField(editingField, v)}
           onClose={() => setEditingField(null)}

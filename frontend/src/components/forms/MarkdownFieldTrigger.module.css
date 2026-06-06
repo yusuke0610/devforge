@@ -33,6 +33,12 @@
   border-color: var(--error);
 }
 
+/* キーボード操作時のフォーカスを可視化する（all:unset で消えるネイティブ outline の代替）。 */
+.trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* 値のプレビュー（1 行に切り詰め）。 */
 .preview {
   flex: 1;

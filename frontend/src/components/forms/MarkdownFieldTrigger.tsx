@@ -60,13 +60,13 @@ export function MarkdownFieldTrigger({
           type="button"
           className={`${styles.trigger} ${invalid ? styles.invalid : ""}`}
           onClick={onEdit}
-          aria-label={`${label}を編集`}
+          aria-label={`${label}を${UI_MESSAGES.EDIT}`}
           aria-invalid={invalid || undefined}
         >
           <span className={`${styles.preview} ${isEmpty ? styles.empty : ""}`}>
             {isEmpty ? UI_MESSAGES.FIELD_NOT_ENTERED : preview}
           </span>
-          <span className={styles.editLabel}>編集</span>
+          <span className={styles.editLabel}>{UI_MESSAGES.EDIT}</span>
         </button>
       )}
     </div>

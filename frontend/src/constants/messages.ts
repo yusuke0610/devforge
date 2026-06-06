@@ -94,6 +94,11 @@ export const UI_MESSAGES = {
   MODAL_CLOSE: "閉じる",
   // 入力モーダル化したフィールドが未入力のときのプレビュー表示
   FIELD_NOT_ENTERED: "未入力",
+  // 入力モーダルへ逃がしたフィールドの表示名（モーダルタイトル / トリガラベル）
+  FIELD_SELF_PR: "自己PR",
+  FIELD_CAREER_SUMMARY: "職務要約",
+  // プレビュー + 編集ボタン（トリガ）の「編集」ラベル
+  EDIT: "編集",
   // トースト通知（右上に表示する成功/エラーの一時通知）
   TOAST_REGION_LABEL: "通知",
   TOAST_DISMISS: "通知を閉じる",

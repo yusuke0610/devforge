@@ -1,4 +1,5 @@
 import type { CareerFieldLocator } from "../../../payloadBuilders";
+import { UI_MESSAGES } from "../../../constants/messages";
 import shared from "../../../styles/shared.module.css";
 import { MarkdownFieldTrigger } from "../MarkdownFieldTrigger";
 
@@ -32,7 +33,7 @@ export function CareerSelfPrSection({
   return (
     <section className={shared.section}>
       <MarkdownFieldTrigger
-        label="自己PR"
+        label={UI_MESSAGES.FIELD_SELF_PR}
         value={selfPr}
         loading={loading}
         dirty={dirty}

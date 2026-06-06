@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useId, useRef, type CSSProperties, type ReactNode } from "react";
 
 import type { UseResumeImportAssistReturn } from "../../hooks/career/useResumeImportAssist";
 import { useImportPanelLayout } from "../../hooks/career/useImportPanelLayout";
@@ -40,6 +40,18 @@ export function ModalShell({ title, onClose, assist, children, importPanelLayout
   /** 取り込みファイルが選択されている時だけモーダル内に原本ビューを表示する */
   const showPdf = !!assist && !!assist.file;
 
+  /** dialog のラベル付け（aria-labelledby）に使うヘッダー要素の id */
+  const titleId = useId();
+
+  // Escape キーでモーダルを閉じられるようにする（キーボード操作のため）。
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   // 入力フォームと原本カラムの比率をスプリッターのドラッグで変える。
   const bodyWrapRef = useRef<HTMLDivElement>(null);
   const { width: pdfWidth, startResize } = useImportPanelLayout(bodyWrapRef, {
@@ -52,9 +64,15 @@ export function ModalShell({ title, onClose, assist, children, importPanelLayout
 
   return (
     <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={styles.modal}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
         <div className={styles.header}>
-          <span>{title}</span>
+          <span id={titleId}>{title}</span>
           <button
             type="button"
             className={styles.closeButton}

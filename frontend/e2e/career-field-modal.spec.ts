@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
-import { UI_MESSAGES } from "../src/constants/messages";
+import { UI_MESSAGES, charCountLabel } from "../src/constants/messages";
 import { setupAuth, waitForAuthenticatedLayout } from "./helpers/auth";
 
 /**
@@ -52,7 +52,9 @@ test.describe("職務経歴書 自己PR・職務要約モーダル", () => {
     await expect(page.getByText("初期自己PR")).toBeVisible();
 
     // 「自己PRを編集」ボタンでモーダルを開く。
-    await page.getByRole("button", { name: "自己PRを編集" }).click();
+    await page
+      .getByRole("button", { name: `${UI_MESSAGES.FIELD_SELF_PR}を${UI_MESSAGES.EDIT}` })
+      .click();
 
     // モーダル内の入力欄（textarea は本フォームではモーダル内にのみ存在）に現在値がロードされている。
     const textarea = page.locator("textarea");
@@ -61,7 +63,7 @@ test.describe("職務経歴書 自己PR・職務要約モーダル", () => {
     // 入力すると右下の文字数カウント（空白除外）が更新される。
     await textarea.fill("新しい 自己PR 本文");
     // 空白を除くと「新しい自己PR本文」= 9 文字（新・し・い・自・己・P・R・本・文）。
-    await expect(page.getByText("9 文字")).toBeVisible();
+    await expect(page.getByText(charCountLabel(9), { exact: true })).toBeVisible();
 
     // × で閉じる。
     await page.getByRole("button", { name: UI_MESSAGES.MODAL_CLOSE, exact: true }).click();
@@ -73,7 +75,11 @@ test.describe("職務経歴書 自己PR・職務要約モーダル", () => {
 
   test("必須未入力で保存すると職務要約モーダルが自動で開く", async ({ page }) => {
     // 職務要約を空にするため、まずモーダルを開いて全消しする。
-    await page.getByRole("button", { name: "職務要約を編集" }).click();
+    await page
+      .getByRole("button", {
+        name: `${UI_MESSAGES.FIELD_CAREER_SUMMARY}を${UI_MESSAGES.EDIT}`,
+      })
+      .click();
     const textarea = page.locator("textarea");
     await textarea.fill("");
     await page.getByRole("button", { name: UI_MESSAGES.MODAL_CLOSE, exact: true }).click();
@@ -81,6 +87,7 @@ test.describe("職務経歴書 自己PR・職務要約モーダル", () => {
 
     // 保存（更新）ボタンを押すと、職務要約が未入力なのでモーダルが自動で開く。
     await page.getByRole("button", { name: /更新する|保存する/ }).click();
-    await expect(page.locator("textarea")).toBeVisible();
+    // 開いたのが職務要約モーダルであることをタイトル（完全一致）で確認する。
+    await expect(page.getByText(UI_MESSAGES.FIELD_CAREER_SUMMARY, { exact: true })).toBeVisible();
   });
 });
