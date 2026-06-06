@@ -231,6 +231,8 @@ export const DIFF_DIALOG_MESSAGES = {
   BASELINE_EMPTY: "保存済みデータがありません。",
   /** 変更点サイドバーの見出し */
   CHANGES_HEADING: "変更点",
+  /** 変更点＋校正を統合したレビュー一覧の見出し */
+  REVIEW_HEADING: "変更点・校正",
 } as const;
 
 /**
@@ -247,11 +249,6 @@ export const PROOFREAD_MESSAGES = {
   /** セクションの補足（保存はブロックしない旨）。 */
   HINT: "保存はブロックされません。気になる箇所のみ修正してください。",
 } as const;
-
-/** 校正セクションで、指摘件数をフィールド見出しに添えるラベル。 */
-export function proofreadIssueCountLabel(count: number): string {
-  return `${count}件`;
-}
 
 /** 左右 diff で「変更なし領域」を畳んだときの展開ラベル（件数を埋め込む）。 */
 export function foldedSectionLabel(count: number): string {

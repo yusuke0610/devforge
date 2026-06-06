@@ -1,12 +1,8 @@
 import { useMemo, useRef } from "react";
 
-import {
-  DIFF_DIALOG_MESSAGES as D,
-  PROOFREAD_MESSAGES as P,
-  proofreadIssueCountLabel,
-} from "../../constants/messages";
-import { groupIssuesByField } from "../../proofread/issueFormat";
+import { DIFF_DIALOG_MESSAGES as D, PROOFREAD_MESSAGES as P } from "../../constants/messages";
 import type { ProofreadIssue } from "../../proofread/types";
+import { buildReviewEntries } from "../../utils/careerReview";
 import type { CareerChange, ChangeKind } from "../../utils/careerDiff";
 import {
   annotateHtml,
@@ -104,8 +100,11 @@ export function CareerDiffModal({
 
   const pathKindMap = useMemo(() => buildPathKindMap(changes), [changes]);
 
-  /** 校正指摘をフィールド単位にまとめる（セクション内の見出しグルーピング用）。 */
-  const issueGroups = useMemo(() => groupIssuesByField(issues), [issues]);
+  /**
+   * 変更点と校正指摘を 1 本のレビュー一覧へ統合し、PDF レイアウト順に並べる。
+   * 左右ペイン（PDF）とサイドバーの縦順が一致し、上から順に突合できる。
+   */
+  const reviewEntries = useMemo(() => buildReviewEntries(changes, issues), [changes, issues]);
 
   /** 校正指摘のあるフィールド id 集合（編集中ペインの青マーク／折りたたみ除外に使う）。 */
   const proofreadFieldIds = useMemo(
@@ -129,11 +128,10 @@ export function CareerDiffModal({
     return buildSrcDoc(css, foldUnchanged(withStubs, pathKindMap, proofreadFieldIds));
   }, [editedHtml, css, pathKindMap, changes, proofreadFieldIds]);
 
-  /** 変更点行クリックで、右ペイン（編集中）の該当ノードへスクロールする。 */
-  const scrollToChange = (change: CareerChange) => {
+  /** レビュー項目クリックで、右ペイン（編集中）の該当ノードへスクロールする。 */
+  const scrollToPath = (fp: string) => {
     const doc = editedFrameRef.current?.contentDocument;
     if (!doc) return;
-    const fp = change.path.join(".");
     const escaped = CSS.escape(fp);
     const target =
       doc.querySelector(`[data-fp="${escaped}"]`) ??
@@ -196,71 +194,63 @@ export function CareerDiffModal({
             {loading && editedDoc && <div className={styles.refetching}>{D.PREVIEW_LOADING}</div>}
           </section>
 
-          {/* 変更点 + 校正の指摘サイドバー */}
+          {/* レビュー一覧: 変更点と校正を 1 本に統合し PDF レイアウト順に並べる。 */}
           <aside className={styles.sidebar}>
-            <div className={styles.sidebarHead}>{D.CHANGES_HEADING}</div>
-            {hasChanges ? (
+            <div className={styles.sidebarHead}>
+              <span>{D.REVIEW_HEADING}</span>
+              {proofreading && <span className={styles.proofreadLoading}>{P.LOADING}</span>}
+            </div>
+            {proofreadError && <p className={styles.proofreadEmpty}>{proofreadError}</p>}
+            {reviewEntries.length > 0 ? (
               <ul className={styles.list}>
-                {changes.map((change) => (
-                  <li key={`${change.path.join("/")}:${change.kind}`} className={styles.row}>
+                {reviewEntries.map((entry) => (
+                  <li key={entry.path} className={styles.entry}>
                     <button
                       type="button"
-                      className={styles.rowMain}
-                      onClick={() => scrollToChange(change)}
+                      className={styles.entryHead}
+                      onClick={() => scrollToPath(entry.path)}
                     >
-                      <div className={styles.rowHead}>
-                        <span className={`${styles.badge} ${styles[change.kind]}`}>
-                          {KIND_LABEL[change.kind]}
-                        </span>
-                        <span className={styles.label}>{change.label}</span>
-                      </div>
-                      <div className={styles.values}>
-                        {change.kind !== "added" && (
-                          <span className={styles.oldValue}>{change.oldValue || D.EMPTY_VALUE}</span>
-                        )}
-                        {change.kind === "modified" && <span className={styles.arrow}>→</span>}
-                        {change.kind !== "removed" && (
-                          <span className={styles.newValue}>{change.newValue || D.EMPTY_VALUE}</span>
-                        )}
-                      </div>
+                      <span className={styles.label}>{entry.label}</span>
                     </button>
-                    <button
-                      type="button"
-                      className={styles.rollback}
-                      onClick={() => onRollback(change)}
-                      disabled={saving}
-                      aria-label={D.ROLLBACK}
-                      title={D.ROLLBACK}
-                    >
-                      ↩
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className={styles.empty}>{D.NO_CHANGES}</p>
-            )}
 
-            {/* 校正の指摘（誤字脱字・表記ゆれ）。青系・控えめ。保存はブロックしない。 */}
-            <div className={styles.proofreadSection}>
-              <div className={styles.proofreadHead}>
-                <span>{P.HEADING}</span>
-                {proofreading && <span className={styles.proofreadLoading}>{P.LOADING}</span>}
-              </div>
-              {proofreadError ? (
-                <p className={styles.proofreadEmpty}>{proofreadError}</p>
-              ) : issueGroups.length > 0 ? (
-                <ul className={styles.proofreadList}>
-                  {issueGroups.map((group) => (
-                    <li key={group.fieldId} className={styles.proofreadGroup}>
-                      <div className={styles.proofreadGroupHead}>
-                        <span className={styles.proofreadFieldLabel}>{group.fieldLabel}</span>
-                        <span className={styles.proofreadCount}>
-                          {proofreadIssueCountLabel(group.issues.length)}
-                        </span>
+                    {/* 差分（変更点）。バッジ＋旧→新＋元に戻す。 */}
+                    {entry.changes.map((change) => (
+                      <div key={`${change.path.join("/")}:${change.kind}`} className={styles.entryDiff}>
+                        <div className={styles.diffMain}>
+                          <span className={`${styles.badge} ${styles[change.kind]}`}>
+                            {KIND_LABEL[change.kind]}
+                          </span>
+                          <span className={styles.values}>
+                            {change.kind !== "added" && (
+                              <span className={styles.oldValue}>
+                                {change.oldValue || D.EMPTY_VALUE}
+                              </span>
+                            )}
+                            {change.kind === "modified" && <span className={styles.arrow}>→</span>}
+                            {change.kind !== "removed" && (
+                              <span className={styles.newValue}>
+                                {change.newValue || D.EMPTY_VALUE}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.rollback}
+                          onClick={() => onRollback(change)}
+                          disabled={saving}
+                          aria-label={D.ROLLBACK}
+                          title={D.ROLLBACK}
+                        >
+                          ↩
+                        </button>
                       </div>
-                      <ul className={styles.proofreadItems}>
-                        {group.issues.map((issue, i) => (
+                    ))}
+
+                    {/* 校正の指摘（青）。誤字脱字・表記ゆれ。保存はブロックしない。 */}
+                    {entry.issues.length > 0 && (
+                      <ul className={styles.entryIssues}>
+                        {entry.issues.map((issue, i) => (
                           <li
                             key={`${issue.ruleId}:${issue.index}:${i}`}
                             className={styles.proofreadItem}
@@ -272,14 +262,14 @@ export function CareerDiffModal({
                           </li>
                         ))}
                       </ul>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                !proofreading && <p className={styles.proofreadEmpty}>{P.NONE}</p>
-              )}
-              <p className={styles.proofreadHint}>{P.HINT}</p>
-            </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              !proofreading && !proofreadError && <p className={styles.empty}>{D.NO_CHANGES}</p>
+            )}
+            <p className={styles.proofreadHint}>{P.HINT}</p>
           </aside>
         </div>
 

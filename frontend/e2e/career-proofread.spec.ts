@@ -59,9 +59,9 @@ test.describe("職務経歴書 保存時の文章校正", () => {
     await page.getByPlaceholder("例: 山田 太郎").fill("佐藤 花子");
     await page.getByRole("button", { name: /更新する|保存する/ }).click();
 
-    // ダイアログと校正セクションが出る。
+    // ダイアログと統合レビュー一覧（変更点＋校正）が出る。
     await expect(page.getByRole("dialog", { name: "変更内容の確認" })).toBeVisible();
-    await expect(page.getByText("校正の指摘", { exact: true })).toBeVisible();
+    await expect(page.getByText("変更点・校正", { exact: true })).toBeVisible();
 
     // prh による表記ゆれ指摘（javascript => JavaScript）が worker 経由で表示される。
     // 辞書ロードを含むため待機時間を長めに取る。
