@@ -92,6 +92,7 @@ export const UI_MESSAGES = {
   // トースト通知（右上に表示する成功/エラーの一時通知）
   TOAST_REGION_LABEL: "通知",
   TOAST_DISMISS: "通知を閉じる",
+  TOAST_ERROR_ID_LABEL: "エラーID:",
   REPORT_ISSUE: "GitHub Issueに報告",
   OPENS_IN_NEW_TAB: "（新しいタブで開きます）",
   COPYRIGHT: "© 2026 DevForge",

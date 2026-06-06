@@ -49,6 +49,12 @@ export function useAppErrorToast(error: AppErrorState | null | undefined): void 
       lastErrorIdRef.current = null;
       return;
     }
+    // errorId は AppErrorState では必須だが、万一空の場合は重複判定の基準にできないため毎回表示する
+    // （空文字どうしが `===` で一致して別エラーを取りこぼすのを防ぐ防御）。
+    if (!error.errorId) {
+      showError(error);
+      return;
+    }
     if (error.errorId === lastErrorIdRef.current) return;
     lastErrorIdRef.current = error.errorId;
     showError(error);

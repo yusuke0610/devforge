@@ -204,4 +204,27 @@ describe("useAppErrorToast", () => {
     );
     expect(screen.getAllByText("連携に失敗しました")).toHaveLength(2);
   });
+
+  it("errorId が空の場合は重複判定せず毎回表示する", () => {
+    const { rerender } = render(
+      <ToastProvider>
+        <AppErrorBridgeHarness error={null} />
+      </ToastProvider>,
+    );
+
+    // 空 errorId のエラーは重複判定の基準にできないため、別インスタンスごとに表示される。
+    rerender(
+      <ToastProvider>
+        <AppErrorBridgeHarness error={makeError("")} />
+      </ToastProvider>,
+    );
+    expect(screen.getAllByText("連携に失敗しました")).toHaveLength(1);
+
+    rerender(
+      <ToastProvider>
+        <AppErrorBridgeHarness error={makeError("")} />
+      </ToastProvider>,
+    );
+    expect(screen.getAllByText("連携に失敗しました")).toHaveLength(2);
+  });
 });

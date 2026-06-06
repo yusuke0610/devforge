@@ -111,10 +111,14 @@ export function CareerResumeForm() {
     getPdfBlobUrl: getCareerResumePdfBlobUrl,
   });
 
-  // PDF アクションとフォーム保存/削除の成否を統合してトーストで通知する。
+  // PDF アクションとフォーム保存/削除の成否を、チャンネルごとに独立してトーストで通知する。
+  // pdf と form を `??` で統合すると、片方の値が残っている間にもう片方が更新されても
+  // 統合値が変化せずトーストが出ないため、それぞれ個別に橋渡しする。
   // 成功は自動消去、失敗は手動クローズ（ブリッジ内で variant 別に制御）。
-  useMessageToast(pdfSuccess ?? formSuccess, "success");
-  useMessageToast(pdfError ?? formError, "error");
+  useMessageToast(formSuccess, "success");
+  useMessageToast(formError, "error");
+  useMessageToast(pdfSuccess, "success");
+  useMessageToast(pdfError, "error");
 
   /** Skeleton 表示・入力ロックの統合フラグ */
   const formLocked = loading;

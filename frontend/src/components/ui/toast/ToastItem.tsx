@@ -56,7 +56,11 @@ export function ToastItem({ toast, onDismiss }: Props) {
             {action && <p className={styles.actionText}>{action}</p>}
           </div>
         )}
-        {errorId && <p className={styles.errorId}>エラーID: {errorId}</p>}
+        {errorId && (
+          <p className={styles.errorId}>
+            {UI_MESSAGES.TOAST_ERROR_ID_LABEL} {errorId}
+          </p>
+        )}
       </div>
       <button
         type="button"
