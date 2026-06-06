@@ -1,0 +1,109 @@
+.viewport {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: min(420px, calc(100vw - 2rem));
+  /* コンテナ自体はクリックを透過し、各トーストのみ操作可能にする。 */
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  animation: toast-in 0.18s ease-out;
+}
+
+.success {
+  /* 正常系の背景はティントを付けず、テーマの背景色（ライト/ダーク）をそのまま使う。
+     success である識別は枠線の緑ティントで担う。 */
+  border-color: color-mix(in srgb, var(--success) 32%, var(--border));
+  background: var(--bg-card);
+}
+
+.error {
+  border-color: color-mix(in srgb, var(--error) 32%, var(--border));
+  background: color-mix(in srgb, var(--error) 8%, var(--bg-card));
+}
+
+.body {
+  display: grid;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.message {
+  margin: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.actionButton {
+  width: fit-content;
+}
+
+.actionText {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.errorId {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.dismiss {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 0 0.2rem;
+  cursor: pointer;
+}
+
+.dismiss:hover {
+  color: var(--text-primary);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .viewport {
+    left: 1rem;
+    right: 1rem;
+    width: auto;
+  }
+}

@@ -37,12 +37,6 @@
   font-weight: 600;
 }
 
-.success {
-  margin: 0;
-  color: var(--success);
-  font-weight: 600;
-}
-
 .entry {
   border: 1px dashed var(--border-dashed);
   border-radius: 10px;

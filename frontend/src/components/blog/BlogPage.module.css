@@ -296,22 +296,6 @@
   font-size: 0.9rem;
 }
 
-/* ── エラー・メッセージ ────────────────────────────────────── */
-
-.errorMessage {
-  margin: 0.5rem 0;
-  color: var(--error);
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.successMessage {
-  margin: 0.5rem 0;
-  color: var(--success);
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
 /* ── レスポンシブ ─────────────────────────────────────────── */
 
 @media (max-width: 768px) {

@@ -74,6 +74,8 @@ export const SUCCESS_MESSAGES = {
   BLOG_LINKED: "アカウントを連携しました",
   BLOG_UNLINKED: "アカウントを解除しました",
   BLOG_USERNAME_UPDATED: "usernameを更新しました。再同期してください。",
+  CAREER_SAVED: "職務経歴書を保存しました。PDF出力できます。",
+  CAREER_PDF_DOWNLOADED: "職務経歴書PDFをダウンロードしました。",
 } as const;
 
 /** JSX に直書きされていた UI 文言（ErrorBoundary など） */
@@ -87,6 +89,10 @@ export const UI_MESSAGES = {
   SIDEBAR_EXPAND: "サイドバーを開く",
   SOURCE_PANEL_COLLAPSE: "原本パネルを閉じる",
   SOURCE_PANEL_EXPAND: "原本パネルを開く",
+  // トースト通知（右上に表示する成功/エラーの一時通知）
+  TOAST_REGION_LABEL: "通知",
+  TOAST_DISMISS: "通知を閉じる",
+  TOAST_ERROR_ID_LABEL: "エラーID:",
   REPORT_ISSUE: "GitHub Issueに報告",
   OPENS_IN_NEW_TAB: "（新しいタブで開きます）",
   COPYRIGHT: "© 2026 DevForge",

@@ -10,7 +10,7 @@ import {
   getLatestCareerResume,
   updateCareerResume,
 } from "../../api";
-import { UI_MESSAGES } from "../../constants/messages";
+import { SUCCESS_MESSAGES, UI_MESSAGES } from "../../constants/messages";
 import { createInitialCareerForm, mapCareerResumeToForm } from "../../formMappers";
 import { useCareerDirty } from "../../hooks/career/useCareerDirty";
 import { useImportPanelLayout } from "../../hooks/career/useImportPanelLayout";
@@ -23,6 +23,7 @@ import { buildCareerChanges } from "../../utils/careerDiff";
 import type { CareerTextFieldKey } from "../../formTypes";
 import { useQualifications, useTechnologyStacks } from "../../hooks/useMasterData";
 import { usePdfActions } from "../../hooks/usePdfActions";
+import { useMessageToast } from "../ui/toast";
 import shared from "../../styles/shared.module.css";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { CareerDiffModal } from "./CareerDiffModal";
@@ -54,8 +55,6 @@ export function CareerResumeForm() {
     deleting,
     error: formError,
     success: formSuccess,
-    setError,
-    setSuccess,
     save,
     deleteDoc,
     saveButtonText,
@@ -67,9 +66,16 @@ export function CareerResumeForm() {
     deleteDocument: deleteCareerResume,
     buildPayload: buildCareerPayload,
     mapResponseToForm: mapCareerResumeToForm,
-    successMessage: "職務経歴書を保存しました。PDF出力できます。",
+    successMessage: SUCCESS_MESSAGES.CAREER_SAVED,
     cacheKey: "career",
   });
+
+  /**
+   * 保存前バリデーション（項目バリデーション）のメッセージ。
+   * 保存/削除/PDF などの非同期処理の成否はトーストで通知するが、
+   * 入力エラーは該当フィールドのフォーカス・赤枠とセットでフォーム内にインライン表示する。
+   */
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const { items: techStackOptions, loading: techLoading } = useTechnologyStacks();
   const { items: qualificationOptions, loading: qualLoading } = useQualifications();
@@ -105,9 +111,14 @@ export function CareerResumeForm() {
     getPdfBlobUrl: getCareerResumePdfBlobUrl,
   });
 
-  /** PDF アクションまたはフォーム保存のエラー・成功メッセージを統合して表示する */
-  const error = pdfError ?? formError ?? null;
-  const success = pdfSuccess ?? formSuccess;
+  // PDF アクションとフォーム保存/削除の成否を、チャンネルごとに独立してトーストで通知する。
+  // pdf と form を `??` で統合すると、片方の値が残っている間にもう片方が更新されても
+  // 統合値が変化せずトーストが出ないため、それぞれ個別に橋渡しする。
+  // 成功は自動消去、失敗は手動クローズ（ブリッジ内で variant 別に制御）。
+  useMessageToast(formSuccess, "success");
+  useMessageToast(formError, "error");
+  useMessageToast(pdfSuccess, "success");
+  useMessageToast(pdfError, "error");
 
   /** Skeleton 表示・入力ロックの統合フラグ */
   const formLocked = loading;
@@ -130,6 +141,7 @@ export function CareerResumeForm() {
   const setFormAndClearFocus = useCallback<Dispatch<SetStateAction<CareerFormState>>>(
     (action) => {
       setFocusTarget(null);
+      setValidationError(null);
       setForm(action);
     },
     [setForm],
@@ -137,6 +149,7 @@ export function CareerResumeForm() {
 
   const onChangeField = (key: CareerTextFieldKey, value: string) => {
     setFocusTarget(null);
+    setValidationError(null);
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -145,12 +158,12 @@ export function CareerResumeForm() {
     // 保存前にフォーム全体を検証し、最初のエラーフィールドへフォーカスする。
     const validation = validateCareerForm(form);
     if (validation) {
-      setError(validation.message);
-      setSuccess(null);
+      setValidationError(validation.message);
       focusNonceRef.current += 1;
       setFocusTarget({ locator: validation.locator, nonce: focusNonceRef.current });
       return;
     }
+    setValidationError(null);
     setFocusTarget(null);
     // 変更が無ければ確認を挟まずそのまま保存。変更があれば確認ダイアログを開く。
     if (changes.length === 0) {
@@ -221,7 +234,7 @@ export function CareerResumeForm() {
             <button
               type="button"
               onClick={() =>
-                resumeId && onDownloadPdf(resumeId, "職務経歴書PDFをダウンロードしました。")
+                resumeId && onDownloadPdf(resumeId, SUCCESS_MESSAGES.CAREER_PDF_DOWNLOADED)
               }
               disabled={!resumeId || downloading || formLocked}
             >
@@ -258,8 +271,7 @@ export function CareerResumeForm() {
             >
               {/* 左: 入力フォーム（選択中フィールドは緑枠 = import-assign-form の :focus CSS） */}
               <div className={`${shared.form} import-assign-form ${layout.formCol}`}>
-                {error && <p className={shared.error}>{error}</p>}
-                {success && <p className={shared.success}>{success}</p>}
+                {validationError && <p className={shared.error}>{validationError}</p>}
 
                 {/* 基本情報: 氏名・職務要約 */}
                 <CareerBasicInfoSection

@@ -1,6 +1,6 @@
 /**
  * テスト用レンダリングヘルパー。
- * Redux Provider と MemoryRouter をラップして提供する。
+ * Redux Provider・MemoryRouter・ToastProvider をラップして提供する。
  */
 import { type ReactElement } from "react";
 import { render, type RenderOptions } from "@testing-library/react";
@@ -8,6 +8,7 @@ import { Provider } from "react-redux";
 import { MemoryRouter, type MemoryRouterProps } from "react-router-dom";
 import { configureStore } from "@reduxjs/toolkit";
 import formCacheReducer from "../store/formCacheSlice";
+import { ToastProvider } from "../components/ui/toast";
 
 interface Options extends Omit<RenderOptions, "wrapper"> {
   /** 文字列パス、または state を含む location オブジェクトを渡せる */
@@ -25,7 +26,9 @@ export function renderWithProviders(
   function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <Provider store={store}>
-        <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>
+        <MemoryRouter initialEntries={initialEntries}>
+          <ToastProvider>{children}</ToastProvider>
+        </MemoryRouter>
       </Provider>
     );
   }

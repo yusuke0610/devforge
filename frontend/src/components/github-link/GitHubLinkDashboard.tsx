@@ -8,9 +8,9 @@ import {
   toAppError,
   type GitHubLinkResponse,
 } from "../../api";
-import { ErrorToast } from "../ui/ErrorToast";
 import { InlineSpinner } from "../ui/InlineSpinner";
 import { AsyncTaskLoading } from "../ui/AsyncTaskLoading";
+import { useAppErrorToast } from "../ui/toast";
 import { FALLBACK_MESSAGES, LOADING_MESSAGES, UI_MESSAGES } from "../../constants/messages";
 import { useAsyncTaskPage } from "../../hooks/useAsyncTaskPage";
 import { ContributionHeatmap } from "./ContributionHeatmap";
@@ -47,6 +47,9 @@ export function GitHubLinkDashboard() {
       checkStatus: getGitHubLinkCacheStatus,
       fetchProgress: getGitHubLinkProgress,
     });
+
+  // 連携実行・ポーリング失敗のエラー（AppErrorState）をトーストで通知する（回復アクション付き・手動クローズ）。
+  useAppErrorToast(error);
 
   /**
    * GitHub 連携を実行する（非同期バックグラウンド）。
@@ -89,15 +92,6 @@ export function GitHubLinkDashboard() {
     // ── 入力 / 結果フェーズ ─────────────────────────────────────────
     return (
       <div className={styles.dashboard}>
-        {error && (
-          <ErrorToast
-            code={error.code}
-            message={error.message}
-            action={error.action}
-            errorId={error.errorId}
-          />
-        )}
-
         {!result ? (
           <div className={styles.emptyState}>
             <p>{UI_MESSAGES.GITHUB_LINK_EMPTY}</p>
