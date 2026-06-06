@@ -26,8 +26,10 @@
 }
 
 .success {
+  /* 正常系の背景はティントを付けず、テーマの背景色（ライト/ダーク）をそのまま使う。
+     success である識別は枠線の緑ティントで担う。 */
   border-color: color-mix(in srgb, var(--success) 32%, var(--border));
-  background: color-mix(in srgb, var(--success) 10%, var(--bg-card));
+  background: var(--bg-card);
 }
 
 .error {
