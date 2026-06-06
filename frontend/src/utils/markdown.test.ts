@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { renderMarkdown } from "./markdown";
+import { renderMarkdown, markdownToPlainText } from "./markdown";
 
 describe("renderMarkdown", () => {
   it("空文字は空文字を返す", () => {
@@ -24,5 +24,29 @@ describe("renderMarkdown", () => {
   it("onerror 属性付きの img を無害化する（XSS 防止）", () => {
     const html = renderMarkdown('<img src="x" onerror="alert(1)">');
     expect(html).not.toContain("onerror");
+  });
+});
+
+describe("markdownToPlainText", () => {
+  it("空文字は空文字を返す", () => {
+    expect(markdownToPlainText("")).toBe("");
+  });
+
+  it("太字記法 ** を除いた表示テキストを返す", () => {
+    expect(markdownToPlainText("**太字**").trim()).toBe("太字");
+  });
+
+  it("見出し # やリスト記号 - は除外される", () => {
+    const text = markdownToPlainText("# 見出し\n\n- 項目1\n- 項目2");
+    expect(text).toContain("見出し");
+    expect(text).toContain("項目1");
+    expect(text).not.toContain("#");
+    expect(text).not.toContain("- ");
+  });
+
+  it("リンク記法はテキストのみ残り URL は除外される", () => {
+    const text = markdownToPlainText("[公式サイト](https://example.com)");
+    expect(text).toContain("公式サイト");
+    expect(text).not.toContain("example.com");
   });
 });
