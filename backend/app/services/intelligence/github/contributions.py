@@ -69,7 +69,7 @@ query($login: String!, $from: DateTime!, $to: DateTime!) {
 async def fetch_all_contribution_calendars(
     username: str,
     token: str,
-) -> list[ContributionCalendar]:
+) -> tuple[bool, list[ContributionCalendar]]:
     """貢献のある全年のコントリビューションカレンダーを新しい年順で取得する。
 
     取得に失敗した場合（認証エラー・レート制限・ネットワーク障害・GraphQL エラー等）は
@@ -81,7 +81,10 @@ async def fetch_all_contribution_calendars(
         token: 認証用アクセストークン（復号済み）。
 
     Returns:
-        年ごとの ``ContributionCalendar`` のリスト（降順）。全失敗時は空配列。
+        ``(success, calendars)`` のタプル。``success`` は年一覧の取得に成功したか。
+        認証エラー等で取得自体に失敗したときのみ ``False``。貢献年が無いだけの場合は
+        ``True`` で空配列を返す（呼び出し側が「失敗」と「貢献なし」を区別できるようにする）。
+        ``calendars`` は年ごとの ``ContributionCalendar``（降順）。
     """
     headers = {
         "Authorization": f"Bearer {token}",
@@ -89,8 +92,9 @@ async def fetch_all_contribution_calendars(
     }
     async with httpx.AsyncClient(timeout=30.0) as client:
         years = await _fetch_contribution_years(client, username, headers)
-        if not years:
-            return []
+        if years is None:
+            # 年一覧の取得自体に失敗（貢献ゼロとは区別する）
+            return False, []
 
         calendars: list[ContributionCalendar] = []
         # 新しい年順（降順）で取得する
@@ -98,7 +102,7 @@ async def fetch_all_contribution_calendars(
             calendar = await _fetch_calendar_for_year(client, username, year, headers)
             if calendar is not None:
                 calendars.append(calendar)
-        return calendars
+        return True, calendars
 
 
 async def _post_graphql(
@@ -156,17 +160,21 @@ async def _fetch_contribution_years(
     client: httpx.AsyncClient,
     username: str,
     headers: dict,
-) -> list[int]:
-    """貢献のある年の一覧を取得する。失敗時は空配列を返す。"""
+) -> Optional[list[int]]:
+    """貢献のある年の一覧を取得する。
+
+    取得失敗（認証エラー・ネットワーク障害・応答破損）時は ``None`` を返し、
+    貢献年が 1 件も無い正常応答とは区別する。成功時は年のリスト（空もあり得る）。
+    """
     user = await _post_graphql(
         client, headers, {"login": username}, _YEARS_QUERY, username
     )
     if not user:
-        return []
+        return None
     years = (user.get("contributionsCollection") or {}).get("contributionYears")
     if not isinstance(years, list):
         logger.warning("contributionYears が取得できない (username=%s)", username)
-        return []
+        return None
     return [y for y in years if isinstance(y, int)]
 
 

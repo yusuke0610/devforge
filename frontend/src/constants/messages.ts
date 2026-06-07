@@ -118,6 +118,31 @@ export const EXTERNAL_LINKS = {
   ISSUE_REPORT: "https://github.com/yusuke0610/devforge/issues",
 } as const;
 
+/** GitHub 連携ダッシュボード / コントリビューションヒートマップの UI 文言。 */
+export const GITHUB_LINK_MESSAGES = {
+  /** アクティビティ（ヒートマップ）セクションの見出し。 */
+  ACTIVITY_HEADING: "Activity",
+  /** 表示年セレクトの aria-label。 */
+  YEAR_SELECT_ARIA: "表示する年",
+  /** ヒートマップサマリーの最大連続日数ラベル。 */
+  LONGEST_STREAK_LABEL: "最大連続日数",
+} as const;
+
+/** 年セレクトの選択肢表記「N年」。 */
+export function yearLabel(year: number): string {
+  return `${year}年`;
+}
+
+/** ヒートマップサマリーの「N年のコントリビュート」ラベル。 */
+export function contributionSummaryLabel(year: number): string {
+  return `${year}年のコントリビュート`;
+}
+
+/** ヒートマップの aria 文言「N年のコントリビューション (合計 M)」。 */
+export function contributionAriaLabel(year: number, total: number): string {
+  return `${year}年のコントリビューション (合計 ${total})`;
+}
+
 /** ファイル取り込み補助（PDF / Markdown 原本上の選択 → 流し込み）UI の文言 */
 export const IMPORT_ASSIST_MESSAGES = {
   TITLE: "ファイルから下書きを取り込む",

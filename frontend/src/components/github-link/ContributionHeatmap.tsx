@@ -1,5 +1,10 @@
 import { useMemo } from "react";
 import type { ContributionCalendar, ContributionDay } from "../../api";
+import {
+  GITHUB_LINK_MESSAGES,
+  contributionAriaLabel,
+  contributionSummaryLabel,
+} from "../../constants/messages";
 import styles from "./ContributionHeatmap.module.css";
 
 const MONTH_NAMES = [
@@ -56,18 +61,18 @@ export function ContributionHeatmap({ calendar }: ContributionHeatmapProps) {
       <div className={styles.summary}>
         <div className={styles.statCard}>
           <div className={styles.statValue}>{calendar.total_contributions}</div>
-          <div className={styles.statLabel}>{calendar.year}年のコントリビュート</div>
+          <div className={styles.statLabel}>{contributionSummaryLabel(calendar.year)}</div>
         </div>
         <div className={styles.statCard}>
           <div className={styles.statValue}>{longestStreak}</div>
-          <div className={styles.statLabel}>最大連続日数</div>
+          <div className={styles.statLabel}>{GITHUB_LINK_MESSAGES.LONGEST_STREAK_LABEL}</div>
         </div>
       </div>
 
       <div
         className={styles.scroll}
         role="img"
-        aria-label={`${calendar.year}年のコントリビューション (合計 ${calendar.total_contributions})`}
+        aria-label={contributionAriaLabel(calendar.year, calendar.total_contributions)}
       >
         <div className={styles.monthRow}>
           {monthLabels.map((label, i) => (

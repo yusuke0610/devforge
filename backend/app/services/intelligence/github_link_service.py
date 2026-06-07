@@ -98,10 +98,13 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
 
     # コントリビューションカレンダー取得（補助処理: 失敗しても連携は継続）
     calendars: list = []
+    contribution_fetch_failed = False
     if token:
-        calendars = await fetch_all_contribution_calendars(
+        ok, calendars = await fetch_all_contribution_calendars(
             payload["github_username"], token
         )
+        # 取得失敗のときだけ警告対象にする（貢献年が無いだけなら警告しない）
+        contribution_fetch_failed = not ok
 
     # ステップ 3: スキル抽出（集計関数で一括処理）
     await set_progress(task_id, 3, _TOTAL_STEPS, "スキル集計中...")
@@ -126,10 +129,11 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
         cache.status = "completed"
         cache.error_message = None
         # コントリビューション取得失敗は連携自体を失敗させず警告として残す
-        # （token が無い場合は取得を試行していないため警告は出さない）
+        # （token が無い場合は取得を試行していないため警告は出さない。
+        #   貢献年がゼロで calendars が空でも、取得自体が成功なら警告しない）
         cache.warning_message = (
             get_error("github_link.contribution_fetch_failed")
-            if token and not calendars
+            if contribution_fetch_failed
             else None
         )
         cache.completed_at = _now()

@@ -138,7 +138,7 @@ class TestCollectRepos:
             patch(
                 "app.services.intelligence.github_collector.fetch_languages",
                 new_callable=AsyncMock,
-                return_value=languages or {"Python": 10000},
+                return_value=languages if languages is not None else {"Python": 10000},
             ),
         ):
             return _run(collect_repos("testuser"))

@@ -104,31 +104,37 @@ class TestFetchAllContributionCalendars:
             ]
         )
         with _patch_client(client):
-            calendars = _run(fetch_all_contribution_calendars("gh-user", "token123"))
+            ok, calendars = _run(fetch_all_contribution_calendars("gh-user", "token123"))
 
+        assert ok is True
         assert [c.year for c in calendars] == [2024, 2023]
         assert calendars[0].total_contributions == 42
         # NONE → 0, SECOND_QUARTILE → 2
         assert [d.level for d in calendars[0].weeks[0]] == [0, 2]
         assert calendars[1].total_contributions == 10
 
-    def test_no_years_returns_empty(self):
-        """contributionYears が空なら空配列を返すこと。"""
+    def test_no_years_returns_success_empty(self):
+        """contributionYears が空（貢献ゼロ）なら success=True で空配列を返すこと。
+
+        取得自体は成功しているため、呼び出し側で警告を立てさせない。
+        """
         client = _make_mock_client(post_responses=[(200, _years_payload([]))])
         with _patch_client(client):
-            calendars = _run(fetch_all_contribution_calendars("gh-user", "token123"))
+            ok, calendars = _run(fetch_all_contribution_calendars("gh-user", "token123"))
+        assert ok is True
         assert calendars == []
 
-    def test_years_query_graphql_error_returns_empty(self):
-        """年一覧取得が GraphQL エラーなら空配列を返すこと（例外を投げない）。"""
+    def test_years_query_graphql_error_returns_failure(self):
+        """年一覧取得が GraphQL エラーなら success=False・空配列を返すこと（例外を投げない）。"""
         payload = {"data": {"user": None}, "errors": [{"message": "Bad creds"}]}
         client = _make_mock_client(post_responses=[(200, payload)])
         with _patch_client(client):
-            calendars = _run(fetch_all_contribution_calendars("gh-user", "token123"))
+            ok, calendars = _run(fetch_all_contribution_calendars("gh-user", "token123"))
+        assert ok is False
         assert calendars == []
 
     def test_failed_year_is_skipped(self):
-        """一部の年の取得に失敗しても、成功した年だけを返すこと。"""
+        """一部の年の取得に失敗しても、成功した年だけを返すこと（success=True）。"""
         client = _make_mock_client(
             post_responses=[
                 (200, _years_payload([2023, 2024])),
@@ -137,14 +143,16 @@ class TestFetchAllContributionCalendars:
             ]
         )
         with _patch_client(client):
-            calendars = _run(fetch_all_contribution_calendars("gh-user", "token123"))
+            ok, calendars = _run(fetch_all_contribution_calendars("gh-user", "token123"))
+        assert ok is True
         assert [c.year for c in calendars] == [2024]
 
-    def test_network_error_returns_empty(self):
-        """ネットワーク障害でも例外を投げず空配列を返すこと（補助処理）。"""
+    def test_network_error_returns_failure(self):
+        """ネットワーク障害でも例外を投げず success=False・空配列を返すこと（補助処理）。"""
         client = _make_mock_client(post_side_effect=httpx.ConnectError("boom"))
         with _patch_client(client):
-            calendars = _run(fetch_all_contribution_calendars("gh-user", "token123"))
+            ok, calendars = _run(fetch_all_contribution_calendars("gh-user", "token123"))
+        assert ok is False
         assert calendars == []
 
 

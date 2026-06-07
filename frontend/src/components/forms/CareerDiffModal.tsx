@@ -109,7 +109,10 @@ export function CareerDiffModal({
     const doc = editedFrameRef.current?.contentDocument;
     if (!doc) return;
     const escaped = CSS.escape(fp);
+    // 削除項目は編集中ペインから消えており data-fp が無い（次要素が繰り上がって同じ
+    // パスを持つ）ため、まず injectRemovedPlaceholders が挿す削除スタブ（data-removed）を狙う。
     const target =
+      doc.querySelector(`[data-removed="${escaped}"]`) ??
       doc.querySelector(`[data-fp="${escaped}"]`) ??
       doc.querySelector(`[data-fp^="${escaped}."]`);
     target?.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -188,8 +191,12 @@ export function CareerDiffModal({
                     </button>
 
                     {/* 差分（変更点）。バッジ＋旧→新＋元に戻す。 */}
-                    {entry.changes.map((change) => (
-                      <div key={`${change.path.join("/")}:${change.kind}`} className={styles.entryDiff}>
+                    {/* 同一パスに複数の差分が並ぶ場合があるため index も key に含めて衝突を防ぐ。 */}
+                    {entry.changes.map((change, idx) => (
+                      <div
+                        key={`${change.path.join("/")}:${change.kind}:${idx}`}
+                        className={styles.entryDiff}
+                      >
                         <div className={styles.diffMain}>
                           <span className={`${styles.badge} ${styles[change.kind]}`}>
                             {KIND_LABEL[change.kind]}

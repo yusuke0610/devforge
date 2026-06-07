@@ -11,7 +11,13 @@ import {
 import { InlineSpinner } from "../ui/InlineSpinner";
 import { AsyncTaskLoading } from "../ui/AsyncTaskLoading";
 import { useAppErrorToast } from "../ui/toast";
-import { FALLBACK_MESSAGES, LOADING_MESSAGES, UI_MESSAGES } from "../../constants/messages";
+import {
+  FALLBACK_MESSAGES,
+  GITHUB_LINK_MESSAGES,
+  LOADING_MESSAGES,
+  UI_MESSAGES,
+  yearLabel,
+} from "../../constants/messages";
 import { useAsyncTaskPage } from "../../hooks/useAsyncTaskPage";
 import { ContributionHeatmap } from "./ContributionHeatmap";
 import { LanguageBar } from "./LanguageBar";
@@ -113,16 +119,16 @@ export function GitHubLinkDashboard() {
               return (
                 <div className={styles.section}>
                   <div className={styles.sectionHeader}>
-                    <h2>Activity</h2>
+                    <h2>{GITHUB_LINK_MESSAGES.ACTIVITY_HEADING}</h2>
                     <select
                       className={styles.yearSelect}
                       value={active.year}
                       onChange={(e) => setSelectedYear(Number(e.target.value))}
-                      aria-label="表示する年"
+                      aria-label={GITHUB_LINK_MESSAGES.YEAR_SELECT_ARIA}
                     >
                       {calendars.map((c) => (
                         <option key={c.year} value={c.year}>
-                          {c.year}年
+                          {yearLabel(c.year)}
                         </option>
                       ))}
                     </select>

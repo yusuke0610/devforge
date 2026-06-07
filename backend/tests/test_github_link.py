@@ -164,8 +164,10 @@ class TestSkillExtractor:
             )
         ]
         result = extract_skills(repos)
+        assert result.skills, "fixture が language/topic/description の各経路を発火させること"
         sources = {s.source for s in result.skills}
-        assert sources <= {"language", "topic", "description"}
+        # 3 経路すべてが発火し、かつそれ以外の source が混ざらないこと（撤去の取りこぼし検知）。
+        assert sources == {"language", "topic", "description"}
 
 
 # ── Intelligence Endpoint Tests ────────────────────────────────────────
