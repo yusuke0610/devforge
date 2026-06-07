@@ -29,9 +29,6 @@ class IntelligenceResult:
     unique_skills: int
     analyzed_at: str
     languages: Dict[str, int] = field(default_factory=dict)
-    detected_frameworks: Dict[str, int] = field(default_factory=dict)  # フレームワーク名 → 使用リポジトリ数
-    detected_devtools: Dict[str, int] = field(default_factory=dict)   # DevTools 名 → 使用リポジトリ数
-    detected_infras: Dict[str, int] = field(default_factory=dict)     # インフラツール名 → 使用リポジトリ数
 
 
 def aggregate_intelligence(username: str, repos: List[RepoData]) -> IntelligenceResult:
@@ -45,18 +42,6 @@ def aggregate_intelligence(username: str, repos: List[RepoData]) -> Intelligence
         for lang, byte_count in repo.languages.items():
             lang_totals[lang] += byte_count
 
-    # 全リポジトリのフレームワーク・DevTools・インフラをリポジトリ数でカウント
-    framework_counts: Dict[str, int] = defaultdict(int)
-    devtool_counts: Dict[str, int] = defaultdict(int)
-    infra_counts: Dict[str, int] = defaultdict(int)
-    for repo in repos:
-        for fw in repo.detected_frameworks:
-            framework_counts[fw] += 1
-        for dt in repo.detected_devtools:
-            devtool_counts[dt] += 1
-        for inf in repo.detected_infras:
-            infra_counts[inf] += 1
-
     extraction = extract_skills(repos)
 
     return IntelligenceResult(
@@ -65,9 +50,6 @@ def aggregate_intelligence(username: str, repos: List[RepoData]) -> Intelligence
         unique_skills=len(extraction.unique_skills),
         analyzed_at=datetime.now().isoformat(),
         languages=dict(lang_totals),
-        detected_frameworks=dict(framework_counts),
-        detected_devtools=dict(devtool_counts),
-        detected_infras=dict(infra_counts),
     )
 
 

@@ -37,11 +37,6 @@ class TestRunGithubAnalysis:
                 fork=False,
                 stargazers_count=0,
                 default_branch="main",
-                dependencies=[],
-                root_files=[],
-                detected_frameworks=[],
-                detected_devtools=[],
-                detected_infras=[],
             )
         ]
 
@@ -57,9 +52,9 @@ class TestRunGithubAnalysis:
                 return_value=repos,
             ),
             patch(
-                "app.services.intelligence.github_link_service.fetch_contribution_calendar",
+                "app.services.intelligence.github_link_service.fetch_all_contribution_calendars",
                 new_callable=AsyncMock,
-                return_value=None,
+                return_value=(True, []),
             ),
             patch(
                 "app.services.progress_service.set_progress",
@@ -103,10 +98,13 @@ class TestRunGithubAnalysis:
         repos = self._sample_repos()
         # コントリビューション取得が成功するケース。これにより新たな警告は出ず、
         # 前回の warning_message がクリアされることを純粋に検証できる。
-        calendar = ContributionCalendar(
-            total_contributions=7,
-            weeks=[[ContributionDay(date="2024-03-01", count=3, level=2)]],
-        )
+        calendars = [
+            ContributionCalendar(
+                year=2024,
+                total_contributions=7,
+                weeks=[[ContributionDay(date="2024-03-01", count=3, level=2)]],
+            )
+        ]
         sentinel_result = {
             "skills": [{"name": "Python", "score": 80}],
             "summary": "集計結果",
@@ -121,9 +119,9 @@ class TestRunGithubAnalysis:
                 return_value=repos,
             ),
             patch(
-                "app.services.intelligence.github_link_service.fetch_contribution_calendar",
+                "app.services.intelligence.github_link_service.fetch_all_contribution_calendars",
                 new_callable=AsyncMock,
-                return_value=calendar,
+                return_value=(True, calendars),
             ),
             patch("app.services.progress_service.set_progress", new_callable=AsyncMock),
             patch(
@@ -170,10 +168,13 @@ class TestRunGithubAnalysis:
 
         user, cache = self._make_user_and_cache(db_session, "calendar-user")
         repos = self._sample_repos()
-        calendar = ContributionCalendar(
-            total_contributions=7,
-            weeks=[[ContributionDay(date="2024-03-01", count=3, level=2)]],
-        )
+        calendars = [
+            ContributionCalendar(
+                year=2024,
+                total_contributions=7,
+                weeks=[[ContributionDay(date="2024-03-01", count=3, level=2)]],
+            )
+        ]
 
         with (
             patch(
@@ -182,9 +183,9 @@ class TestRunGithubAnalysis:
                 return_value=repos,
             ),
             patch(
-                "app.services.intelligence.github_link_service.fetch_contribution_calendar",
+                "app.services.intelligence.github_link_service.fetch_all_contribution_calendars",
                 new_callable=AsyncMock,
-                return_value=calendar,
+                return_value=(True, calendars),
             ),
             patch("app.services.progress_service.set_progress", new_callable=AsyncMock),
             patch(
@@ -207,14 +208,15 @@ class TestRunGithubAnalysis:
         db_session.refresh(cache)
         assert cache.status == "completed"
         assert cache.result is not None
-        assert cache.result["contribution_calendar"]["total_contributions"] == 7
-        assert cache.result["contribution_calendar"]["weeks"][0][0]["level"] == 2
+        assert cache.result["contribution_calendars"][0]["year"] == 2024
+        assert cache.result["contribution_calendars"][0]["total_contributions"] == 7
+        assert cache.result["contribution_calendars"][0]["weeks"][0][0]["level"] == 2
         assert cache.warning_message is None
 
     def test_contribution_fetch_failure_sets_warning(
         self, db_session: Session, session_factory
     ):
-        """コントリビューション取得失敗（None）でも連携は completed のままで、
+        """コントリビューション取得失敗（success=False）でも連携は completed のままで、
         warning_message が立つこと。"""
         user, cache = self._make_user_and_cache(db_session, "warn-user")
         repos = self._sample_repos()
@@ -226,9 +228,9 @@ class TestRunGithubAnalysis:
                 return_value=repos,
             ),
             patch(
-                "app.services.intelligence.github_link_service.fetch_contribution_calendar",
+                "app.services.intelligence.github_link_service.fetch_all_contribution_calendars",
                 new_callable=AsyncMock,
-                return_value=None,
+                return_value=(False, []),
             ),
             patch("app.services.progress_service.set_progress", new_callable=AsyncMock),
             patch(
@@ -251,8 +253,50 @@ class TestRunGithubAnalysis:
         db_session.refresh(cache)
         assert cache.status == "completed"
         assert cache.result is not None
-        assert cache.result["contribution_calendar"] is None
+        assert cache.result["contribution_calendars"] == []
         assert cache.warning_message is not None
+
+    def test_no_contributions_does_not_warn(
+        self, db_session: Session, session_factory
+    ):
+        """取得成功でカレンダーが空（貢献年ゼロ）なら、warning_message を立てないこと。"""
+        user, cache = self._make_user_and_cache(db_session, "no-contrib-user")
+        repos = self._sample_repos()
+
+        with (
+            patch(
+                "app.services.intelligence.github_link_service.collect_repos",
+                new_callable=AsyncMock,
+                return_value=repos,
+            ),
+            patch(
+                "app.services.intelligence.github_link_service.fetch_all_contribution_calendars",
+                new_callable=AsyncMock,
+                return_value=(True, []),
+            ),
+            patch("app.services.progress_service.set_progress", new_callable=AsyncMock),
+            patch(
+                "app.services.intelligence.github_link_service.decrypt_field",
+                return_value="token123",
+            ),
+        ):
+            _run(
+                _run_github_link(
+                    session_factory,
+                    {
+                        "user_id": user.id,
+                        "github_username": "gh-user",
+                        "github_token": "encrypted_token",
+                        "include_forks": False,
+                    },
+                )
+            )
+
+        db_session.refresh(cache)
+        assert cache.status == "completed"
+        assert cache.result is not None
+        assert cache.result["contribution_calendars"] == []
+        assert cache.warning_message is None
 
     def test_status_transitions_to_processing_at_start(
         self, db_session: Session, session_factory

@@ -14,7 +14,6 @@ import { SUCCESS_MESSAGES, UI_MESSAGES } from "../../constants/messages";
 import { createInitialCareerForm, mapCareerResumeToForm } from "../../formMappers";
 import { useCareerDirty } from "../../hooks/career/useCareerDirty";
 import { useImportPanelLayout } from "../../hooks/career/useImportPanelLayout";
-import { useProofread } from "../../hooks/career/useProofread";
 import { useResumeDiffPreview } from "../../hooks/career/useResumeDiffPreview";
 import { useResumeImportAssist } from "../../hooks/career/useResumeImportAssist";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
@@ -103,9 +102,6 @@ export function CareerResumeForm() {
 
   /** 左右 diff モーダル用の整形 HTML プレビュー（保存済み / 編集中）。開いている間だけ取得する。 */
   const preview = useResumeDiffPreview(form, baseline, showSaveConfirm);
-
-  /** 保存確認ダイアログが開いている間、編集中フォームを校正する（誤字脱字・表記ゆれ）。 */
-  const proofread = useProofread(form, showSaveConfirm);
 
   const {
     downloading,
@@ -226,9 +222,6 @@ export function CareerResumeForm() {
           loading={preview.loading}
           error={preview.error}
           saving={saving}
-          issues={proofread.issues}
-          proofreading={proofread.proofreading}
-          proofreadError={proofread.error}
           onConfirm={handleConfirmSave}
           onCancel={() => setShowSaveConfirm(false)}
           onRollback={(change) => setForm((prev) => change.rollback(prev))}

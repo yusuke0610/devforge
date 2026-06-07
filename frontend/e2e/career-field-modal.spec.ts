@@ -70,7 +70,8 @@ test.describe("職務経歴書 自己PR・職務要約モーダル", () => {
     await expect(textarea).toHaveCount(0);
 
     // フォーム側プレビューに編集値が反映されている（即時に formCache へ反映）。
-    await expect(page.getByText("新しい 自己PR 本文")).toBeVisible();
+    // プレビューは Markdown 記法除去後の先頭10文字まで（超過分は省略記号）。
+    await expect(page.getByText("新しい 自己PR 本…", { exact: true })).toBeVisible();
   });
 
   test("必須未入力で保存すると職務要約モーダルが自動で開く", async ({ page }) => {

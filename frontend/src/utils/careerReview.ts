@@ -1,15 +1,13 @@
 /**
- * 保存確認ダイアログ右サイドバーの「レビュー項目」を組み立てる純関数。
+ * 保存確認ダイアログ右サイドバーの「変更点リスト」を組み立てる純関数。
  *
- * 変更点（差分）と校正指摘を**フィールド単位で1本のリストに統合**し、PDF レイアウトと
- * 同じ縦順（氏名 → 職務要約 → 職務経歴 → 資格 → 自己PR、各コンテナ内も PDF 準拠）に並べる。
+ * 変更点（差分）を**フィールド単位でまとめ**、PDF レイアウトと同じ縦順
+ * （氏名 → 職務要約 → 職務経歴 → 資格 → 自己PR、各コンテナ内も PDF 準拠）に並べる。
  * これにより左右ペイン（PDF）とサイドバーの並びが一致し、上から順に突合できる。
  */
-import { groupIssuesByField } from "../proofread/issueFormat";
-import type { ProofreadIssue } from "../proofread/types";
 import type { CareerChange } from "./careerDiff";
 
-/** 1 フィールド分のレビュー項目（差分と校正をまとめて持つ）。 */
+/** 1 フィールド分のレビュー項目（フィールドの差分をまとめて持つ）。 */
 export type ReviewEntry = {
   /** フィールドのドット区切りパス（スクロール・key 用）。 */
   path: string;
@@ -17,8 +15,6 @@ export type ReviewEntry = {
   label: string;
   /** このフィールドの差分（通常 0〜1 件）。 */
   changes: CareerChange[];
-  /** このフィールドの校正指摘。 */
-  issues: ProofreadIssue[];
 };
 
 /** トップレベル項目の並び（PDF レイアウト順）。 */
@@ -93,19 +89,16 @@ export function comparePaths(a: string, b: string): number {
 }
 
 /**
- * 差分と校正指摘をフィールド単位に統合し、PDF レイアウト順に並べたレビュー項目を返す。
- * 同一パスの差分・校正は 1 エントリにまとまる。差分のみ・校正のみの項目もそれぞれ 1 エントリ。
+ * 差分をフィールド単位にまとめ、PDF レイアウト順に並べたレビュー項目を返す。
+ * 同一パスの差分は 1 エントリにまとまる。
  */
-export function buildReviewEntries(
-  changes: CareerChange[],
-  issues: ProofreadIssue[],
-): ReviewEntry[] {
+export function buildReviewEntries(changes: CareerChange[]): ReviewEntry[] {
   const byPath = new Map<string, ReviewEntry>();
 
   const getOrCreate = (path: string, label: string): ReviewEntry => {
     let entry = byPath.get(path);
     if (!entry) {
-      entry = { path, label, changes: [], issues: [] };
+      entry = { path, label, changes: [] };
       byPath.set(path, entry);
     }
     return entry;
@@ -113,9 +106,6 @@ export function buildReviewEntries(
 
   for (const change of changes) {
     getOrCreate(change.path.join("."), change.label).changes.push(change);
-  }
-  for (const group of groupIssuesByField(issues)) {
-    getOrCreate(group.fieldId, group.fieldLabel).issues.push(...group.issues);
   }
 
   return [...byPath.values()].sort((a, b) => comparePaths(a.path, b.path));

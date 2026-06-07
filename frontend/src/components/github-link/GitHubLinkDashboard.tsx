@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import {
   runGitHubLink,
@@ -11,11 +11,16 @@ import {
 import { InlineSpinner } from "../ui/InlineSpinner";
 import { AsyncTaskLoading } from "../ui/AsyncTaskLoading";
 import { useAppErrorToast } from "../ui/toast";
-import { FALLBACK_MESSAGES, LOADING_MESSAGES, UI_MESSAGES } from "../../constants/messages";
+import {
+  FALLBACK_MESSAGES,
+  GITHUB_LINK_MESSAGES,
+  LOADING_MESSAGES,
+  UI_MESSAGES,
+  yearLabel,
+} from "../../constants/messages";
 import { useAsyncTaskPage } from "../../hooks/useAsyncTaskPage";
 import { ContributionHeatmap } from "./ContributionHeatmap";
 import { LanguageBar } from "./LanguageBar";
-import { TechBar } from "./TechBar";
 import shared from "../../styles/shared.module.css";
 import styles from "./GitHubLinkDashboard.module.css";
 
@@ -36,6 +41,8 @@ type GitHubLinkNavState = {
 export function GitHubLinkDashboard() {
   const location = useLocation();
   const handledNonceRef = useRef<number | undefined>(undefined);
+  // ヒートマップで表示中の年（null のときは最新年=配列先頭を表示）
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
 
   const { phase, result, error, setError, transitionToPolling } =
     useAsyncTaskPage<GitHubLinkResponse>({
@@ -102,13 +109,34 @@ export function GitHubLinkDashboard() {
               <h1>{result.username} の連携結果</h1>
             </div>
 
-            {/* アクティビティ（コントリビューションヒートマップ） */}
-            {result.contribution_calendar && (
-              <div className={styles.section}>
-                <h2>Activity</h2>
-                <ContributionHeatmap calendar={result.contribution_calendar} />
-              </div>
-            )}
+            {/* アクティビティ（年ごとのコントリビューションヒートマップ） */}
+            {(() => {
+              const calendars = result.contribution_calendars ?? [];
+              if (calendars.length === 0) return null;
+              // selectedYear が未選択 or 該当年が無い場合は先頭（最新年）にフォールバック
+              const active =
+                calendars.find((c) => c.year === selectedYear) ?? calendars[0];
+              return (
+                <div className={styles.section}>
+                  <div className={styles.sectionHeader}>
+                    <h2>{GITHUB_LINK_MESSAGES.ACTIVITY_HEADING}</h2>
+                    <select
+                      className={styles.yearSelect}
+                      value={active.year}
+                      onChange={(e) => setSelectedYear(Number(e.target.value))}
+                      aria-label={GITHUB_LINK_MESSAGES.YEAR_SELECT_ARIA}
+                    >
+                      {calendars.map((c) => (
+                        <option key={c.year} value={c.year}>
+                          {yearLabel(c.year)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <ContributionHeatmap calendar={active} />
+                </div>
+              );
+            })()}
 
             {/* 概要 */}
             <div className={styles.section}>
@@ -132,36 +160,6 @@ export function GitHubLinkDashboard() {
                 <LanguageBar languages={result.languages} />
               </div>
             )}
-
-            {/* 検出フレームワーク */}
-            {result.detected_frameworks &&
-              Object.keys(result.detected_frameworks).length > 0 && (
-                <div className={styles.section}>
-                  <h2>Frameworks</h2>
-                  <TechBar
-                    techs={result.detected_frameworks}
-                    ariaLabel="検出フレームワーク一覧"
-                  />
-                </div>
-              )}
-
-            {/* DevTools */}
-            {result.detected_devtools &&
-              Object.keys(result.detected_devtools).length > 0 && (
-                <div className={styles.section}>
-                  <h2>DevTools</h2>
-                  <TechBar techs={result.detected_devtools} />
-                </div>
-              )}
-
-            {/* インフラ */}
-            {result.detected_infras &&
-              Object.keys(result.detected_infras).length > 0 && (
-                <div className={styles.section}>
-                  <h2>Infra</h2>
-                  <TechBar techs={result.detected_infras} />
-                </div>
-              )}
           </>
         )}
       </div>

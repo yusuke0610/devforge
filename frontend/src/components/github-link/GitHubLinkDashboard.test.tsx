@@ -1,4 +1,5 @@
 import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server } from "../../test/mswServer";
@@ -78,46 +79,32 @@ describe("GitHubLinkDashboard", () => {
     expect(screen.getByText("リポジトリ")).toBeInTheDocument();
   });
 
-  it("コントリビューションカレンダーがあると Activity ヒートマップが表示される", async () => {
+  it("コントリビューションカレンダーがあると Activity ヒートマップが最新年で表示される", async () => {
     renderPage();
 
     await waitFor(() => {
       expect(screen.getByText("Activity")).toBeInTheDocument();
     });
-    expect(screen.getByText("年間コントリビュート")).toBeInTheDocument();
+    // 配列先頭（最新年=2025）がデフォルト表示される
+    expect(screen.getByText("2025年のコントリビュート")).toBeInTheDocument();
     expect(screen.getByText("123")).toBeInTheDocument();
   });
 
-  it("検出フレームワークがあるとき Frameworks セクションにバーが表示される", async () => {
+  it("年セレクタで年を切り替えるとヒートマップの集計が切り替わる", async () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("Frameworks")).toBeInTheDocument();
+      expect(screen.getByText("Activity")).toBeInTheDocument();
     });
-    expect(screen.getByText("React")).toBeInTheDocument();
-    expect(screen.getByText("FastAPI")).toBeInTheDocument();
+
+    const select = screen.getByRole("combobox", { name: "表示する年" });
+    await userEvent.selectOptions(select, "2024");
+
+    expect(screen.getByText("2024年のコントリビュート")).toBeInTheDocument();
+    expect(screen.getByText("88")).toBeInTheDocument();
   });
 
-  it("DevTools があるとき DevTools セクションが表示される", async () => {
-    renderPage();
-
-    await waitFor(() => {
-      expect(screen.getByText("DevTools")).toBeInTheDocument();
-    });
-    expect(screen.getByText("Docker")).toBeInTheDocument();
-    expect(screen.getByText("GitHub Actions")).toBeInTheDocument();
-  });
-
-  it("Infra があるとき Infra セクションが表示される", async () => {
-    renderPage();
-
-    await waitFor(() => {
-      expect(screen.getByText("Infra")).toBeInTheDocument();
-    });
-    expect(screen.getByText("Terraform")).toBeInTheDocument();
-  });
-
-  it("検出フレームワークが空のとき Frameworks セクションが描画されない", async () => {
+  it("コントリビューションカレンダーが空のとき Activity セクションが描画されない", async () => {
     server.use(
       http.get("*/api/github-link/cache", () =>
         HttpResponse.json({
@@ -128,9 +115,7 @@ describe("GitHubLinkDashboard", () => {
             unique_skills: 0,
             analyzed_at: "2026-01-01T00:00:00Z",
             languages: { TypeScript: 100 },
-            detected_frameworks: {},
-            detected_devtools: {},
-            detected_infras: {},
+            contribution_calendars: [],
           },
         }),
       ),
@@ -143,7 +128,7 @@ describe("GitHubLinkDashboard", () => {
         screen.getByText("test-user-001 の連携結果"),
       ).toBeInTheDocument();
     });
-    expect(screen.queryByText("Frameworks")).not.toBeInTheDocument();
+    expect(screen.queryByText("Activity")).not.toBeInTheDocument();
   });
 
   it("サイドバーからの連携実行(runNonce)でポーリング画面に遷移する", async () => {

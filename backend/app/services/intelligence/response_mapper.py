@@ -12,7 +12,4 @@ def map_pipeline_result(result: IntelligenceResult) -> GitHubLinkResponse:
         unique_skills=result.unique_skills,
         analyzed_at=result.analyzed_at,
         languages=result.languages,
-        detected_frameworks=result.detected_frameworks,
-        detected_devtools=result.detected_devtools,
-        detected_infras=result.detected_infras,
     )

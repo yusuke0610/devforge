@@ -54,16 +54,9 @@ function matchKind(nodePath: string, map: Map<string, ChangeKind>): ChangeKind |
  *
  * 変更が無ければ sanitize のみ行う。`dangerouslySetInnerHTML` には渡さず、
  * iframe の `srcDoc` に埋め込む前提（呼び出し側で隔離）。
- *
- * `proofreadFieldIds` を渡すと、その data-fp に一致するノードへ校正マーク（青波線）の
- * クラス `diff-proofread` を付ける。編集中ペインで「校正指摘のあるフィールド」を示す用途。
  */
-export function annotateHtml(
-  html: string,
-  map: Map<string, ChangeKind>,
-  proofreadFieldIds: Set<string> = new Set(),
-): string {
-  if (map.size === 0 && proofreadFieldIds.size === 0) return DOMPurify.sanitize(html);
+export function annotateHtml(html: string, map: Map<string, ChangeKind>): string {
+  if (map.size === 0) return DOMPurify.sanitize(html);
 
   const doc = new DOMParser().parseFromString(html, "text/html");
   doc.body.querySelectorAll("[data-fp]").forEach((node) => {
@@ -73,10 +66,6 @@ export function annotateHtml(
     if (kind) {
       node.classList.add("diff-mark", KIND_CLASS[kind]);
     }
-    // 校正指摘のあるフィールドは青波線（差分の背景色と重ねても潰れない）。
-    if (proofreadFieldIds.has(fp)) {
-      node.classList.add("diff-proofread");
-    }
   });
   // DOMPurify は既定で data-* 属性・class を保持する（ALLOW_DATA_ATTR=true）。
   return DOMPurify.sanitize(doc.body.innerHTML);
@@ -85,14 +74,6 @@ export function annotateHtml(
 /** 項目（data-unit）配下に変更があるか（matchKind と同じ双方向ルール）。 */
 function unitChanged(unitPath: string, map: Map<string, ChangeKind>): boolean {
   return matchKind(unitPath, map) !== null;
-}
-
-/** 項目（data-unit）配下に校正指摘のあるフィールドが含まれるか。 */
-function unitHasProofread(unitPath: string, proofreadFieldIds: Set<string>): boolean {
-  for (const fp of proofreadFieldIds) {
-    if (fp === unitPath || fp.startsWith(`${unitPath}.`)) return true;
-  }
-  return false;
 }
 
 /**
@@ -197,29 +178,22 @@ export function injectRemovedPlaceholders(html: string, changes: CareerChange[])
  * - `<details>` はネイティブの開閉なので、スクリプト無効の sandbox iframe 内でも展開できる。
  *
  * 変更が無ければ（map 空）何もしない。annotateHtml の後段に適用する前提。
- *
- * `proofreadFieldIds` を渡すと、校正指摘を含む項目は（差分が無くても）畳まずに残す
- * （編集中ペインで青マークが折りたたみに隠れないようにする）。
  */
-export function foldUnchanged(
-  html: string,
-  map: Map<string, ChangeKind>,
-  proofreadFieldIds: Set<string> = new Set(),
-): string {
+export function foldUnchanged(html: string, map: Map<string, ChangeKind>): string {
   if (map.size === 0) return html;
 
   const doc = new DOMParser().parseFromString(html, "text/html");
   const units = Array.from(doc.body.querySelectorAll<HTMLElement>("[data-unit]"));
 
-  // 畳み根: 自身が未変更 かつ 校正指摘も無い かつ 最も近い祖先 unit が「変更あり or 不在」のもの。
+  // 畳み根: 自身が未変更 かつ 最も近い祖先 unit が「変更あり or 不在」のもの。
   const collapseRoots = new Set<Element>();
   for (const u of units) {
     const path = u.getAttribute("data-unit");
-    if (!path || unitChanged(path, map) || unitHasProofread(path, proofreadFieldIds)) continue;
+    if (!path || unitChanged(path, map)) continue;
     const parentUnit = u.parentElement?.closest<HTMLElement>("[data-unit]");
     if (parentUnit) {
       const parentPath = parentUnit.getAttribute("data-unit");
-      if (parentPath && !unitChanged(parentPath, map) && !unitHasProofread(parentPath, proofreadFieldIds)) {
+      if (parentPath && !unitChanged(parentPath, map)) {
         continue; // 祖先ごと畳まれる
       }
     }

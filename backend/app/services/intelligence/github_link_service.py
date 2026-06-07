@@ -17,7 +17,7 @@ from ...models import GitHubLinkCache
 from ..progress_service import set_progress
 from ..tasks.exceptions import NonRetryableError
 from ..tasks.handlers.base import SessionFactory
-from .github.contributions import fetch_contribution_calendar
+from .github.contributions import fetch_all_contribution_calendars
 from .github_collector import GitHubUserNotFoundError, collect_repos
 from .pipeline import aggregate_intelligence
 from .response_mapper import map_pipeline_result
@@ -97,16 +97,21 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
         raise exc
 
     # コントリビューションカレンダー取得（補助処理: 失敗しても連携は継続）
-    calendar = None
+    calendars: list = []
+    contribution_fetch_failed = False
     if token:
-        calendar = await fetch_contribution_calendar(payload["github_username"], token)
+        ok, calendars = await fetch_all_contribution_calendars(
+            payload["github_username"], token
+        )
+        # 取得失敗のときだけ警告対象にする（貢献年が無いだけなら警告しない）
+        contribution_fetch_failed = not ok
 
     # ステップ 3: スキル抽出（集計関数で一括処理）
     await set_progress(task_id, 3, _TOTAL_STEPS, "スキル集計中...")
     result = aggregate_intelligence(payload["github_username"], repos)
 
     response = map_pipeline_result(result)
-    response.contribution_calendar = calendar
+    response.contribution_calendars = calendars
     result_dict = response.model_dump()
 
     # ── フェーズC: 結果書き戻し（新セッション）─────────────────────────────
@@ -124,10 +129,11 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
         cache.status = "completed"
         cache.error_message = None
         # コントリビューション取得失敗は連携自体を失敗させず警告として残す
-        # （token が無い場合は取得を試行していないため警告は出さない）
+        # （token が無い場合は取得を試行していないため警告は出さない。
+        #   貢献年がゼロで calendars が空でも、取得自体が成功なら警告しない）
         cache.warning_message = (
             get_error("github_link.contribution_fetch_failed")
-            if token and calendar is None
+            if contribution_fetch_failed
             else None
         )
         cache.completed_at = _now()

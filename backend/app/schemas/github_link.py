@@ -1,6 +1,6 @@
 """GitHub 連携 API 用の Pydantic スキーマ。"""
 
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -24,8 +24,9 @@ class ContributionDay(BaseModel):
 
 
 class ContributionCalendar(BaseModel):
-    """直近1年のコントリビューションカレンダー（GitHub の緑の四角）。"""
+    """1年分のコントリビューションカレンダー（GitHub の緑の四角）。"""
 
+    year: int = Field(description="このカレンダーが対象とする西暦年")
     total_contributions: int = Field(description="期間内のコントリビューション総数")
     weeks: list[list[ContributionDay]] = Field(
         default_factory=list,
@@ -42,21 +43,9 @@ class GitHubLinkResponse(BaseModel):
         default_factory=dict,
         description="言語ごとのバイト数（GitHub linguist ベース）",
     )
-    detected_frameworks: Dict[str, int] = Field(
-        default_factory=dict,
-        description="依存関係から検出したフレームワーク名 → 使用リポジトリ数",
-    )
-    detected_devtools: Dict[str, int] = Field(
-        default_factory=dict,
-        description="ルートファイルから検出した DevTools 名 → 使用リポジトリ数",
-    )
-    detected_infras: Dict[str, int] = Field(
-        default_factory=dict,
-        description="ルートファイルから検出したインフラツール名 → 使用リポジトリ数",
-    )
-    contribution_calendar: Optional[ContributionCalendar] = Field(
-        default=None,
-        description="直近1年のコントリビューションカレンダー（取得失敗時は None）",
+    contribution_calendars: List[ContributionCalendar] = Field(
+        default_factory=list,
+        description="年ごとのコントリビューションカレンダー（新しい年順。取得失敗時は空配列）",
     )
 
 

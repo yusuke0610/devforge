@@ -1,13 +1,13 @@
 """
 GitHub REST API 呼び出しを担うモジュール。
 
-リポジトリ一覧・言語情報・ファイル内容取得などの純粋な API 通信を行う。
+リポジトリ一覧・言語情報などの純粋な API 通信を行う。
 """
 
 import logging
 import re
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import httpx
 
@@ -53,49 +53,6 @@ _REPO_MAX_AGE_YEARS = 3
 
 # これより小さいリポジトリはスキップ（バイト）
 _REPO_MIN_SIZE_BYTES = 1024
-
-# 特定のスキルを示すルートファイル/ディレクトリ
-_INTERESTING_ROOT_FILES = {
-    "Dockerfile",
-    "docker-compose.yml",
-    "docker-compose.yaml",
-    "package.json",
-    "requirements.txt",
-    "pyproject.toml",
-    "pom.xml",
-    "go.mod",
-    "Makefile",
-    "Gemfile",
-    ".github",
-    "terraform",
-    ".terraform",
-    "infra",
-    "k8s",
-    "kubernetes",
-    "helm",
-    "cdk.json",
-    "pulumi.yaml",
-    "pulumi.yml",
-    "Jenkinsfile",
-    ".gitlab-ci.yml",
-    ".circleci",
-}
-
-# モノレポ構成でよく使われるサブディレクトリ内の依存関係ファイル
-# ルートに dep ファイルがない Python/Node プロジェクトのフォールバック探索パス
-_SUBDIRECTORY_DEP_FILES = [
-    "backend/requirements.txt",
-    "backend/pyproject.toml",
-    "server/requirements.txt",
-    "server/pyproject.toml",
-    "api/requirements.txt",
-    "api/pyproject.toml",
-    "src/requirements.txt",
-    "app/requirements.txt",
-    "frontend/package.json",
-    "client/package.json",
-    "web/package.json",
-]
 
 
 class GitHubUserNotFoundError(Exception):
@@ -206,101 +163,3 @@ async def fetch_languages(
     except httpx.HTTPError:
         logger.warning("Failed to fetch languages for %s/%s", owner, repo)
         return {}
-
-
-async def fetch_root_files(
-    client: httpx.AsyncClient,
-    owner: str,
-    repo: str,
-) -> List[str]:
-    """リポジトリのルートレベルの注目すべきファイル名/ディレクトリ名を取得する。"""
-    if not _is_valid_owner_repo(owner, repo):
-        logger.warning("不正な owner/repo をスキップ: %s/%s", owner, repo)
-        return []
-    try:
-        resp = await client.get(f"/repos/{owner}/{repo}/contents/")
-        if resp.status_code in (403, 404):
-            return []
-        resp.raise_for_status()
-        items: List[Any] = resp.json()
-        if not isinstance(items, list):
-            return []
-        return [
-            item["name"]
-            for item in items
-            if isinstance(item, dict)
-            and "name" in item
-            and item["name"] in _INTERESTING_ROOT_FILES
-        ]
-    except httpx.HTTPError:
-        logger.warning("Failed to fetch contents for %s/%s", owner, repo)
-        return []
-
-
-async def fetch_file_content(
-    client: httpx.AsyncClient,
-    owner: str,
-    repo: str,
-    path: str,
-) -> Optional[str]:
-    """リポジトリから生のファイルコンテンツをダウンロードする。"""
-    if not _is_valid_owner_repo(owner, repo):
-        logger.warning("不正な owner/repo をスキップ: %s/%s", owner, repo)
-        return None
-    try:
-        resp = await client.get(
-            f"/repos/{owner}/{repo}/contents/{path}",
-            headers={"Accept": "application/vnd.github.raw+json"},
-        )
-        if resp.status_code in (403, 404):
-            return None
-        resp.raise_for_status()
-        return resp.text
-    except httpx.HTTPError:
-        logger.warning(
-            "Failed to fetch %s for %s/%s",
-            path,
-            owner,
-            repo,
-        )
-        return None
-
-
-async def fetch_subdirectory_dep_files(
-    client: httpx.AsyncClient,
-    owner: str,
-    repo: str,
-    root_files: List[str],
-) -> List[str]:
-    """ルートに依存関係ファイルがないモノレポ向けに、サブディレクトリの dep ファイルパスを返す。
-
-    ルートにすでに Python/Node の dep ファイルがある場合はスキップする。
-    見つかったパスのリストを返す（ファイル名ではなく相対パス）。
-    """
-    _PYTHON_DEP_FILES = {"requirements.txt", "pyproject.toml"}
-    _NODE_DEP_FILES = {"package.json"}
-
-    has_python_deps = bool(_PYTHON_DEP_FILES & set(root_files))
-    has_node_deps = bool(_NODE_DEP_FILES & set(root_files))
-
-    if has_python_deps and has_node_deps:
-        return []
-
-    found: List[str] = []
-    for path in _SUBDIRECTORY_DEP_FILES:
-        filename = path.split("/")[-1]
-        if filename in _PYTHON_DEP_FILES and has_python_deps:
-            continue
-        if filename in _NODE_DEP_FILES and has_node_deps:
-            continue
-        content = await fetch_file_content(client, owner, repo, path)
-        if content is not None:
-            found.append(path)
-            # Python か Node のどちらかで1ファイル見つかれば探索終了
-            if filename in _PYTHON_DEP_FILES:
-                has_python_deps = True
-            elif filename in _NODE_DEP_FILES:
-                has_node_deps = True
-        if has_python_deps and has_node_deps:
-            break
-    return found

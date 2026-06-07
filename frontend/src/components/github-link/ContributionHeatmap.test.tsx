@@ -5,6 +5,7 @@ import type { ContributionCalendar } from "../../api";
 
 function makeCalendar(): ContributionCalendar {
   return {
+    year: 2024,
     total_contributions: 15,
     weeks: [
       [
@@ -21,10 +22,10 @@ function makeCalendar(): ContributionCalendar {
 }
 
 describe("ContributionHeatmap", () => {
-  it("年間コントリビュート総数を表示する", () => {
+  it("対象年のコントリビュート総数を年ラベル付きで表示する", () => {
     render(<ContributionHeatmap calendar={makeCalendar()} />);
     expect(screen.getByText("15")).toBeInTheDocument();
-    expect(screen.getByText("年間コントリビュート")).toBeInTheDocument();
+    expect(screen.getByText("2024年のコントリビュート")).toBeInTheDocument();
   });
 
   it("各日セルに日付とコントリビューション数の title を付ける", () => {
@@ -40,6 +41,7 @@ describe("ContributionHeatmap", () => {
   it("最大連続日数を算出する（count>0 の連続セル）", () => {
     // 実データは全日が連続して並ぶ。0 で途切れ、最大連続は 3。
     const calendar: ContributionCalendar = {
+      year: 2024,
       total_contributions: 6,
       weeks: [
         [
@@ -65,7 +67,7 @@ describe("ContributionHeatmap", () => {
   it("空の weeks でもクラッシュしない", () => {
     render(
       <ContributionHeatmap
-        calendar={{ total_contributions: 0, weeks: [] }}
+        calendar={{ year: 2024, total_contributions: 0, weeks: [] }}
       />,
     );
     // total=0 / streak=0 の 2 枚のカードが描画される

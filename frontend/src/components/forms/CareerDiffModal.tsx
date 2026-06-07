@@ -1,7 +1,6 @@
 import { useMemo, useRef } from "react";
 
-import { DIFF_DIALOG_MESSAGES as D, PROOFREAD_MESSAGES as P } from "../../constants/messages";
-import type { ProofreadIssue } from "../../proofread/types";
+import { DIFF_DIALOG_MESSAGES as D } from "../../constants/messages";
 import { buildReviewEntries } from "../../utils/careerReview";
 import type { CareerChange, ChangeKind } from "../../utils/careerDiff";
 import {
@@ -22,7 +21,6 @@ const KIND_LABEL: Record<ChangeKind, string> = {
 /**
  * iframe 内に注入する diff 着色 CSS。backend の resume.css に追記する形で srcDoc に埋め込む。
  * 緑=追加 / 赤=削除 / 黄=修正。VSCode 系 diff の配色に寄せる。
- * 校正指摘は青の波線（diff の背景色と重ねても潰れないよう下線で表現）。
  */
 const DIFF_CSS = `
   body { margin: 0; padding: 12px 16px; background: #fff; }
@@ -30,11 +28,6 @@ const DIFF_CSS = `
   .diff-added { background: rgba(22,163,74,0.18); box-shadow: 0 0 0 1px rgba(22,163,74,0.45); }
   .diff-removed { background: rgba(220,38,38,0.16); box-shadow: 0 0 0 1px rgba(220,38,38,0.40); }
   .diff-modified { background: rgba(234,179,8,0.25); box-shadow: 0 0 0 1px rgba(234,179,8,0.50); }
-  .diff-proofread {
-    text-decoration: underline wavy #2563eb;
-    text-decoration-skip-ink: none;
-    text-underline-offset: 2px;
-  }
   details.fold { margin: 3px 0; }
   summary.fold-summary {
     cursor: pointer; list-style: none; font-size: 8pt; color: #6b7280;
@@ -71,9 +64,6 @@ export function CareerDiffModal({
   loading,
   error,
   saving,
-  issues,
-  proofreading,
-  proofreadError,
   onConfirm,
   onCancel,
   onRollback,
@@ -85,12 +75,6 @@ export function CareerDiffModal({
   loading: boolean;
   error: string | null;
   saving: boolean;
-  /** 編集中フォームの校正指摘（フィールド横断）。 */
-  issues: ProofreadIssue[];
-  /** 校正処理中フラグ。 */
-  proofreading: boolean;
-  /** 校正失敗時のメッセージ（null なら正常）。 */
-  proofreadError: string | null;
   onConfirm: () => void;
   onCancel: () => void;
   onRollback: (change: CareerChange) => void;
@@ -101,19 +85,12 @@ export function CareerDiffModal({
   const pathKindMap = useMemo(() => buildPathKindMap(changes), [changes]);
 
   /**
-   * 変更点と校正指摘を 1 本のレビュー一覧へ統合し、PDF レイアウト順に並べる。
+   * 変更点をフィールド単位にまとめ、PDF レイアウト順に並べる。
    * 左右ペイン（PDF）とサイドバーの縦順が一致し、上から順に突合できる。
    */
-  const reviewEntries = useMemo(() => buildReviewEntries(changes, issues), [changes, issues]);
-
-  /** 校正指摘のあるフィールド id 集合（編集中ペインの青マーク／折りたたみ除外に使う）。 */
-  const proofreadFieldIds = useMemo(
-    () => new Set(issues.map((issue) => issue.fieldId)),
-    [issues],
-  );
+  const reviewEntries = useMemo(() => buildReviewEntries(changes), [changes]);
 
   // 着色（annotateHtml）→ 変更なし領域を畳む（foldUnchanged）の順で整形する。
-  // baseline（保存済み）側は校正マークを付けない（指摘は編集中フォームに対するもの）。
   const baselineDoc = useMemo(() => {
     if (baselineHtml === null) return null;
     return buildSrcDoc(css, foldUnchanged(annotateHtml(baselineHtml, pathKindMap), pathKindMap));
@@ -121,19 +98,21 @@ export function CareerDiffModal({
 
   const editedDoc = useMemo(() => {
     if (editedHtml === null) return null;
-    // 着色（差分＋校正青マーク）→ 削除跡のプレースホルダ挿入 → 変更なし領域の折りたたみ。
-    // 校正指摘のある項目は畳まないよう foldUnchanged にも fieldId 集合を渡す。
-    const annotated = annotateHtml(editedHtml, pathKindMap, proofreadFieldIds);
+    // 着色（差分）→ 削除跡のプレースホルダ挿入 → 変更なし領域の折りたたみ。
+    const annotated = annotateHtml(editedHtml, pathKindMap);
     const withStubs = injectRemovedPlaceholders(annotated, changes);
-    return buildSrcDoc(css, foldUnchanged(withStubs, pathKindMap, proofreadFieldIds));
-  }, [editedHtml, css, pathKindMap, changes, proofreadFieldIds]);
+    return buildSrcDoc(css, foldUnchanged(withStubs, pathKindMap));
+  }, [editedHtml, css, pathKindMap, changes]);
 
   /** レビュー項目クリックで、右ペイン（編集中）の該当ノードへスクロールする。 */
   const scrollToPath = (fp: string) => {
     const doc = editedFrameRef.current?.contentDocument;
     if (!doc) return;
     const escaped = CSS.escape(fp);
+    // 削除項目は編集中ペインから消えており data-fp が無い（次要素が繰り上がって同じ
+    // パスを持つ）ため、まず injectRemovedPlaceholders が挿す削除スタブ（data-removed）を狙う。
     const target =
+      doc.querySelector(`[data-removed="${escaped}"]`) ??
       doc.querySelector(`[data-fp="${escaped}"]`) ??
       doc.querySelector(`[data-fp^="${escaped}."]`);
     target?.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -194,13 +173,11 @@ export function CareerDiffModal({
             {loading && editedDoc && <div className={styles.refetching}>{D.PREVIEW_LOADING}</div>}
           </section>
 
-          {/* レビュー一覧: 変更点と校正を 1 本に統合し PDF レイアウト順に並べる。 */}
+          {/* 変更点リスト: PDF レイアウト順に並べる。 */}
           <aside className={styles.sidebar}>
             <div className={styles.sidebarHead}>
-              <span>{D.REVIEW_HEADING}</span>
-              {proofreading && <span className={styles.proofreadLoading}>{P.LOADING}</span>}
+              <span>{D.CHANGES_HEADING}</span>
             </div>
-            {proofreadError && <p className={styles.proofreadEmpty}>{proofreadError}</p>}
             {reviewEntries.length > 0 ? (
               <ul className={styles.list}>
                 {reviewEntries.map((entry) => (
@@ -214,8 +191,12 @@ export function CareerDiffModal({
                     </button>
 
                     {/* 差分（変更点）。バッジ＋旧→新＋元に戻す。 */}
-                    {entry.changes.map((change) => (
-                      <div key={`${change.path.join("/")}:${change.kind}`} className={styles.entryDiff}>
+                    {/* 同一パスに複数の差分が並ぶ場合があるため index も key に含めて衝突を防ぐ。 */}
+                    {entry.changes.map((change, idx) => (
+                      <div
+                        key={`${change.path.join("/")}:${change.kind}:${idx}`}
+                        className={styles.entryDiff}
+                      >
                         <div className={styles.diffMain}>
                           <span className={`${styles.badge} ${styles[change.kind]}`}>
                             {KIND_LABEL[change.kind]}
@@ -246,30 +227,12 @@ export function CareerDiffModal({
                         </button>
                       </div>
                     ))}
-
-                    {/* 校正の指摘（青）。誤字脱字・表記ゆれ。保存はブロックしない。 */}
-                    {entry.issues.length > 0 && (
-                      <ul className={styles.entryIssues}>
-                        {entry.issues.map((issue, i) => (
-                          <li
-                            key={`${issue.ruleId}:${issue.index}:${i}`}
-                            className={styles.proofreadItem}
-                          >
-                            <p className={styles.proofreadMessage}>{issue.message}</p>
-                            {issue.excerpt && (
-                              <p className={styles.proofreadExcerpt}>{issue.excerpt}</p>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
                   </li>
                 ))}
               </ul>
             ) : (
-              !proofreading && !proofreadError && <p className={styles.empty}>{D.NO_CHANGES}</p>
+              <p className={styles.empty}>{D.NO_CHANGES}</p>
             )}
-            <p className={styles.proofreadHint}>{P.HINT}</p>
           </aside>
         </div>
 

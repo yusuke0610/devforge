@@ -63,7 +63,6 @@ export const FALLBACK_MESSAGES = {
   AUTH_CHECK: "ログイン状態の確認に失敗しました。",
   GITHUB_OAUTH_START: "GitHub OAuth の開始に失敗しました",
   GITHUB_LINK: "連携に失敗しました",
-  PROOFREAD: "文章の校正に失敗しました。",
 } as const;
 
 /**
@@ -118,6 +117,31 @@ export const UI_MESSAGES = {
 export const EXTERNAL_LINKS = {
   ISSUE_REPORT: "https://github.com/yusuke0610/devforge/issues",
 } as const;
+
+/** GitHub 連携ダッシュボード / コントリビューションヒートマップの UI 文言。 */
+export const GITHUB_LINK_MESSAGES = {
+  /** アクティビティ（ヒートマップ）セクションの見出し。 */
+  ACTIVITY_HEADING: "Activity",
+  /** 表示年セレクトの aria-label。 */
+  YEAR_SELECT_ARIA: "表示する年",
+  /** ヒートマップサマリーの最大連続日数ラベル。 */
+  LONGEST_STREAK_LABEL: "最大連続日数",
+} as const;
+
+/** 年セレクトの選択肢表記「N年」。 */
+export function yearLabel(year: number): string {
+  return `${year}年`;
+}
+
+/** ヒートマップサマリーの「N年のコントリビュート」ラベル。 */
+export function contributionSummaryLabel(year: number): string {
+  return `${year}年のコントリビュート`;
+}
+
+/** ヒートマップの aria 文言「N年のコントリビューション (合計 M)」。 */
+export function contributionAriaLabel(year: number, total: number): string {
+  return `${year}年のコントリビューション (合計 ${total})`;
+}
 
 /** ファイル取り込み補助（PDF / Markdown 原本上の選択 → 流し込み）UI の文言 */
 export const IMPORT_ASSIST_MESSAGES = {
@@ -240,23 +264,6 @@ export const DIFF_DIALOG_MESSAGES = {
   BASELINE_EMPTY: "保存済みデータがありません。",
   /** 変更点サイドバーの見出し */
   CHANGES_HEADING: "変更点",
-  /** 変更点＋校正を統合したレビュー一覧の見出し */
-  REVIEW_HEADING: "変更点・校正",
-} as const;
-
-/**
- * 保存確認ダイアログ内の文章校正（誤字脱字・表記ゆれ）セクションの文言。
- * 指摘メッセージ本文は textlint 由来の外部正本なのでここには持たず、そのまま表示する。
- */
-export const PROOFREAD_MESSAGES = {
-  /** サイドバーの校正セクション見出し。 */
-  HEADING: "校正の指摘",
-  /** 校正処理中の表示。 */
-  LOADING: "文章を校正中...",
-  /** 指摘ゼロ件のときの表示。 */
-  NONE: "校正の指摘はありません。",
-  /** セクションの補足（保存はブロックしない旨）。 */
-  HINT: "保存はブロックされません。気になる箇所のみ修正してください。",
 } as const;
 
 /** 左右 diff で「変更なし領域」を畳んだときの展開ラベル（件数を埋め込む）。 */

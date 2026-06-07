@@ -5,8 +5,6 @@ GitHub リポジトリデータからの決定論的なスキル抽出。
   1. 言語検出 (GitHub の linguist)
   2. リポジトリのトピック
   3. 説明文のキーワードマッチング
-  4. 依存関係分析 (requirements.txt, package.json など)
-  5. ルートファイル / ディレクトリ検出 (Dockerfile, .github, terraform など)
 
 LLMは使用しません。
 """
@@ -15,7 +13,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import List, Set
 
-from .github.repo_analyzer import DEPENDENCY_TO_FRAMEWORK
 from .github_collector import RepoData
 from .skill_taxonomy import (
     DESCRIPTION_KEYWORDS,
@@ -114,17 +111,5 @@ def _extract_from_repo(repo: RepoData) -> List[ExtractedSkill]:
             if keyword in desc_lower:
                 for skill_name in matched_skills:
                     add(skill_name, "description")
-
-    # 4. 依存関係 (requirements.txt, package.json などから解析)
-    for dep in repo.dependencies:
-        add(DEPENDENCY_TO_FRAMEWORK.get(dep, ""), "dependency")
-
-    # 5. ルートファイル / ディレクトリ検出（devtools・infra）
-    for tech in [*repo.detected_devtools, *repo.detected_infras]:
-        add(tech, "root_file")
-
-    # 6. 依存関係由来のフレームワーク（merge_frameworks の代替）
-    for framework in repo.detected_frameworks:
-        add(framework, "dependency")
 
     return skills
