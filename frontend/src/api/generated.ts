@@ -933,7 +933,7 @@ export interface components {
         };
         /**
          * ContributionCalendar
-         * @description 直近1年のコントリビューションカレンダー（GitHub の緑の四角）。
+         * @description 1年分のコントリビューションカレンダー（GitHub の緑の四角）。
          */
         ContributionCalendar: {
             /**
@@ -946,6 +946,11 @@ export interface components {
              * @description 週ごとの日配列（列=週、各週は最大7日）
              */
             weeks?: components["schemas"]["ContributionDay"][][];
+            /**
+             * Year
+             * @description このカレンダーが対象とする西暦年
+             */
+            year: number;
         };
         /**
          * ContributionDay
@@ -1088,29 +1093,11 @@ export interface components {
         GitHubLinkResponse: {
             /** Analyzed At */
             analyzed_at: string;
-            /** @description 直近1年のコントリビューションカレンダー（取得失敗時は None） */
-            contribution_calendar?: components["schemas"]["ContributionCalendar"] | null;
             /**
-             * Detected Devtools
-             * @description ルートファイルから検出した DevTools 名 → 使用リポジトリ数
+             * Contribution Calendars
+             * @description 年ごとのコントリビューションカレンダー（新しい年順。取得失敗時は空配列）
              */
-            detected_devtools?: {
-                [key: string]: number;
-            };
-            /**
-             * Detected Frameworks
-             * @description 依存関係から検出したフレームワーク名 → 使用リポジトリ数
-             */
-            detected_frameworks?: {
-                [key: string]: number;
-            };
-            /**
-             * Detected Infras
-             * @description ルートファイルから検出したインフラツール名 → 使用リポジトリ数
-             */
-            detected_infras?: {
-                [key: string]: number;
-            };
+            contribution_calendars?: components["schemas"]["ContributionCalendar"][];
             /**
              * Languages
              * @description 言語ごとのバイト数（GitHub linguist ベース）

@@ -2,94 +2,18 @@ import { test, expect } from "@playwright/test";
 import { setupAuth, waitForAuthenticatedLayout } from "./helpers/auth";
 
 /**
- * GitHub 連携ダッシュボードでの検出フレームワーク表示 E2E テスト（Issue #203）
+ * GitHub 連携ダッシュボードでのコントリビューションヒートマップ（年次表示）E2E テスト
  */
 
-test.describe("GitHub 連携 - 検出フレームワーク表示", () => {
+test.describe("GitHub 連携 - コントリビューションヒートマップ", () => {
   test.beforeEach(async ({ page }) => {
     await setupAuth(page);
   });
 
-  test("検出フレームワークが Frameworks セクションに表示される", async ({
+  test("年セレクタで年を切り替えるとヒートマップの集計が切り替わる", async ({
     page,
   }) => {
     // 連携キャッシュのモックを登録（キャッチオールより後 = 優先される）
-    await page.route("**/api/github-link/cache", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          status: "completed",
-          result: {
-            username: "e2e-test-user",
-            repos_analyzed: 3,
-            unique_skills: 5,
-            analyzed_at: "2026-04-24T00:00:00Z",
-            languages: { TypeScript: 60000, Python: 40000 },
-            detected_frameworks: { React: 5, "Next.js": 3, FastAPI: 2 },
-            position_scores: null,
-          },
-          position_advice: null,
-        }),
-      }),
-    );
-
-    await page.goto("/github_link");
-    await waitForAuthenticatedLayout(page);
-
-    // ダッシュボードが表示されること
-    await expect(
-      page.getByRole("heading", { name: "e2e-test-user の連携結果" }),
-    ).toBeVisible();
-
-    // Frameworks セクションが存在し、各 framework 名が表示されること
-    await expect(
-      page.getByRole("heading", { name: "Frameworks" }),
-    ).toBeVisible();
-    const list = page.getByRole("list", { name: "検出フレームワーク一覧" });
-    await expect(list).toBeVisible();
-    await expect(list.getByText("React")).toBeVisible();
-    await expect(list.getByText("Next.js")).toBeVisible();
-    await expect(list.getByText("FastAPI")).toBeVisible();
-  });
-
-  test("検出フレームワークが空のとき Frameworks セクションが出ない", async ({
-    page,
-  }) => {
-    await page.route("**/api/github-link/cache", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          status: "completed",
-          result: {
-            username: "e2e-test-user",
-            repos_analyzed: 1,
-            unique_skills: 0,
-            analyzed_at: "2026-04-24T00:00:00Z",
-            languages: { TypeScript: 100 },
-            detected_frameworks: [],
-            position_scores: null,
-          },
-          position_advice: null,
-        }),
-      }),
-    );
-
-    await page.goto("/github_link");
-    await waitForAuthenticatedLayout(page);
-
-    await expect(
-      page.getByRole("heading", { name: "e2e-test-user の連携結果" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Frameworks" }),
-    ).not.toBeVisible();
-  });
-
-  test("コントリビューションカレンダーがあると Activity ヒートマップが表示される", async ({
-    page,
-  }) => {
     await page.route("**/api/github-link/cache", (route) =>
       route.fulfill({
         status: 200,
@@ -102,13 +26,18 @@ test.describe("GitHub 連携 - 検出フレームワーク表示", () => {
             unique_skills: 3,
             analyzed_at: "2026-04-24T00:00:00Z",
             languages: { TypeScript: 100 },
-            detected_frameworks: {},
-            detected_devtools: {},
-            detected_infras: {},
-            contribution_calendar: {
-              total_contributions: 256,
-              weeks: [[{ date: "2025-01-06", count: 4, level: 2 }]],
-            },
+            contribution_calendars: [
+              {
+                year: 2025,
+                total_contributions: 256,
+                weeks: [[{ date: "2025-01-06", count: 4, level: 2 }]],
+              },
+              {
+                year: 2024,
+                total_contributions: 120,
+                weeks: [[{ date: "2024-01-01", count: 2, level: 1 }]],
+              },
+            ],
           },
         }),
       }),
@@ -117,11 +46,22 @@ test.describe("GitHub 連携 - 検出フレームワーク表示", () => {
     await page.goto("/github_link");
     await waitForAuthenticatedLayout(page);
 
+    // ダッシュボードが表示されること
     await expect(
-      page.getByRole("heading", { name: "Activity" }),
+      page.getByRole("heading", { name: "e2e-test-user の連携結果" }),
     ).toBeVisible();
-    await expect(page.getByText("年間コントリビュート")).toBeVisible();
+
+    // デフォルトは最新年（2025）
+    await expect(page.getByRole("heading", { name: "Activity" })).toBeVisible();
+    await expect(page.getByText("2025年のコントリビュート")).toBeVisible();
     await expect(page.getByText("256")).toBeVisible();
+
+    // 年セレクタで 2024 に切り替えると集計が切り替わる
+    await page
+      .getByRole("combobox", { name: "表示する年" })
+      .selectOption("2024");
+    await expect(page.getByText("2024年のコントリビュート")).toBeVisible();
+    await expect(page.getByText("120")).toBeVisible();
 
     // ページは表示専用。連携トリガーボタン（更新する/再連携）は無い
     await expect(

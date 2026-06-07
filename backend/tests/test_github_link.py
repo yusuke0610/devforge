@@ -7,7 +7,6 @@ Tests cover deterministic modules only (no GitHub API calls).
 import asyncio
 from unittest.mock import AsyncMock, patch
 
-from app.services.intelligence.github.repo_analyzer import parse_go_mod, parse_pom_xml
 from app.services.intelligence.github_collector import RepoData
 from app.services.intelligence.pipeline import IntelligenceResult, run_pipeline
 from app.services.intelligence.response_mapper import map_pipeline_result
@@ -25,11 +24,6 @@ def _make_repo(
     description="",
     created_at="2022-01-01T00:00:00Z",
     pushed_at="2023-06-01T00:00:00Z",
-    dependencies=None,
-    root_files=None,
-    detected_frameworks=None,
-    detected_devtools=None,
-    detected_infras=None,
 ):
     return RepoData(
         name=name,
@@ -42,11 +36,6 @@ def _make_repo(
         fork=False,
         stargazers_count=0,
         default_branch="main",
-        dependencies=dependencies or [],
-        root_files=root_files or [],
-        detected_frameworks=detected_frameworks or [],
-        detected_devtools=detected_devtools or [],
-        detected_infras=detected_infras or [],
     )
 
 
@@ -165,115 +154,18 @@ class TestSkillExtractor:
         assert "language" in sources
         assert "topic" in sources
 
-    def test_extracts_from_dependencies(self):
+    def test_only_language_topic_description_sources(self):
+        """フレームワーク/インフラ検出撤去後、source は language/topic/description のみ。"""
         repos = [
             _make_repo(
-                dependencies=["fastapi", "sqlalchemy", "uvicorn"],
+                languages={"Python": 10000},
+                topics=["docker"],
+                description="Built with FastAPI",
             )
         ]
-        result = extract_skills(repos)
-        names = {s.skill_name for s in result.skills}
-        assert "FastAPI" in names
-        assert "SQLAlchemy" in names
-
-    def test_extracts_from_detected_devtools_and_infras(self):
-        repos = [
-            _make_repo(
-                detected_devtools=["Docker", "GitHub Actions"],
-                detected_infras=["Terraform"],
-            )
-        ]
-        result = extract_skills(repos)
-        names = {s.skill_name for s in result.skills}
-        assert "Docker" in names
-        assert "GitHub Actions" in names
-        assert "Terraform" in names
-
-    def test_dependency_source_label(self):
-        repos = [_make_repo(dependencies=["fastapi"])]
         result = extract_skills(repos)
         sources = {s.source for s in result.skills}
-        assert "dependency" in sources
-
-    def test_root_file_source_label(self):
-        repos = [_make_repo(detected_devtools=["Docker"])]
-        result = extract_skills(repos)
-        sources = {s.source for s in result.skills}
-        assert "root_file" in sources
-
-    def test_dedup_dependency_and_topic(self):
-        """Same skill from topic + dependency should appear once."""
-        repos = [
-            _make_repo(
-                topics=["fastapi"],
-                dependencies=["fastapi"],
-            )
-        ]
-        result = extract_skills(repos)
-        fastapi_count = sum(1 for s in result.skills if s.skill_name == "FastAPI")
-        assert fastapi_count == 1
-
-    def test_dedup_root_file_and_language(self):
-        """Docker from language + root_file should appear once."""
-        repos = [
-            _make_repo(
-                languages={"Dockerfile": 500},
-                detected_devtools=["Docker"],
-            )
-        ]
-        result = extract_skills(repos)
-        docker_count = sum(1 for s in result.skills if s.skill_name == "Docker")
-        assert docker_count == 1
-
-    def test_full_repo_with_all_sources(self):
-        """A realistic repo should produce rich skill set."""
-        repos = [
-            _make_repo(
-                name="fullstack-app",
-                languages={"Python": 50000, "Dockerfile": 500},
-                topics=["fastapi", "postgresql"],
-                description="Backend API",
-                dependencies=["fastapi", "sqlalchemy", "boto3"],
-                root_files=["Dockerfile", ".github", "terraform"],
-                detected_devtools=["Docker", "GitHub Actions"],
-                detected_infras=["Terraform"],
-            )
-        ]
-        result = extract_skills(repos)
-        names = {s.skill_name for s in result.skills}
-        assert "Python" in names
-        assert "FastAPI" in names
-        assert "PostgreSQL" in names
-        assert "Docker" in names
-        assert "GitHub Actions" in names
-        assert "Terraform" in names
-        assert "SQLAlchemy" in names
-        assert "AWS" in names  # from boto3 dependency
-
-
-# ── Dependency Parsing（github_collector 経由でのみ確認すべき pom.xml / go.mod のみ）─────
-# 一般的な requirements.txt / package.json / root file 検出は test_repo_analyzer.py で網羅。
-
-
-class TestDependencyParsing:
-    def test_parse_pom_xml(self):
-
-        content = (
-            "<project><dependencies><dependency>"
-            "<artifactId>spring-boot-starter-web</artifactId>"
-            "</dependency></dependencies></project>"
-        )
-        result = parse_pom_xml(content)
-        assert "spring-boot-starter-web" in result
-
-    def test_parse_go_mod(self):
-
-        content = (
-            "module example.com/app\n\nrequire (\n"
-            "\tgithub.com/gin-gonic/gin v1.9\n)\n"
-        )
-        result = parse_go_mod(content)
-        assert "github.com/gin-gonic/gin" in result
+        assert sources <= {"language", "topic", "description"}
 
 
 # ── Intelligence Endpoint Tests ────────────────────────────────────────
@@ -305,6 +197,9 @@ def test_map_pipeline_result_includes_languages() -> None:
     assert response.languages == {"Python": 50000, "TypeScript": 30000}
     assert response.username == "testuser"
     assert response.repos_analyzed == 3
+    # 撤去したフィールドはレスポンス schema に存在しない
+    assert not hasattr(response, "detected_frameworks")
+    assert response.contribution_calendars == []
 
 
 # ── Pipeline Tests ──────────────────────────────────────────────────────
@@ -323,11 +218,6 @@ def _make_pipeline_repo(name: str, languages: dict | None = None) -> RepoData:
         fork=False,
         stargazers_count=0,
         default_branch="main",
-        dependencies=[],
-        root_files=[],
-        detected_frameworks=[],
-        detected_devtools=[],
-        detected_infras=[],
     )
 
 

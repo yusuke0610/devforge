@@ -171,6 +171,29 @@
   color: var(--text-secondary);
 }
 
+/* セクション見出しと年セレクタを横並びにする（Activity 用） */
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.sectionHeader h2 {
+  margin: 0;
+}
+
+.yearSelect {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
 /* ── Overview ───────────────────────────────────────────────── */
 
 .overviewCards {

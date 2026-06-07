@@ -56,7 +56,7 @@ export function ContributionHeatmap({ calendar }: ContributionHeatmapProps) {
       <div className={styles.summary}>
         <div className={styles.statCard}>
           <div className={styles.statValue}>{calendar.total_contributions}</div>
-          <div className={styles.statLabel}>年間コントリビュート</div>
+          <div className={styles.statLabel}>{calendar.year}年のコントリビュート</div>
         </div>
         <div className={styles.statCard}>
           <div className={styles.statValue}>{longestStreak}</div>
@@ -67,7 +67,7 @@ export function ContributionHeatmap({ calendar }: ContributionHeatmapProps) {
       <div
         className={styles.scroll}
         role="img"
-        aria-label={`過去1年のコントリビューション (合計 ${calendar.total_contributions})`}
+        aria-label={`${calendar.year}年のコントリビューション (合計 ${calendar.total_contributions})`}
       >
         <div className={styles.monthRow}>
           {monthLabels.map((label, i) => (

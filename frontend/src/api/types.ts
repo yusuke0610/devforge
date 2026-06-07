@@ -31,7 +31,7 @@ export type SubProgress = Schemas["SubProgress"];
 /** コントリビューションカレンダーの 1 日分。backend `schemas/github_link.py:ContributionDay`。 */
 export type ContributionDay = Schemas["ContributionDay"];
 
-/** 直近1年のコントリビューションカレンダー。backend `schemas/github_link.py:ContributionCalendar`。 */
+/** 年ごとのコントリビューションカレンダー。backend `schemas/github_link.py:ContributionCalendar`。 */
 export type ContributionCalendar = Schemas["ContributionCalendar"];
 
 /** GitHub 連携の解析結果。backend `schemas/github_link.py:GitHubLinkResponse`。 */

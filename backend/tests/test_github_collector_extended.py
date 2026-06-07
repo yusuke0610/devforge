@@ -3,7 +3,7 @@ github_collector の collect_repos および _passes_filter のテスト。
 
 対象モジュール: app.services.intelligence.github_collector
 テスト方針:
-  - fetch_repos_raw / fetch_languages / fetch_root_files は AsyncMock でモック化
+  - fetch_repos_raw / fetch_languages は AsyncMock でモック化
   - 実 GitHub API は一切叩かない
   - _passes_filter は純粋関数として直接テスト
 """
@@ -110,7 +110,6 @@ def _mock_http_client():
     mock_client = MagicMock()
     mock_client.closed = False
     # client.get は非同期メソッドのため AsyncMock が必要
-    # fetch_file_content が 404 を受け取り None を返すようにする
     _not_found = MagicMock(status_code=404)
     mock_client.get = AsyncMock(return_value=_not_found)
 
@@ -126,7 +125,7 @@ def _mock_http_client():
 
 
 class TestCollectRepos:
-    def _mock_collect(self, raw_repos, languages=None, root_files=None):
+    def _mock_collect(self, raw_repos, languages=None):
         """collect_repos の外部 API 呼び出しをすべてモック化して実行するヘルパー。"""
         mock_http, _ = _mock_http_client()
         with (
@@ -140,11 +139,6 @@ class TestCollectRepos:
                 "app.services.intelligence.github_collector.fetch_languages",
                 new_callable=AsyncMock,
                 return_value=languages or {"Python": 10000},
-            ),
-            patch(
-                "app.services.intelligence.github_collector.fetch_root_files",
-                new_callable=AsyncMock,
-                return_value=root_files or [],
             ),
         ):
             return _run(collect_repos("testuser"))
@@ -191,11 +185,6 @@ class TestCollectRepos:
                 new_callable=AsyncMock,
                 return_value={"Python": 1000},
             ),
-            patch(
-                "app.services.intelligence.github_collector.fetch_root_files",
-                new_callable=AsyncMock,
-                return_value=[],
-            ),
         ):
             repos = _run(collect_repos("testuser", include_forks=True))
         assert len(repos) == 1
@@ -236,11 +225,6 @@ class TestCollectRepos:
                 new_callable=AsyncMock,
                 return_value={"Python": 2000},
             ),
-            patch(
-                "app.services.intelligence.github_collector.fetch_root_files",
-                new_callable=AsyncMock,
-                return_value=[],
-            ),
         ):
             _run(collect_repos("testuser", on_repo_fetched=_on_repo_fetched))
 
@@ -268,11 +252,6 @@ class TestCollectRepos:
             patch(
                 "app.services.intelligence.github_collector.fetch_languages",
                 side_effect=_fetch_languages,
-            ),
-            patch(
-                "app.services.intelligence.github_collector.fetch_root_files",
-                new_callable=AsyncMock,
-                return_value=[],
             ),
         ):
             repos = _run(collect_repos("testuser"))
