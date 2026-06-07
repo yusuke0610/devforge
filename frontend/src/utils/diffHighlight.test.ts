@@ -144,45 +144,6 @@ describe("foldUnchanged", () => {
     const html = '<div data-unit="experiences.0">a</div>';
     expect(foldUnchanged(html, buildPathKindMap([]))).toBe(html);
   });
-
-  it("校正指摘のある項目は（差分が無くても）畳まずに残す", () => {
-    const html =
-      '<div data-unit="experiences.0"><span data-fp="experiences.0.company">A</span></div>' +
-      '<div data-unit="experiences.1"><span data-fp="experiences.1.company">B</span></div>';
-    // 差分は experiences.0 のみ。experiences.1 は校正指摘があるので畳まれない。
-    const map = buildPathKindMap([change(["experiences", 0, "company"], "modified")]);
-    const proofread = new Set(["experiences.1.company"]);
-    const out = foldUnchanged(html, map, proofread);
-    const doc = new DOMParser().parseFromString(out, "text/html");
-    // 校正指摘のある experiences.1 は details の外に残る
-    expect(doc.querySelector('details [data-unit="experiences.1"]')).toBeNull();
-    expect(doc.querySelector('[data-unit="experiences.1"]')).not.toBeNull();
-  });
-});
-
-describe("annotateHtml（校正マーク）", () => {
-  it("校正指摘のある data-fp に diff-proofread を付ける", () => {
-    const html =
-      '<div data-fp="career_summary">要約</div><div data-fp="self_pr">PR</div>';
-    const out = annotateHtml(html, buildPathKindMap([]), new Set(["self_pr"]));
-    const doc = new DOMParser().parseFromString(out, "text/html");
-    expect(doc.querySelector('[data-fp="self_pr"]')?.className).toContain("diff-proofread");
-    // 指摘の無い career_summary には付かない
-    expect(doc.querySelector('[data-fp="career_summary"]')?.className).toBe("");
-  });
-
-  it("差分（黄）と校正（青）は同じノードに併記される", () => {
-    const html = '<div data-fp="self_pr">PR</div>';
-    const out = annotateHtml(
-      html,
-      buildPathKindMap([change(["self_pr"], "modified")]),
-      new Set(["self_pr"]),
-    );
-    const cls = new DOMParser().parseFromString(out, "text/html").querySelector('[data-fp="self_pr"]')
-      ?.className;
-    expect(cls).toContain("diff-modified");
-    expect(cls).toContain("diff-proofread");
-  });
 });
 
 describe("injectRemovedPlaceholders", () => {

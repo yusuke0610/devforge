@@ -1,15 +1,16 @@
 import { UI_MESSAGES } from "../../constants/messages";
 import shared from "../../styles/shared.module.css";
+import { markdownToPlainText } from "../../utils/markdown";
 import { DirtyDot } from "../ui/DirtyDot";
 import { Skeleton } from "../ui/Skeleton";
 import styles from "./MarkdownFieldTrigger.module.css";
 
 /** プレビューに出す最大文字数（超過分は省略記号で切り詰め） */
-const PREVIEW_MAX_LENGTH = 120;
+const PREVIEW_MAX_LENGTH = 10;
 
-/** 改行を空白に潰し、先頭を切り詰めた 1 行プレビュー文字列を作る。 */
+/** Markdown 記法を除去し、改行を空白に潰した先頭 10 文字プレビュー文字列を作る。 */
 function toPreview(value: string): string {
-  const flat = value.replace(/\s+/g, " ").trim();
+  const flat = markdownToPlainText(value).replace(/\s+/g, " ").trim();
   if (flat.length <= PREVIEW_MAX_LENGTH) return flat;
   return `${flat.slice(0, PREVIEW_MAX_LENGTH)}…`;
 }
