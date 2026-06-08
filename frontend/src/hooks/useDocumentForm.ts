@@ -22,6 +22,11 @@ export type UseDocumentFormOptions<FormState, Payload, Response extends { id: st
   beforeSave?: () => Promise<void>;
   /** 指定するとページ遷移してもフォーム状態が Redux ストアに保持される */
   cacheKey?: FormCacheKey;
+  /**
+   * true の間はマウント時の loadLatest を行わず、空フォームで起動する。
+   * 未ログインのお試し入力（匿名モード）で 401 を無駄打ちしないために使う。
+   */
+  skipLoad?: boolean;
 };
 
 export function useDocumentForm<FormState, Payload, Response extends { id: string }>({
@@ -35,6 +40,7 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
   successMessage,
   beforeSave,
   cacheKey,
+  skipLoad = false,
 }: UseDocumentFormOptions<FormState, Payload, Response>) {
   const dispatch = useAppDispatch();
   const cached = useAppSelector((s) =>
@@ -56,7 +62,7 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
   const [documentId, setDocumentId] = useState<string | null>(
     cached?.documentId ?? null,
   );
-  const [loading, setLoading] = useState(!cached);
+  const [loading, setLoading] = useState(!cached && !skipLoad);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,8 +135,9 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
   );
 
   useEffect(() => {
-    // キャッシュが既にある場合は API ロードをスキップ
-    if (cached) return;
+    // キャッシュが既にある場合・匿名モード（skipLoad）の場合は API ロードをスキップ。
+    // 匿名モードは空フォームで起動し、ログイン後の再マウントで初めてロードする。
+    if (cached || skipLoad) return;
 
     let active = true;
     setLoading(true);
@@ -162,21 +169,26 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
     // インライン関数生成のたびに再 fetch しない（無限ループの原因になる）。
     // createInitialForm は catch 経路でしか参照されないため、最新値を見る必要は実用上ない。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadLatest, mapResponseToForm, updateCache, commitBaseline]);
+  }, [loadLatest, mapResponseToForm, updateCache, commitBaseline, skipLoad]);
 
   const saveButtonText = useMemo(() => {
     if (saving) return "保存中...";
     return documentId ? "更新する" : "保存する";
   }, [documentId, saving]);
 
-  const save = async () => {
+  /**
+   * フォームを保存する。`overrideForm` を渡すと現在の form state ではなくそれを保存する
+   * （ログイン後に退避ドラフトを state 反映を待たず即保存するケースで使う）。
+   * 成功で true、失敗で false を返す（呼び出し側が成否に応じてドラフト破棄を判断できる）。
+   */
+  const save = async (overrideForm?: FormState): Promise<boolean> => {
     setSaving(true);
     setError(null);
     setSuccess(null);
 
     try {
       if (beforeSave) await beforeSave();
-      const payload = buildPayload(form);
+      const payload = buildPayload(overrideForm ?? form);
       const saved = documentId
         ? await updateDocument(documentId, payload)
         : await createDocument(payload);
@@ -186,12 +198,14 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
       updateCache(mapped, saved.id);
       commitBaseline(mapped);
       setSuccess(successMessage);
+      return true;
     } catch (submitError) {
       const message =
         submitError instanceof Error
           ? submitError.message
           : FALLBACK_MESSAGES.SAVE;
       setError(message);
+      return false;
     } finally {
       setSaving(false);
     }

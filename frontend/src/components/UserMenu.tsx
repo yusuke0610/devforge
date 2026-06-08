@@ -1,19 +1,30 @@
 import { useEffect, useRef, useState } from "react";
 
-import { EXTERNAL_LINKS, UI_MESSAGES } from "../constants/messages";
+import { AUTH_PROMPT_MESSAGES, EXTERNAL_LINKS, UI_MESSAGES } from "../constants/messages";
 import type { Theme } from "../hooks/useTheme";
+import { GitHubMarkIcon } from "./icons/GitHubMarkIcon";
 import styles from "./UserMenu.module.css";
 
+/**
+ * サイドバーフッターのユーザーメニュー。
+ * 認証済み: ユーザー名トリガー（押下でメニュー開閉）+ ダークモード / ログアウト / Issue報告 / コピーライト。
+ * 未認証: ユーザー名位置に「ログイン」ボタン（押下で OAuth 開始）+ 右に ▲ チェブロン（押下でメニュー開閉）。
+ *   メニューはダークモード / Issue報告 / コピーライト（ログアウト/ログイン項目は出さない）。
+ */
 export function UserMenu({
+  isAuthenticated,
   username,
   theme,
   onToggleTheme,
   onLogout,
+  onLogin,
 }: {
+  isAuthenticated: boolean;
   username: string | null;
   theme: Theme;
   onToggleTheme: () => void;
   onLogout: () => void;
+  onLogin: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -42,14 +53,19 @@ export function UserMenu({
             </span>
           </button>
           <div className={styles.separator} />
-          <button
-            type="button"
-            className={`${styles.menuItem} ${styles.logoutItem}`}
-            onClick={onLogout}
-          >
-            <span className={styles.menuItemLabel}>ログアウト</span>
-          </button>
-          <div className={styles.separator} />
+          {/* 未認証ではログインはトリガー側のボタンに集約するため、メニューには出さない。 */}
+          {isAuthenticated && (
+            <>
+              <button
+                type="button"
+                className={`${styles.menuItem} ${styles.logoutItem}`}
+                onClick={onLogout}
+              >
+                <span className={styles.menuItemLabel}>ログアウト</span>
+              </button>
+              <div className={styles.separator} />
+            </>
+          )}
           <a
             className={styles.menuItem}
             href={EXTERNAL_LINKS.ISSUE_REPORT}
@@ -80,14 +96,29 @@ export function UserMenu({
           <div className={styles.menuFooter}>{UI_MESSAGES.COPYRIGHT}</div>
         </div>
       )}
-      <button
-        type="button"
-        className={styles.trigger}
-        onClick={() => setOpen(!open)}
-      >
-        <span className={styles.triggerName}>{username || "Menu"}</span>
-        <span className={styles.triggerChevron}>&#x25B2;</span>
-      </button>
+      {isAuthenticated ? (
+        <button type="button" className={styles.trigger} onClick={() => setOpen(!open)}>
+          <span className={styles.triggerName}>{username || "Menu"}</span>
+          <span className={styles.triggerChevron}>&#x25B2;</span>
+        </button>
+      ) : (
+        // 未認証: ユーザー名位置にログインボタン、右に ▲（メニュー開閉）。
+        <div className={styles.guestTrigger}>
+          <button type="button" className={styles.loginButton} onClick={onLogin}>
+            <GitHubMarkIcon className={styles.loginIcon} />
+            {AUTH_PROMPT_MESSAGES.SIDEBAR_LOGIN}
+          </button>
+          <button
+            type="button"
+            className={styles.guestChevron}
+            aria-label={UI_MESSAGES.FOOTER_MENU}
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+          >
+            &#x25B2;
+          </button>
+        </div>
+      )}
     </div>
   );
 }

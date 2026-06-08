@@ -1,3 +1,27 @@
+/* ヘッダーのアイコンボタン（PDF出力 / Markdown出力）。アイコンを中央寄せする。 */
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.headerIcon {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+/* PDF 出力中のローディングスピナー（アイコンと同サイズ）。spin は styles.css のグローバル定義。 */
+.buttonSpinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--spinner-track);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
 .inputWithUnit {
   display: flex;
   align-items: center;

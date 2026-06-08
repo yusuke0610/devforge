@@ -1,4 +1,5 @@
 import ErrorBoundary from "./components/ErrorBoundary";
+import { LoginPromptProvider } from "./components/auth/LoginPromptProvider";
 import { useAuthSession } from "./hooks/useAuthSession";
 import { useTheme } from "./hooks/useTheme";
 import { AppRoutes } from "./router";
@@ -14,17 +15,19 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <AppRoutes
-        user={user}
-        authLoading={authLoading}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        githubError={githubError}
-        onLogout={() => {
-          void handleLogout();
-        }}
-        onLoginSuccess={handleLoginSuccess}
-      />
+      <LoginPromptProvider>
+        <AppRoutes
+          user={user}
+          authLoading={authLoading}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          githubError={githubError}
+          onLogout={() => {
+            void handleLogout();
+          }}
+          onLoginSuccess={handleLoginSuccess}
+        />
+      </LoginPromptProvider>
     </ErrorBoundary>
   );
 }

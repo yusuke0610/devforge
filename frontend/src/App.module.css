@@ -128,6 +128,7 @@
   padding-left: calc(1.2rem - 3px);
 }
 
+
 /* ── GitHub連携: 展開グループ（フォーク含むオプション）──────────── */
 
 .sidebarItemGroup {
@@ -194,6 +195,7 @@
   padding: 0.6rem 0;
   border-top: 1px solid var(--sidebar-border);
 }
+
 
 .mainContent {
   flex: 1;
