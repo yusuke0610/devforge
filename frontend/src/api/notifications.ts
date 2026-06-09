@@ -1,25 +1,25 @@
 import { request } from "./client";
 import { PATHS } from "./paths";
+import type {
+  MarkAllReadResponse,
+  NotificationResponse,
+  UnreadCountResponse,
+} from "./types";
 
-export interface Notification {
-  id: string;
-  task_type: string;
-  status: "completed" | "failed";
-  title: string;
-  message: string | null;
-  is_read: boolean;
-  created_at: string;
-}
+export type { UnreadCountResponse } from "./types";
 
-export interface UnreadCountResponse {
-  count: number;
-}
+/**
+ * 通知 1 件の型。DTO の正本は backend `routers/notifications.py:NotificationResponse`
+ * （OpenAPI 経由で `api/types.ts` に再エクスポート、ADR-0007）。
+ * 呼び出し側の歴史的な `Notification` 名を保つためのエイリアス。
+ */
+export type Notification = NotificationResponse;
 
 /**
  * 最新30件の通知を取得します。
  */
-export function getNotifications(): Promise<Notification[]> {
-  return request<Notification[]>(PATHS.notifications.base);
+export function getNotifications(): Promise<NotificationResponse[]> {
+  return request<NotificationResponse[]>(PATHS.notifications.base);
 }
 
 /**
@@ -32,8 +32,8 @@ export function getUnreadCount(): Promise<UnreadCountResponse> {
 /**
  * 指定された通知を既読にします。
  */
-export function markAsRead(notificationId: string): Promise<Notification> {
-  return request<Notification>(PATHS.notifications.read(notificationId), {
+export function markAsRead(notificationId: string): Promise<NotificationResponse> {
+  return request<NotificationResponse>(PATHS.notifications.read(notificationId), {
     method: "PATCH",
   });
 }
@@ -41,8 +41,8 @@ export function markAsRead(notificationId: string): Promise<Notification> {
 /**
  * 全通知を既読にします。
  */
-export function markAllAsRead(): Promise<{ updated: number }> {
-  return request<{ updated: number }>(PATHS.notifications.readAll, {
+export function markAllAsRead(): Promise<MarkAllReadResponse> {
+  return request<MarkAllReadResponse>(PATHS.notifications.readAll, {
     method: "POST",
   });
 }
