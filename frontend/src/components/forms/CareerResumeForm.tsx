@@ -18,7 +18,6 @@ import { useImportPanelLayout } from "../../hooks/career/useImportPanelLayout";
 import { useResumeDiffPreview } from "../../hooks/career/useResumeDiffPreview";
 import { useResumeImportAssist } from "../../hooks/career/useResumeImportAssist";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
-import { useUnsavedChangesWarning } from "../../hooks/useUnsavedChangesWarning";
 import { clearCareerDraft, loadCareerDraft, saveCareerDraft } from "../../utils/careerDraft";
 import { buildCareerPayload, validateCareerForm } from "../../payloadBuilders";
 import type { CareerFieldLocator, CareerFormState } from "../../payloadBuilders";
@@ -138,13 +137,6 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
 
   /** 未保存マーク（🔴）の表示判定に使う dirty マップ */
   const dirty = useCareerDirty(form, baseline);
-
-  /**
-   * ログイン済みで未保存の変更があるとき、× 閉じ / リロード時にブラウザ標準の離脱確認を出す。
-   * formCache は redux-persist の blacklist のためリロードで消える。未保存編集の消失を防ぐ。
-   * 未ログインは baseline が null で dirty.any が常に false（＝対象外）。入力は sessionStorage に自動退避される。
-   */
-  useUnsavedChangesWarning(isAuthenticated && dirty.any);
 
   /**
    * baseline（保存済み）と form（編集中）の変更点リスト。左右 diff モーダルのサイドバーと
