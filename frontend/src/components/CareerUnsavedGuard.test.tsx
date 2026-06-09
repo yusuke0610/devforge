@@ -65,4 +65,20 @@ describe("CareerUnsavedGuard", () => {
     );
     expect(dispatchBeforeUnload()).toBe(false);
   });
+
+  it("不正な形のキャッシュ値でもクラッシュせず、抑止しない（安全側に倒す）", () => {
+    const store = makeStore();
+    // experiences / qualifications 配列を欠く壊れた値を流し込む（型ガードで弾けることを検証）。
+    store.dispatch(
+      setCache({ key: "career", form: { full_name: "山田" } as never, documentId: "resume-1" }),
+    );
+    expect(() =>
+      render(
+        <Provider store={store}>
+          <CareerUnsavedGuard isAuthenticated={true} />
+        </Provider>,
+      ),
+    ).not.toThrow();
+    expect(dispatchBeforeUnload()).toBe(false);
+  });
 });
