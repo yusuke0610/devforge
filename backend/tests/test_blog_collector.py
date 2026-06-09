@@ -208,7 +208,9 @@ def test_verify_user_exists_normalizes_before_request() -> None:
         result = _run(verify_user_exists("zenn", "https://zenn.dev/testuser/articles/test"))
 
     assert result is True
-    mock_client.get.assert_awaited_once_with("https://zenn.dev/api/users/testuser")
+    mock_client.get.assert_awaited_once_with(
+        "https://zenn.dev/api/users/testuser", params=None
+    )
 
 
 def test_verify_user_exists_zenn_user_not_found() -> None:

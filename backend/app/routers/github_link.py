@@ -50,6 +50,21 @@ def _get_or_create_cache(db: Session, user_id: str) -> GitHubLinkCache:
     return cache
 
 
+def require_github_user(user: User = Depends(get_current_user)) -> User:
+    """GitHub 連携には GitHub ログイン（``github_id`` 保持）が必須。未連携なら 403。
+
+    ``start`` / ``retry`` の両エンドポイントで共通の認可ガード。
+    """
+    if user.github_id is None:
+        raise_app_error(
+            status_code=403,
+            code=ErrorCode.AUTH_REQUIRED,
+            message=get_error("github_link.github_login_required"),
+            action="GitHub アカウントでログインし直してください",
+        )
+    return user
+
+
 @router.get("/cache", response_model=CachedGitHubLinkResponse)
 def get_cache(
     user: User = Depends(get_current_user),
@@ -104,18 +119,10 @@ async def start_github_link(
     request: Request,
     payload: GitHubLinkRequest,
     background_tasks: BackgroundTasks,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_github_user),
     db: Session = Depends(get_db),
 ):
     """GitHub 連携パイプラインをバックグラウンドで開始する。"""
-    if user.github_id is None:
-        raise_app_error(
-            status_code=403,
-            code=ErrorCode.AUTH_REQUIRED,
-            message=get_error("github_link.github_login_required"),
-            action="GitHub アカウントでログインし直してください",
-        )
-
     github_username = user.username
 
     # 進行中のタスクがあればそのステータスを返す
@@ -151,7 +158,7 @@ async def retry_github_link(
     request: Request,
     background_tasks: BackgroundTasks,
     payload: GitHubLinkRequest | None = None,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_github_user),
     db: Session = Depends(get_db),
 ):
     """失敗した GitHub 連携タスクを手動で再実行する。
@@ -159,14 +166,6 @@ async def retry_github_link(
     ``dead_letter`` 状態のキャッシュのみ再実行可能。
     ``retry_count`` を 0 にリセットし、ステータスを ``pending`` に戻して再ディスパッチする。
     """
-    if user.github_id is None:
-        raise_app_error(
-            status_code=403,
-            code=ErrorCode.AUTH_REQUIRED,
-            message=get_error("github_link.github_login_required"),
-            action="GitHub アカウントでログインし直してください",
-        )
-
     cache = db.query(GitHubLinkCache).filter_by(user_id=user.id).first()
     if not cache:
         raise_app_error(

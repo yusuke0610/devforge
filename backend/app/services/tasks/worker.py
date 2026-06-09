@@ -75,17 +75,18 @@ async def execute_task(
         },
     )
 
-    if get_handler(task_type) is None:
+    handler = get_handler(task_type)
+    if handler is None:
         logger.error("不明なタスク種別: %s", task_type)
         return
 
     try:
-        # 各 ``_run_*`` シムはテストからの patch ポイントとして残している。
-        # 実体は ``services/tasks/handlers/`` 配下のハンドラ。
+        # ハンドラレジストリ経由でディスパッチする（種別ごとの if 分岐は持たない）。
+        # 種別を増やしてもここは変更不要で、ハンドラ未登録なら上で早期 return するため
+        # 「分岐の書き忘れで黙って completed になる」事故は構造的に起きない。
         # ハンドラには SessionLocal (ファクトリ) を渡し、ハンドラ内で長時間処理の
         # 前後にセッションを開閉させる。
-        if task_type == TaskType.GITHUB_LINK:
-            await _run_github_link(SessionLocal, payload)
+        await handler.run(SessionLocal, payload)
 
         duration_ms = _monotonic_ms_since(start)
         logger.info(
@@ -231,9 +232,9 @@ def _finalize_retrying(
     )
 
 
-# ---------- ハンドラ薄ラッパー（後方互換）----------
-# テストや既存呼び出しから ``_run_github_link`` を直接呼べるよう、
-# ハンドラ実装への薄いシムを残す。引数は ``session_factory``。
+# ---------- ハンドラ薄ラッパー（直接呼び出し用）----------
+# ``execute_task`` はレジストリ経由で汎用ディスパッチするためこのシムを介さないが、
+# GitHub 連携ハンドラ単体をテスト等から直接呼ぶための入口として残す。引数は ``session_factory``。
 
 
 async def _run_github_link(session_factory: SessionFactory, payload: dict) -> None:

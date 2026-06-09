@@ -5,7 +5,6 @@
 """
 
 from app.main import limiter
-from app.repositories import UserRepository
 from fastapi.testclient import TestClient
 
 from conftest import auth_header
@@ -13,12 +12,9 @@ from conftest import auth_header
 
 def test_github_link_run_rate_limited(client: TestClient) -> None:
     """POST /api/github-link/run が 5/分の上限超で 429 を返す。"""
-    headers = auth_header(client, "rl-gh-user")
-    # /run は連携済み GitHub アカウント（github_login）を要求するため事前にセットする
-    db = client._db_session
-    user = UserRepository(db).get_by_username("rl-gh-user")
-    user.github_login = "octocat"
-    db.commit()
+    # /run は GitHub 連携済みユーザー（github_id）を require_github_user で要求するため、
+    # 認可で弾かれず rate limit まで到達するよう github_id 付きで作成する。
+    headers = auth_header(client, "rl-gh-user", github_id=424242)
 
     limiter.reset()
     statuses: list[int] = []
