@@ -1,4 +1,4 @@
-import { CSSProperties, FormEvent, useCallback, useMemo, useRef, useState } from "react";
+import { CSSProperties, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
 import {
@@ -10,13 +10,15 @@ import {
   getLatestCareerResume,
   updateCareerResume,
 } from "../../api";
-import { SUCCESS_MESSAGES, UI_MESSAGES } from "../../constants/messages";
+import { AUTH_PROMPT_MESSAGES, SUCCESS_MESSAGES, UI_MESSAGES } from "../../constants/messages";
 import { createInitialCareerForm, mapCareerResumeToForm } from "../../formMappers";
 import { useCareerDirty } from "../../hooks/career/useCareerDirty";
+import { useCareerDraftRestore } from "../../hooks/career/useCareerDraftRestore";
 import { useImportPanelLayout } from "../../hooks/career/useImportPanelLayout";
 import { useResumeDiffPreview } from "../../hooks/career/useResumeDiffPreview";
 import { useResumeImportAssist } from "../../hooks/career/useResumeImportAssist";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
+import { clearCareerDraft, loadCareerDraft, saveCareerDraft } from "../../utils/careerDraft";
 import { buildCareerPayload, validateCareerForm } from "../../payloadBuilders";
 import type { CareerFieldLocator, CareerFormState } from "../../payloadBuilders";
 import { buildCareerChanges } from "../../utils/careerDiff";
@@ -26,9 +28,15 @@ import { usePdfActions } from "../../hooks/usePdfActions";
 import { useMessageToast } from "../ui/toast";
 import shared from "../../styles/shared.module.css";
 import { ConfirmDialog } from "../ConfirmDialog";
+import { useLoginPrompt } from "../auth/loginPromptContext";
 import { CareerDiffModal } from "./CareerDiffModal";
 import { MarkdownFieldModal } from "./MarkdownFieldModal";
 import { Skeleton } from "../ui/Skeleton";
+import { SaveIcon } from "../icons/SaveIcon";
+import { EyeIcon } from "../icons/EyeIcon";
+import { TrashIcon } from "../icons/TrashIcon";
+import { PdfDownloadIcon } from "../icons/PdfDownloadIcon";
+import { MarkdownDownloadIcon } from "../icons/MarkdownDownloadIcon";
 import { PdfPreviewModal } from "./PdfPreviewModal";
 import { ResumeSourceTracePanel } from "./ResumeSourceTracePanel";
 import layout from "./CareerResumeForm.module.css";
@@ -37,7 +45,9 @@ import { CareerExperienceSection } from "./sections/CareerExperienceSection";
 import { CareerQualificationsSection } from "./sections/CareerQualificationsSection";
 import { CareerSelfPrSection } from "./sections/CareerSelfPrSection";
 
-export function CareerResumeForm() {
+export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean }) {
+  // 未ログインで要ログイン機能を使おうとしたときに開く共通モーダル。
+  const requestLogin = useLoginPrompt();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   // 保存時の変更点確認ダイアログの表示状態。
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
@@ -48,6 +58,17 @@ export function CareerResumeForm() {
   const assist = useResumeImportAssist();
   const splitRef = useRef<HTMLDivElement>(null);
   const { width: pdfWidth, startResize } = useImportPanelLayout(splitRef);
+
+  /**
+   * 初期フォーム。未ログインのお試し入力では、退避ドラフトがあればそれを初期値にする
+   * （リロードやログイン往復後も入力を失わない。ドラフトは下の effect で常に最新化する）。
+   * 認証済みでは空フォーム（サーバ最新は useDocumentForm の loadLatest が反映する）。
+   */
+  const createInitialForm = useCallback(
+    () => (isAuthenticated ? createInitialCareerForm() : loadCareerDraft() ?? createInitialCareerForm()),
+    [isAuthenticated],
+  );
+
   const {
     form,
     setForm,
@@ -62,7 +83,7 @@ export function CareerResumeForm() {
     deleteDoc,
     saveButtonText,
   } = useDocumentForm({
-    createInitialForm: createInitialCareerForm,
+    createInitialForm,
     loadLatest: getLatestCareerResume,
     createDocument: createCareerResume,
     updateDocument: updateCareerResume,
@@ -71,7 +92,37 @@ export function CareerResumeForm() {
     mapResponseToForm: mapCareerResumeToForm,
     successMessage: SUCCESS_MESSAGES.CAREER_SAVED,
     cacheKey: "career",
+    // 未ログインのお試し入力では loadLatest を行わず空フォームで起動する（401 を無駄打ちしない）。
+    skipLoad: !isAuthenticated,
   });
+
+  // ログイン後（往復から復帰）に退避ドラフトを復元する情報トースト用メッセージ。
+  const [restoreMessage, setRestoreMessage] = useState<string | null>(null);
+
+  // 未ログイン入力 → ログイン往復してきたユーザーの退避ドラフトをフォームへ橋渡しする。
+  useCareerDraftRestore({
+    isAuthenticated,
+    loading,
+    documentId: resumeId,
+    setForm,
+    save,
+    notifyRestored: () => setRestoreMessage(AUTH_PROMPT_MESSAGES.DRAFT_RESTORED),
+  });
+
+  /**
+   * 未ログイン時は入力内容を常に sessionStorage に退避し続ける。
+   * これによりプレビュー/ダウンロード/連携メニューなど任意のログイン導線を踏んでも
+   * 入力が失われず、ログイン往復後に復元できる。氏名が空のうちは意味のあるドラフトでないため退避しない
+   * （空ドラフトでログイン後に自動保存が空振りするのを防ぐ）。
+   */
+  useEffect(() => {
+    if (isAuthenticated) return;
+    if (form.full_name.trim()) {
+      saveCareerDraft(form);
+    } else {
+      clearCareerDraft();
+    }
+  }, [isAuthenticated, form]);
 
   /**
    * 保存前バリデーション（項目バリデーション）のメッセージ。
@@ -118,14 +169,12 @@ export function CareerResumeForm() {
     getPdfBlobUrl: getCareerResumePdfBlobUrl,
   });
 
-  // PDF アクションとフォーム保存/削除の成否を、チャンネルごとに独立してトーストで通知する。
-  // pdf と form を `??` で統合すると、片方の値が残っている間にもう片方が更新されても
-  // 統合値が変化せずトーストが出ないため、それぞれ個別に橋渡しする。
-  // 成功は自動消去、失敗は手動クローズ（ブリッジ内で variant 別に制御）。
   useMessageToast(formSuccess, "success");
   useMessageToast(formError, "error");
   useMessageToast(pdfSuccess, "success");
   useMessageToast(pdfError, "error");
+  // ログイン後のドラフト復元（既存経歴書あり）を通知する情報トースト。
+  useMessageToast(restoreMessage, "success");
 
   /** Skeleton 表示・入力ロックの統合フラグ */
   const formLocked = loading;
@@ -160,22 +209,44 @@ export function CareerResumeForm() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  /** バリデーション失敗を画面へ反映する（メッセージ・フォーカス・モーダル自動展開）。 */
+  const applyValidationError = (validation: NonNullable<ReturnType<typeof validateCareerForm>>) => {
+    setValidationError(validation.message);
+    focusNonceRef.current += 1;
+    setFocusTarget({ locator: validation.locator, nonce: focusNonceRef.current });
+    // 自己PR / 職務要約はモーダルへ逃がしているため、該当フィールドの失敗時はモーダルを自動で開く
+    // （隠れた textarea には直接フォーカスできないため）。
+    if (
+      validation.locator.kind === "career_summary" ||
+      validation.locator.kind === "self_pr"
+    ) {
+      setEditingField(validation.locator.kind);
+    }
+  };
+
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
+
+    // 未ログインのお試し入力: 全項目の入力完了は求めず（カジュアルな体験を優先）、
+    // 氏名だけ確認して（空の経歴書でログインさせない）ドラフトを退避し、ログインを促す。
+    // 残りの項目検証はログイン後の実保存時にサーバ側で行う。
+    if (!isAuthenticated) {
+      if (!form.full_name.trim()) {
+        const validation = validateCareerForm(form);
+        if (validation) applyValidationError(validation);
+        return;
+      }
+      setValidationError(null);
+      setFocusTarget(null);
+      // 入力内容は effect で sessionStorage に退避済み。ログインを促す。
+      requestLogin();
+      return;
+    }
+
     // 保存前にフォーム全体を検証し、最初のエラーフィールドへフォーカスする。
     const validation = validateCareerForm(form);
     if (validation) {
-      setValidationError(validation.message);
-      focusNonceRef.current += 1;
-      setFocusTarget({ locator: validation.locator, nonce: focusNonceRef.current });
-      // 自己PR / 職務要約はモーダルへ逃がしているため、該当フィールドの失敗時はモーダルを自動で開く
-      // （隠れた textarea には直接フォーカスできないため）。
-      if (
-        validation.locator.kind === "career_summary" ||
-        validation.locator.kind === "self_pr"
-      ) {
-        setEditingField(validation.locator.kind);
-      }
+      applyValidationError(validation);
       return;
     }
     setValidationError(null);
@@ -201,6 +272,27 @@ export function CareerResumeForm() {
     await deleteDoc();
     setShowDeleteConfirm(false);
   };
+
+  /**
+   * 要ログイン機能（プレビュー / PDF / Markdown 出力）のハンドラ。
+   * 未ログインならログイン促進モーダルを開き、ログイン済みなら本来の処理を行う。
+   * 入力中ドラフトは effect で sessionStorage に退避済みのため、ログイン往復後も失われない。
+   */
+  const handlePreview = () => {
+    if (!isAuthenticated) return requestLogin();
+    if (resumeId) onPreviewPdf(resumeId);
+  };
+  const handleDownloadPdf = () => {
+    if (!isAuthenticated) return requestLogin();
+    if (resumeId) onDownloadPdf(resumeId, SUCCESS_MESSAGES.CAREER_PDF_DOWNLOADED);
+  };
+  const handleDownloadMarkdown = () => {
+    if (!isAuthenticated) return requestLogin();
+    if (resumeId) onDownloadMarkdown(resumeId);
+  };
+  // 未ログインでは要ログイン機能ボタンを活性にしてログイン導線にする。
+  // ログイン済みでは保存済み（resumeId あり）まで非活性。
+  const exportDisabled = formLocked || (isAuthenticated && !resumeId);
 
   return (
     <>
@@ -250,48 +342,67 @@ export function CareerResumeForm() {
           <h1>職務経歴書</h1>
           <div className={shared.pageHeaderActions}>
             {/* ファイル取り込みは右カラムの原本ビュー（ドラッグ&ドロップ / クリック）に集約。 */}
-            <button type="submit" className="primary" disabled={!canSubmit || saving}>
-              {saveButtonText}
-            </button>
             <button
-              type="button"
-              onClick={() => resumeId && onPreviewPdf(resumeId)}
-              disabled={!resumeId || formLocked}
+              type="submit"
+              className={`primary ${layout.iconButton}`}
+              disabled={!canSubmit || saving}
+              aria-label={saveButtonText}
+              title={saveButtonText}
             >
-              プレビュー
+              {saving ? (
+                <span className={layout.buttonSpinner} aria-hidden="true" />
+              ) : (
+                <SaveIcon className={layout.headerIcon} />
+              )}
             </button>
             <button
               type="button"
-              onClick={() =>
-                resumeId && onDownloadPdf(resumeId, SUCCESS_MESSAGES.CAREER_PDF_DOWNLOADED)
-              }
-              disabled={!resumeId || downloading || formLocked}
+              className={layout.iconButton}
+              onClick={handlePreview}
+              disabled={exportDisabled}
+              aria-label={UI_MESSAGES.RESUME_PREVIEW}
+              title={UI_MESSAGES.RESUME_PREVIEW}
             >
-              {downloading ? "ダウンロード中..." : "PDF出力"}
+              <EyeIcon className={layout.headerIcon} />
             </button>
             <button
               type="button"
-              onClick={() => resumeId && onDownloadMarkdown(resumeId)}
-              disabled={!resumeId || formLocked}
+              className={layout.iconButton}
+              onClick={handleDownloadPdf}
+              disabled={exportDisabled || downloading}
+              aria-label={UI_MESSAGES.RESUME_EXPORT_PDF}
+              title={UI_MESSAGES.RESUME_EXPORT_PDF}
             >
-              Markdown出力
+              {downloading ? (
+                <span className={layout.buttonSpinner} aria-hidden="true" />
+              ) : (
+                <PdfDownloadIcon className={layout.headerIcon} />
+              )}
             </button>
             <button
               type="button"
-              className="danger"
+              className={layout.iconButton}
+              onClick={handleDownloadMarkdown}
+              disabled={exportDisabled}
+              aria-label={UI_MESSAGES.RESUME_EXPORT_MARKDOWN}
+              title={UI_MESSAGES.RESUME_EXPORT_MARKDOWN}
+            >
+              <MarkdownDownloadIcon className={layout.headerIcon} />
+            </button>
+            <button
+              type="button"
+              className={`danger ${layout.iconButton}`}
               onClick={() => setShowDeleteConfirm(true)}
               disabled={!resumeId || formLocked}
+              aria-label={UI_MESSAGES.RESUME_DELETE_ALL}
+              title={UI_MESSAGES.RESUME_DELETE_ALL}
             >
-              データを削除
+              <TrashIcon className={layout.headerIcon} />
             </button>
           </div>
         </div>
 
         <div className={shared.pageBody}>
-          {/* 左=入力フォーム / 右=PDF 原本ビュー。スプリッターで左右リサイズする。
-              splitWrap はコンテナクエリの基準（= split に割り当てられる実幅）。
-              横幅が足りない時は split を縦積みに切り替える。PDF カラム幅は CSS 変数で渡し、
-              縦積み時は CSS 側で全幅に上書きする（inline style だと上書きできないため変数経由）。 */}
           <div className={layout.splitWrap}>
             <div
               ref={splitRef}

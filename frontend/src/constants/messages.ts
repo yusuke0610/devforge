@@ -78,6 +78,31 @@ export const SUCCESS_MESSAGES = {
   CAREER_PDF_DOWNLOADED: "職務経歴書PDFをダウンロードしました。",
 } as const;
 
+/**
+ * 未ログインお試し入力からログインへ誘導する動線の文言。
+ * 職務経歴書を未ログインで入力 → 保存時にログインを促すモーダル / 匿名ヘッダーで使う。
+ */
+export const AUTH_PROMPT_MESSAGES = {
+  /** ログイン促進モーダルの見出し。 */
+  TITLE: "ログインして保存しましょう",
+  /** ログインで得られる価値の説明。 */
+  DESCRIPTION: "ログインすると職務経歴書を保存でき、PDF出力やいつでも編集ができます。",
+  /** 入力内容が失われない旨の安心メッセージ。 */
+  DRAFT_KEPT: "入力した内容は保持されます。",
+  /** GitHub ログインボタン（モーダル）。 */
+  GITHUB_LOGIN: "GitHubでログイン",
+  /** モーダルを閉じて入力に戻るボタン。 */
+  LATER: "あとで",
+  /** GitHub へリダイレクト中の表示。 */
+  REDIRECTING: "GitHub認証へリダイレクト中...",
+  /** 未認証サイドバーのフッターに置くログイン CTA（モーダルとの重複表記を避けて短縮形）。 */
+  SIDEBAR_LOGIN: "ログイン",
+  /** 未認証時に非活性な連携メニューへ付けるツールチップ。 */
+  LOGIN_REQUIRED_HINT: "ログインすると利用できます",
+  /** ログイン後、既存の職務経歴書がある場合にドラフトを復元したことを伝える。 */
+  DRAFT_RESTORED: "入力内容を復元しました。保存すると既存の職務経歴書を更新します。",
+} as const;
+
 /** JSX に直書きされていた UI 文言（ErrorBoundary など） */
 export const UI_MESSAGES = {
   ERROR_BOUNDARY_TITLE: "予期しないエラーが発生しました",
@@ -87,6 +112,21 @@ export const UI_MESSAGES = {
     "まだ連携データがありません。連携してアクティビティを可視化しましょう。",
   SIDEBAR_COLLAPSE: "サイドバーを閉じる",
   SIDEBAR_EXPAND: "サイドバーを開く",
+  // 未認証フッターの ▲ チェブロン（ダークモード / Issue報告 / 著作権メニュー）の aria-label
+  FOOTER_MENU: "メニュー",
+  // サイドバーのナビゲーション項目
+  NAV_CAREER: "職務経歴書",
+  NAV_GITHUB_LINK: "GitHub連携",
+  NAV_BLOG_LINK: "ブログ連携",
+  // GitHub連携サブパネル
+  GITHUB_LINK_OPTIONS: "GitHub連携オプション",
+  GITHUB_LINK_RUN: "連携実行",
+  GITHUB_INCLUDE_FORKS: "フォークしたリポジトリを含む",
+  // ユーザーメニュー（フッター）
+  DARK_MODE: "ダークモード",
+  LOGOUT: "ログアウト",
+  // 認証済みだがユーザー名が取得できない場合のフォールバック表示
+  MENU_FALLBACK: "Menu",
   SOURCE_PANEL_COLLAPSE: "原本パネルを閉じる",
   SOURCE_PANEL_EXPAND: "原本パネルを開く",
   // 入力モーダルの × 閉じるボタン（aria-label）
@@ -105,6 +145,11 @@ export const UI_MESSAGES = {
   REPORT_ISSUE: "GitHub Issueに報告",
   OPENS_IN_NEW_TAB: "（新しいタブで開きます）",
   COPYRIGHT: "© 2026 DevForge",
+  // 職務経歴書ヘッダーのアイコンボタン（aria-label / title 用）
+  RESUME_PREVIEW: "プレビュー",
+  RESUME_EXPORT_PDF: "PDF出力",
+  RESUME_EXPORT_MARKDOWN: "Markdown出力",
+  RESUME_DELETE_ALL: "データを削除",
   // 職務経歴書フォームの項目削除アイコン（aria-label / title 用）
   RESUME_DELETE_EXPERIENCE: "職務経歴を削除",
   RESUME_DELETE_CLIENT: "取引先を削除",

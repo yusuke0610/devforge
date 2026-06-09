@@ -1,7 +1,8 @@
 import { Route, Routes, Navigate } from "react-router-dom";
 
 import type { Theme } from "../hooks/useTheme";
-import { AuthenticatedLayout } from "../components/AuthenticatedLayout";
+import { SidebarLayout } from "../components/SidebarLayout";
+import { LoadingOverlay } from "../components/LoadingOverlay";
 import { PrivateRoute, PublicRoute, type AuthUser } from "./guards";
 import CareerPage from "../pages/CareerPage";
 import GitHubLinkPage from "../pages/GitHubLinkPage";
@@ -19,6 +20,38 @@ type AppRoutesProps = {
   onLogout: () => void;
   onLoginSuccess: (user: { username: string; is_github_user: boolean }) => void;
 };
+
+/**
+ * `/career` を認証有無の両対応にするディスパッチャ。
+ * - 認証判定中: LoadingOverlay（認証状態確定前のちらつきを防ぐ）
+ * - それ以外: 共通の SidebarLayout を描画。未認証時は連携メニューを非活性にし、
+ *   フッターにログインボタンを出す（SidebarLayout が user の有無で出し分ける）。
+ */
+function CareerRoute({
+  user,
+  authLoading,
+  theme,
+  onToggleTheme,
+  onLogout,
+}: {
+  user: AuthUser | null;
+  authLoading: boolean;
+  theme: Theme;
+  onToggleTheme: () => void;
+  onLogout: () => void;
+}) {
+  if (authLoading) return <LoadingOverlay />;
+  return (
+    <SidebarLayout
+      user={user}
+      theme={theme}
+      onToggleTheme={onToggleTheme}
+      onLogout={onLogout}
+    >
+      <CareerPage isAuthenticated={user !== null} />
+    </SidebarLayout>
+  );
+}
 
 /**
  * アプリケーション全体のルート定義。
@@ -40,11 +73,25 @@ export default function AppRoutes({
         <Route path="/login" element={<LoginPage githubError={githubError} />} />
       </Route>
 
-      {/* 認証済みルート */}
+      {/* 職務経歴書: 認証有無の両対応（未ログインはお試し入力、保存時にログインを促す） */}
+      <Route
+        path="/career"
+        element={
+          <CareerRoute
+            user={user}
+            authLoading={authLoading}
+            theme={theme}
+            onToggleTheme={onToggleTheme}
+            onLogout={onLogout}
+          />
+        }
+      />
+
+      {/* 認証済み専用ルート（GitHub連携・ブログ連携） */}
       <Route element={<PrivateRoute user={user} authLoading={authLoading} />}>
         <Route
           element={
-            <AuthenticatedLayout
+            <SidebarLayout
               user={user!}
               theme={theme}
               onToggleTheme={onToggleTheme}
@@ -52,7 +99,6 @@ export default function AppRoutes({
             />
           }
         >
-          <Route path="/career" element={<CareerPage />} />
           <Route path="/github_link" element={<GitHubLinkPage />} />
           <Route path="/blog" element={<BlogPage />} />
         </Route>

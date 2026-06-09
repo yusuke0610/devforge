@@ -161,6 +161,62 @@ describe("useDocumentForm", () => {
     expect(result.current.documentId).toBe("doc-cached");
   });
 
+  /**
+   * skipLoad（匿名モード）では loadLatest を呼ばず、最初から loading=false で
+   * 空フォームを起動すること。未ログインのお試し入力で 401 を無駄打ちしない契約を守る。
+   */
+  it("skipLoad=true のとき loadLatest を呼ばず loading=false で起動する", () => {
+    const { result } = setup({ skipLoad: true });
+
+    expect(result.current.loading).toBe(false);
+    expect(mockLoadLatest).not.toHaveBeenCalled();
+    expect(result.current.form).toEqual({ title: "" });
+    expect(result.current.documentId).toBeNull();
+  });
+
+  /**
+   * save(overrideForm) は現在の form state ではなく渡したフォームを保存すること。
+   * ログイン後に退避ドラフトを state 反映を待たずに即保存するために使う。
+   */
+  it("save(overrideForm) は渡したフォームで保存し成功時 true を返す", async () => {
+    mockLoadLatest.mockRejectedValue(new Error("Not found"));
+    mockCreateDocument.mockResolvedValueOnce({ id: "new-id", title: "ドラフト" });
+
+    const { result } = setup();
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    let returned: boolean | undefined;
+    await act(async () => {
+      returned = await result.current.save({ title: "ドラフト" });
+    });
+
+    expect(returned).toBe(true);
+    expect(mockBuildPayload).toHaveBeenLastCalledWith({ title: "ドラフト" });
+    expect(mockCreateDocument).toHaveBeenCalledWith({ title: "ドラフト" });
+    expect(result.current.success).toBe("保存しました");
+  });
+
+  /** save() 失敗時は false を返すこと（呼び出し側がドラフト破棄を判断するため）。 */
+  it("save() 失敗時は false を返す", async () => {
+    mockLoadLatest.mockRejectedValue(new Error("Not found"));
+    mockCreateDocument.mockRejectedValueOnce(new Error("失敗"));
+
+    const { result } = setup();
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    let returned: boolean | undefined;
+    await act(async () => {
+      returned = await result.current.save();
+    });
+
+    expect(returned).toBe(false);
+    expect(result.current.error).toBe("失敗");
+  });
+
   /** beforeSave でエラーがスローされた場合、API が呼ばれずエラーが表示されること */
   it("beforeSave でエラーがスローされた場合 API が呼ばれずエラーがセットされる", async () => {
     mockLoadLatest.mockRejectedValue(new Error("Not found"));

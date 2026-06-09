@@ -2,7 +2,7 @@
   color-scheme: light;
   font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif;
 
-  /* Layout（サイドバー幅・モバイル上部バー高。AuthenticatedLayout とモーダルのオフセットで共用） */
+  /* Layout（サイドバー幅・モバイル上部バー高。SidebarLayout とモーダルのオフセットで共用） */
   --sidebar-width: 220px;
   --topbar-height: 48px;
 
