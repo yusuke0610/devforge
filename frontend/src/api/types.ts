@@ -107,3 +107,14 @@ export type BlogAccountResponse = Schemas["BlogAccountResponse"];
 
 /** ブログ記事。backend `schemas/blog.py:BlogArticleResponse`。 */
 export type BlogArticleResponse = Schemas["BlogArticleResponse"];
+
+// ── 通知（routers/notifications.py）───────────────────────────────────────
+
+/** 通知 1 件。backend `routers/notifications.py:NotificationResponse`。 */
+export type NotificationResponse = Schemas["NotificationResponse"];
+
+/** 未読件数レスポンス。backend `routers/notifications.py:UnreadCountResponse`。 */
+export type UnreadCountResponse = Schemas["UnreadCountResponse"];
+
+/** 全件既読レスポンス。backend `routers/notifications.py:MarkAllReadResponse`。 */
+export type MarkAllReadResponse = Schemas["MarkAllReadResponse"];
