@@ -10,6 +10,7 @@ import type {
   CareerExperienceFieldKey,
 } from "../../formTypes";
 import type {
+  CareerClientForm,
   CareerExperienceForm,
   CareerFormState,
   CareerProjectForm,
@@ -24,23 +25,48 @@ export function useCareerExperienceMutators(
   experiences: CareerExperienceForm[],
   setForm: Dispatch<SetStateAction<CareerFormState>>,
 ) {
+  /**
+   * 指定 index の experience を updater で書き換える共通ヘルパ。
+   * 三階層 immutable 更新の「該当 1 件だけ map で差し替える」定型をここに集約する。
+   */
+  const updateExperienceAt = (
+    expIndex: number,
+    updater: (exp: CareerExperienceForm) => CareerExperienceForm,
+  ) => {
+    setForm((prev) => ({
+      ...prev,
+      experiences: prev.experiences.map((exp, ei) => (ei === expIndex ? updater(exp) : exp)),
+    }));
+  };
+
+  /**
+   * 指定座標（experience → client）の client を updater で書き換える共通ヘルパ。
+   * updateExperienceAt の上に client 1 件差し替えを重ねる。
+   */
+  const updateClientAt = (
+    expIndex: number,
+    clientIndex: number,
+    updater: (client: CareerClientForm) => CareerClientForm,
+  ) => {
+    updateExperienceAt(expIndex, (exp) => ({
+      ...exp,
+      clients: exp.clients.map((c, ci) => (ci === clientIndex ? updater(c) : c)),
+    }));
+  };
+
   /** experience フィールド変更ハンドラ */
   const updateExperienceField = (
     index: number,
     key: CareerExperienceFieldKey,
     value: string | boolean,
   ) => {
-    setForm((prev) => ({
-      ...prev,
-      experiences: prev.experiences.map((exp, i) => {
-        if (i !== index) return exp;
-        if (key === "is_current") {
-          const isCurrent = Boolean(value);
-          return { ...exp, is_current: isCurrent, end_date: isCurrent ? "" : exp.end_date };
-        }
-        return { ...exp, [key]: value };
-      }),
-    }));
+    updateExperienceAt(index, (exp) => {
+      if (key === "is_current") {
+        const isCurrent = Boolean(value);
+        return { ...exp, is_current: isCurrent, end_date: isCurrent ? "" : exp.end_date };
+      }
+      return { ...exp, [key]: value };
+    });
   };
 
   /** client フィールド変更ハンドラ */
@@ -50,50 +76,21 @@ export function useCareerExperienceMutators(
     key: CareerClientFieldKey,
     value: string,
   ) => {
-    setForm((prev) => ({
-      ...prev,
-      experiences: prev.experiences.map((exp, ei) => {
-        if (ei !== expIndex) return exp;
-        return {
-          ...exp,
-          clients: exp.clients.map((c, ci) =>
-            ci === clientIndex ? { ...c, [key]: value } : c,
-          ),
-        };
-      }),
-    }));
+    updateClientAt(expIndex, clientIndex, (c) => ({ ...c, [key]: value }));
   };
 
   /** 「取引先なし」フラグ切り替えハンドラ */
   const updateClientHasClient = (expIndex: number, clientIndex: number, value: boolean) => {
-    setForm((prev) => ({
-      ...prev,
-      experiences: prev.experiences.map((exp, ei) => {
-        if (ei !== expIndex) return exp;
-        return {
-          ...exp,
-          clients: exp.clients.map((c, ci) =>
-            ci === clientIndex ? { ...c, has_client: value, name: value ? c.name : "" } : c,
-          ),
-        };
-      }),
+    updateClientAt(expIndex, clientIndex, (c) => ({
+      ...c,
+      has_client: value,
+      name: value ? c.name : "",
     }));
   };
 
   /** 「休暇」フラグ切り替えハンドラ */
   const updateClientIsVacation = (expIndex: number, clientIndex: number, value: boolean) => {
-    setForm((prev) => ({
-      ...prev,
-      experiences: prev.experiences.map((exp, ei) => {
-        if (ei !== expIndex) return exp;
-        return {
-          ...exp,
-          clients: exp.clients.map((c, ci) =>
-            ci === clientIndex ? { ...c, is_vacation: value } : c,
-          ),
-        };
-      }),
-    }));
+    updateClientAt(expIndex, clientIndex, (c) => ({ ...c, is_vacation: value }));
   };
 
   /** 休暇の「継続中」フラグ切り替えハンドラ（継続中なら終了年月をクリア） */
@@ -102,75 +99,40 @@ export function useCareerExperienceMutators(
     clientIndex: number,
     value: boolean,
   ) => {
-    setForm((prev) => ({
-      ...prev,
-      experiences: prev.experiences.map((exp, ei) => {
-        if (ei !== expIndex) return exp;
-        return {
-          ...exp,
-          clients: exp.clients.map((c, ci) =>
-            ci === clientIndex
-              ? {
-                ...c,
-                vacation_is_current: value,
-                vacation_end_date: value ? "" : c.vacation_end_date,
-              }
-              : c,
-          ),
-        };
-      }),
+    updateClientAt(expIndex, clientIndex, (c) => ({
+      ...c,
+      vacation_is_current: value,
+      vacation_end_date: value ? "" : c.vacation_end_date,
     }));
   };
 
   /** 取引先追加ハンドラ */
   const addClient = (expIndex: number) => {
-    setForm((prev) => ({
-      ...prev,
-      experiences: prev.experiences.map((exp, ei) =>
-        ei === expIndex
-          ? { ...exp, clients: [...exp.clients, { ...blankCareerClient }] }
-          : exp,
-      ),
+    updateExperienceAt(expIndex, (exp) => ({
+      ...exp,
+      clients: [...exp.clients, { ...blankCareerClient }],
     }));
   };
 
-  /** 取引先削除ハンドラ */
+  /** 取引先削除ハンドラ（最後の 1 件は空レコードへリセット） */
   const removeClient = (expIndex: number, clientIndex: number) => {
-    setForm((prev) => ({
-      ...prev,
-      experiences: prev.experiences.map((exp, ei) => {
-        if (ei !== expIndex) return exp;
-        return {
-          ...exp,
-          clients:
-            exp.clients.length === 1
-              ? [{ ...blankCareerClient }]
-              : exp.clients.filter((_, ci) => ci !== clientIndex),
-        };
-      }),
+    updateExperienceAt(expIndex, (exp) => ({
+      ...exp,
+      clients:
+        exp.clients.length === 1
+          ? [{ ...blankCareerClient }]
+          : exp.clients.filter((_, ci) => ci !== clientIndex),
     }));
   };
 
-  /** プロジェクト削除ハンドラ */
+  /** プロジェクト削除ハンドラ（最後の 1 件は空レコードへリセット） */
   const removeProject = (expIndex: number, clientIndex: number, projIndex: number) => {
-    setForm((prev) => ({
-      ...prev,
-      experiences: prev.experiences.map((exp, ei) => {
-        if (ei !== expIndex) return exp;
-        return {
-          ...exp,
-          clients: exp.clients.map((c, ci) => {
-            if (ci !== clientIndex) return c;
-            return {
-              ...c,
-              projects:
-                c.projects.length === 1
-                  ? [{ ...blankCareerProject }]
-                  : c.projects.filter((_, pi) => pi !== projIndex),
-            };
-          }),
-        };
-      }),
+    updateClientAt(expIndex, clientIndex, (c) => ({
+      ...c,
+      projects:
+        c.projects.length === 1
+          ? [{ ...blankCareerProject }]
+          : c.projects.filter((_, pi) => pi !== projIndex),
     }));
   };
 
@@ -223,25 +185,11 @@ export function useCareerExperienceMutators(
     projIndex: number | null,
     project: CareerProjectForm,
   ) => {
-    setForm((prev) => ({
-      ...prev,
-      experiences: prev.experiences.map((exp, ei) => {
-        if (ei !== expIndex) return exp;
-        return {
-          ...exp,
-          clients: exp.clients.map((c, ci) => {
-            if (ci !== clientIndex) return c;
-            if (projIndex === null) {
-              return { ...c, projects: [...c.projects, project] };
-            }
-            return {
-              ...c,
-              projects: c.projects.map((p, pi) => (pi === projIndex ? project : p)),
-            };
-          }),
-        };
-      }),
-    }));
+    updateClientAt(expIndex, clientIndex, (c) =>
+      projIndex === null
+        ? { ...c, projects: [...c.projects, project] }
+        : { ...c, projects: c.projects.map((p, pi) => (pi === projIndex ? project : p)) },
+    );
   };
 
   return {

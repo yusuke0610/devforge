@@ -1,5 +1,5 @@
 import { CAPITAL_UNITS } from "../../../constants";
-import type { CareerClientFieldKey, CareerExperienceFieldKey } from "../../../formTypes";
+import type { CareerExperienceFieldKey, ClientMutationHandlers } from "../../../formTypes";
 import type { ExperienceDirty } from "../../../hooks/career/useCareerDirty";
 import { useFocusOnMatch } from "../../../hooks/useFocusOnMatch";
 import {
@@ -17,8 +17,12 @@ import { DirtyDot } from "../../ui/DirtyDot";
 import { PlusIcon } from "../../icons/PlusIcon";
 import { ClientEditor } from "./ClientEditor";
 
-/** CareerExperienceEditor のプロパティ型 */
-type CareerExperienceEditorProps = {
+/**
+ * CareerExperienceEditor のプロパティ型。
+ * 取引先（client）配下のハンドラ群は ClientEditor へ素通しするため
+ * ClientMutationHandlers で ClientEditor と共有する。
+ */
+type CareerExperienceEditorProps = ClientMutationHandlers & {
   /** 編集対象の職務経歴データ */
   exp: CareerExperienceForm;
   /** この職務経歴のインデックス */
@@ -29,27 +33,8 @@ type CareerExperienceEditorProps = {
     key: CareerExperienceFieldKey,
     value: string | boolean,
   ) => void;
-  /** 取引先フィールド変更ハンドラ */
-  onUpdateClientField: (
-    expIndex: number,
-    clientIndex: number,
-    key: CareerClientFieldKey,
-    value: string,
-  ) => void;
-  /** 取引先「取引先なし」切替ハンドラ */
-  onUpdateClientHasClient: (expIndex: number, clientIndex: number, value: boolean) => void;
-  /** 取引先「休暇」切替ハンドラ */
-  onUpdateClientIsVacation: (expIndex: number, clientIndex: number, value: boolean) => void;
-  /** 休暇「継続中」切替ハンドラ */
-  onUpdateClientVacationIsCurrent: (expIndex: number, clientIndex: number, value: boolean) => void;
   /** 取引先追加ハンドラ */
   onAddClient: (expIndex: number) => void;
-  /** 取引先削除ハンドラ */
-  onRemoveClient: (expIndex: number, clientIndex: number) => void;
-  /** プロジェクト削除ハンドラ */
-  onRemoveProject: (expIndex: number, clientIndex: number, projIndex: number) => void;
-  /** プロジェクト編集モーダルを開くハンドラ */
-  onOpenProjectModal: (expIndex: number, clientIndex: number, projIndex: number | null) => void;
   /** 職務経歴削除ハンドラ */
   onRemoveExperience: (index: number) => void;
   /** プロジェクトサマリーテキストを生成する関数 */
