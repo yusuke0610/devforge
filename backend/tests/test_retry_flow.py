@@ -23,6 +23,7 @@ from app.models import GitHubLinkCache
 from app.repositories import UserRepository
 from app.services.tasks.base import TaskType
 from app.services.tasks.exceptions import NonRetryableError, RetryableError
+from app.services.tasks.handlers.github_link import GitHubLinkHandler
 from app.services.tasks.worker import execute_task
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -68,7 +69,7 @@ def _setup_github_link_test(
 ):
     """github_link worker テストの共通スキャフォールド。
 
-    元の各テストにあった「user 作成 → cache 作成 → worker.SessionLocal / _run_github_link /
+    元の各テストにあった「user 作成 → cache 作成 → worker.SessionLocal / GitHubLinkHandler.run /
     _create_notification の 3 連 patch」を集約する。15 行 × 4 箇所のコピペを解消するための helper。
     yield する mock_notify で `_create_notification` の呼び出し有無を検証できる。
     """
@@ -84,8 +85,9 @@ def _setup_github_link_test(
             "app.services.tasks.worker.SessionLocal",
             return_value=_keep_open_session(db_session),
         ),
-        patch(
-            "app.services.tasks.worker._run_github_link",
+        patch.object(
+            GitHubLinkHandler,
+            "run",
             new_callable=AsyncMock,
             side_effect=side_effect,
         ),
@@ -411,8 +413,9 @@ def test_is_final_at_last_attempt(db_session: Session):
             "app.services.tasks.worker.SessionLocal",
             return_value=_keep_open_session(db_session),
         ),
-        patch(
-            "app.services.tasks.worker._run_github_link",
+        patch.object(
+            GitHubLinkHandler,
+            "run",
             new_callable=AsyncMock,
             side_effect=RetryableError("still retrying"),
         ),

@@ -6,6 +6,8 @@ import pytest
 from app.models import GitHubLinkCache
 from app.repositories import UserRepository
 from app.services.tasks.base import TaskType
+from app.services.tasks.handlers import get_handler
+from app.services.tasks.handlers.github_link import GitHubLinkHandler
 from app.services.tasks.worker import (
     _safe_rollback,
     execute_task,
@@ -19,13 +21,14 @@ from ._helpers import run_sync as _run
 
 class TestExecuteTask:
     def test_known_task_type_routes_to_correct_handler(self, db_session: Session):
-        """GITHUB_LINK が _run_github_link に正しくディスパッチされることを確認する。"""
+        """GITHUB_LINK が登録ハンドラの run に正しくディスパッチされることを確認する。"""
         with (
             patch("app.services.tasks.worker.SessionLocal", return_value=db_session),
-            patch(
-                "app.services.tasks.worker._run_github_link",
+            patch.object(
+                GitHubLinkHandler,
+                "run",
                 new_callable=AsyncMock,
-            ) as mock_gh,
+            ) as mock_run,
             patch("app.services.tasks.worker._create_notification"),
         ):
             _run(
@@ -35,23 +38,19 @@ class TestExecuteTask:
                 )
             )
 
-        mock_gh.assert_called_once()
+        mock_run.assert_called_once()
 
-    def test_all_task_types_have_dispatch_branch(self):
-        """TaskType に列挙された全種別に execute_task のディスパッチ分岐があること。
+    def test_all_task_types_have_registered_handler(self):
+        """TaskType に列挙された全種別がハンドラレジストリに登録済みであること。
 
-        新しい TaskType を追加した際に worker.execute_task への分岐追加を
-        忘れて「黙って completed になる」事故を防ぐためのガード。
+        execute_task はレジストリ経由で汎用ディスパッチするため、種別を追加して
+        ハンドラ登録を忘れると未登録として早期 return される。「黙って completed に
+        なる」事故を防ぐため、全種別が登録済みであることをガードする。
         """
-        import inspect
-
-        from app.services.tasks import worker
-
-        source = inspect.getsource(worker.execute_task)
-        missing = [t.name for t in TaskType if f"TaskType.{t.name}" not in source]
+        missing = [t.name for t in TaskType if get_handler(t) is None]
         assert not missing, (
-            f"execute_task に未対応の TaskType があります: {missing}。"
-            " 対応するハンドラシムを追加し if/elif に分岐を足してください。"
+            f"ハンドラ未登録の TaskType があります: {missing}。"
+            " services/tasks/handlers/__init__.py の _HANDLERS に登録してください。"
         )
 
     def test_execute_task_marks_dead_letter_on_error(self, db_session: Session):
@@ -72,8 +71,9 @@ class TestExecuteTask:
                 "app.services.tasks.worker.SessionLocal",
                 return_value=keep_open_session(db_session),
             ),
-            patch(
-                "app.services.tasks.worker._run_github_link",
+            patch.object(
+                GitHubLinkHandler,
+                "run",
                 new_callable=AsyncMock,
                 side_effect=RuntimeError("予期しないクラッシュ"),
             ),
@@ -99,8 +99,9 @@ class TestExecuteTask:
 
         with (
             patch("app.services.tasks.worker.SessionLocal", mock_session_local),
-            patch(
-                "app.services.tasks.worker._run_github_link",
+            patch.object(
+                GitHubLinkHandler,
+                "run",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
