@@ -25,17 +25,41 @@ export function saveCareerDraft(form: CareerFormState): void {
   }
 }
 
-/** 退避済みドラフトを読み出す。存在しない / 壊れている場合は null。 */
+/**
+ * パース済みオブジェクトが CareerFormState の最低限の形を満たすかを検証する。
+ * 旧フォーマットや破損データを復元してフォーム描画時に落ちる（experiences.map 等）のを防ぐ軽量チェック。
+ */
+function isCareerDraft(value: unknown): value is CareerFormState {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.full_name === "string" &&
+    typeof v.career_summary === "string" &&
+    typeof v.self_pr === "string" &&
+    Array.isArray(v.experiences) &&
+    Array.isArray(v.qualifications)
+  );
+}
+
+/** 退避済みドラフトを読み出す。存在しない / 壊れている / 形が不正な場合は null（破棄する）。 */
 export function loadCareerDraft(): CareerFormState | null {
   const raw = sessionStorage.getItem(CAREER_DRAFT_KEY);
   if (!raw) return null;
+  let parsed: unknown;
   try {
-    return JSON.parse(raw) as CareerFormState;
+    parsed = JSON.parse(raw);
   } catch (error) {
     console.warn("職務経歴書ドラフトの読み出しに失敗しました", error);
     clearCareerDraft();
     return null;
   }
+  // パースは成功したが想定の形でない（旧フォーマット等）場合も破棄する。
+  if (!isCareerDraft(parsed)) {
+    console.warn("職務経歴書ドラフトの形式が不正なため破棄します");
+    clearCareerDraft();
+    return null;
+  }
+  return parsed;
 }
 
 /** 退避済みドラフトを破棄する。 */

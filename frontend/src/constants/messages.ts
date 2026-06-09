@@ -114,6 +114,19 @@ export const UI_MESSAGES = {
   SIDEBAR_EXPAND: "サイドバーを開く",
   // 未認証フッターの ▲ チェブロン（ダークモード / Issue報告 / 著作権メニュー）の aria-label
   FOOTER_MENU: "メニュー",
+  // サイドバーのナビゲーション項目
+  NAV_CAREER: "職務経歴書",
+  NAV_GITHUB_LINK: "GitHub連携",
+  NAV_BLOG_LINK: "ブログ連携",
+  // GitHub連携サブパネル
+  GITHUB_LINK_OPTIONS: "GitHub連携オプション",
+  GITHUB_LINK_RUN: "連携実行",
+  GITHUB_INCLUDE_FORKS: "フォークしたリポジトリを含む",
+  // ユーザーメニュー（フッター）
+  DARK_MODE: "ダークモード",
+  LOGOUT: "ログアウト",
+  // 認証済みだがユーザー名が取得できない場合のフォールバック表示
+  MENU_FALLBACK: "Menu",
   SOURCE_PANEL_COLLAPSE: "原本パネルを閉じる",
   SOURCE_PANEL_EXPAND: "原本パネルを開く",
   // 入力モーダルの × 閉じるボタン（aria-label）

@@ -99,7 +99,7 @@ export function SidebarLayout({
                 `${styles.sidebarItem} ${isActive ? styles.active : ""}`
               }
             >
-              職務経歴書
+              {UI_MESSAGES.NAV_CAREER}
             </NavLink>
 
             {/* GitHub連携: 認証済みかつ GitHub ユーザーのみ活性。未認証は押下でログインを促す。 */}
@@ -113,12 +113,12 @@ export function SidebarLayout({
                         `${styles.sidebarItem} ${isActive ? styles.active : ""}`
                       }
                     >
-                      GitHub連携
+                      {UI_MESSAGES.NAV_GITHUB_LINK}
                     </NavLink>
                     <button
                       type="button"
                       className={styles.sidebarChevron}
-                      aria-label="GitHub連携オプション"
+                      aria-label={UI_MESSAGES.GITHUB_LINK_OPTIONS}
                       aria-expanded={githubOptionsOpen}
                       onClick={() => setGithubOptionsOpen((open) => !open)}
                     >
@@ -134,7 +134,7 @@ export function SidebarLayout({
                         className={styles.sidebarItem}
                         onClick={triggerGitHubLink}
                       >
-                        連携実行
+                        {UI_MESSAGES.GITHUB_LINK_RUN}
                       </button>
                       <label className={styles.sidebarCheckbox}>
                         <input
@@ -142,7 +142,7 @@ export function SidebarLayout({
                           checked={includeForks}
                           onChange={(e) => setIncludeForks(e.target.checked)}
                         />
-                        フォークしたリポジトリを含む
+                        {UI_MESSAGES.GITHUB_INCLUDE_FORKS}
                       </label>
                     </div>
                   )}
@@ -155,7 +155,7 @@ export function SidebarLayout({
                 onClick={requestLogin}
                 title={AUTH_PROMPT_MESSAGES.LOGIN_REQUIRED_HINT}
               >
-                GitHub連携
+                {UI_MESSAGES.NAV_GITHUB_LINK}
               </button>
             )}
 
@@ -167,7 +167,7 @@ export function SidebarLayout({
                   `${styles.sidebarItem} ${isActive ? styles.active : ""}`
                 }
               >
-                ブログ連携
+                {UI_MESSAGES.NAV_BLOG_LINK}
               </NavLink>
             ) : (
               <button
@@ -176,7 +176,7 @@ export function SidebarLayout({
                 onClick={requestLogin}
                 title={AUTH_PROMPT_MESSAGES.LOGIN_REQUIRED_HINT}
               >
-                ブログ連携
+                {UI_MESSAGES.NAV_BLOG_LINK}
               </button>
             )}
           </nav>

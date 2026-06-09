@@ -47,7 +47,7 @@ export function UserMenu({
       {open && (
         <div className={styles.menu}>
           <button type="button" className={styles.menuItem} onClick={onToggleTheme}>
-            <span className={styles.menuItemLabel}>ダークモード</span>
+            <span className={styles.menuItemLabel}>{UI_MESSAGES.DARK_MODE}</span>
             <span className={`${styles.toggle} ${isDark ? styles.toggleOn : ""}`}>
               <span className={styles.toggleKnob} />
             </span>
@@ -61,7 +61,7 @@ export function UserMenu({
                 className={`${styles.menuItem} ${styles.logoutItem}`}
                 onClick={onLogout}
               >
-                <span className={styles.menuItemLabel}>ログアウト</span>
+                <span className={styles.menuItemLabel}>{UI_MESSAGES.LOGOUT}</span>
               </button>
               <div className={styles.separator} />
             </>
@@ -98,7 +98,7 @@ export function UserMenu({
       )}
       {isAuthenticated ? (
         <button type="button" className={styles.trigger} onClick={() => setOpen(!open)}>
-          <span className={styles.triggerName}>{username || "Menu"}</span>
+          <span className={styles.triggerName}>{username || UI_MESSAGES.MENU_FALLBACK}</span>
           <span className={styles.triggerChevron}>&#x25B2;</span>
         </button>
       ) : (

@@ -35,4 +35,13 @@ describe("careerDraft", () => {
     expect(loadCareerDraft()).toBeNull();
     expect(sessionStorage.getItem("career_draft")).toBeNull();
   });
+
+  it("形が不正なドラフト（旧フォーマット等）は null を返し破棄する", () => {
+    // パースは成功するが CareerFormState の必須形（experiences 配列等）を満たさない。
+    sessionStorage.setItem("career_draft", JSON.stringify({ full_name: "山田太郎" }));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(loadCareerDraft()).toBeNull();
+    expect(sessionStorage.getItem("career_draft")).toBeNull();
+  });
 });
