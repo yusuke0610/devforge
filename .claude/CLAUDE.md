@@ -86,6 +86,18 @@ make ci
 nix develop --command bash -c "cd frontend && npm run test:e2e"
 ```
 
+### SSoT 生成物（codegen）のトリガー — 必須
+
+**SSoT（正本）から自動生成される成果物に影響する変更をしたら、生成物の再生成とコミットは必須。** 正本だけ直して生成物を更新し忘れると、CI の drift チェックで必ず落ちる（コミット段階で気づけず手戻りになる）。
+
+| 正本（変更したら） | 再生成コマンド | コミットすべき生成物 | CI ジョブ |
+|---|---|---|---|
+| backend の OpenAPI スキーマ（`app/schemas/` の Pydantic、router のシグネチャ・query/path パラメータ・**endpoint/schema の docstring**） | `make codegen-types` | `frontend/src/api/generated.ts`（`backend/openapi.json` は gitignore で対象外） | `codegen-drift`（ADR-0007） |
+
+- **判定基準**: 「OpenAPI スペックに出るものを変えたか」。エンドポイントの追加・削除、リクエスト/レスポンス型の変更、query/path パラメータの増減はもちろん、**docstring の文言変更だけでも description として spec に反映される**ため再生成が要る（今回の codegen-drift はこれで発生）。
+- backend の `app/schemas/` / `app/routers/` を触ったら、`make ci` 前に `make codegen-types` を回して `git diff frontend/src/api/generated.ts` を確認する。差分が出たら必ず同じ PR でコミットする。
+- 新しい SSoT→生成物の系統を追加した場合は、本表に行を足して再発防止の対象に含める。
+
 CI 定義: `.github/workflows/ci.yml`
 
 ## 作業開始時のブランチ運用（デフォルト）
