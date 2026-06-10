@@ -298,8 +298,8 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
     <>
       {showDeleteConfirm && (
         <ConfirmDialog
-          message="職務経歴書のデータを全て削除します。この操作は取り消せません。本当に削除しますか？"
-          confirmLabel="削除する"
+          message={UI_MESSAGES.RESUME_DELETE_CONFIRM}
+          confirmLabel={UI_MESSAGES.RESUME_DELETE_CONFIRM_LABEL}
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}
           confirming={deleting}

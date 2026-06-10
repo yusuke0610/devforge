@@ -1,4 +1,4 @@
-import type { CareerClientFieldKey } from "../../../formTypes";
+import type { ClientMutationHandlers } from "../../../formTypes";
 import type { ClientDirty } from "../../../hooks/career/useCareerDirty";
 import { useFocusOnMatch } from "../../../hooks/useFocusOnMatch";
 import {
@@ -14,8 +14,8 @@ import { DeleteIconButton } from "../../ui/DeleteIconButton";
 import { DirtyDot } from "../../ui/DirtyDot";
 import { PlusIcon } from "../../icons/PlusIcon";
 
-/** ClientEditor のプロパティ型 */
-type ClientEditorProps = {
+/** ClientEditor のプロパティ型（取引先配下のハンドラ群は ClientMutationHandlers で共有） */
+type ClientEditorProps = ClientMutationHandlers & {
   /** 編集対象の取引先データ */
   client: CareerClientForm;
   /** 親となる職務経歴のインデックス */
@@ -24,25 +24,6 @@ type ClientEditorProps = {
   clientIndex: number;
   /** この取引先の dirty 情報。未指定なら 🔴 表示なし。 */
   dirty?: ClientDirty;
-  /** 取引先フィールド変更ハンドラ */
-  onUpdateClientField: (
-    expIndex: number,
-    clientIndex: number,
-    key: CareerClientFieldKey,
-    value: string,
-  ) => void;
-  /** 取引先「取引先なし」切替ハンドラ */
-  onUpdateClientHasClient: (expIndex: number, clientIndex: number, value: boolean) => void;
-  /** 取引先「休暇」切替ハンドラ */
-  onUpdateClientIsVacation: (expIndex: number, clientIndex: number, value: boolean) => void;
-  /** 休暇「継続中」切替ハンドラ */
-  onUpdateClientVacationIsCurrent: (expIndex: number, clientIndex: number, value: boolean) => void;
-  /** プロジェクト削除ハンドラ */
-  onRemoveProject: (expIndex: number, clientIndex: number, projIndex: number) => void;
-  /** プロジェクト編集モーダルを開くハンドラ */
-  onOpenProjectModal: (expIndex: number, clientIndex: number, projIndex: number | null) => void;
-  /** 取引先削除ハンドラ */
-  onRemoveClient: (expIndex: number, clientIndex: number) => void;
   /** プロジェクトサマリーテキストを生成する関数 */
   projectSummary: (proj: CareerProjectForm) => string;
   /** バリデーション失敗フィールドの位置情報（休暇期間のフォーカス・赤枠用） */

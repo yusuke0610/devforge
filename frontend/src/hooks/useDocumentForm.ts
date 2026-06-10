@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
-import { FALLBACK_MESSAGES } from "../constants/messages";
+import { FALLBACK_MESSAGES, UI_MESSAGES } from "../constants/messages";
 import { useAppDispatch, useAppSelector } from "../store";
 import {
   clearCache,
@@ -172,8 +172,8 @@ export function useDocumentForm<FormState, Payload, Response extends { id: strin
   }, [loadLatest, mapResponseToForm, updateCache, commitBaseline, skipLoad]);
 
   const saveButtonText = useMemo(() => {
-    if (saving) return "保存中...";
-    return documentId ? "更新する" : "保存する";
+    if (saving) return UI_MESSAGES.FORM_SAVING;
+    return documentId ? UI_MESSAGES.FORM_UPDATE : UI_MESSAGES.FORM_SAVE;
   }, [documentId, saving]);
 
   /**

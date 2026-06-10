@@ -1,3 +1,4 @@
+import { UI_MESSAGES } from "../constants/messages";
 import styles from "./ConfirmDialog.module.css";
 
 export function ConfirmDialog({
@@ -21,10 +22,10 @@ export function ConfirmDialog({
         <p className={styles.message}>{message}</p>
         <div className={styles.actions}>
           <button type="button" className="danger" onClick={onConfirm} disabled={confirming}>
-            {confirming ? (confirmingLabel ?? "削除中...") : confirmLabel}
+            {confirming ? (confirmingLabel ?? UI_MESSAGES.CONFIRM_DELETING) : confirmLabel}
           </button>
           <button type="button" onClick={onCancel} disabled={confirming}>
-            キャンセル
+            {UI_MESSAGES.CONFIRM_CANCEL}
           </button>
         </div>
       </div>

@@ -156,6 +156,17 @@ export const UI_MESSAGES = {
   RESUME_DELETE_VACATION: "休業を削除",
   RESUME_DELETE_PROJECT: "プロジェクトを削除",
   RESUME_DELETE_QUALIFICATION: "資格を削除",
+  // 職務経歴書「データを削除」確認ダイアログ（ConfirmDialog の message / confirmLabel）
+  RESUME_DELETE_CONFIRM:
+    "職務経歴書のデータを全て削除します。この操作は取り消せません。本当に削除しますか？",
+  RESUME_DELETE_CONFIRM_LABEL: "削除する",
+  // 確認ダイアログ共通（ConfirmDialog のボタン文言）
+  CONFIRM_DELETING: "削除中...",
+  CONFIRM_CANCEL: "キャンセル",
+  // ドキュメントフォームの保存ボタン文言（useDocumentForm の saveButtonText）
+  FORM_SAVING: "保存中...",
+  FORM_UPDATE: "更新する",
+  FORM_SAVE: "保存する",
 } as const;
 
 /** 外部リンク URL（GitHub リポジトリ / Issue 報告先など）の SSoT */
