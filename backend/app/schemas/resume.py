@@ -245,19 +245,20 @@ class ResumeBase(BaseModel):
     @field_validator("email")
     @classmethod
     def validate_email(cls, value: str) -> str:
-        """メールアドレスの簡易形式チェック。不正なら 422（日本語メッセージ）で返す。"""
-        if not _EMAIL_PATTERN.match(value.strip()):
+        """メールアドレスの簡易形式チェック。前後空白を除去して正規化し、不正なら 422（日本語）で返す。"""
+        trimmed = value.strip()
+        if not _EMAIL_PATTERN.match(trimmed):
             raise ValueError(get_error("validation.email_invalid"))
-        return value
+        return trimmed
 
     @field_validator("github_url")
     @classmethod
     def validate_github_url(cls, value: str) -> str:
-        """GitHub URL は任意。値があるときだけ ``https://github.com/`` 始まりを要求する。"""
+        """GitHub URL は任意。値があるときだけ ``https://github.com/`` 始まりを要求する。前後空白は除去する。"""
         stripped = value.strip()
         if stripped and not stripped.startswith(_GITHUB_URL_PREFIX):
             raise ValueError(get_error("validation.github_url_invalid"))
-        return value
+        return stripped
 
 
 class ResumeCreate(ResumeBase):

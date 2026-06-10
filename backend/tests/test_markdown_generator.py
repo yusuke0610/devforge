@@ -67,7 +67,7 @@ def test_contact_fields_omitted_when_empty() -> None:
             "experiences": [],
         }
     )
-    assert "github" not in md
+    assert "**github:**" not in md
 
 
 def _it_experience() -> dict:

@@ -66,6 +66,34 @@ describe("buildCareerChanges", () => {
     expect(changes[0].label).toBe("氏名");
   });
 
+  it("連絡先（email / github_url）の変更を検出し、ロールバックで復元できる", () => {
+    const baseline = buildForm();
+    const form = buildForm();
+    form.email = "sato@example.com";
+    form.github_url = "https://github.com/sato"; // baseline は ""（未設定）
+
+    const changes = buildCareerChanges(form, baseline);
+
+    // email: 既存値 → 新値の modified として検出される。
+    const emailChange = changes.find((c) => c.path.join(".") === "email");
+    expect(emailChange).toBeDefined();
+    expect(emailChange).toMatchObject({
+      kind: "modified",
+      oldValue: "yamada@example.com",
+      newValue: "sato@example.com",
+    });
+
+    // github_url: 空 → 新値の modified として検出される。
+    const githubChange = changes.find((c) => c.path.join(".") === "github_url");
+    expect(githubChange).toBeDefined();
+    expect(githubChange?.kind).toBe("modified");
+    expect(githubChange?.newValue).toBe("https://github.com/sato");
+
+    // 項目別ロールバックで両フィールドが baseline 値へ戻る。
+    expect(emailChange!.rollback(form).email).toBe("yamada@example.com");
+    expect(githubChange!.rollback(form).github_url).toBe("");
+  });
+
   it("職歴の追加を added として検出する", () => {
     const baseline = buildForm();
     const form = buildForm();

@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from conftest import auth_header
+from conftest import auth_header, make_resume_payload
 
 # ── CRUD: Auth required (401 without token) ────────────────────
 
@@ -67,19 +67,12 @@ def test_resume_crud(client: TestClient) -> None:
 def test_resume_contact_round_trips(client: TestClient) -> None:
     """メール・GitHub URL が作成→取得で往復することを確認する。"""
     headers = auth_header(client, "resume-contact-user")
-    resp = client.post(
-        "/api/resumes",
-        json={
-            "full_name": "連絡先 太郎",
-            "email": "contact@example.com",
-            "github_url": "https://github.com/contact-taro",
-            "career_summary": "要約",
-            "self_pr": "自己PR",
-            "experiences": [],
-            "qualifications": [],
-        },
-        headers=headers,
+    payload = make_resume_payload(
+        full_name="連絡先 太郎",
+        email="contact@example.com",
+        github_url="https://github.com/contact-taro",
     )
+    resp = client.post("/api/resumes", json=payload, headers=headers)
     assert resp.status_code == 201, resp.text
 
     resp = client.get("/api/resumes/latest", headers=headers)
@@ -92,37 +85,16 @@ def test_resume_contact_round_trips(client: TestClient) -> None:
 def test_resume_rejects_invalid_email_via_api(client: TestClient) -> None:
     """不正なメール形式は 422 で拒否される。"""
     headers = auth_header(client, "resume-bademail-user")
-    resp = client.post(
-        "/api/resumes",
-        json={
-            "full_name": "太郎",
-            "email": "not-an-email",
-            "career_summary": "要約",
-            "self_pr": "自己PR",
-            "experiences": [],
-            "qualifications": [],
-        },
-        headers=headers,
-    )
+    payload = make_resume_payload(email="not-an-email")
+    resp = client.post("/api/resumes", json=payload, headers=headers)
     assert resp.status_code == 422
 
 
 def test_resume_rejects_invalid_github_url_via_api(client: TestClient) -> None:
     """github.com 以外の GitHub URL は 422 で拒否される。"""
     headers = auth_header(client, "resume-badgithub-user")
-    resp = client.post(
-        "/api/resumes",
-        json={
-            "full_name": "太郎",
-            "email": "ok@example.com",
-            "github_url": "https://gitlab.com/taro",
-            "career_summary": "要約",
-            "self_pr": "自己PR",
-            "experiences": [],
-            "qualifications": [],
-        },
-        headers=headers,
-    )
+    payload = make_resume_payload(github_url="https://gitlab.com/taro")
+    resp = client.post("/api/resumes", json=payload, headers=headers)
     assert resp.status_code == 422
 
 
