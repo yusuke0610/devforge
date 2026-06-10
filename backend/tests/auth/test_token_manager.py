@@ -13,6 +13,7 @@ from app.core.security.auth import (
     create_refresh_token,
 )
 from app.core.settings import get_cookie_samesite, get_cookie_secure
+from app.routers.auth.token_manager import GITHUB_OAUTH_STATE_COOKIE
 from jose import jwt
 
 from conftest import _test_public_key, auth_header
@@ -109,6 +110,9 @@ def test_github_callback_post_sets_session_cookie_with_httponly(client) -> None:
     token_response.json.return_value = {"access_token": "github-access-token"}
     user_response = MagicMock()
     user_response.json.return_value = {"id": 11111, "login": "cookie-test-user"}
+
+    # CSRF 対策の state Cookie をセット（body の state と一致させる）
+    client.cookies.set(GITHUB_OAUTH_STATE_COOKIE, "state-from-frontend")
 
     with patch("httpx.AsyncClient") as mock_cls:
         mock_http = AsyncMock()

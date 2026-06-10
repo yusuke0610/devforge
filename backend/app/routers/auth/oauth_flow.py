@@ -206,7 +206,9 @@ def begin_github_oauth(
     """
     GitHub OAuth フローを開始する。
 
-    state は Cookie に保存せず、呼び出し側でフロント (sessionStorage) に渡す。
+    state を生成して返す。呼び出し側（router）が HttpOnly Cookie に保存し、
+    コールバックでサーバー側照合する（CSRF 対策の正本）。フロントの sessionStorage
+    照合は多層防御として併用する。
     コールバック URL は `/github/callback` (フロントの React ルート) に揃える。
     CALLBACK_BASE_URL が設定されている場合は redirect_uri を固定し、
     未設定の場合は frontend_url のオリジンからフォールバックする。
