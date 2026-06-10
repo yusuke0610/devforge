@@ -66,7 +66,8 @@ describe("CareerResumeForm（未ログインの保存導線）", () => {
     const { requestLogin } = renderAnonymousForm();
 
     const saveButton = await waitForEnabledSaveButton();
-    fireEvent.change(screen.getByPlaceholderText("例: 山田 太郎"), {
+    // 氏名入力はプレースホルダ文言ではなくラベル（ロール + アクセシブル名）で特定する。
+    fireEvent.change(screen.getByRole("textbox", { name: /氏名/ }), {
       target: { value: "山田 太郎" },
     });
     fireEvent.click(saveButton);
