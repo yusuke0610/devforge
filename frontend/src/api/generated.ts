@@ -525,6 +525,9 @@ export interface paths {
          *
          *     一部の CDN / リバースプロキシは 303 レスポンスの Set-Cookie を除去することがあるため、
          *     200 + HTML リダイレクトで Cookie を確実にセットする。
+         *
+         *     state は認可開始時に発行した HttpOnly Cookie とサーバー側で照合する（CSRF 対策）。
+         *     照合失敗時はトークン交換に進まず、エラー付きでフロントへリダイレクトする。
          */
         get: operations["github_callback_redirect_auth_github_callback_get"];
         put?: never;
@@ -532,7 +535,8 @@ export interface paths {
          * Github Callback
          * @description GitHub OAuth コードを受け取り、認証 Cookie を発行する。
          *
-         *     state はフロントの sessionStorage で検証済みのためサーバー側では再検証しない。
+         *     state は認可開始時に発行した HttpOnly Cookie とサーバー側で照合する（CSRF 対策）。
+         *     フロントの sessionStorage 照合に依存せず API 直叩きのログイン CSRF を防ぐ。
          *     redirect_uri は GitHub OAuth App の登録値 (`/github/callback`) と一致させる必要がある。
          */
         post: operations["github_callback_auth_github_callback_post"];
@@ -573,7 +577,8 @@ export interface paths {
          * Github Login Url
          * @description GitHub OAuth 認可 URL と state を返す。
          *
-         *     state はフロントが sessionStorage に保持し、コールバック時に CSRF 検証する。
+         *     state は HttpOnly Cookie に保存し、コールバックでサーバー側照合する（CSRF 対策の正本）。
+         *     レスポンスの state はフロントの sessionStorage 照合（多層防御）にも併用する。
          */
         get: operations["github_login_url_auth_github_login_url_get"];
         put?: never;
@@ -1116,7 +1121,8 @@ export interface components {
          * GitHubLoginUrlResponse
          * @description GitHub OAuth 認可 URL と CSRF 検証用 state を返すレスポンス。
          *
-         *     state はフロントが sessionStorage に保持し、コールバック時に CSRF 検証する。
+         *     state はサーバー側で HttpOnly Cookie に保存され、コールバックで照合される（正本）。
+         *     レスポンスの state はフロントの sessionStorage 照合（多層防御）にも併用する。
          */
         GitHubLoginUrlResponse: {
             /** Authorization Url */
@@ -2423,6 +2429,7 @@ export interface operations {
         parameters: {
             query?: {
                 code?: string | null;
+                state?: string | null;
             };
             header?: never;
             path?: never;

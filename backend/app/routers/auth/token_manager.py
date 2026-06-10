@@ -20,8 +20,16 @@ from ...repositories import UserRepository
 
 logger = logging.getLogger(__name__)
 
-# 認証セッション Cookie 名（state と redirect_url はフロントの sessionStorage で管理する）
+# 認証セッション Cookie 名（access/refresh token を JSON でまとめて保持する）
 GITHUB_OAUTH_SESSION_COOKIE = "session"
+
+# GitHub OAuth state Cookie 名。
+# CSRF 対策として認可開始時にサーバーが発行し、コールバックでサーバー側照合する。
+# フロントの sessionStorage 照合は多層防御として併用するが、正本はこの HttpOnly Cookie。
+GITHUB_OAUTH_STATE_COOKIE = "oauth_state"
+
+# state Cookie の有効期間（秒）。認可開始からコールバック完了までの猶予。
+_OAUTH_STATE_COOKIE_MAX_AGE = 600
 
 
 def extract_refresh_token_from_session(request: Request) -> str | None:
@@ -61,6 +69,24 @@ def delete_cookie(response: Response, key: str, path: str = "/") -> None:
     """指定したキーの Cookie を削除する。"""
     response.delete_cookie(key=key, path=path)
 
+
+
+def set_oauth_state_cookie(response: Response, state: str) -> None:
+    """GitHub OAuth の state を HttpOnly Cookie に保存する。
+
+    コールバック時に Cookie 値と provided state をサーバー側で照合し、CSRF を防ぐ。
+    """
+    set_cookie(response, GITHUB_OAUTH_STATE_COOKIE, state, _OAUTH_STATE_COOKIE_MAX_AGE)
+
+
+def read_oauth_state_cookie(request: Request) -> str | None:
+    """リクエストの Cookie から GitHub OAuth state を取り出す。未設定なら ``None``。"""
+    return request.cookies.get(GITHUB_OAUTH_STATE_COOKIE)
+
+
+def delete_oauth_state_cookie(response: Response) -> None:
+    """GitHub OAuth state Cookie を削除する（照合後の使い捨て・リプレイ防止）。"""
+    delete_cookie(response, GITHUB_OAUTH_STATE_COOKIE, path="/")
 
 
 def set_auth_cookies(response: Response, username: str, db: Session) -> None:

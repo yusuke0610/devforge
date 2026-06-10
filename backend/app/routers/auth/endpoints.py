@@ -31,11 +31,15 @@ from .oauth_flow import (
     get_frontend_origin,
     resolve_frontend_url_from_cookie,
     resolve_frontend_url_from_request,
+    validate_github_oauth_state,
 )
 from .token_manager import (
     clear_auth_cookies,
+    delete_oauth_state_cookie,
     extract_refresh_token_from_session,
+    read_oauth_state_cookie,
     set_auth_cookies,
+    set_oauth_state_cookie,
 )
 
 # GitHub OAuth Callback URL のパス
@@ -146,14 +150,17 @@ def me(request: Request, current_user=Depends(get_current_user)) -> TokenRespons
 @limiter.limit("10/minute")
 def github_login_url(
     request: Request,
+    response: Response,
     return_to: str | None = None,
 ) -> GitHubLoginUrlResponse:
     """GitHub OAuth 認可 URL と state を返す。
 
-    state はフロントが sessionStorage に保持し、コールバック時に CSRF 検証する。
+    state は HttpOnly Cookie に保存し、コールバックでサーバー側照合する（CSRF 対策の正本）。
+    レスポンスの state はフロントの sessionStorage 照合（多層防御）にも併用する。
     """
     frontend_url = resolve_frontend_url_from_request(request, return_to)
     authorization_url, state = begin_github_oauth(request, frontend_url)
+    set_oauth_state_cookie(response, state)
     return GitHubLoginUrlResponse(authorization_url=authorization_url, state=state)
 
 
@@ -165,8 +172,11 @@ def github_login(
 ) -> RedirectResponse:
     """GitHub OAuth 認可 URL へリダイレクトする。"""
     frontend_url = resolve_frontend_url_from_request(request, return_to)
-    authorization_url, _state = begin_github_oauth(request, frontend_url)
-    return RedirectResponse(url=authorization_url, status_code=status.HTTP_303_SEE_OTHER)
+    authorization_url, state = begin_github_oauth(request, frontend_url)
+    redirect = RedirectResponse(url=authorization_url, status_code=status.HTTP_303_SEE_OTHER)
+    # state を Cookie に保存し、コールバックでサーバー側照合する（CSRF 対策）
+    set_oauth_state_cookie(redirect, state)
+    return redirect
 
 
 def _build_callback_html_response(
@@ -188,19 +198,22 @@ def _build_callback_html_response(
 async def github_callback_redirect(
     request: Request,
     code: str | None = None,
+    state: str | None = None,
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
     """GitHub OAuth コールバックを処理し、フロントエンドへリダイレクトする。
 
     一部の CDN / リバースプロキシは 303 レスポンスの Set-Cookie を除去することがあるため、
     200 + HTML リダイレクトで Cookie を確実にセットする。
-    """
 
-    # 現行フローでは GitHub のリダイレクト先はフロントの /github/callback（React ルート）であり、
-    # フロントが sessionStorage の state を検証してから POST /auth/github/callback でトークン交換する。
-    # このエンドポイントは後方互換のために残しているが、state のサーバー側検証は行わない。
+    state は認可開始時に発行した HttpOnly Cookie とサーバー側で照合する（CSRF 対策）。
+    照合失敗時はトークン交換に進まず、エラー付きでフロントへリダイレクトする。
+    """
     frontend_url = resolve_frontend_url_from_cookie(None)
 
+    # 成否いずれの経路でも state Cookie を破棄するため、レスポンスを 1 変数に集約する。
+    # 既定は成功用のリダイレクト。照合・トークン交換でエラーになれば except で差し替える。
+    response = _build_callback_html_response(frontend_url)
     try:
         if not code:
             raise_app_error(
@@ -209,17 +222,20 @@ async def github_callback_redirect(
                 message=get_error("auth.github_code_missing"),
                 action="GitHub ログインをやり直してください",
             )
+        # CSRF 対策: 認可開始時に発行した state Cookie とコールバックの state を照合する
+        validate_github_oauth_state(read_oauth_state_cookie(request), state)
         callback_base = get_callback_base_url() or build_external_base_url(request)
         redirect_uri = f"{callback_base}/auth/github/callback"
         token_response = await authenticate_github_user(db, code, redirect_uri)
+        set_auth_cookies(response, token_response.username, db)
     except HTTPException as error:
         # error.detail は AppErrorResponse の dict 形式なので message フィールドを取り出す
         detail = error.detail
         error_message = detail.get("message") if isinstance(detail, dict) else str(detail)
-        return _build_callback_html_response(frontend_url, error_message=error_message)
-
-    response = _build_callback_html_response(frontend_url)
-    set_auth_cookies(response, token_response.username, db)
+        response = _build_callback_html_response(frontend_url, error_message=error_message)
+    finally:
+        # 使い捨ての state Cookie は成否に関わらず破棄し、リプレイ窓を残さない
+        delete_oauth_state_cookie(response)
     return response
 
 
@@ -233,12 +249,18 @@ async def github_callback(
 ) -> TokenResponse:
     """GitHub OAuth コードを受け取り、認証 Cookie を発行する。
 
-    state はフロントの sessionStorage で検証済みのためサーバー側では再検証しない。
+    state は認可開始時に発行した HttpOnly Cookie とサーバー側で照合する（CSRF 対策）。
+    フロントの sessionStorage 照合に依存せず API 直叩きのログイン CSRF を防ぐ。
     redirect_uri は GitHub OAuth App の登録値 (`/github/callback`) と一致させる必要がある。
     """
+    # CSRF 対策: Cookie の state と body の state を照合（欠落・不一致は 401）
+    validate_github_oauth_state(read_oauth_state_cookie(request), payload.state)
+
     frontend_url = resolve_frontend_url_from_request(request)
     callback_base = get_callback_base_url() or get_frontend_origin(frontend_url)
     redirect_uri = f"{callback_base}{GITHUB_CALLBACK_PATH}"
     token_response = await authenticate_github_user(db, payload.code, redirect_uri)
     set_auth_cookies(response, token_response.username, db)
+    # 照合済みの state Cookie を破棄（使い捨て・リプレイ防止）
+    delete_oauth_state_cookie(response)
     return token_response

@@ -21,7 +21,8 @@ class GitHubCallbackRequest(BaseModel):
 class GitHubLoginUrlResponse(BaseModel):
     """GitHub OAuth 認可 URL と CSRF 検証用 state を返すレスポンス。
 
-    state はフロントが sessionStorage に保持し、コールバック時に CSRF 検証する。
+    state はサーバー側で HttpOnly Cookie に保存され、コールバックで照合される（正本）。
+    レスポンスの state はフロントの sessionStorage 照合（多層防御）にも併用する。
     """
 
     authorization_url: str
