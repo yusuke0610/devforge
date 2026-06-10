@@ -19,6 +19,15 @@ def build_resume_markdown(payload: dict[str, Any]) -> str:
     full_name = payload.get("full_name", "")
     if full_name:
         lines.append(field_line("氏名", full_name))
+    # 連絡先（メールは必須・GitHub URL は任意。値があるときだけ行を出す）
+    email = payload.get("email", "")
+    if email:
+        lines.append(field_line("email", email))
+    github_url = payload.get("github_url", "")
+    if github_url:
+        # github URL は Markdown リンク記法でハイパーリンク化する（GitHub/各種ビューアで
+        # 青・下線のリンク表示になる）。href は schema で https://github.com/ 始まりに検証済み。
+        lines.append(field_line("github", f"[{github_url}]({github_url})"))
     lines.append("")
 
     qualifications = payload.get("qualifications", [])

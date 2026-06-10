@@ -129,6 +129,7 @@ def test_me_returns_current_user(client) -> None:
 def _csrf_resume_payload() -> dict:
     return {
         "full_name": "テスト",
+        "email": "test@example.com",
         "career_summary": "要約",
         "self_pr": "自己PR",
         "experiences": [],

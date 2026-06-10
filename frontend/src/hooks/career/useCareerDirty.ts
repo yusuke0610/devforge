@@ -59,6 +59,8 @@ export type CareerDirtyMap = {
   /** 全体で何か未保存があるか（保存ボタン横用） */
   any: boolean;
   full_name: boolean;
+  email: boolean;
+  github_url: boolean;
   career_summary: boolean;
   self_pr: boolean;
   experiences: ExperienceDirty[];
@@ -106,6 +108,8 @@ function buildClean(form: CareerFormState): CareerDirtyMap {
   return {
     any: false,
     full_name: false,
+    email: false,
+    github_url: false,
     career_summary: false,
     self_pr: false,
     experiences: form.experiences.map((exp) => buildCleanExperience(exp)),
@@ -224,6 +228,8 @@ export function useCareerDirty(
     if (!baseline) return buildClean(form);
 
     const full_name = form.full_name !== baseline.full_name;
+    const email = form.email !== baseline.email;
+    const github_url = form.github_url !== baseline.github_url;
     const career_summary = form.career_summary !== baseline.career_summary;
     const self_pr = form.self_pr !== baseline.self_pr;
 
@@ -243,11 +249,19 @@ export function useCareerDirty(
       removedQualifications || qualifications.some((q) => q.self);
 
     const any =
-      full_name || career_summary || self_pr || experiencesAny || qualificationsAny;
+      full_name ||
+      email ||
+      github_url ||
+      career_summary ||
+      self_pr ||
+      experiencesAny ||
+      qualificationsAny;
 
     return {
       any,
       full_name,
+      email,
+      github_url,
       career_summary,
       self_pr,
       experiences,

@@ -19,6 +19,9 @@
 /** フォーム入力時の事前バリデーションメッセージ（payloadBuilders などで使用） */
 export const VALIDATION_MESSAGES = {
   FULL_NAME_REQUIRED: "氏名を入力してください。",
+  EMAIL_REQUIRED: "メールアドレスを入力してください。",
+  EMAIL_INVALID: "メールアドレスの形式が正しくありません。",
+  GITHUB_URL_INVALID: "GitHub の URL は https://github.com/ で始まる形式で入力してください。",
   CAREER_SUMMARY_REQUIRED: "職務要約を入力してください。",
   SELF_PR_REQUIRED: "自己PRを入力してください。",
   EXPERIENCE_REQUIRED_FIELDS: "職務経歴は会社名、事業内容、開始年月を入力してください。",
@@ -246,6 +249,8 @@ export const LOADING_MESSAGES = {
 export const CAREER_DIFF_LABELS = {
   // トップレベル
   FULL_NAME: "氏名",
+  EMAIL: "メールアドレス",
+  GITHUB_URL: "GitHub URL",
   CAREER_SUMMARY: "職務要約",
   SELF_PR: "自己PR",
   // 配列のセグメント名（末尾に連番が付く: 「職歴1」）

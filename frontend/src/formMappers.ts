@@ -12,6 +12,8 @@ import type { ResumeResponse } from "./api/types";
 export function createInitialCareerForm(): CareerFormState {
   return {
     full_name: "",
+    email: "",
+    github_url: "",
     career_summary: "",
     self_pr: "",
     experiences: [{ ...blankCareerExperience }],
@@ -26,6 +28,8 @@ export function mapCareerResumeToForm(response: ResumeResponse): CareerFormState
   const qualifications = response.qualifications ?? [];
   return {
     full_name: response.full_name,
+    email: response.email,
+    github_url: response.github_url ?? "",
     career_summary: response.career_summary,
     self_pr: response.self_pr,
     experiences:

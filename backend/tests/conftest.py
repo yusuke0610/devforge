@@ -166,6 +166,7 @@ def make_resume_payload(**overrides) -> dict:
     """
     payload: dict = {
         "full_name": "山田 太郎",
+        "email": "yamada@example.com",
         "career_summary": "キャリアサマリー",
         "self_pr": "自己PR",
         "experiences": [

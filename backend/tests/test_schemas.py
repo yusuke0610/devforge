@@ -87,6 +87,7 @@ def test_unknown_category_is_rejected() -> None:
 def test_resume_requires_career_summary() -> None:
     payload = {
         "full_name": "山田 太郎",
+        "email": "yamada@example.com",
         "self_pr": "自己PR",
         "experiences": [experience_payload()],
         "qualifications": [],
@@ -98,6 +99,7 @@ def test_resume_requires_career_summary() -> None:
 
 def test_resume_requires_full_name() -> None:
     payload = {
+        "email": "yamada@example.com",
         "career_summary": "要約",
         "self_pr": "自己PR",
         "experiences": [experience_payload()],
@@ -106,6 +108,57 @@ def test_resume_requires_full_name() -> None:
 
     with pytest.raises(ValidationError):
         ResumeCreate(**payload)
+
+
+def _resume_payload(**overrides) -> dict:
+    """メール・GitHub URL 検証用の最小 ResumeCreate payload。"""
+    payload = {
+        "full_name": "山田 太郎",
+        "email": "yamada@example.com",
+        "career_summary": "要約",
+        "self_pr": "自己PR",
+        "experiences": [],
+        "qualifications": [],
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_resume_requires_email() -> None:
+    """email は必須。欠落で ValidationError。"""
+    payload = _resume_payload()
+    del payload["email"]
+    with pytest.raises(ValidationError):
+        ResumeCreate(**payload)
+
+
+@pytest.mark.parametrize("bad_email", ["", "not-an-email", "foo@bar", "a@b.", "no domain.com"])
+def test_resume_rejects_invalid_email(bad_email: str) -> None:
+    """不正なメール形式は ValidationError。"""
+    with pytest.raises(ValidationError):
+        ResumeCreate(**_resume_payload(email=bad_email))
+
+
+def test_resume_accepts_valid_github_url() -> None:
+    """https://github.com/ 始まりの GitHub URL は受理される。"""
+    resume = ResumeCreate(**_resume_payload(github_url="https://github.com/yamada"))
+    assert resume.github_url == "https://github.com/yamada"
+
+
+def test_resume_allows_empty_github_url() -> None:
+    """GitHub URL は任意。空文字（デフォルト）でも受理される。"""
+    resume = ResumeCreate(**_resume_payload())
+    assert resume.github_url == ""
+
+
+@pytest.mark.parametrize(
+    "bad_url",
+    ["http://github.com/yamada", "https://gitlab.com/yamada", "github.com/yamada", "ftp://x"],
+)
+def test_resume_rejects_invalid_github_url(bad_url: str) -> None:
+    """github.com 以外・スキーム不正の URL は ValidationError。"""
+    with pytest.raises(ValidationError):
+        ResumeCreate(**_resume_payload(github_url=bad_url))
 
 
 def test_project_migrates_scale_to_team() -> None:

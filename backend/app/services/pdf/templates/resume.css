@@ -35,6 +35,12 @@ h1 {
   margin-bottom: 4mm;
 }
 
+/* 連絡先の github URL をハイパーリンク表示（青・下線）にする。 */
+.meta-link {
+  color: #0066cc;
+  text-decoration: underline;
+}
+
 h2 {
   font-size: 12pt;
   border-bottom: 2px solid #333;

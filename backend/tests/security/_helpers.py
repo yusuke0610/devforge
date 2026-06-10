@@ -22,6 +22,7 @@ DUMMY_UUID = "00000000-0000-0000-0000-000000000001"
 
 RESUME_PAYLOAD: dict = {
     "full_name": "山田 太郎",
+    "email": "yamada@example.com",
     "career_summary": "キャリアサマリー",
     "self_pr": "自己PR",
     "experiences": [],

@@ -1,4 +1,9 @@
-export type CareerTextFieldKey = "full_name" | "career_summary" | "self_pr";
+export type CareerTextFieldKey =
+  | "full_name"
+  | "email"
+  | "github_url"
+  | "career_summary"
+  | "self_pr";
 export type CareerExperienceFieldKey =
   | "company"
   | "business_description"

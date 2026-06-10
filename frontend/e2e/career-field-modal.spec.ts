@@ -28,6 +28,8 @@ async function setupResumeApi(page: Page) {
       body: JSON.stringify({
         id: "resume-1",
         full_name: "山田 太郎",
+        email: "yamada@example.com",
+        github_url: "",
         career_summary: "初期サマリー",
         self_pr: "初期自己PR",
         experiences: [],

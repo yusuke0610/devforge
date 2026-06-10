@@ -14,6 +14,8 @@ import { buildCareerChanges } from "./careerDiff";
 function buildForm(): CareerFormState {
   return structuredClone({
     full_name: "山田 太郎",
+    email: "yamada@example.com",
+    github_url: "",
     career_summary: "サマリー",
     self_pr: "自己PR",
     experiences: [

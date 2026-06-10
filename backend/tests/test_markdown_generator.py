@@ -34,6 +34,42 @@ def test_capital_unit_defaults_to_sen_man_when_missing() -> None:
     assert "5千万円" in md
 
 
+def test_contact_fields_rendered_when_present() -> None:
+    md = build_resume_markdown(
+        {
+            "full_name": "山田 太郎",
+            "email": "yamada@example.com",
+            "github_url": "https://github.com/yamada",
+            "career_summary": "職務要約",
+            "self_pr": "自己PR",
+            "qualifications": [],
+            "experiences": [],
+        }
+    )
+    assert "yamada@example.com" in md
+    # ラベルは email / github（小文字）。
+    assert "**email:**" in md
+    assert "**github:**" in md
+    # github URL は Markdown リンク記法でハイパーリンク化する。
+    assert "[https://github.com/yamada](https://github.com/yamada)" in md
+
+
+def test_contact_fields_omitted_when_empty() -> None:
+    # github URL は任意。空なら github 行を出さない（email は必須運用だが空入力にも耐える）。
+    md = build_resume_markdown(
+        {
+            "full_name": "山田 太郎",
+            "email": "yamada@example.com",
+            "github_url": "",
+            "career_summary": "職務要約",
+            "self_pr": "自己PR",
+            "qualifications": [],
+            "experiences": [],
+        }
+    )
+    assert "github" not in md
+
+
 def _it_experience() -> dict:
     return {
         "company": "Example株式会社",

@@ -220,6 +220,24 @@ def _build_html(resume: dict) -> str:
         f'<div class="meta">氏名　<span data-fp="full_name">{_esc(full_name)}</span></div>',
     )
 
+    # 連絡先（メールは必須・GitHub URL は任意。値があるときだけ行を出す）
+    email = resume.get("email") or ""
+    if email:
+        parts.append(
+            f'<div class="meta">email　<span data-fp="email">{_esc(email)}</span></div>',
+        )
+    github_url = resume.get("github_url") or ""
+    if github_url:
+        # github URL はハイパーリンク表示（青・下線）にする。href は schema で
+        # https://github.com/ 始まりに検証済みのため安全。data-fp は左右 diff の
+        # ハイライト対象として span ではなく <a> に直接付与する（annotateHtml は
+        # [data-fp] 全要素を対象にするため要素種別は問わない）。
+        esc_url = _esc(github_url)
+        parts.append(
+            f'<div class="meta">github　'
+            f'<a class="meta-link" href="{esc_url}" data-fp="github_url">{esc_url}</a></div>',
+        )
+
     # 記載日（日本時間）
     today = datetime.now(JST)
     parts.append(

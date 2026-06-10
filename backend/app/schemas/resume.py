@@ -12,11 +12,19 @@ FE 同期: 本モジュールの各 Item / レスポンス型は ``frontend/src/
 ``Client.vacation_*``（期間・詳細）を使う。
 """
 
+import re
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 from ..core.date_utils import to_jst
 from ..core.messages import get_error
@@ -219,12 +227,37 @@ class Experience(BaseModel):
         return self
 
 
+# 簡易メール形式（RFC 5322 完全準拠ではなく UX 優先の最小チェック）。FE 側 payloadBuilders と一致させる。
+_EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+# GitHub アカウント URL の接頭辞。値があるときのみ前方一致で検証する。
+_GITHUB_URL_PREFIX = "https://github.com/"
+
+
 class ResumeBase(BaseModel):
     full_name: str = Field(min_length=1, max_length=120)
+    email: str = Field(min_length=1, max_length=255)
+    github_url: str = Field(default="", max_length=255)
     career_summary: str = Field(min_length=1, max_length=2000)
     self_pr: str = Field(min_length=1, max_length=2000)
     experiences: list[Experience] = Field(default_factory=list)
     qualifications: list[ResumeQualificationItem] = Field(default_factory=list)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        """メールアドレスの簡易形式チェック。不正なら 422（日本語メッセージ）で返す。"""
+        if not _EMAIL_PATTERN.match(value.strip()):
+            raise ValueError(get_error("validation.email_invalid"))
+        return value
+
+    @field_validator("github_url")
+    @classmethod
+    def validate_github_url(cls, value: str) -> str:
+        """GitHub URL は任意。値があるときだけ ``https://github.com/`` 始まりを要求する。"""
+        stripped = value.strip()
+        if stripped and not stripped.startswith(_GITHUB_URL_PREFIX):
+            raise ValueError(get_error("validation.github_url_invalid"))
+        return value
 
 
 class ResumeCreate(ResumeBase):

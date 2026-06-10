@@ -16,6 +16,8 @@ async function setupResumeApi(page: Page) {
   const baseResume = {
     id: "resume-1",
     full_name: "山田 太郎",
+    email: "yamada@example.com",
+    github_url: "",
     career_summary: "サマリー",
     self_pr: "自己PR",
     experiences: [
@@ -94,6 +96,8 @@ test.describe("職務経歴書 未保存マーク", () => {
     const baseResumeWithProject = {
       id: "resume-1",
       full_name: "山田 太郎",
+      email: "yamada@example.com",
+      github_url: "",
       career_summary: "サマリー",
       self_pr: "自己PR",
       experiences: [

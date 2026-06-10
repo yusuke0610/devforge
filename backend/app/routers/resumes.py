@@ -31,6 +31,8 @@ def _resume_to_payload(resume: Resume) -> dict:
     """Resume ORM から PDF/Markdown 生成用 payload を組み立てる。"""
     return {
         "full_name": resume.full_name,
+        "email": resume.email,
+        "github_url": resume.github_url,
         "career_summary": resume.career_summary,
         "self_pr": resume.self_pr,
         "experiences": resume.experiences,
