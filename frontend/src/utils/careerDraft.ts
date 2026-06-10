@@ -34,6 +34,8 @@ function isCareerDraft(value: unknown): value is CareerFormState {
   const v = value as Record<string, unknown>;
   return (
     typeof v.full_name === "string" &&
+    typeof v.email === "string" &&
+    typeof v.github_url === "string" &&
     typeof v.career_summary === "string" &&
     typeof v.self_pr === "string" &&
     Array.isArray(v.experiences) &&

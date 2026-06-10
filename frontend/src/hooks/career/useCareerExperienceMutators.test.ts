@@ -17,6 +17,8 @@ import { useCareerExperienceMutators } from "./useCareerExperienceMutators";
 function buildForm(overrides: Partial<CareerFormState> = {}): CareerFormState {
   return {
     full_name: "山田 太郎",
+    email: "yamada@example.com",
+    github_url: "",
     career_summary: "",
     self_pr: "",
     experiences: [

@@ -413,14 +413,18 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
               <div className={`${shared.form} import-assign-form ${layout.formCol}`}>
                 {validationError && <p className={shared.error}>{validationError}</p>}
 
-                {/* 基本情報: 氏名・職務要約 */}
+                {/* 基本情報: 氏名・連絡先・職務要約 */}
                 <CareerBasicInfoSection
                   fullName={form.full_name}
+                  email={form.email}
+                  githubUrl={form.github_url}
                   careerSummary={form.career_summary}
                   loading={loading}
                   onChange={onChangeField}
                   onEditCareerSummary={() => setEditingField("career_summary")}
                   fullNameDirty={dirty.full_name}
+                  emailDirty={dirty.email}
+                  githubUrlDirty={dirty.github_url}
                   careerSummaryDirty={dirty.career_summary}
                   focusLocator={focusLocator}
                 />

@@ -283,6 +283,8 @@ export function buildCareerChanges(
   // 並び順は PDF レイアウト（氏名 → 職務要約 → 職務経歴 → 資格 → 自己PR）に合わせる。
   // 左右ペインとサイドバー（変更点 / 校正）の縦順が一致し、突合しやすくなる。
   pushScalar(changes, [], L.FULL_NAME, ["full_name"], form.full_name, baseline.full_name);
+  pushScalar(changes, [], L.EMAIL, ["email"], form.email, baseline.email);
+  pushScalar(changes, [], L.GITHUB_URL, ["github_url"], form.github_url, baseline.github_url);
   pushScalar(changes, [], L.CAREER_SUMMARY, ["career_summary"], form.career_summary, baseline.career_summary);
 
   diffArray(

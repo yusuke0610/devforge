@@ -41,6 +41,14 @@
   min-height: 0;
   display: grid;
   grid-template-columns: 1fr 1fr 320px;
+  /*
+   * 行を明示的に minmax(0, 1fr) で固定する。未指定だと暗黙の auto 行になり、
+   * 変更点が多いときにサイドバーの中身（.list）の高さに合わせて行が伸び、
+   * モーダル（92vh / overflow:hidden）からはみ出した分が clip されてロール
+   * バックボタンや操作ボタンが見えなくなる。0 を下限にすることで中身では
+   * 伸びず、.list の overflow-y:auto が効いて全項目をスクロールで辿れる。
+   */
+  grid-template-rows: minmax(0, 1fr);
   gap: 0.75rem;
   padding: 0.5rem 1rem 0.75rem;
 }

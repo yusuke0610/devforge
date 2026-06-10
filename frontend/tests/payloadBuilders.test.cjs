@@ -6,6 +6,8 @@ const { buildCareerPayload } = require("../.test-dist/payloadBuilders.js");
 test("buildCareerPayload trims data and keeps only non-empty technology stacks", () => {
   const payload = buildCareerPayload({
     full_name: "  山田 太郎  ",
+    email: "  yamada@example.com  ",
+    github_url: "  https://github.com/yamada  ",
     career_summary: "  職務要約テスト  ",
     self_pr: "  自己PRテスト  ",
     experiences: [
@@ -68,6 +70,8 @@ test("buildCareerPayload trims data and keeps only non-empty technology stacks",
   });
 
   assert.equal(payload.full_name, "山田 太郎");
+  assert.equal(payload.email, "yamada@example.com");
+  assert.equal(payload.github_url, "https://github.com/yamada");
   assert.equal(payload.career_summary, "職務要約テスト");
   assert.equal(payload.self_pr, "自己PRテスト");
   assert.equal(payload.experiences.length, 1);
@@ -114,6 +118,8 @@ test("buildCareerPayload throws when 離職で終了年月がない", () => {
     () =>
       buildCareerPayload({
         full_name: "山田 太郎",
+        email: "yamada@example.com",
+        github_url: "",
         career_summary: "職務要約",
         self_pr: "自己PR",
         experiences: [
@@ -140,6 +146,8 @@ test("buildCareerPayload throws when a 資格 is partially filled", () => {
     () =>
       buildCareerPayload({
         full_name: "山田 太郎",
+        email: "yamada@example.com",
+        github_url: "",
         career_summary: "要約",
         self_pr: "自己PR",
         experiences: [],

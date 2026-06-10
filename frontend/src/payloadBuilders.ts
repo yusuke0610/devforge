@@ -12,6 +12,11 @@ import type {
   TechnologyStackItem,
 } from "./api/types";
 
+/** 簡易メール形式（UX 補助）。正本は backend schemas/resume.py の検証。 */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** GitHub アカウント URL の接頭辞。値があるときだけ前方一致で検証する。 */
+const GITHUB_URL_PREFIX = "https://github.com/";
+
 export type TeamMemberForm = {
   role: string;
   count: string;
@@ -63,6 +68,8 @@ export type CareerExperienceForm = {
 
 export type CareerFormState = {
   full_name: string;
+  email: string;
+  github_url: string;
   career_summary: string;
   self_pr: string;
   experiences: CareerExperienceForm[];
@@ -77,6 +84,8 @@ export type CareerFormState = {
  */
 export type CareerFieldLocator =
   | { kind: "full_name" }
+  | { kind: "email" }
+  | { kind: "github_url" }
   | { kind: "career_summary" }
   | { kind: "self_pr" }
   | {
@@ -248,6 +257,18 @@ export function validateCareerForm(state: CareerFormState): CareerValidationErro
   if (!state.full_name.trim()) {
     return { message: VALIDATION_MESSAGES.FULL_NAME_REQUIRED, locator: { kind: "full_name" } };
   }
+  const email = state.email.trim();
+  if (!email) {
+    return { message: VALIDATION_MESSAGES.EMAIL_REQUIRED, locator: { kind: "email" } };
+  }
+  if (!EMAIL_PATTERN.test(email)) {
+    return { message: VALIDATION_MESSAGES.EMAIL_INVALID, locator: { kind: "email" } };
+  }
+  // GitHub URL は任意。入力があるときだけ形式を検証する。
+  const githubUrl = state.github_url.trim();
+  if (githubUrl && !githubUrl.startsWith(GITHUB_URL_PREFIX)) {
+    return { message: VALIDATION_MESSAGES.GITHUB_URL_INVALID, locator: { kind: "github_url" } };
+  }
   if (!state.career_summary.trim()) {
     return {
       message: VALIDATION_MESSAGES.CAREER_SUMMARY_REQUIRED,
@@ -417,6 +438,8 @@ export function buildCareerPayload(state: CareerFormState): ResumeCreate {
 
   return {
     full_name: state.full_name.trim(),
+    email: state.email.trim(),
+    github_url: state.github_url.trim(),
     career_summary: state.career_summary.trim(),
     self_pr: state.self_pr.trim(),
     experiences,

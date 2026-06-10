@@ -15,6 +15,8 @@ const mockPreview = getCareerResumePreview as unknown as ReturnType<typeof vi.fn
 
 const validForm: CareerFormState = {
   full_name: "山田 太郎",
+  email: "yamada@example.com",
+  github_url: "",
   career_summary: "サマリー",
   self_pr: "自己PR",
   experiences: [],

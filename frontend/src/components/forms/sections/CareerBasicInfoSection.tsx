@@ -10,16 +10,24 @@ import { MarkdownFieldTrigger } from "../MarkdownFieldTrigger";
 type Props = {
   /** 氏名 */
   fullName: string;
+  /** メールアドレス（必須） */
+  email: string;
+  /** GitHub アカウント URL（任意） */
+  githubUrl: string;
   /** 職務要約（Markdown） */
   careerSummary: string;
   /** ローディング中（Skeleton 表示） */
   loading: boolean;
   /** フィールド変更ハンドラ */
-  onChange: (key: "full_name" | "career_summary", value: string) => void;
+  onChange: (key: "full_name" | "email" | "github_url" | "career_summary", value: string) => void;
   /** 職務要約の入力モーダルを開く */
   onEditCareerSummary: () => void;
   /** 氏名フィールドが未保存か */
   fullNameDirty?: boolean;
+  /** メールフィールドが未保存か */
+  emailDirty?: boolean;
+  /** GitHub URL フィールドが未保存か */
+  githubUrlDirty?: boolean;
   /** 職務要約フィールドが未保存か */
   careerSummaryDirty?: boolean;
   /** バリデーション失敗フィールドの位置情報（フォーカス・赤枠用） */
@@ -33,17 +41,25 @@ type Props = {
  */
 export function CareerBasicInfoSection({
   fullName,
+  email,
+  githubUrl,
   careerSummary,
   loading,
   onChange,
   onEditCareerSummary,
   fullNameDirty = false,
+  emailDirty = false,
+  githubUrlDirty = false,
   careerSummaryDirty = false,
   focusLocator = null,
 }: Props) {
   const fullNameInvalid = focusLocator?.kind === "full_name";
+  const emailInvalid = focusLocator?.kind === "email";
+  const githubUrlInvalid = focusLocator?.kind === "github_url";
   const careerSummaryInvalid = focusLocator?.kind === "career_summary";
   const fullNameRef = useFocusOnMatch<HTMLInputElement>(fullNameInvalid);
+  const emailRef = useFocusOnMatch<HTMLInputElement>(emailInvalid);
+  const githubUrlRef = useFocusOnMatch<HTMLInputElement>(githubUrlInvalid);
 
   return (
     <section className={shared.section}>
@@ -63,6 +79,43 @@ export function CareerBasicInfoSection({
             placeholder="例: 山田 太郎"
             required
             aria-invalid={fullNameInvalid || undefined}
+          />
+        )}
+      </label>
+      <label>
+        <span className={shared.labelText}>
+          メールアドレス<span className={shared.requiredBadge}>必須</span>
+          <DirtyDot visible={emailDirty} />
+        </span>
+        {loading ? (
+          <Skeleton height="38px" />
+        ) : (
+          <input
+            ref={emailRef}
+            type="email"
+            value={email}
+            onChange={(e) => onChange("email", e.target.value)}
+            placeholder="例: user@example.com"
+            required
+            aria-invalid={emailInvalid || undefined}
+          />
+        )}
+      </label>
+      <label>
+        <span className={shared.labelText}>
+          GitHub URL
+          <DirtyDot visible={githubUrlDirty} />
+        </span>
+        {loading ? (
+          <Skeleton height="38px" />
+        ) : (
+          <input
+            ref={githubUrlRef}
+            type="url"
+            value={githubUrl}
+            onChange={(e) => onChange("github_url", e.target.value)}
+            placeholder="例: https://github.com/yourname"
+            aria-invalid={githubUrlInvalid || undefined}
           />
         )}
       </label>

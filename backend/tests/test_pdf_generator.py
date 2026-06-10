@@ -135,6 +135,44 @@ def test_build_html_annotates_data_fp() -> None:
     assert 'data-unit="qualifications.0"' in html
 
 
+def test_build_html_renders_contact_fields() -> None:
+    """メール・GitHub URL は値があるとき data-fp 付きで出力され、空なら省略される。"""
+    html = _build_html(
+        {
+            "full_name": "山田太郎",
+            "email": "yamada@example.com",
+            "github_url": "https://github.com/yamada",
+            "career_summary": "要約",
+            "self_pr": "PR",
+            "qualifications": [],
+            "experiences": [],
+        }
+    )
+    assert 'data-fp="email"' in html
+    assert "yamada@example.com" in html
+    # ラベルは email / github（小文字）で出す。
+    assert "email　" in html
+    assert "github　" in html
+    assert 'data-fp="github_url"' in html
+    assert "https://github.com/yamada" in html
+    # github URL はハイパーリンク（青・下線）として <a class="meta-link" href=...> で出す。
+    assert '<a class="meta-link" href="https://github.com/yamada"' in html
+
+    # GitHub URL は任意。空なら github_url ノードを出さない。
+    html_no_github = _build_html(
+        {
+            "full_name": "山田太郎",
+            "email": "yamada@example.com",
+            "github_url": "",
+            "career_summary": "要約",
+            "self_pr": "PR",
+            "qualifications": [],
+            "experiences": [],
+        }
+    )
+    assert 'data-fp="github_url"' not in html_no_github
+
+
 def test_build_html_period_binds_is_current() -> None:
     """在職中の期間は「現在」を is_current に、休暇期間は各日付フィールドに紐づける。"""
     payload = {

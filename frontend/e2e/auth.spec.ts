@@ -159,6 +159,8 @@ test.describe("未認証ユーザー（お試し入力）", () => {
           body: JSON.stringify({
             id: "new-resume-id",
             full_name: createdName ?? "",
+            email: "yamada@example.com",
+            github_url: "",
             career_summary: "",
             self_pr: "",
             experiences: [],
@@ -175,6 +177,8 @@ test.describe("未認証ユーザー（お試し入力）", () => {
         "career_draft",
         JSON.stringify({
           full_name: "山田太郎",
+          email: "yamada@example.com",
+          github_url: "",
           career_summary: "テスト要約",
           self_pr: "テスト自己PR",
           experiences: [

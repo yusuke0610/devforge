@@ -1321,10 +1321,17 @@ export interface components {
         ResumeCreate: {
             /** Career Summary */
             career_summary: string;
+            /** Email */
+            email: string;
             /** Experiences */
             experiences?: components["schemas"]["Experience-Input"][];
             /** Full Name */
             full_name: string;
+            /**
+             * Github Url
+             * @default
+             */
+            github_url: string;
             /** Qualifications */
             qualifications?: components["schemas"]["ResumeQualificationItem"][];
             /** Self Pr */
@@ -1357,10 +1364,17 @@ export interface components {
             career_summary: string;
             /** Created At */
             created_at: string;
+            /** Email */
+            email: string;
             /** Experiences */
             experiences?: components["schemas"]["Experience-Output"][];
             /** Full Name */
             full_name: string;
+            /**
+             * Github Url
+             * @default
+             */
+            github_url: string;
             /**
              * Id
              * Format: uuid
@@ -1377,10 +1391,17 @@ export interface components {
         ResumeUpdate: {
             /** Career Summary */
             career_summary: string;
+            /** Email */
+            email: string;
             /** Experiences */
             experiences?: components["schemas"]["Experience-Input"][];
             /** Full Name */
             full_name: string;
+            /**
+             * Github Url
+             * @default
+             */
+            github_url: string;
             /** Qualifications */
             qualifications?: components["schemas"]["ResumeQualificationItem"][];
             /** Self Pr */

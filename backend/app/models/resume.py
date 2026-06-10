@@ -28,6 +28,9 @@ class Resume(Base):
         String(36), ForeignKey("users.id"), nullable=False, index=True
     )
     full_name: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    # 連絡先（メールは必須・GitHub URL は任意）。バリデーションは schemas/resume.py の ResumeBase が正本。
+    email: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    github_url: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     career_summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
     self_pr: Mapped[str] = mapped_column(Text, nullable=False)
     experience_rows: Mapped[list["ResumeExperience"]] = relationship(

@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from conftest import auth_header
+from conftest import auth_header, make_resume_payload
 
 # ── CRUD: Auth required (401 without token) ────────────────────
 
@@ -30,6 +30,7 @@ def test_resume_crud(client: TestClient) -> None:
         "/api/resumes",
         json={
             "full_name": "田中太郎",
+            "email": "tanaka@example.com",
             "career_summary": "キャリアサマリー",
             "self_pr": "自己PR",
             "experiences": [],
@@ -50,6 +51,7 @@ def test_resume_crud(client: TestClient) -> None:
         f"/api/resumes/{resume_id}",
         json={
             "full_name": "田中花子",
+            "email": "tanaka@example.com",
             "career_summary": "更新済みサマリー",
             "self_pr": "自己PR",
             "experiences": [],
@@ -62,6 +64,40 @@ def test_resume_crud(client: TestClient) -> None:
     assert resp.json()["full_name"] == "田中花子"
 
 
+def test_resume_contact_round_trips(client: TestClient) -> None:
+    """メール・GitHub URL が作成→取得で往復することを確認する。"""
+    headers = auth_header(client, "resume-contact-user")
+    payload = make_resume_payload(
+        full_name="連絡先 太郎",
+        email="contact@example.com",
+        github_url="https://github.com/contact-taro",
+    )
+    resp = client.post("/api/resumes", json=payload, headers=headers)
+    assert resp.status_code == 201, resp.text
+
+    resp = client.get("/api/resumes/latest", headers=headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["email"] == "contact@example.com"
+    assert body["github_url"] == "https://github.com/contact-taro"
+
+
+def test_resume_rejects_invalid_email_via_api(client: TestClient) -> None:
+    """不正なメール形式は 422 で拒否される。"""
+    headers = auth_header(client, "resume-bademail-user")
+    payload = make_resume_payload(email="not-an-email")
+    resp = client.post("/api/resumes", json=payload, headers=headers)
+    assert resp.status_code == 422
+
+
+def test_resume_rejects_invalid_github_url_via_api(client: TestClient) -> None:
+    """github.com 以外の GitHub URL は 422 で拒否される。"""
+    headers = auth_header(client, "resume-badgithub-user")
+    payload = make_resume_payload(github_url="https://gitlab.com/taro")
+    resp = client.post("/api/resumes", json=payload, headers=headers)
+    assert resp.status_code == 422
+
+
 def test_resume_qualifications_sorted_asc(client: TestClient) -> None:
     """資格一覧が取得日昇順で返ることを確認する。"""
     headers = auth_header(client, "resume-sort-user")
@@ -70,6 +106,7 @@ def test_resume_qualifications_sorted_asc(client: TestClient) -> None:
         "/api/resumes",
         json={
             "full_name": "ソート確認",
+            "email": "sort@example.com",
             "career_summary": "要約",
             "self_pr": "自己PR",
             "experiences": [],
@@ -97,6 +134,7 @@ def test_resume_qualification_date_is_year_month(client: TestClient) -> None:
         "/api/resumes",
         json={
             "full_name": "年月確認",
+            "email": "ym@example.com",
             "career_summary": "要約",
             "self_pr": "自己PR",
             "experiences": [],
@@ -119,6 +157,7 @@ def test_resume_round_trips_nested_structure(client: TestClient) -> None:
 
     payload = {
         "full_name": "山田 太郎",
+        "email": "yamada@example.com",
         "career_summary": "キャリアサマリー",
         "self_pr": "自己PR",
         "experiences": [
@@ -179,6 +218,7 @@ def test_resume_round_trips_non_it_and_vacation(client: TestClient) -> None:
 
     payload = {
         "full_name": "佐藤 花子",
+        "email": "sato@example.com",
         "career_summary": "キャリアサマリー",
         "self_pr": "自己PR",
         "experiences": [
@@ -284,6 +324,7 @@ def test_resume_get_by_id(client: TestClient) -> None:
         "/api/resumes",
         json={
             "full_name": "山田 太郎",
+            "email": "yamada@example.com",
             "career_summary": "サマリー",
             "self_pr": "自己PR",
             "experiences": [],
@@ -318,6 +359,7 @@ def test_resume_preview_returns_annotated_html(client: TestClient) -> None:
         "/api/resumes/preview",
         json={
             "full_name": "山田太郎",
+            "email": "yamada@example.com",
             "career_summary": "キャリアサマリー",
             "self_pr": "自己PR",
             "experiences": [
@@ -374,6 +416,7 @@ def test_resume_preview_validation_error(client: TestClient) -> None:
         "/api/resumes/preview",
         json={
             "full_name": "",
+            "email": "yamada@example.com",
             "career_summary": "x",
             "self_pr": "y",
             "experiences": [],

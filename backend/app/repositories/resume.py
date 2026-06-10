@@ -41,6 +41,8 @@ class ResumeRepository(SingleUserDocumentRepository):
 
     def _apply_payload(self, entity: Resume, payload: dict[str, object]) -> None:
         entity.full_name = payload["full_name"]
+        entity.email = payload["email"]
+        entity.github_url = payload.get("github_url", "")
         entity.career_summary = payload["career_summary"]
         entity.self_pr = payload["self_pr"]
         sorted_experiences = sort_by_period_desc(

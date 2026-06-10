@@ -61,6 +61,8 @@ const blankExperience = (overrides: Partial<CareerExperienceForm> = {}): CareerE
 
 const baseState = (overrides: Partial<CareerFormState> = {}): CareerFormState => ({
   full_name: "山田 太郎",
+  email: "yamada@example.com",
+  github_url: "",
   career_summary: "要約",
   self_pr: "自己PR",
   experiences: [],
@@ -127,18 +129,46 @@ describe("buildCareerPayload (basic validation)", () => {
     expect(() => buildCareerPayload(baseState({ self_pr: "" }))).toThrow(/自己PR/);
   });
 
+  it("メールが空ならエラー", () => {
+    expect(() => buildCareerPayload(baseState({ email: "  " }))).toThrow(/メールアドレス/);
+  });
+
+  it("メール形式が不正ならエラー", () => {
+    expect(() => buildCareerPayload(baseState({ email: "not-an-email" }))).toThrow(/メールアドレス/);
+  });
+
+  it("GitHub URL が github.com 以外ならエラー", () => {
+    expect(() => buildCareerPayload(baseState({ github_url: "https://gitlab.com/x" }))).toThrow(
+      /GitHub/,
+    );
+  });
+
+  it("GitHub URL は任意（空なら通る）", () => {
+    const payload = buildCareerPayload(baseState({ github_url: "" }));
+    expect(payload.github_url).toBe("");
+  });
+
   it("必須項目が揃えば experiences/qualifications 空でも payload を返す", () => {
     const payload = buildCareerPayload(baseState());
     expect(payload.full_name).toBe("山田 太郎");
+    expect(payload.email).toBe("yamada@example.com");
     expect(payload.experiences).toEqual([]);
     expect(payload.qualifications).toEqual([]);
   });
 
   it("前後の空白は trim される", () => {
     const payload = buildCareerPayload(
-      baseState({ full_name: "  山田  ", career_summary: " 要約 ", self_pr: " PR " }),
+      baseState({
+        full_name: "  山田  ",
+        email: "  yamada@example.com  ",
+        github_url: "  https://github.com/yamada  ",
+        career_summary: " 要約 ",
+        self_pr: " PR ",
+      }),
     );
     expect(payload.full_name).toBe("山田");
+    expect(payload.email).toBe("yamada@example.com");
+    expect(payload.github_url).toBe("https://github.com/yamada");
     expect(payload.career_summary).toBe("要約");
     expect(payload.self_pr).toBe("PR");
   });
