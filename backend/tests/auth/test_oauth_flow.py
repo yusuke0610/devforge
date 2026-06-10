@@ -34,6 +34,19 @@ def _seed_oauth_state(client, state: str) -> None:
     client.cookies.set(GITHUB_OAUTH_STATE_COOKIE, state)
 
 
+def _find_set_cookie(response, name: str) -> str:
+    """レスポンスの Set-Cookie 群から指定 Cookie 名のヘッダ 1 行を返す（無ければ ""）。
+
+    複数 Cookie がマージされた文字列ではなく個別エントリで検証したい時に使う
+    （他 Cookie の属性を誤って拾わないため）。
+    """
+    prefix = f"{name}="
+    for key, value in response.headers.multi_items():
+        if key.lower() == "set-cookie" and value.startswith(prefix):
+            return value
+    return ""
+
+
 # ── state 検証テスト ─────────────────────────────────────────────────────
 
 
@@ -160,10 +173,13 @@ def test_github_login_url_returns_state(client) -> None:
     assert "https://github.com/login/oauth/authorize" in data["authorization_url"]
     assert isinstance(data["state"], str)
     assert len(data["state"]) > 0
-    # state はサーバー側の HttpOnly Cookie にも保存される（CSRF 照合の正本）
-    set_cookie = response.headers.get("set-cookie", "")
-    assert f"{GITHUB_OAUTH_STATE_COOKIE}=" in set_cookie
-    assert "HttpOnly" in set_cookie
+    # state はサーバー側の HttpOnly Cookie にも保存される（CSRF 照合の正本）。
+    # Cookie 値が JSON で返した state と一致していることまで確認する。
+    state_cookie = _find_set_cookie(response, GITHUB_OAUTH_STATE_COOKIE)
+    assert state_cookie, "state Cookie が Set-Cookie に存在すること"
+    assert "HttpOnly" in state_cookie
+    cookie_value = state_cookie[len(f"{GITHUB_OAUTH_STATE_COOKIE}=") :].split(";", 1)[0].strip('"')
+    assert cookie_value == data["state"]
     # /auth/** rewrite を回避するため redirect_uri は /github/callback でなければならない
     parsed = urlparse(data["authorization_url"])
     redirect_uri = parse_qs(parsed.query)["redirect_uri"][0]
@@ -279,6 +295,10 @@ def test_github_callback_redirect_sets_auth_cookie(client) -> None:
     # 200 + HTML リダイレクト: フロントエンド URL が HTML 本文に含まれていることを確認する
     assert "localhost:8788" in response.text
     assert "access_token=" in response.headers["set-cookie"]
+    # 使い捨ての state Cookie が Max-Age=0 で破棄されること（リプレイ防止）
+    state_cookie = _find_set_cookie(response, GITHUB_OAUTH_STATE_COOKIE)
+    assert state_cookie, "state Cookie の削除 Set-Cookie が存在すること"
+    assert "max-age=0" in state_cookie.lower()
 
 
 def test_github_callback_redirect_rejects_mismatched_state(client) -> None:
@@ -300,6 +320,10 @@ def test_github_callback_redirect_rejects_mismatched_state(client) -> None:
     assert "github_error=" in response.text
     # 認証 Cookie は発行されない
     assert "access_token=" not in response.headers.get("set-cookie", "")
+    # 失敗経路でも state Cookie は Max-Age=0 で破棄され、リプレイ窓を残さない
+    state_cookie = _find_set_cookie(response, GITHUB_OAUTH_STATE_COOKIE)
+    assert state_cookie, "state Cookie の削除 Set-Cookie が存在すること"
+    assert "max-age=0" in state_cookie.lower()
 
 
 def test_github_callback_post_rejects_missing_state_cookie(client) -> None:
@@ -378,10 +402,11 @@ def test_github_callback_post_succeeds_with_matching_state(client) -> None:
     # username に "github:" プレフィックスを付けない（素の login 名で保存する）
     assert response.json()["username"] == "octo-post"
     assert response.json()["is_github_user"] is True
-    all_set_cookie = response.headers["set-cookie"]
-    assert "access_token=" in all_set_cookie
-    # 照合済みの state Cookie が Max-Age=0 で破棄されること
-    assert f"{GITHUB_OAUTH_STATE_COOKIE}=" in all_set_cookie
+    assert "access_token=" in response.headers["set-cookie"]
+    # 照合済みの state Cookie が Max-Age=0 で破棄されること（リプレイ防止）
+    state_cookie = _find_set_cookie(response, GITHUB_OAUTH_STATE_COOKIE)
+    assert state_cookie, "state Cookie の削除 Set-Cookie が存在すること"
+    assert "max-age=0" in state_cookie.lower()
     # GitHub への redirect_uri も /github/callback でトークン交換していることを確認する
     posted_kwargs = mock_http.post.call_args.kwargs
     assert posted_kwargs["json"]["redirect_uri"].endswith("/github/callback")

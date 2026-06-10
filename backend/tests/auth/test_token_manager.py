@@ -129,15 +129,23 @@ def test_github_callback_post_sets_session_cookie_with_httponly(client) -> None:
         )
 
     assert response.status_code == 200
-    all_set_cookie = response.headers.get("set-cookie", "")
-    # session Cookie が設定されていること
-    assert "session=" in all_set_cookie
+    # HttpOnly / SameSite は session Cookie 自身のエントリで検証する。
+    # マージ文字列だと oauth_state など他 Cookie の属性を誤って拾うため個別に判定する。
+    session_cookie = next(
+        (
+            value
+            for key, value in response.headers.multi_items()
+            if key.lower() == "set-cookie" and value.startswith("session=")
+        ),
+        "",
+    )
+    assert session_cookie, "session Cookie が Set-Cookie に存在すること"
     # HttpOnly 属性が付与されていること
-    assert "HttpOnly" in all_set_cookie
+    assert "HttpOnly" in session_cookie
     # SameSite 属性が付与されていること（ローカルでは lax）
-    assert "samesite=lax" in all_set_cookie.lower()
+    assert "samesite=lax" in session_cookie.lower()
     # Firebase 時代の __session Cookie 名が使われていないこと
-    assert "__session=" not in all_set_cookie
+    assert "__session=" not in response.headers.get("set-cookie", "")
 
 
 def test_logout_clears_session_cookie_with_max_age_zero(client) -> None:

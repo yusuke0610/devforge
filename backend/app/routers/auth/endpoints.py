@@ -211,6 +211,9 @@ async def github_callback_redirect(
     """
     frontend_url = resolve_frontend_url_from_cookie(None)
 
+    # 成否いずれの経路でも state Cookie を破棄するため、レスポンスを 1 変数に集約する。
+    # 既定は成功用のリダイレクト。照合・トークン交換でエラーになれば except で差し替える。
+    response = _build_callback_html_response(frontend_url)
     try:
         if not code:
             raise_app_error(
@@ -224,16 +227,15 @@ async def github_callback_redirect(
         callback_base = get_callback_base_url() or build_external_base_url(request)
         redirect_uri = f"{callback_base}/auth/github/callback"
         token_response = await authenticate_github_user(db, code, redirect_uri)
+        set_auth_cookies(response, token_response.username, db)
     except HTTPException as error:
         # error.detail は AppErrorResponse の dict 形式なので message フィールドを取り出す
         detail = error.detail
         error_message = detail.get("message") if isinstance(detail, dict) else str(detail)
-        return _build_callback_html_response(frontend_url, error_message=error_message)
-
-    response = _build_callback_html_response(frontend_url)
-    set_auth_cookies(response, token_response.username, db)
-    # 照合済みの state Cookie を破棄（使い捨て・リプレイ防止）
-    delete_oauth_state_cookie(response)
+        response = _build_callback_html_response(frontend_url, error_message=error_message)
+    finally:
+        # 使い捨ての state Cookie は成否に関わらず破棄し、リプレイ窓を残さない
+        delete_oauth_state_cookie(response)
     return response
 
 
