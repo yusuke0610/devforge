@@ -152,7 +152,7 @@
 .messageText {
   margin: 0;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .operations {
@@ -173,7 +173,7 @@
   color: var(--text-primary);
   font-size: 0.78rem;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .applyButton {

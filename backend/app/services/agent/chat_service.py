@@ -161,20 +161,15 @@ async def run_agent_chat(request: AgentChatRequest) -> AgentChatResponse:
         f"# 現在の内容\n{_build_context(request)}\n\n"
         f"# ユーザーの依頼\n{request.prompt}"
     )
-    # 調査用: フロントから受信した編集中フォームの全体（DB は参照しない設計のため、
-    # LLM に渡り得る材料はこのリクエスト内容がすべて / ADR-0010）。
-    # レジュメ本文（個人情報）を含むため DEBUG のみに出す
+    # 調査用ログはメタデータのみ出す。レジュメ本文・プロンプト本文は個人情報を含むため
+    # DEBUG でもログに載せない（.claude/rules/security.md「ログへの秘密情報出力禁止」）
     logger.debug(
-        "Agent 受信コンテキスト（フロント送信のフォーム state）: target=%s resume=%s",
-        request.target,
-        request.resume.model_dump_json(),
-    )
-    # 調査用: LLM へ渡す入力と生の返却値を DEBUG で出す（レジュメ本文を含むため INFO 以上には出さない）
-    logger.debug(
-        "Agent LLM 入力: scope=%s system_prompt=%s user_prompt=%s",
+        "Agent LLM 入力: scope=%s target=%s history=%d resume_len=%d user_prompt_len=%d",
         request.scope,
-        system_prompt,
-        user_prompt,
+        request.target,
+        len(request.history),
+        len(request.resume.model_dump_json()),
+        len(user_prompt),
     )
     # 履歴（直近 3 往復）の後ろに今回の user prompt を置く。レジュメコンテキストは
     # 最新ターンにのみ載せる（履歴側はフロントが依頼文 / 前回応答 JSON だけを送る契約）
@@ -182,5 +177,5 @@ async def run_agent_chat(request: AgentChatRequest) -> AgentChatResponse:
     messages.append({"role": "user", "content": user_prompt})
     client = get_llm_client()
     raw = await client.generate(system_prompt, messages)
-    logger.debug("Agent LLM 生応答（パース前）: %s", raw)
+    logger.debug("Agent LLM 生応答（パース前）: len=%d", len(raw))
     return _parse_response(raw, request.scope)

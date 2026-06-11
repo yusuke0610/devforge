@@ -45,10 +45,15 @@ class OllamaClient(LLMClient):
             raise LLMError(f"Ollama API error: {type(exc).__name__}") from exc
 
         try:
-            text = response.json().get("message", {}).get("content", "")
+            data = response.json()
         except json.JSONDecodeError as exc:
             logger.warning("Ollama 応答の JSON パースに失敗: %s", type(exc).__name__)
             raise LLMError("Ollama 応答が JSON ではありません") from exc
+        # dict 以外（配列・文字列等）が返ると .get で AttributeError になるため LLMError（502）に倒す
+        if not isinstance(data, dict):
+            logger.warning("Ollama 応答が想定外の型: %s", type(data).__name__)
+            raise LLMError("Ollama 応答が想定外の形式です")
+        text = data.get("message", {}).get("content", "")
         if not text:
             raise LLMError("Ollama から空の応答が返されました")
         return text
