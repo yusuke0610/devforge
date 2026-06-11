@@ -127,8 +127,14 @@ def _resolve_target_project(request: AgentChatRequest) -> AgentProjectContext:
 
 def _parse_response(raw: str, scope: str) -> AgentChatResponse:
     """LLM 応答をパースし、field の正規化と上限超過 operation の破棄を行って返す。"""
+    text = raw.strip()
+    # Ollama など tool use ではないローカル実装は、構造化出力指定後もコードフェンスを
+    # 付ける場合がある。JSON mode への依存ではなく、ローカル開発用の耐性として残す。
+    if text.startswith("```"):
+        text = text.strip("`")
+        text = text.removeprefix("json").strip()
     try:
-        data = json.loads(raw)
+        data = json.loads(text)
         parsed = AgentChatResponse.model_validate(data)
     except (json.JSONDecodeError, ValidationError) as exc:
         logger.warning("LLM 応答のパースに失敗: %s", type(exc).__name__)

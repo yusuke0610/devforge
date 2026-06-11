@@ -71,10 +71,10 @@ def build_output_schema(scope: str) -> dict:
     }
 
 
-def build_tool_definition(scope: str) -> dict:
+def build_tool_definition(input_schema: dict) -> dict:
     """Anthropic Messages API に渡す tool 定義を構築する。"""
     return {
         "name": TOOL_NAME,
         "description": TOOL_DESCRIPTION,
-        "input_schema": build_output_schema(scope),
+        "input_schema": input_schema,
     }

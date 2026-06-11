@@ -22,7 +22,7 @@ DevForge は現在、手入力データをもとに職務経歴書（`Resume`）
 | `self_pr` | `ResumeBase.self_pr`（`str`, `max_length=2000`, 必須） | トップレベルのフラットなフィールド |
 | `project` | `Experience.clients[].projects[].description`（`str`, `max_length=4500`） | `experiences[] > clients[] > projects[]` の深いネスト |
 
-`career_summary` / `self_pr` は単一文字列フィールドだが、`project` は配列の深いネスト下にあり「どの experience のどの client のどの project か」をパスで特定する必要がある。差分 operations はこのパス指定を含む設計とする。
+`career_summary` / `self_pr` は単一文字列フィールドだが、`project` は配列の深いネスト下にあり「どの experience のどの client のどの project か」を特定する必要がある。対象 project の位置はリクエストの `target` で確定し、LLM の差分 operations はスコープ内のフィールド名と置換値だけを返す。
 
 ## 決定内容
 
@@ -74,6 +74,24 @@ Agent のレスポンス（差分 operations）はフロントの state にの�
 
 ADR-0004 の `generate()` は失敗時に空文字を返す設計で、UI がエラーを検知できなかった。本機能は対話型のため、`POST /agent/chat` では LLM 呼び出しの失敗（タイムアウト / モデル未起動 / API エラー / JSON パース失敗）を**明示的に区別して HTTP エラー（日本語メッセージ）で返す**。エラーメッセージは `backend/app/messages.json` を正本とし、frontend は `AppErrorResponse.message` を表示する（`.claude/rules/frontend/messages.md` 準拠）。空文字フォールバックで握りつぶさない。
 
+### LLM 出力制御と制約の責務分離
+
+Agent の LLM 出力制御は JSON mode ではなく、プロバイダの構造化出力機構を使う。
+
+- 本番 Anthropic: Messages API の tool use を `tool_choice` で強制し、`propose_revision` tool の `input_schema` に従う入力を返させる
+- ローカル Ollama: `/api/chat` の `format` に同じ JSON Schema を渡し、ローカル開発でも構造化出力に寄せる
+
+制約は次の基準で責務を分離する。
+
+| 制約の種類 | 例 | 守らせる場所 |
+|---|---|---|
+| 機械検証可能 | JSON 構造、必須キー、許可フィールド、文字数上限、配列件数上限 | tool use の JSON Schema + `AgentChatResponse` / `AgentOperation` の Pydantic 検証 + `_parse_response` のスコープ検証 |
+| 機械検証不能 | 文体、構成、PAR 形式、捏造禁止、情報不足時の確認、思考ステップ | system prompt（`backend/app/prompts/agent_*.md`） |
+
+判断基準は「コードでテストが書ける制約はプロンプトに書かない」。そのため、プロンプトには JSON のみ・コードフェンス禁止・許可フィールド列挙・保存上限の数値制約を書かない。スコープごとの許可フィールドと上限は `backend/app/services/agent/output_schema.py` を正本とし、`career_summary` / `self_pr` / `project` ごとに tool schema を切り替える。
+
+ただし Anthropic tool use と Ollama `format` は `maxLength` を API 側で厳密に強制するとは限らないため、Pydantic と `_parse_response` で二重に検証する。上限超過の operation は切り詰めず破棄する。
+
 ### エラー契約
 
 `POST /api/agent/chat` のエラーは以下の契約で返す（実装: `backend/app/routers/agent.py` / `backend/app/services/agent/chat_service.py`）。メッセージ正本は `backend/app/messages.json` の `error.agent`。
@@ -88,9 +106,10 @@ ADR-0004 の `generate()` は失敗時に空文字を返す設計で、UI がエ
 
 LLM 出力の検証は次の多段で行い、バリデーションを通過したもののみフロントに返す:
 
-1. JSON パース + `AgentChatResponse` の Pydantic 検証（失敗は `AGENT_PARSE_ERROR`）
-2. 許可外の `field` 名はスコープの既定フィールドへ正規化する（スコープ選択で編集対象は確定しており、提案を捨てるよりユーザー利益が大きい）
-3. **文字数上限を超過した operation は切り詰めず破棄する**（warning ログを残す）。`message` は返るため、ユーザーは依頼を変えて再指示できる
+1. tool use / `format` に渡した JSON Schema で構造・必須キー・許可フィールド・上限をモデルに提示する
+2. JSON パース + `AgentChatResponse` の Pydantic 検証（失敗は `AGENT_PARSE_ERROR`）
+3. 許可外の `field` 名はスコープの既定フィールドへ正規化する（スコープ選択で編集対象は確定しており、提案を捨てるよりユーザー利益が大きい）
+4. **文字数上限を超過した operation は切り詰めず破棄する**（warning ログを残す）。`message` は返るため、ユーザーは依頼を変えて再指示できる
 
 文字数超過時にバックエンドで切り詰めて返す案は**却下**した。文章が途中で切れた経歴書は品質として許容できないためである（「代替案」参照）。
 
@@ -182,7 +201,8 @@ Phase 2 で GitHub / ブログ分析を Agent コンテキストに渡す際は�
 - `POST /agent/chat` エンドポイント実装（認証ガード + rate limit）
 - スコープ 3 種（`project` / `career_summary` / `self_pr`）対応
 - 差分 operations のパス指定スキーマ設計
-- system prompt 設計・チューニング
+- tool use 用のスコープ別出力スキーマ設計
+- system prompt 設計・チューニング（機械検証不能な品質制約のみ）
 - フロント: チャットウィジェット UI
 - フロント: スコープ選択 → operations 適用ロジック（state プレビュー、DB 未更新）
 - 会話履歴の保持（マルチターン対応。当初 Phase 2 予定から前倒し。「会話履歴（マルチターン）」参照）
@@ -220,6 +240,9 @@ DevForge の本質的価値は「蓄積データ × LLM による経歴書生成
 **文字数超過時のバックエンド切り詰め**
 LLM が文字数上限を超える `value` を返した場合に、バックエンドで上限まで切り詰めて返す案。文章が途中で切れた経歴書は品質として許容できないため却下。超過 operation は破棄（warning ログ）し、`message` でユーザーに再指示を促す（「エラー契約」参照）。採用しない。
 
+**JSON mode + プロンプトによる制約記述の継続**
+JSON mode を使い、許可フィールド・文字数上限・JSON 構造などを自然言語プロンプトに列挙し続ける案。制約が増えるたびに system prompt が肥大化し、自然言語による制約遵守はモデル任せで保証がないため却下する。機械検証可能な制約は tool use の JSON Schema と Pydantic に寄せる。
+
 **LLM を再導入せずルールベースを維持（ADR-0008 の現状維持）**
 対話的なキャリア戦略支援はルールベースでは表現力が不足する。本機能の中核価値が LLM による自由記述生成であるため、ADR-0008 を Superseded として LLM を再導入する。
 
@@ -242,7 +265,7 @@ LLM が文字数上限を超える `value` を返した場合に、バックエ�
 |---|---|
 | `backend/app/routers/` | `agent.py` 追加（`POST /agent/chat`、認証ガード + rate limit） |
 | `backend/app/services/` | `agent/chat_service.py` 追加（スコープデータ組み立て + LLM 呼び出し + 差分生成）。LLM プロバイダ抽象は ADR-0004 を参考に再構築 |
-| `backend/app/schemas/` | Agent リクエスト/レスポンス（差分 operations のパス指定）スキーマ追加 |
+| `backend/app/schemas/` | Agent リクエスト/レスポンス（スコープ内フィールドの差分 operations）スキーマ追加 |
 | `backend/app/messages.json` | Agent 関連のエラーメッセージ（LLM 失敗・パース失敗）追加 |
 | `backend/app/core/env_keys.py` ほか 4 箇所 | `ANTHROPIC_API_KEY` 追加（5 箇所同期） |
 | `frontend/src/` | チャットウィジェットコンポーネント追加 |

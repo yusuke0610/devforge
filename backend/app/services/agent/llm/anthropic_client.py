@@ -6,7 +6,7 @@ import logging
 import anthropic
 
 from ....core import settings
-from ..output_schema import TOOL_DESCRIPTION, TOOL_NAME
+from ..output_schema import TOOL_NAME, build_tool_definition
 from .base import LLMClient, LLMError
 
 logger = logging.getLogger(__name__)
@@ -47,13 +47,7 @@ class AnthropicClient(LLMClient):
                 messages=messages,
                 # tool use 強制で出力構造をスキーマに従わせる（JSON mode は使わない）。
                 # maxLength は API では強制されないため、上限超過は呼び出し側で破棄する
-                tools=[
-                    {
-                        "name": TOOL_NAME,
-                        "description": TOOL_DESCRIPTION,
-                        "input_schema": output_schema,
-                    }
-                ],
+                tools=[build_tool_definition(output_schema)],
                 tool_choice={"type": "tool", "name": TOOL_NAME},
             )
         except (

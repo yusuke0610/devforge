@@ -29,10 +29,17 @@ class _FakeLLM(LLMClient):
         self._error = error
         self.received_system_prompt: str | None = None
         self.received_messages: list[dict[str, str]] | None = None
+        self.received_output_schema: dict | None = None
 
-    async def generate(self, system_prompt: str, messages: list[dict[str, str]]) -> str:
+    async def generate(
+        self,
+        system_prompt: str,
+        messages: list[dict[str, str]],
+        output_schema: dict,
+    ) -> str:
         self.received_system_prompt = system_prompt
         self.received_messages = messages
+        self.received_output_schema = output_schema
         if self._error:
             raise self._error
         assert self._response is not None
@@ -360,7 +367,11 @@ def test_chat_system_prompt_is_scope_specific(
     # プレースホルダはロード時に埋め込み済み（残骸が無い）
     assert "{allowed_fields}" not in prompt
     assert "{field_limits}" not in prompt
-    assert field in prompt
+    assert "JSON のみ" not in prompt
+    assert fake.received_output_schema is not None
+    branches = fake.received_output_schema["properties"]["operations"]["items"]["oneOf"]
+    allowed_fields = [branch["properties"]["field"]["const"] for branch in branches]
+    assert field in allowed_fields
 
 
 def test_chat_passes_history_to_llm(client: TestClient, monkeypatch) -> None:
