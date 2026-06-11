@@ -7,7 +7,7 @@
  * 保存は既存の保存ボタン（保存 API）をユーザーが明示的に実行する。
  */
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import type { ProjectTarget } from "../../api/types";
 import { AGENT_MESSAGES } from "../../constants/messages";
@@ -28,6 +28,15 @@ type Props = {
 
 /** project スコープで選択できる候補（フォーム state の index で特定する）。 */
 type ProjectOption = { label: string; target: ProjectTarget };
+
+/** パネルのリサイズ範囲。右下固定のため左上方向にだけ広がる */
+const PANEL_MIN_WIDTH = 320;
+const PANEL_MIN_HEIGHT = 360;
+const PANEL_VIEWPORT_MARGIN = 48;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
 
 function buildProjectOptions(form: CareerFormState): ProjectOption[] {
   const options: ProjectOption[] = [];
@@ -51,6 +60,8 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
   const [scope, setScope] = useState<AgentScope>("career_summary");
   const [targetIndex, setTargetIndex] = useState(0);
   const [prompt, setPrompt] = useState("");
+  /** ドラッグでリサイズされた寸法。null の間は CSS のデフォルトサイズに従う */
+  const [panelSize, setPanelSize] = useState<{ width: number; height: number } | null>(null);
   const { entries, sending, error, send, markApplied, clearError } = useAgentChat();
   const { showSuccess } = useToast();
   useMessageToast(error, "error");
@@ -75,6 +86,32 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
     setPrompt("");
   };
 
+  // パネル左上のハンドルをドラッグしてリサイズする。パネルは右下固定なので
+  // ポインタが左上に動くほど大きくなる（差分を加算）
+  const handleResizeStart = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    const panel = (e.currentTarget as HTMLElement).closest("section");
+    if (!panel) return;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startRect = panel.getBoundingClientRect();
+    const maxWidth = window.innerWidth - PANEL_VIEWPORT_MARGIN;
+    const maxHeight = window.innerHeight - PANEL_VIEWPORT_MARGIN * 2;
+
+    const onMove = (ev: PointerEvent) => {
+      setPanelSize({
+        width: clamp(startRect.width + (startX - ev.clientX), PANEL_MIN_WIDTH, maxWidth),
+        height: clamp(startRect.height + (startY - ev.clientY), PANEL_MIN_HEIGHT, maxHeight),
+      });
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }, []);
+
   const handleApply = (entry: AgentChatEntry, index: number) => {
     if (!entry.operations) return;
     const { scope: entryScope, target, operations } = entry;
@@ -91,15 +128,26 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
         onClick={handleOpen}
         aria-label={AGENT_MESSAGES.OPEN_LABEL}
       >
-        ✨ {AGENT_MESSAGES.OPEN_LABEL}
+        {AGENT_MESSAGES.OPEN_LABEL}
       </button>
     );
   }
 
   return (
-    <section className={styles.panel} aria-label={AGENT_MESSAGES.TITLE}>
+    <section
+      className={styles.panel}
+      aria-label={AGENT_MESSAGES.TITLE}
+      style={panelSize ? { width: panelSize.width, height: panelSize.height } : undefined}
+    >
+      <button
+        type="button"
+        className={styles.resizeHandle}
+        onPointerDown={handleResizeStart}
+        aria-label={AGENT_MESSAGES.RESIZE_LABEL}
+        title={AGENT_MESSAGES.RESIZE_LABEL}
+      />
       <header className={styles.header}>
-        <span className={styles.title}>✨ {AGENT_MESSAGES.TITLE}</span>
+        <span className={styles.title}>{AGENT_MESSAGES.TITLE}</span>
         <button
           type="button"
           className={styles.closeButton}
@@ -180,6 +228,25 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
           className={styles.promptInput}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
+          onKeyDown={(e) => {
+            // Enter で送信、Cmd/Ctrl+Enter で改行（IME 変換確定の Enter は除外）
+            if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+            if (e.metaKey || e.ctrlKey) {
+              e.preventDefault();
+              const target = e.currentTarget;
+              const { selectionStart, selectionEnd, value } = target;
+              const next = `${value.slice(0, selectionStart)}\n${value.slice(selectionEnd)}`;
+              setPrompt(next);
+              requestAnimationFrame(() => {
+                target.selectionStart = target.selectionEnd = selectionStart + 1;
+              });
+              return;
+            }
+            e.preventDefault();
+            if (canSend) {
+              void handleSend();
+            }
+          }}
           placeholder={AGENT_MESSAGES.PROMPT_PLACEHOLDER}
           rows={2}
           maxLength={2000}

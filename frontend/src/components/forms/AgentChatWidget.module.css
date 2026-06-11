@@ -1,4 +1,5 @@
 /* Agent チャットウィジェット（ADR-0010）。右下フローティング + パネル */
+/* 配色はテーマ変数（styles.css の :root / [data-theme="dark"]）に追従する */
 
 .fab {
   position: fixed;
@@ -8,7 +9,7 @@
   padding: 10px 16px;
   border: none;
   border-radius: 24px;
-  background: #2563eb;
+  background: #059669;
   color: #fff;
   font-size: 0.9rem;
   font-weight: 600;
@@ -17,7 +18,7 @@
 }
 
 .fab:hover {
-  background: #1d4ed8;
+  background: #047857;
 }
 
 .panel {
@@ -29,10 +30,32 @@
   flex-direction: column;
   width: min(380px, calc(100vw - 48px));
   height: min(520px, calc(100vh - 96px));
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border);
   border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-card);
+}
+
+/* 左上のリサイズハンドル。右下固定パネルを左上方向にドラッグで拡張する */
+.resizeHandle {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-top: 2px solid var(--text-hint);
+  border-left: 2px solid var(--text-hint);
+  border-top-left-radius: 12px;
+  background: none;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.resizeHandle:hover {
+  border-color: var(--text-muted);
 }
 
 .header {
@@ -40,12 +63,13 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border);
 }
 
 .title {
   font-weight: 600;
   font-size: 0.95rem;
+  color: var(--text-primary);
 }
 
 .closeButton {
@@ -54,7 +78,7 @@
   font-size: 1.2rem;
   line-height: 1;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .scopeRow {
@@ -62,7 +86,7 @@
   flex-direction: column;
   gap: 6px;
   padding: 10px 14px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border);
 }
 
 .scopeLabel {
@@ -70,21 +94,23 @@
   align-items: center;
   gap: 8px;
   font-size: 0.8rem;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 .select {
   flex: 1;
   padding: 4px 8px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-input);
   border-radius: 6px;
   font-size: 0.85rem;
+  background: var(--bg-input);
+  color: var(--text-primary);
 }
 
 .targetEmpty {
   margin: 0;
   font-size: 0.8rem;
-  color: #b45309;
+  color: var(--warning-text);
 }
 
 .messages {
@@ -99,7 +125,7 @@
 .emptyState {
   margin: 0;
   font-size: 0.85rem;
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .userMessage,
@@ -112,14 +138,15 @@
 
 .userMessage {
   align-self: flex-end;
-  background: #2563eb;
+  background: #059669;
   color: #fff;
 }
 
 .assistantMessage {
   align-self: flex-start;
-  background: #f3f4f6;
-  color: #111827;
+  background: var(--bg-section);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
 }
 
 .messageText {
@@ -140,9 +167,10 @@
   padding: 8px;
   max-height: 140px;
   overflow-y: auto;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-input);
   border-radius: 6px;
-  background: #fff;
+  background: var(--bg-input);
+  color: var(--text-primary);
   font-size: 0.78rem;
   white-space: pre-wrap;
   word-break: break-word;
@@ -166,24 +194,26 @@
 .sendingNote {
   margin: 0;
   font-size: 0.8rem;
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .inputRow {
   display: flex;
   gap: 8px;
   padding: 10px 14px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--border);
 }
 
 .promptInput {
   flex: 1;
   resize: none;
   padding: 6px 8px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-input);
   border-radius: 6px;
   font-size: 0.85rem;
   font-family: inherit;
+  background: var(--bg-input);
+  color: var(--text-primary);
 }
 
 .sendButton {
@@ -191,13 +221,13 @@
   padding: 6px 14px;
   border: none;
   border-radius: 6px;
-  background: #2563eb;
+  background: #059669;
   color: #fff;
   font-size: 0.85rem;
   cursor: pointer;
 }
 
 .sendButton:disabled {
-  background: #9ca3af;
+  background: var(--text-disabled);
   cursor: not-allowed;
 }

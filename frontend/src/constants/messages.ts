@@ -369,9 +369,10 @@ export function charCountLabel(count: number): string {
  * ここには frontend 完結の文言のみを置く。
  */
 export const AGENT_MESSAGES = {
-  OPEN_LABEL: "AI アシスタント",
-  TITLE: "AI アシスタント",
+  OPEN_LABEL: "devforge Agent",
+  TITLE: "devforge Agent",
   CLOSE_LABEL: "閉じる",
+  RESIZE_LABEL: "サイズ変更",
   SCOPE_LABEL: "編集対象",
   SCOPE_CAREER_SUMMARY: "職務要約",
   SCOPE_SELF_PR: "自己PR",
@@ -385,5 +386,5 @@ export const AGENT_MESSAGES = {
   APPLY: "フォームに反映",
   APPLIED_TOAST: "AI の提案をフォームに反映しました。内容を確認して保存してください。",
   EMPTY_STATE: "編集対象を選んで、改善したい内容を AI に依頼してください。反映後も保存するまで DB は変更されません。",
-  LOGIN_REQUIRED: "AI アシスタントを使うにはログインが必要です。",
+  LOGIN_REQUIRED: "devforge Agent を使うにはログインが必要です。",
 } as const;

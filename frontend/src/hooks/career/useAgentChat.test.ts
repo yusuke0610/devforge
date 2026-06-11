@@ -93,4 +93,83 @@ describe("useAgentChat", () => {
 
     expect(result.current.entries[1].operations).toBeNull();
   });
+
+  it("初回送信では history は空配列", async () => {
+    postAgentChatMock.mockResolvedValue({ message: "提案です", operations: [] });
+    const { result } = renderHook(() => useAgentChat());
+
+    await act(async () => {
+      await result.current.send(form, "self_pr", null, "改善して");
+    });
+
+    expect(postAgentChatMock).toHaveBeenCalledWith(expect.objectContaining({ history: [] }));
+  });
+
+  it("2 回目の送信で直前の往復が history として送られる", async () => {
+    postAgentChatMock.mockResolvedValue({
+      message: "提案です",
+      operations: [{ field: "self_pr", value: "改善案" }],
+    });
+    const { result } = renderHook(() => useAgentChat());
+
+    await act(async () => {
+      await result.current.send(form, "self_pr", null, "改善して");
+    });
+    await act(async () => {
+      await result.current.send(form, "self_pr", null, "もっと短くして");
+    });
+
+    expect(postAgentChatMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        prompt: "もっと短くして",
+        history: [
+          { role: "user", text: "改善して" },
+          {
+            role: "assistant",
+            text: JSON.stringify({
+              message: "提案です",
+              operations: [{ field: "self_pr", value: "改善案" }],
+            }),
+          },
+        ],
+      }),
+    );
+  });
+
+  it("送信エラーで応答が無い user 発話は history に含めない", async () => {
+    postAgentChatMock.mockRejectedValueOnce(new Error("失敗"));
+    postAgentChatMock.mockResolvedValue({ message: "提案です", operations: [] });
+    const { result } = renderHook(() => useAgentChat());
+
+    await act(async () => {
+      await result.current.send(form, "self_pr", null, "失敗する依頼");
+    });
+    await act(async () => {
+      await result.current.send(form, "self_pr", null, "再送する依頼");
+    });
+
+    expect(postAgentChatMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ history: [] }),
+    );
+  });
+
+  it("history は直近 6 エントリ（3 往復）に切り詰められる", async () => {
+    postAgentChatMock.mockResolvedValue({ message: "提案です", operations: [] });
+    const { result } = renderHook(() => useAgentChat());
+
+    // 5 回目の送信時点で過去 4 往復（8 エントリ）が 6 件に切り詰められる
+    for (let i = 1; i <= 5; i++) {
+      await act(async () => {
+        await result.current.send(form, "self_pr", null, `依頼${i}`);
+      });
+    }
+
+    const calls = postAgentChatMock.mock.calls;
+    const lastCall = calls[calls.length - 1][0] as {
+      history: { role: string; text: string }[];
+    };
+    expect(lastCall.history).toHaveLength(6);
+    // 最古の往復（依頼1）が落ち、依頼2 から始まる
+    expect(lastCall.history[0]).toEqual({ role: "user", text: "依頼2" });
+  });
 });

@@ -5,7 +5,7 @@ import { setupAuth, waitForAuthenticatedLayout } from "./helpers/auth";
  * Agent チャットウィジェット（ADR-0010）E2E。
  *
  * シナリオ:
- * 1. 職務経歴書を開く → 右下に「AI アシスタント」ボタン
+ * 1. 職務経歴書を開く → 右下に「devforge Agent」ボタン
  * 2. チャットを開き、職務要約スコープでプロンプト送信（POST /api/agent/chat をモック）
  * 3. AI 応答と提案テキストが表示される
  * 4. 「フォームに反映」→ フォームの職務要約が提案値に置き換わる（DB 更新なし = PUT は飛ばない）
@@ -63,7 +63,7 @@ test.describe("Agent チャットウィジェット", () => {
     await waitForAuthenticatedLayout(page);
 
     // ウィジェットを開く
-    await page.getByRole("button", { name: "AI アシスタント" }).click();
+    await page.getByRole("button", { name: "devforge Agent" }).click();
 
     // 職務要約スコープ（デフォルト）でプロンプト送信
     await page
@@ -107,7 +107,7 @@ test.describe("Agent チャットウィジェット", () => {
     await page.goto("/career");
     await waitForAuthenticatedLayout(page);
 
-    await page.getByRole("button", { name: "AI アシスタント" }).click();
+    await page.getByRole("button", { name: "devforge Agent" }).click();
     await page
       .getByPlaceholder("例: 成果がより伝わる文章にしてください")
       .fill("改善して");

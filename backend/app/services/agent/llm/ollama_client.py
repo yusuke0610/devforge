@@ -24,15 +24,15 @@ class OllamaClient(LLMClient):
         self._base_url = settings.get_ollama_base_url()
         self._model = settings.get_ollama_model()
 
-    async def generate(self, system_prompt: str, user_prompt: str) -> str:
+    async def generate(self, system_prompt: str, messages: list[dict[str, str]]) -> str:
         payload = {
             "model": self._model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
+            "messages": [{"role": "system", "content": system_prompt}, *messages],
             "stream": False,
             "format": "json",
+            # 職務経歴書の改善提案は事実忠実性が最優先のため低温度に固定する
+            # （デフォルト 0.8 では小型モデルが架空の資格・技術を捏造しやすい）
+            "options": {"temperature": 0.2},
         }
         try:
             async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS) as client:

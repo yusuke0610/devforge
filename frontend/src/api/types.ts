@@ -130,6 +130,9 @@ export type AgentChatResponse = Schemas["AgentChatResponse"];
 /** resume state へ適用する差分。backend `schemas/agent.py:AgentOperation`。 */
 export type AgentOperation = Schemas["AgentOperation"];
 
+/** マルチターン用の会話履歴 1 件。backend `schemas/agent.py:AgentHistoryEntry`。 */
+export type AgentHistoryEntry = Schemas["AgentHistoryEntry"];
+
 /** Agent に渡す編集中の職務経歴書コンテキスト。backend `schemas/agent.py:AgentResumeContext`。 */
 export type AgentResumeContext = Schemas["AgentResumeContext"];
 

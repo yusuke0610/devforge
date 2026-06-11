@@ -722,6 +722,8 @@ export interface components {
          * @description Agent チャットのリクエスト。スコープ選択は必須。
          */
         AgentChatRequest: {
+            /** History */
+            history?: components["schemas"]["AgentHistoryEntry"][];
             /** Prompt */
             prompt: string;
             resume: components["schemas"]["AgentResumeContext"];
@@ -774,18 +776,37 @@ export interface components {
             company: string;
         };
         /**
+         * AgentHistoryEntry
+         * @description マルチターン用の会話履歴 1 件。
+         *
+         *     user はユーザーの依頼文のみ（レジュメコンテキストは含めない。コンテキストは
+         *     最新ターンの prompt にのみ載せ、毎ターンの重複でトークンが膨れるのを防ぐ）。
+         *     assistant は前回 LLM が返した JSON 文字列をそのまま入れる（出力形式の実例として
+         *     few-shot 的に働き、小型モデルのフォーマット逸脱を抑える狙い）。
+         */
+        AgentHistoryEntry: {
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            /** Text */
+            text: string;
+        };
+        /**
          * AgentOperation
          * @description resume state へ適用する差分（テキストフィールドの置換）。
          *
          *     フロントは選択済みスコープ（と target）に対応するフィールドへ value を反映する。
          *     DB は更新せず、ユーザーが「適用」した時点で既存の保存 API を呼ぶ。
+         *
+         *     ``field`` は意図的に Literal ではなく str で受ける。小型 LLM が許可外の
+         *     field 名を返すことがあり、Literal だと operation 1 件の逸脱でレスポンス全体が
+         *     ValidationError になる。許可 field の検証・破棄は chat_service._parse_response が担う。
          */
         AgentOperation: {
-            /**
-             * Field
-             * @enum {string}
-             */
-            field: "career_summary" | "self_pr" | "description" | "role";
+            /** Field */
+            field: string;
             /** Value */
             value: string;
         };
