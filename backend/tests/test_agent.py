@@ -22,13 +22,17 @@ from conftest import auth_header
 
 
 class _FakeLLM(LLMClient):
-    """テスト用の LLM クライアント（固定応答 or 例外）。"""
+    """テスト用の LLM クライアント（固定応答 or 例外）。受信した入力を記録する。"""
 
     def __init__(self, response: str | None = None, error: Exception | None = None):
         self._response = response
         self._error = error
+        self.received_system_prompt: str | None = None
+        self.received_messages: list[dict[str, str]] | None = None
 
-    async def generate(self, system_prompt: str, user_prompt: str) -> str:
+    async def generate(self, system_prompt: str, messages: list[dict[str, str]]) -> str:
+        self.received_system_prompt = system_prompt
+        self.received_messages = messages
         if self._error:
             raise self._error
         assert self._response is not None
@@ -203,8 +207,8 @@ def test_chat_invalid_json_returns_502(client: TestClient, monkeypatch) -> None:
     assert resp.json()["code"] == "AGENT_PARSE_ERROR"
 
 
-def test_chat_discards_out_of_scope_operations(client: TestClient, monkeypatch) -> None:
-    """契約: スコープ外フィールドの operation は破棄され、message は返る。"""
+def test_chat_normalizes_out_of_scope_operations(client: TestClient, monkeypatch) -> None:
+    """契約: スコープ外フィールドの operation はスコープの既定 field に正規化される。"""
     response = json.dumps(
         {
             "message": "提案です。",
@@ -228,8 +232,72 @@ def test_chat_discards_out_of_scope_operations(client: TestClient, monkeypatch) 
     )
     assert resp.status_code == 200
     ops = resp.json()["operations"]
-    assert len(ops) == 1
-    assert ops[0]["field"] == "career_summary"
+    assert [op["field"] for op in ops] == ["career_summary", "career_summary"]
+    assert [op["value"] for op in ops] == ["スコープ外の提案", "スコープ内の提案"]
+
+
+def test_chat_passes_history_to_llm(client: TestClient, monkeypatch) -> None:
+    """契約: history が LLM の messages に展開され、末尾が今回の user prompt になる。"""
+    fake = _mock_llm(monkeypatch, response=_llm_json("self_pr", "提案"))
+    headers = auth_header(client, "agentuser")
+    history = [
+        {"role": "user", "text": "自己PRを改善して"},
+        {"role": "assistant", "text": '{"message": "改善しました", "operations": []}'},
+    ]
+    resp = client.post(
+        "/api/agent/chat",
+        json={
+            "scope": "self_pr",
+            "prompt": "もっと短くして",
+            "resume": _resume_payload(),
+            "history": history,
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert fake.received_messages is not None
+    assert [m["role"] for m in fake.received_messages] == ["user", "assistant", "user"]
+    assert fake.received_messages[0]["content"] == "自己PRを改善して"
+    assert fake.received_messages[1]["content"] == history[1]["text"]
+    # 末尾の今回ターンにのみレジュメコンテキストが載る
+    assert "もっと短くして" in fake.received_messages[2]["content"]
+    assert "self_pr" in fake.received_messages[2]["content"]
+
+
+def test_chat_without_history_sends_single_message(client: TestClient, monkeypatch) -> None:
+    """history 省略時は従来どおり user メッセージ 1 件のみが LLM に渡る。"""
+    fake = _mock_llm(monkeypatch, response=_llm_json("self_pr", "提案"))
+    headers = auth_header(client, "agentuser")
+    resp = client.post(
+        "/api/agent/chat",
+        json={
+            "scope": "self_pr",
+            "prompt": "改善して",
+            "resume": _resume_payload(),
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert fake.received_messages is not None
+    assert [m["role"] for m in fake.received_messages] == ["user"]
+
+
+def test_chat_rejects_history_over_limit(client: TestClient, monkeypatch) -> None:
+    """history は 6 エントリ（3 往復）まで。超過は 422。"""
+    _mock_llm(monkeypatch, response=_llm_json("self_pr", "提案"))
+    headers = auth_header(client, "agentuser")
+    history = [{"role": "user", "text": f"依頼{i}"} for i in range(7)]
+    resp = client.post(
+        "/api/agent/chat",
+        json={
+            "scope": "self_pr",
+            "prompt": "改善して",
+            "resume": _resume_payload(),
+            "history": history,
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 422
 
 
 # --- ユニットテスト（service 層） ---
@@ -250,6 +318,44 @@ def test_parse_response_discards_over_limit_value() -> None:
     )
     result = _parse_response(raw, "project")
     assert result.operations == []
+
+
+def test_parse_response_normalizes_unknown_field_name() -> None:
+    """許可リスト外の field 名（コンテキストの日本語キー流用など）は既定 field に正規化される。
+
+    field は Literal ではなく str で受けるため、逸脱 operation が混ざっても
+    レスポンス全体は ValidationError にならない（502 多発の再発防止）。
+    """
+    raw = json.dumps(
+        {
+            "message": "改善案です。",
+            "operations": [
+                {"field": "現在の自己PR", "value": "逸脱した提案"},
+                {"field": "self_pr", "value": "正しい提案"},
+            ],
+        },
+        ensure_ascii=False,
+    )
+    result = _parse_response(raw, "self_pr")
+    assert result.message == "改善案です。"
+    assert [op.field for op in result.operations] == ["self_pr", "self_pr"]
+    assert [op.value for op in result.operations] == ["逸脱した提案", "正しい提案"]
+
+
+def test_parse_response_project_normalizes_to_description() -> None:
+    """project スコープの許可外 field は description に正規化される（role は明示時のみ）。"""
+    raw = json.dumps(
+        {
+            "message": "改善案です。",
+            "operations": [
+                {"field": "プロジェクト詳細", "value": "詳細の提案"},
+                {"field": "role", "value": "役割の提案"},
+            ],
+        },
+        ensure_ascii=False,
+    )
+    result = _parse_response(raw, "project")
+    assert [op.field for op in result.operations] == ["description", "role"]
 
 
 def test_parse_response_invalid_schema_raises() -> None:

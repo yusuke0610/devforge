@@ -18,9 +18,6 @@ from ..core.messages import get_error
 
 AgentScope = Literal["project", "career_summary", "self_pr"]
 
-# operation が編集できるフィールド（Phase 1 はテキストのみ）
-AgentField = Literal["career_summary", "self_pr", "description", "role"]
-
 
 class AgentTechnologyStack(BaseModel):
     """LLM コンテキスト用の技術スタック（保存契約より緩い）。"""
@@ -74,6 +71,19 @@ class ProjectTarget(BaseModel):
     project_index: int = Field(ge=0)
 
 
+class AgentHistoryEntry(BaseModel):
+    """マルチターン用の会話履歴 1 件。
+
+    user はユーザーの依頼文のみ（レジュメコンテキストは含めない。コンテキストは
+    最新ターンの prompt にのみ載せ、毎ターンの重複でトークンが膨れるのを防ぐ）。
+    assistant は前回 LLM が返した JSON 文字列をそのまま入れる（出力形式の実例として
+    few-shot 的に働き、小型モデルのフォーマット逸脱を抑える狙い）。
+    """
+
+    role: Literal["user", "assistant"]
+    text: str = Field(min_length=1, max_length=6000)
+
+
 class AgentChatRequest(BaseModel):
     """Agent チャットのリクエスト。スコープ選択は必須。"""
 
@@ -81,6 +91,8 @@ class AgentChatRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=2000)
     resume: AgentResumeContext
     target: ProjectTarget | None = None
+    # 直近 3 往復（6 エントリ）まで。サーバーはセッションを持たずフロントが送る
+    history: list[AgentHistoryEntry] = Field(default_factory=list, max_length=6)
 
     @model_validator(mode="after")
     def validate_target(self) -> "AgentChatRequest":
@@ -95,9 +107,13 @@ class AgentOperation(BaseModel):
 
     フロントは選択済みスコープ（と target）に対応するフィールドへ value を反映する。
     DB は更新せず、ユーザーが「適用」した時点で既存の保存 API を呼ぶ。
+
+    ``field`` は意図的に Literal ではなく str で受ける。小型 LLM が許可外の
+    field 名を返すことがあり、Literal だと operation 1 件の逸脱でレスポンス全体が
+    ValidationError になる。許可 field の検証・破棄は chat_service._parse_response が担う。
     """
 
-    field: AgentField
+    field: str = Field(max_length=120)
     value: str = Field(max_length=4500)
 
 

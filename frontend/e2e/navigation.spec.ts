@@ -14,7 +14,8 @@ test.describe("認証済みユーザーのナビゲーション", () => {
     await page.goto("/career");
     await waitForAuthenticatedLayout(page);
 
-    await expect(page.getByText("DevForge")).toBeVisible();
+    // Agent FAB（aria-label: devforge Agent）と二重マッチしないよう exact 指定
+    await expect(page.getByText("DevForge", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "職務経歴書" })).toBeVisible();
     // GitHub連携 は画面遷移に徹するためリンク（連携実行はサブパネルのボタン）
     await expect(

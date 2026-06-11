@@ -19,8 +19,11 @@ class LLMClient(ABC):
     """
 
     @abstractmethod
-    async def generate(self, system_prompt: str, user_prompt: str) -> str:
-        """system / user プロンプトを渡して応答テキストを返す。
+    async def generate(self, system_prompt: str, messages: list[dict[str, str]]) -> str:
+        """system プロンプトと会話 messages を渡して応答テキストを返す。
+
+        messages は ``[{"role": "user" | "assistant", "content": str}, ...]`` で、
+        末尾が今回の user プロンプト（マルチターン時は先頭側に履歴が並ぶ）。
 
         Raises:
             LLMError: タイムアウト・接続失敗・API エラー時。

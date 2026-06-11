@@ -6,6 +6,7 @@ DB アクセスは行わない。フロントが編集中フォームをリク�
 
 import json
 import logging
+from pathlib import Path
 
 from pydantic import ValidationError
 
@@ -35,28 +36,33 @@ _SCOPE_FIELDS: dict[str, dict[str, int]] = {
     "project": {"description": 4500, "role": 200},
 }
 
-_SYSTEM_PROMPT = """\
-あなたは日本語の職務経歴書の改善を支援するアシスタントです。
-ユーザーの依頼に基づき、編集対象フィールドの改善案を JSON で返してください。
+# 許可外の field 名を返された時の正規化先。スコープ選択で編集対象は確定しているため、
+# 小型 LLM が「自己PR」等の field 名を返しても既定 field の提案として救済する。
+# project は role / description の 2 候補だが、自由記述の実体は description のみ
+# （role は 1 行の肩書き入力）なので description に倒す
+_SCOPE_DEFAULT_FIELD: dict[str, str] = {
+    "career_summary": "career_summary",
+    "self_pr": "self_pr",
+    "project": "description",
+}
 
-# 出力形式（JSON のみ。前置き・コードフェンス・補足テキストは一切禁止）
-{{"message": "<提案の説明（日本語）>", "operations": [{{"field": "<フィールド名>", "value": "<新しい本文>"}}]}}
-
-# ルール
-- operations の field は次のみ許可: {allowed_fields}
-- 各フィールドの文字数上限: {field_limits}
-- 提案が不要・不可能な場合は operations を空配列にし、message で理由を説明する
-- value は職務経歴書にそのまま掲載できる完成した日本語の文章にする
-"""
+# システムプロンプトの正本は app/prompts/ の md ファイル（プロンプト文言の変更を
+# コードと分離するため）。{allowed_fields} / {field_limits} はプレースホルダ。
+# JSON 例の {} を .format で二重括弧にエスケープせず済むよう、埋め込みは str.replace で行う
+_SYSTEM_PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "agent_chat_system.md"
+_SYSTEM_PROMPT = _SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
 
 
 def _build_context(request: AgentChatRequest) -> str:
     """スコープに応じて LLM に渡すコンテキスト文字列を組み立てる。"""
     resume = request.resume
+    # 編集対象フィールドのキーは operations の正規 field 名（career_summary 等）に揃える。
+    # 小型 LLM はコンテキストのキー名を operations.field に流用しやすいため、
+    # 日本語キーにすると許可外 field として破棄される（パース失敗の主因だった）
     if request.scope == "career_summary":
         return json.dumps(
             {
-                "現在の職務要約": resume.career_summary,
+                "career_summary": resume.career_summary,
                 "在籍企業の概要": [
                     {"会社": e.company, "事業内容": e.business_description}
                     for e in resume.experiences
@@ -67,8 +73,8 @@ def _build_context(request: AgentChatRequest) -> str:
     if request.scope == "self_pr":
         return json.dumps(
             {
-                "現在の自己PR": resume.self_pr,
-                "職務要約": resume.career_summary,
+                "self_pr": resume.self_pr,
+                "職務要約（参考情報）": resume.career_summary,
             },
             ensure_ascii=False,
         )
@@ -76,8 +82,8 @@ def _build_context(request: AgentChatRequest) -> str:
     return json.dumps(
         {
             "プロジェクト名": project.name,
-            "現在の役割": project.role,
-            "現在の詳細": project.description,
+            "role": project.role,
+            "description": project.description,
             "技術スタック": [s.name for s in project.technology_stacks if s.name],
             "担当工程": project.phases,
         },
@@ -103,7 +109,7 @@ def _resolve_target_project(request: AgentChatRequest) -> AgentProjectContext:
 
 
 def _parse_response(raw: str, scope: str) -> AgentChatResponse:
-    """LLM 応答をパースし、スコープ外・上限超過の operation を破棄して返す。"""
+    """LLM 応答をパースし、field の正規化と上限超過 operation の破棄を行って返す。"""
     text = raw.strip()
     # JSON のみを指示しても小型モデルはコードフェンスを付けることがあるため除去する
     if text.startswith("```"):
@@ -120,9 +126,13 @@ def _parse_response(raw: str, scope: str) -> AgentChatResponse:
     operations: list[AgentOperation] = []
     for op in parsed.operations:
         if op.field not in allowed:
-            # スコープ外フィールドの提案は適用先が特定できないため破棄する
-            logger.warning("スコープ外の operation を破棄: scope=%s field=%s", scope, op.field)
-            continue
+            # 許可外の field 名はスコープの既定 field の提案として正規化する
+            # （スコープ選択で編集対象は確定しており、提案を捨てるよりユーザー利益が大きい）
+            normalized = _SCOPE_DEFAULT_FIELD[scope]
+            logger.warning(
+                "許可外の field を正規化: scope=%s field=%s -> %s", scope, op.field, normalized
+            )
+            op = AgentOperation(field=normalized, value=op.value)
         if len(op.value) > allowed[op.field]:
             logger.warning(
                 "文字数上限超過の operation を破棄: field=%s len=%d", op.field, len(op.value)
@@ -141,15 +151,31 @@ async def run_agent_chat(request: AgentChatRequest) -> AgentChatResponse:
         LLMError: LLM 呼び出しの失敗（llm.base 参照）。
     """
     allowed = _SCOPE_FIELDS[request.scope]
-    system_prompt = _SYSTEM_PROMPT.format(
-        allowed_fields=", ".join(allowed),
-        field_limits=", ".join(f"{k}: {v}文字" for k, v in allowed.items()),
+    system_prompt = _SYSTEM_PROMPT.replace(
+        "{allowed_fields}", ", ".join(allowed)
+    ).replace(
+        "{field_limits}", ", ".join(f"{k}: {v}文字" for k, v in allowed.items())
     )
     user_prompt = (
         f"# 編集対象スコープ\n{request.scope}\n\n"
         f"# 現在の内容\n{_build_context(request)}\n\n"
         f"# ユーザーの依頼\n{request.prompt}"
     )
+    # 調査用ログはメタデータのみ出す。レジュメ本文・プロンプト本文は個人情報を含むため
+    # DEBUG でもログに載せない（.claude/rules/security.md「ログへの秘密情報出力禁止」）
+    logger.debug(
+        "Agent LLM 入力: scope=%s target=%s history=%d resume_len=%d user_prompt_len=%d",
+        request.scope,
+        request.target,
+        len(request.history),
+        len(request.resume.model_dump_json()),
+        len(user_prompt),
+    )
+    # 履歴（直近 3 往復）の後ろに今回の user prompt を置く。レジュメコンテキストは
+    # 最新ターンにのみ載せる（履歴側はフロントが依頼文 / 前回応答 JSON だけを送る契約）
+    messages = [{"role": e.role, "content": e.text} for e in request.history]
+    messages.append({"role": "user", "content": user_prompt})
     client = get_llm_client()
-    raw = await client.generate(system_prompt, user_prompt)
+    raw = await client.generate(system_prompt, messages)
+    logger.debug("Agent LLM 生応答（パース前）: len=%d", len(raw))
     return _parse_response(raw, request.scope)

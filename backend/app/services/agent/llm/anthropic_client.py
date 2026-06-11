@@ -15,6 +15,8 @@ _MODEL = "claude-haiku-4-5"
 # operations JSON（最大 4500 文字のテキスト置換 + 説明文）に十分な上限
 _MAX_TOKENS = 4096
 _TIMEOUT_SECONDS = 60.0
+# 職務経歴書の改善提案は事実忠実性が最優先のため低温度に固定する
+_TEMPERATURE = 0.2
 
 
 class AnthropicClient(LLMClient):
@@ -28,13 +30,14 @@ class AnthropicClient(LLMClient):
             api_key=api_key, timeout=_TIMEOUT_SECONDS
         )
 
-    async def generate(self, system_prompt: str, user_prompt: str) -> str:
+    async def generate(self, system_prompt: str, messages: list[dict[str, str]]) -> str:
         try:
             response = await self._client.messages.create(
                 model=_MODEL,
                 max_tokens=_MAX_TOKENS,
+                temperature=_TEMPERATURE,
                 system=system_prompt,
-                messages=[{"role": "user", "content": user_prompt}],
+                messages=messages,
             )
         except (
             anthropic.APITimeoutError,

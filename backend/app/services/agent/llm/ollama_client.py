@@ -24,15 +24,15 @@ class OllamaClient(LLMClient):
         self._base_url = settings.get_ollama_base_url()
         self._model = settings.get_ollama_model()
 
-    async def generate(self, system_prompt: str, user_prompt: str) -> str:
+    async def generate(self, system_prompt: str, messages: list[dict[str, str]]) -> str:
         payload = {
             "model": self._model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
+            "messages": [{"role": "system", "content": system_prompt}, *messages],
             "stream": False,
             "format": "json",
+            # 職務経歴書の改善提案は事実忠実性が最優先のため低温度に固定する
+            # （デフォルト 0.8 では小型モデルが架空の資格・技術を捏造しやすい）
+            "options": {"temperature": 0.2},
         }
         try:
             async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS) as client:
@@ -45,10 +45,15 @@ class OllamaClient(LLMClient):
             raise LLMError(f"Ollama API error: {type(exc).__name__}") from exc
 
         try:
-            text = response.json().get("message", {}).get("content", "")
+            data = response.json()
         except json.JSONDecodeError as exc:
             logger.warning("Ollama 応答の JSON パースに失敗: %s", type(exc).__name__)
             raise LLMError("Ollama 応答が JSON ではありません") from exc
+        # dict 以外（配列・文字列等）が返ると .get で AttributeError になるため LLMError（502）に倒す
+        if not isinstance(data, dict):
+            logger.warning("Ollama 応答が想定外の型: %s", type(data).__name__)
+            raise LLMError("Ollama 応答が想定外の形式です")
+        text = data.get("message", {}).get("content", "")
         if not text:
             raise LLMError("Ollama から空の応答が返されました")
         return text
