@@ -26,6 +26,7 @@ import type { CareerTextFieldKey } from "../../formTypes";
 import { useQualifications, useTechnologyStacks } from "../../hooks/useMasterData";
 import { usePdfActions } from "../../hooks/usePdfActions";
 import { useMessageToast } from "../ui/toast";
+import { AgentChatWidget } from "./AgentChatWidget";
 import shared from "../../styles/shared.module.css";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { useLoginPrompt } from "../auth/loginPromptContext";
@@ -320,6 +321,13 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
         />
       )}
       {previewUrl && <PdfPreviewModal previewUrl={previewUrl} onClose={closePreview} />}
+      {/* AI アシスタント（ADR-0010）。operations はフォーム state にのみ反映され、保存は既存の保存ボタンで行う */}
+      <AgentChatWidget
+        form={form}
+        onApply={setFormAndClearFocus}
+        isAuthenticated={isAuthenticated}
+        requestLogin={requestLogin}
+      />
       {editingField && (
         <MarkdownFieldModal
           title={

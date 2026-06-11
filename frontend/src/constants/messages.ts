@@ -66,6 +66,7 @@ export const FALLBACK_MESSAGES = {
   AUTH_CHECK: "ログイン状態の確認に失敗しました。",
   GITHUB_OAUTH_START: "GitHub OAuth の開始に失敗しました",
   GITHUB_LINK: "連携に失敗しました",
+  AGENT_CHAT: "AI への送信に失敗しました",
 } as const;
 
 /**
@@ -361,3 +362,28 @@ export function blogUsernameUpdatedSyncSuccessMessage(synced: number, total: num
 export function charCountLabel(count: number): string {
   return `${count} 文字`;
 }
+
+/**
+ * Agent チャットウィジェット（ADR-0010）の UI 文言。
+ * API 経由のエラー（AGENT_LLM_ERROR 等）は backend messages.json 由来の message を表示し、
+ * ここには frontend 完結の文言のみを置く。
+ */
+export const AGENT_MESSAGES = {
+  OPEN_LABEL: "AI アシスタント",
+  TITLE: "AI アシスタント",
+  CLOSE_LABEL: "閉じる",
+  SCOPE_LABEL: "編集対象",
+  SCOPE_CAREER_SUMMARY: "職務要約",
+  SCOPE_SELF_PR: "自己PR",
+  SCOPE_PROJECT: "プロジェクト",
+  TARGET_LABEL: "対象プロジェクト",
+  TARGET_EMPTY: "プロジェクトがありません。先に職歴へプロジェクトを追加してください。",
+  TARGET_UNNAMED: "（名称未設定）",
+  PROMPT_PLACEHOLDER: "例: 成果がより伝わる文章にしてください",
+  SEND: "送信",
+  SENDING: "送信中...",
+  APPLY: "フォームに反映",
+  APPLIED_TOAST: "AI の提案をフォームに反映しました。内容を確認して保存してください。",
+  EMPTY_STATE: "編集対象を選んで、改善したい内容を AI に依頼してください。反映後も保存するまで DB は変更されません。",
+  LOGIN_REQUIRED: "AI アシスタントを使うにはログインが必要です。",
+} as const;

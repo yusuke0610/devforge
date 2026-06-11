@@ -27,6 +27,9 @@ export const PATHS = {
     githubLoginUrl: "/auth/github/login-url",
     logout: "/auth/logout",
   },
+  agent: {
+    chat: "/api/agent/chat",
+  },
   resumes: {
     base: "/api/resumes",
     latest: "/api/resumes/latest",
