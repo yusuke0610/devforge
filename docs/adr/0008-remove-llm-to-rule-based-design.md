@@ -2,7 +2,7 @@
 
 ## ステータス
 
-Accepted
+Superseded by ADR-0010
 
 ## コンテキスト
 
@@ -47,3 +47,8 @@ LLM プロバイダ抽象化と関連資産を全て撤去し、ルールベー�
 ## 関連リンク
 
 - [ADR-0004: LLM プロバイダ抽象化（Ollama/Vertex AI）の設計判断](0004-llm-provider-abstraction.md)
+- [ADR-0010: DevForge Agent 機能の導入](0010-devforge-agent.md)（本 ADR を Superseded とし LLM を再導入）
+
+---
+
+2026-06-11: DevForge Agent（対話型キャリア戦略支援）の導入に伴い LLM を再導入したため、本 ADR の「将来の移行条件」に従い [ADR-0010](0010-devforge-agent.md) で Superseded とした。

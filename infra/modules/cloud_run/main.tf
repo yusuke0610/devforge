@@ -9,6 +9,8 @@ locals {
     "jwt-public-key",
     "internal-secret",
     "turso-auth-token",
+    # DevForge Agent（ADR-0010）の Anthropic API キー
+    "anthropic-api-key",
     # 棚卸し TODO: "field-encryption-key"（FIELD_ENCRYPTION_KEY / Fernet 鍵）は
     # このリストから除外し対応する Secret Manager シークレットを削除すること。
     # 削除前に全環境（dev/stg/prod）の Cloud Run 設定から環境変数を外すこと。
@@ -20,6 +22,7 @@ locals {
     JWT_PUBLIC_KEY       = "jwt-public-key"
     INTERNAL_SECRET      = "internal-secret"
     TURSO_AUTH_TOKEN     = "turso-auth-token"
+    ANTHROPIC_API_KEY    = "anthropic-api-key"
   }
   github_secret_env = var.enable_github_oauth ? {
     GITHUB_CLIENT_ID     = "github-client-id"
@@ -129,6 +132,11 @@ resource "google_cloud_run_v2_service" "app" {
         # 通常運用は INFO。パフォーマンス分析時のみ DEBUG に変更する
         name  = "LOG_LEVEL"
         value = "INFO"
+      }
+      env {
+        # DevForge Agent（ADR-0010）。本番は Anthropic API（Haiku 4.5）を使用
+        name  = "LLM_PROVIDER"
+        value = "anthropic"
       }
 
       dynamic "env" {

@@ -52,6 +52,9 @@ backend/app/
 │   ├── base.py / user.py / blog.py
 │   ├── master_data.py / notification.py / resume.py
 ├── services/
+│   ├── agent/                   # DevForge Agent（LLM チャット / ADR-0010）
+│   │   ├── chat_service.py      # コンテキスト組み立て → LLM → operations 検証
+│   │   └── llm/                 # LLM プロバイダ抽象（anthropic / ollama、失敗は raise）
 │   ├── blog/                    # ブログ収集・技術記事判定・スコア算出
 │   │   ├── account_service.py
 │   │   ├── collector.py

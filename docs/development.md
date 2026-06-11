@@ -53,6 +53,17 @@ make dev-down        # 停止
 
 DB 接続先は compose 内で `TURSO_DATABASE_URL=http://libsql:8080` に固定されている。
 
+#### Agent 機能（LLM）をローカルで試す場合
+
+Ollama は compose に含めず**ホスト側で起動する**設計（ADR-0010）。macOS の Docker は GPU（Metal）を使えず、コンテナ内推論は大幅に遅くなるため。API コンテナは `OLLAMA_BASE_URL`（既定: `http://host.docker.internal:11434`）でホストの Ollama に接続する。
+
+```bash
+ollama serve          # アプリ起動済みなら不要
+ollama pull llama3.2  # OLLAMA_MODEL の既定値
+```
+
+Anthropic API で試す場合は `.env` に `LLM_PROVIDER=anthropic` と `ANTHROPIC_API_KEY` を設定して再起動する。
+
 #### フロントエンド単体起動（バックエンドは docker / 別途）
 
 ```bash

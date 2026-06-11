@@ -69,6 +69,9 @@ REST API エンドポイント一覧と、バックエンド／フロントエ�
 - `PATCH /api/notifications/{id}/read`: 個別既読
 - `POST /api/notifications/read-all`: 全て既読
 
+### Agent（LLM チャット / ADR-0010）
+- `POST /api/agent/chat`: 選択スコープ（`project` / `career_summary` / `self_pr`）の内容とプロンプトをもとに、職務経歴書への差分 operations を返す。DB は更新せず、適用はフロント側でユーザー確認後に既存保存 API を呼ぶ。rate limit 10/min
+
 ### 内部 API（Cloud Tasks コールバック専用）
 - `POST /internal/tasks/{task_type}`: Cloud Tasks からのタスク実行リクエストを受け付ける。`TASK_RUNNER=cloud_tasks` の場合は `X-CloudTasks-QueueName` ヘッダで検証
 
@@ -124,6 +127,15 @@ REST API エンドポイント一覧と、バックエンド／フロントエ�
 |---|---|
 | `UPSTASH_REDIS_URL` | Upstash Redis REST URL（本番） |
 | `UPSTASH_REDIS_TOKEN` | Upstash Redis REST トークン |
+
+### LLM（DevForge Agent / ADR-0010）
+
+| 変数 | 用途 |
+|---|---|
+| `LLM_PROVIDER` | LLM プロバイダ切り替え（`anthropic`: 本番 / `ollama`: ローカル既定） |
+| `ANTHROPIC_API_KEY` | Anthropic API キー（本番は Secret Manager `anthropic-api-key` から注入） |
+| `OLLAMA_BASE_URL` | ローカル Ollama のベース URL（既定: `http://localhost:11434`） |
+| `OLLAMA_MODEL` | ローカル Ollama のモデル名（既定: `llama3.2`） |
 
 ### 運用・ロギング
 

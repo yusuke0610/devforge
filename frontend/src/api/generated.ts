@@ -7,6 +7,29 @@
  * このファイルはその機械的ミラー。直接編集しても次回生成で上書きされる。
  */
 export interface paths {
+    "/api/agent/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Agent Chat
+         * @description 選択スコープの内容とプロンプトをもとに、職務経歴書への差分 operations を返す。
+         *
+         *     レスポンスはフロントの state にのみ適用され、DB は更新しない。
+         *     ユーザーが確認して「適用」した時点で既存の保存 API が呼ばれる。
+         */
+        post: operations["agent_chat_api_agent_chat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/blog/accounts": {
         parameters: {
             query?: never;
@@ -695,6 +718,140 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AgentChatRequest
+         * @description Agent チャットのリクエスト。スコープ選択は必須。
+         */
+        AgentChatRequest: {
+            /** Prompt */
+            prompt: string;
+            resume: components["schemas"]["AgentResumeContext"];
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "project" | "career_summary" | "self_pr";
+            target?: components["schemas"]["ProjectTarget"] | null;
+        };
+        /**
+         * AgentChatResponse
+         * @description Agent チャットのレスポンス（AI の説明文 + 差分 operations）。
+         */
+        AgentChatResponse: {
+            /** Message */
+            message: string;
+            /** Operations */
+            operations?: components["schemas"]["AgentOperation"][];
+        };
+        /**
+         * AgentClientContext
+         * @description LLM コンテキスト用の取引先情報。
+         */
+        AgentClientContext: {
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /** Projects */
+            projects?: components["schemas"]["AgentProjectContext"][];
+        };
+        /**
+         * AgentExperienceContext
+         * @description LLM コンテキスト用の在籍企業情報。
+         */
+        AgentExperienceContext: {
+            /**
+             * Business Description
+             * @default
+             */
+            business_description: string;
+            /** Clients */
+            clients?: components["schemas"]["AgentClientContext"][];
+            /**
+             * Company
+             * @default
+             */
+            company: string;
+        };
+        /**
+         * AgentOperation
+         * @description resume state へ適用する差分（テキストフィールドの置換）。
+         *
+         *     フロントは選択済みスコープ（と target）に対応するフィールドへ value を反映する。
+         *     DB は更新せず、ユーザーが「適用」した時点で既存の保存 API を呼ぶ。
+         */
+        AgentOperation: {
+            /**
+             * Field
+             * @enum {string}
+             */
+            field: "career_summary" | "self_pr" | "description" | "role";
+            /** Value */
+            value: string;
+        };
+        /**
+         * AgentProjectContext
+         * @description LLM コンテキスト用のプロジェクト情報。
+         */
+        AgentProjectContext: {
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /** Phases */
+            phases?: string[];
+            /**
+             * Role
+             * @default
+             */
+            role: string;
+            /** Technology Stacks */
+            technology_stacks?: components["schemas"]["AgentTechnologyStack"][];
+        };
+        /**
+         * AgentResumeContext
+         * @description LLM に渡す編集中の職務経歴書コンテキスト。
+         *
+         *     保存契約（必須項目・日付検証）は適用しない。DB は参照せず、
+         *     フロントが編集中のフォーム内容をそのまま送る設計（DB を更新しない原則）。
+         */
+        AgentResumeContext: {
+            /**
+             * Career Summary
+             * @default
+             */
+            career_summary: string;
+            /** Experiences */
+            experiences?: components["schemas"]["AgentExperienceContext"][];
+            /**
+             * Self Pr
+             * @default
+             */
+            self_pr: string;
+        };
+        /**
+         * AgentTechnologyStack
+         * @description LLM コンテキスト用の技術スタック（保存契約より緩い）。
+         */
+        AgentTechnologyStack: {
+            /**
+             * Category
+             * @default
+             */
+            category: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+        };
+        /**
          * BlogAccountCreate
          * @description ブログ連携アカウントの作成リクエスト。
          */
@@ -1305,6 +1462,18 @@ export interface components {
             start_date: string;
         };
         /**
+         * ProjectTarget
+         * @description scope=project のとき対象プロジェクトを特定するインデックス。
+         */
+        ProjectTarget: {
+            /** Client Index */
+            client_index: number;
+            /** Experience Index */
+            experience_index: number;
+            /** Project Index */
+            project_index: number;
+        };
+        /**
          * ProjectTeam
          * @description プロジェクト体制（全体人数 + 役割別内訳）。
          */
@@ -1550,6 +1719,39 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    agent_chat_api_agent_chat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentChatRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentChatResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_accounts_api_blog_accounts_get: {
         parameters: {
             query?: never;
