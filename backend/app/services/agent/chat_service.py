@@ -17,6 +17,12 @@ from ...schemas.agent import (
     AgentProjectContext,
 )
 from .llm.factory import get_llm_client
+from .output_schema import (
+    MAX_SUGGESTION_LENGTH,
+    MAX_SUGGESTIONS,
+    SCOPE_FIELDS,
+    build_output_schema,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +33,6 @@ class AgentTargetNotFoundError(Exception):
 
 class AgentResponseParseError(Exception):
     """LLM 応答の JSON パースまたはスキーマ検証に失敗。"""
-
-
-# スコープごとに operations が編集してよいフィールドと文字数上限
-_SCOPE_FIELDS: dict[str, dict[str, int]] = {
-    "career_summary": {"career_summary": 2000},
-    "self_pr": {"self_pr": 2000},
-    "project": {"description": 4500, "role": 200},
-}
 
 # 許可外の field 名を返された時の正規化先。スコープ選択で編集対象は確定しているため、
 # 小型 LLM が「自己PR」等の field 名を返しても既定 field の提案として救済する。
@@ -47,10 +45,29 @@ _SCOPE_DEFAULT_FIELD: dict[str, str] = {
 }
 
 # システムプロンプトの正本は app/prompts/ の md ファイル（プロンプト文言の変更を
-# コードと分離するため）。{allowed_fields} / {field_limits} はプレースホルダ。
-# JSON 例の {} を .format で二重括弧にエスケープせず済むよう、埋め込みは str.replace で行う
-_SYSTEM_PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "agent_chat_system.md"
-_SYSTEM_PROMPT = _SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
+# コードと分離するため）。共通ルール（agent_base.md）にスコープ固有の品質基準
+# （agent_{scope}.md）を結合し、該当スコープの md だけを読ませる（無関係なスコープの
+# 指示を混ぜると小型 LLM が文字数制限等を取り違えるため）。
+# 許可 field・文字数上限などの機械検証可能な制約はプロンプトに書かず、
+# 構造化出力スキーマ（output_schema.py）に持たせる（ADR-0010「制約の責務分離」）
+_PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
+
+
+def _load_scope_prompt(scope: str) -> str:
+    """base＋スコープ md を結合した system prompt を返す。"""
+    base = (_PROMPTS_DIR / "agent_base.md").read_text(encoding="utf-8")
+    scope_part = (_PROMPTS_DIR / f"agent_{scope}.md").read_text(encoding="utf-8")
+    return f"{base}\n{scope_part}"
+
+
+_SCOPE_PROMPTS: dict[str, str] = {scope: _load_scope_prompt(scope) for scope in SCOPE_FIELDS}
+
+# 構造化出力スキーマもスコープごとに静的なのでロード時に構築する
+_SCOPE_SCHEMAS: dict[str, dict] = {scope: build_output_schema(scope) for scope in SCOPE_FIELDS}
+
+# リトライ時に LLM へフィードバックするエラー文の上限（レジュメ本文を含む
+# ValidationError でリトライプロンプトが肥大化するのを防ぐ）
+_MAX_RETRY_ERROR_LENGTH = 500
 
 
 def _build_context(request: AgentChatRequest) -> str:
@@ -110,19 +127,14 @@ def _resolve_target_project(request: AgentChatRequest) -> AgentProjectContext:
 
 def _parse_response(raw: str, scope: str) -> AgentChatResponse:
     """LLM 応答をパースし、field の正規化と上限超過 operation の破棄を行って返す。"""
-    text = raw.strip()
-    # JSON のみを指示しても小型モデルはコードフェンスを付けることがあるため除去する
-    if text.startswith("```"):
-        text = text.strip("`")
-        text = text.removeprefix("json").strip()
     try:
-        data = json.loads(text)
+        data = json.loads(raw)
         parsed = AgentChatResponse.model_validate(data)
     except (json.JSONDecodeError, ValidationError) as exc:
         logger.warning("LLM 応答のパースに失敗: %s", type(exc).__name__)
         raise AgentResponseParseError(str(exc)) from exc
 
-    allowed = _SCOPE_FIELDS[scope]
+    allowed = SCOPE_FIELDS[scope]
     operations: list[AgentOperation] = []
     for op in parsed.operations:
         if op.field not in allowed:
@@ -139,7 +151,21 @@ def _parse_response(raw: str, scope: str) -> AgentChatResponse:
             )
             continue
         operations.append(op)
-    return AgentChatResponse(message=parsed.message, operations=operations)
+
+    # suggestions（次の依頼候補）は operations が空のときだけ意味を持つ。
+    # 提案がある応答に混ざって返された場合は UI が混乱するため破棄する
+    suggestions: list[str] = []
+    if not operations:
+        for suggestion in parsed.suggestions:
+            text = suggestion.strip()
+            if not text or len(text) > MAX_SUGGESTION_LENGTH:
+                logger.warning("不正な suggestion を破棄: len=%d", len(text))
+                continue
+            suggestions.append(text)
+        if len(suggestions) > MAX_SUGGESTIONS:
+            logger.warning("suggestions が上限超過のため切り詰め: %d 件", len(suggestions))
+            suggestions = suggestions[:MAX_SUGGESTIONS]
+    return AgentChatResponse(message=parsed.message, operations=operations, suggestions=suggestions)
 
 
 async def run_agent_chat(request: AgentChatRequest) -> AgentChatResponse:
@@ -150,12 +176,7 @@ async def run_agent_chat(request: AgentChatRequest) -> AgentChatResponse:
         AgentResponseParseError: LLM 応答が不正。
         LLMError: LLM 呼び出しの失敗（llm.base 参照）。
     """
-    allowed = _SCOPE_FIELDS[request.scope]
-    system_prompt = _SYSTEM_PROMPT.replace(
-        "{allowed_fields}", ", ".join(allowed)
-    ).replace(
-        "{field_limits}", ", ".join(f"{k}: {v}文字" for k, v in allowed.items())
-    )
+    system_prompt = _SCOPE_PROMPTS[request.scope]
     user_prompt = (
         f"# 編集対象スコープ\n{request.scope}\n\n"
         f"# 現在の内容\n{_build_context(request)}\n\n"
@@ -176,6 +197,28 @@ async def run_agent_chat(request: AgentChatRequest) -> AgentChatResponse:
     messages = [{"role": e.role, "content": e.text} for e in request.history]
     messages.append({"role": "user", "content": user_prompt})
     client = get_llm_client()
-    raw = await client.generate(system_prompt, messages)
+    output_schema = _SCOPE_SCHEMAS[request.scope]
+    raw = await client.generate(system_prompt, messages, output_schema)
     logger.debug("Agent LLM 生応答（パース前）: len=%d", len(raw))
-    return _parse_response(raw, request.scope)
+    try:
+        return _parse_response(raw, request.scope)
+    except AgentResponseParseError as exc:
+        # スキーマ違反応答は 1 回だけリトライする。バリデーションエラーの内容を
+        # フィードバックして再生成させ、2 回目も失敗したらそのまま raise
+        # （router で 502 + AGENT_PARSE_ERROR にマッピングされる既存契約を維持）
+        logger.warning("LLM 応答が出力契約に違反したためリトライ: %s", type(exc).__name__)
+        retry_messages = [
+            *messages,
+            {"role": "assistant", "content": raw},
+            {
+                "role": "user",
+                "content": (
+                    "直前の応答は出力契約に違反しています。"
+                    f"違反内容: {str(exc)[:_MAX_RETRY_ERROR_LENGTH]}\n"
+                    "契約に従って同じ依頼への応答を再生成してください。"
+                ),
+            },
+        ]
+        raw = await client.generate(system_prompt, retry_messages, output_schema)
+        logger.debug("Agent LLM リトライ応答（パース前）: len=%d", len(raw))
+        return _parse_response(raw, request.scope)

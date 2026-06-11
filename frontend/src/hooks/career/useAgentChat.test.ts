@@ -50,6 +50,35 @@ describe("useAgentChat", () => {
     );
   });
 
+  it("曖昧入力応答の suggestions（依頼文候補）をエントリに保持する", async () => {
+    postAgentChatMock.mockResolvedValue({
+      message: "どの方向で改善しますか？",
+      operations: [],
+      suggestions: ["300字に要約して", "成果を強調して書き直して"],
+    });
+    const { result } = renderHook(() => useAgentChat());
+
+    await act(async () => {
+      await result.current.send(form, "self_pr", null, "いい感じにして");
+    });
+
+    expect(result.current.entries[1].suggestions).toEqual([
+      "300字に要約して",
+      "成果を強調して書き直して",
+    ]);
+  });
+
+  it("suggestions が無い応答では suggestions は null", async () => {
+    postAgentChatMock.mockResolvedValue({ message: "提案です", operations: [] });
+    const { result } = renderHook(() => useAgentChat());
+
+    await act(async () => {
+      await result.current.send(form, "self_pr", null, "改善して");
+    });
+
+    expect(result.current.entries[1].suggestions).toBeNull();
+  });
+
   it("API 失敗時は error にメッセージが入り sending が解除される", async () => {
     postAgentChatMock.mockRejectedValue(new Error("AI の応答取得に失敗しました。"));
     const { result } = renderHook(() => useAgentChat());

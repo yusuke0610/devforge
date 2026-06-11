@@ -74,6 +74,100 @@ Agent のレスポンス（差分 operations）はフロントの state にの�
 
 ADR-0004 の `generate()` は失敗時に空文字を返す設計で、UI がエラーを検知できなかった。本機能は対話型のため、`POST /agent/chat` では LLM 呼び出しの失敗（タイムアウト / モデル未起動 / API エラー / JSON パース失敗）を**明示的に区別して HTTP エラー（日本語メッセージ）で返す**。エラーメッセージは `backend/app/messages.json` を正本とし、frontend は `AppErrorResponse.message` を表示する（`.claude/rules/frontend/messages.md` 準拠）。空文字フォールバックで握りつぶさない。
 
+### エラー契約
+
+`POST /api/agent/chat` のエラーは以下の契約で返す（実装: `backend/app/routers/agent.py` / `backend/app/services/agent/chat_service.py`）。メッセージ正本は `backend/app/messages.json` の `error.agent`。
+
+| 事象 | HTTP | ErrorCode | messages.json キー |
+|---|---|---|---|
+| project スコープで target 未指定 | 422 | `VALIDATION_ERROR` | `agent.target_required`（schema validator で発火） |
+| target インデックスが範囲外 | 422 | `VALIDATION_ERROR` | `agent.target_not_found` |
+| LLM 呼び出し失敗（タイムアウト / API エラー / モデル未起動） | 502 | `AGENT_LLM_ERROR` | `agent.llm_failed` |
+| LLM 応答の JSON パース / スキーマ検証失敗 | 502 | `AGENT_PARSE_ERROR` | `agent.parse_failed` |
+| レート制限超過（`slowapi` 10/minute） | 429 | — | slowapi 既定 |
+
+LLM 出力の検証は次の多段で行い、バリデーションを通過したもののみフロントに返す:
+
+1. JSON パース + `AgentChatResponse` の Pydantic 検証（失敗は `AGENT_PARSE_ERROR`）
+2. 許可外の `field` 名はスコープの既定フィールドへ正規化する（スコープ選択で編集対象は確定しており、提案を捨てるよりユーザー利益が大きい）
+3. **文字数上限を超過した operation は切り詰めず破棄する**（warning ログを残す）。`message` は返るため、ユーザーは依頼を変えて再指示できる
+
+文字数超過時にバックエンドで切り詰めて返す案は**却下**した。文章が途中で切れた経歴書は品質として許容できないためである（「代替案」参照）。
+
+**曖昧入力のフォールバック**: 改善に必要な情報が不足している場合、LLM は事実を捏造せず `operations` を空配列にし、`message` で必要な情報をユーザーに確認する（system prompt の共通ルールで規定）。依頼が曖昧・抽象的なときはこれに加えて、LLM が `suggestions`（次の依頼文候補の文字列配列）を生成して選択肢を提示する（「対話型選択肢（LLM 生成 suggestions）設計」参照）。
+
+### コスト設計
+
+#### system prompt のスコープ分岐
+
+system prompt は共通ルール（`agent_base.md`）＋**選択スコープの md 1 枚のみ**（`agent_{scope}.md`）を結合する。3 スコープ分を全結合すると毎リクエスト約 2,000 トークンの無駄が出ることに加え、無関係なスコープの品質基準（文字数制限等）を小型モデルが取り違える品質問題があるため、スコープ分岐を必須とする。プレースホルダ（`{allowed_fields}` / `{field_limits}`）はスコープごとに静的なためモジュールロード時に埋め込み、system prompt を完全静的化してプロバイダ側のプロンプトキャッシュを効かせる。
+
+#### コンテキスト圧縮（GitHub / ブログ連携時の契約）
+
+Phase 2 で GitHub / ブログ分析を Agent コンテキストに渡す際は、生データではなく**派生サマリーに圧縮**して渡す。
+
+**github_context（~200 トークン以下）**
+
+- `languages` 上位 5 件（バイト数または割合）
+- 年ごとの `total_contributions`（`contribution_calendars` から `weeks` を捨てて集計）
+- 直近 12 ヶ月の活動日数
+
+`contribution_calendars` の日次グリッド（1 年分で約 4,500〜5,500 トークン）はヒートマップ描画用の構造であり、LLM コンテキストとしては渡さない。
+
+**blog_context（~200 トークン以下）**
+
+- 更新頻度サマリー（`avg_monthly_posts` / `tech_article_count` 等）
+- 直近記事のタイトル・タグ
+
+記事本文・全記事リストは渡さない。
+
+### 会話履歴（マルチターン）
+
+当初 Phase 2 予定だったが、推敲の連続性（「さっきの提案のここだけ直して」）が Phase 1 の中核 UX に直結するため **Phase 1 に前倒しして実装済み**。
+
+- 履歴は**フロントのみ**で保持する（DB 永続化なし。サーバーはセッションを持たない）
+- ページリロードで履歴はリセットされる。スコープ切り替えでは履歴を保持する（各エントリが送信時のスコープ・target を持ち、適用時に参照する）
+- **3 往復（user + assistant で 6 エントリ）**を上限とし、超過分は古いものから切り詰める（`AgentChatRequest.history` の `max_length=6` とフロント `useAgentChat.ts` の `HISTORY_LIMIT` で同期）
+- assistant メッセージは `message` だけでなく **`operations`（提案した本文）を含む応答 JSON 原文**を履歴に保持する。推敲の連続性に加え、出力形式の実例として few-shot 的に働き小型モデルのフォーマット逸脱を抑える
+- レジュメコンテキストは最新ターンの prompt にのみ載せる（履歴側は依頼文 / 応答 JSON のみで、毎ターンの重複でトークンが膨れるのを防ぐ）
+
+リクエストスキーマ（実装準拠）:
+
+```json
+{
+  "scope": "self_pr",
+  "prompt": "もっと簡潔にして",
+  "resume": { "career_summary": "...", "self_pr": "...", "experiences": [] },
+  "target": null,
+  "history": [
+    { "role": "user", "text": "自己PRを改善して" },
+    { "role": "assistant", "text": "{\"message\": \"...\", \"operations\": [...]}" }
+  ]
+}
+```
+
+**将来の検討事項（Phase 2 以降）**: 履歴往復数の拡大は operations 込みでトークン量が線形に増えるため、コンテキスト圧縮（上記）とセットで再評価する。
+
+### 対話型選択肢（LLM 生成 suggestions）設計
+
+#### 背景
+
+曖昧な自由入力（「いい感じにして」等）は LLM の出力精度を下げる（特にローカルの小型モデル）。入力は**フリーテキストのみ**とし、依頼が曖昧で意図を特定できないときに **LLM 自身が対話の流れに沿った選択肢（次の依頼文の候補）を生成して提示**する。ユーザーは選択肢をタップするだけで意図を具体化でき、言語化の負担が下がる。
+
+#### レスポンスの `suggestions`
+
+`AgentChatResponse.suggestions: list[str]`。LLM が生成する「次の依頼文」候補で、フロントはボタンとして表示し、押下されたテキストを**そのまま次の `prompt` として再送信**する（専用 API・専用フィールドは増やさない）。
+
+- system prompt（`agent_base.md` の共通ルール）で規定: 依頼が曖昧・抽象的で operations を返せないときは、`message` で確認しつつ `suggestions` に具体的な依頼文の候補を **2〜4 個**入れる（ユーザーがそのまま送れる命令形の日本語）。通常の提案時は空配列
+- バックエンド（`chat_service._parse_response`）の検証: 空文字・200 字超の候補は破棄、最大 4 件に切り詰め。**operations がある応答に suggestions が混ざっていた場合は破棄**する（提案と選択肢の同時提示は UI が混乱するため）
+- 小型モデルが suggestions を返せない場合は空配列に degrade し、従来どおり `message` のみで対話する（機能破壊にならない）
+
+#### フロントエンド UI
+
+- 入力はフリーテキストのみ（事前定義のアクションボタンは置かない）
+- assistant メッセージに `suggestions` が含まれる場合、メッセージ直下に候補ボタンを表示する（`AgentChatWidget` の `SuggestionButtons`）
+- ボタン押下で候補テキストを通常のフリーテキスト送信と**同じ経路**（`useAgentChat.send`）で送信する。チャット欄・LLM 履歴にもそのテキストが user 発話として残る
+
 ### セキュリティ・横断要件
 
 - **認証ガード**: `POST /agent/chat` は `get_current_user` 依存を付与する（未認証アクセス不可）。
@@ -91,12 +185,18 @@ ADR-0004 の `generate()` は失敗時に空文字を返す設計で、UI がエ
 - system prompt 設計・チューニング
 - フロント: チャットウィジェット UI
 - フロント: スコープ選択 → operations 適用ロジック（state プレビュー、DB 未更新）
+- 会話履歴の保持（マルチターン対応。当初 Phase 2 予定から前倒し。「会話履歴（マルチターン）」参照）
+
+Phase 1 追補（対話型選択肢。「対話型選択肢（LLM 生成 suggestions）設計」参照、実装済み）:
+
+- [x] レスポンスに `suggestions: list[str]` 追加（LLM が生成、`_parse_response` で検証）
+- [x] system prompt（`agent_base.md`）に曖昧入力時の suggestions 生成ルールを追加
+- [x] フロント: suggestions ボタン表示（押下でそのテキストを prompt として再送信）
 
 **Phase 2（拡張）**
 
 - experience 単位のスコープ追加
-- 会話履歴の保持（マルチターン対応）
-- GitHub / ブログ分析との連携強化
+- GitHub / ブログ分析との連携強化（「コスト設計」のコンテキスト圧縮契約に従う）
 
 **Phase 3（将来）**
 
@@ -113,6 +213,12 @@ ADR-0004 の `generate()` は失敗時に空文字を返す設計で、UI がエ
 
 **pdfme カスタムテンプレート（今回の優先度外）**
 DevForge の本質的価値は「蓄積データ × LLM による経歴書生成」であり、PDF レイアウトのカスタマイズは副次的機能と判断。Agent 機能が完成し GitHub・ブログ分析との連携が充実した段階で改めて検討する。
+
+**事前定義のアクションカタログ（定型ボタン）**
+スコープごとの定型改善依頼を `agent_actions.yaml` + `GET /api/agent/actions` + `action_id` で提供する案。一度実装したが却下した。定型ボタンはユーザーの文脈・対話の流れに合わない提案になりやすく、曖昧入力への選択肢は LLM が対話に沿って生成する方が適切。カタログとエンドポイントの保守コストも不要になる。入力はフリーテキストのみとし、選択肢は LLM 生成の `suggestions` で提示する。採用しない。
+
+**文字数超過時のバックエンド切り詰め**
+LLM が文字数上限を超える `value` を返した場合に、バックエンドで上限まで切り詰めて返す案。文章が途中で切れた経歴書は品質として許容できないため却下。超過 operation は破棄（warning ログ）し、`message` でユーザーに再指示を促す（「エラー契約」参照）。採用しない。
 
 **LLM を再導入せずルールベースを維持（ADR-0008 の現状維持）**
 対話的なキャリア戦略支援はルールベースでは表現力が不足する。本機能の中核価値が LLM による自由記述生成であるため、ADR-0008 を Superseded として LLM を再導入する。

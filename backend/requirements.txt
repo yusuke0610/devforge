@@ -12,7 +12,6 @@ google-cloud-storage==2.19.0
 pytest==9.0.3
 python-jose[cryptography]==3.5.0
 httpx==0.28.1
-# DevForge Agent（ADR-0010）。Claude Haiku 4.5 呼び出し用
 anthropic>=0.40,<1
 PyGithub==2.5.0
 pandas==2.2.3

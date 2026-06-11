@@ -23,6 +23,8 @@ export type AgentChatEntry = {
   text: string;
   /** AI 応答のみ。フォームへ反映できる差分（適用済みなら null にする） */
   operations: AgentOperation[] | null;
+  /** AI 応答のみ。依頼が曖昧なとき LLM が提示する「次の依頼文」候補 */
+  suggestions: string[] | null;
   /** 送信時点のスコープ・対象（適用時に参照する） */
   scope: AgentScope;
   target: ProjectTarget | null;
@@ -67,7 +69,15 @@ export function useAgentChat() {
       setSending(true);
       setEntries((prev) => [
         ...prev,
-        { role: "user", text: prompt, operations: null, scope, target, historyText: prompt },
+        {
+          role: "user",
+          text: prompt,
+          operations: null,
+          suggestions: null,
+          scope,
+          target,
+          historyText: prompt,
+        },
       ]);
       try {
         const response = await postAgentChat({
@@ -83,6 +93,7 @@ export function useAgentChat() {
             role: "assistant",
             text: response.message,
             operations: response.operations?.length ? response.operations : null,
+            suggestions: response.suggestions?.length ? response.suggestions : null,
             scope,
             target,
             // 応答 JSON の原文を履歴用に保持する（出力形式の実例としても機能する）

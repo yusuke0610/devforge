@@ -236,6 +236,133 @@ def test_chat_normalizes_out_of_scope_operations(client: TestClient, monkeypatch
     assert [op["value"] for op in ops] == ["スコープ外の提案", "スコープ内の提案"]
 
 
+def test_chat_requires_prompt(client: TestClient, monkeypatch) -> None:
+    """バリデーション: prompt 未指定は 422。LLM は呼ばれない。"""
+    fake = _mock_llm(monkeypatch, response=_llm_json("self_pr", "提案"))
+    headers = auth_header(client, "agentuser")
+    resp = client.post(
+        "/api/agent/chat",
+        json={"scope": "self_pr", "resume": _resume_payload()},
+        headers=headers,
+    )
+    assert resp.status_code == 422
+    assert fake.received_messages is None
+
+
+def test_chat_ambiguous_input_returns_llm_suggestions(client: TestClient, monkeypatch) -> None:
+    """契約: 曖昧入力時、LLM が返した suggestions（依頼文候補）がそのまま返る。"""
+    _mock_llm(
+        monkeypatch,
+        response=json.dumps(
+            {
+                "message": "どの方向で改善しますか？",
+                "operations": [],
+                "suggestions": ["300字に要約して", "成果を強調して書き直して"],
+            },
+            ensure_ascii=False,
+        ),
+    )
+    headers = auth_header(client, "agentuser")
+    resp = client.post(
+        "/api/agent/chat",
+        json={"scope": "self_pr", "prompt": "いい感じにして", "resume": _resume_payload()},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["operations"] == []
+    assert body["suggestions"] == ["300字に要約して", "成果を強調して書き直して"]
+
+
+def test_parse_response_discards_invalid_suggestions() -> None:
+    """suggestions の検証: 空文字・200字超は破棄し、4 件を超えた分は切り詰める。"""
+    raw = json.dumps(
+        {
+            "message": "確認です",
+            "operations": [],
+            "suggestions": ["", "A" * 201, "候補1", "候補2", "候補3", "候補4", "候補5"],
+        },
+        ensure_ascii=False,
+    )
+    result = _parse_response(raw, "self_pr")
+    assert result.suggestions == ["候補1", "候補2", "候補3", "候補4"]
+
+
+def test_parse_response_drops_suggestions_when_operations_present() -> None:
+    """suggestions は operations が空のときのみ返す（同時提示しない契約）。"""
+    raw = json.dumps(
+        {
+            "message": "提案です",
+            "operations": [{"field": "self_pr", "value": "改善案"}],
+            "suggestions": ["別の候補"],
+        },
+        ensure_ascii=False,
+    )
+    result = _parse_response(raw, "self_pr")
+    assert len(result.operations) == 1
+    assert result.suggestions == []
+
+
+def test_chat_without_suggestions_field_defaults_empty(client: TestClient, monkeypatch) -> None:
+    """後方互換: LLM が suggestions を返さなくても空配列として扱う。"""
+    _mock_llm(monkeypatch, response=_llm_json("self_pr", "提案"))
+    headers = auth_header(client, "agentuser")
+    resp = client.post(
+        "/api/agent/chat",
+        json={"scope": "self_pr", "prompt": "改善して", "resume": _resume_payload()},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["suggestions"] == []
+
+
+@pytest.mark.parametrize(
+    ("scope", "field", "target"),
+    [
+        ("career_summary", "career_summary", None),
+        ("self_pr", "self_pr", None),
+        (
+            "project",
+            "description",
+            {"experience_index": 0, "client_index": 0, "project_index": 0},
+        ),
+    ],
+)
+def test_chat_system_prompt_is_scope_specific(
+    client: TestClient, monkeypatch, scope: str, field: str, target: dict | None
+) -> None:
+    """契約: system prompt は base＋該当スコープの md のみで構成される。
+
+    他スコープの品質基準が混ざると小型 LLM が文字数制限等を取り違えるため、
+    自スコープの見出しを含み、他スコープの見出しを含まないことを検証する。
+    """
+    fake = _mock_llm(monkeypatch, response=_llm_json(field, "提案"))
+    headers = auth_header(client, "agentuser")
+    payload: dict = {"scope": scope, "prompt": "改善して", "resume": _resume_payload()}
+    if target is not None:
+        payload["target"] = target
+    resp = client.post("/api/agent/chat", json=payload, headers=headers)
+    assert resp.status_code == 200
+    prompt = fake.received_system_prompt
+    assert prompt is not None
+    # 共通ルール（agent_base.md）が含まれる
+    assert "# 共通ルール" in prompt
+    # スコープ見出し（agent_{scope}.md 冒頭）は自スコープのみ
+    scope_headings = {
+        "career_summary": "# スコープ: 職務要約（career_summary）",
+        "self_pr": "# スコープ: 自己PR（self_pr）",
+        "project": "# スコープ: プロジェクト詳細（project）",
+    }
+    assert scope_headings[scope] in prompt
+    for other, heading in scope_headings.items():
+        if other != scope:
+            assert heading not in prompt
+    # プレースホルダはロード時に埋め込み済み（残骸が無い）
+    assert "{allowed_fields}" not in prompt
+    assert "{field_limits}" not in prompt
+    assert field in prompt
+
+
 def test_chat_passes_history_to_llm(client: TestClient, monkeypatch) -> None:
     """契約: history が LLM の messages に展開され、末尾が今回の user prompt になる。"""
     fake = _mock_llm(monkeypatch, response=_llm_json("self_pr", "提案"))

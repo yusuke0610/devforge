@@ -118,7 +118,14 @@ class AgentOperation(BaseModel):
 
 
 class AgentChatResponse(BaseModel):
-    """Agent チャットのレスポンス（AI の説明文 + 差分 operations）。"""
+    """Agent チャットのレスポンス（AI の説明文 + 差分 operations）。
+
+    ``suggestions`` は依頼が曖昧で operations を返せないときに LLM が生成する
+    「次の依頼文の候補」。フロントはボタンとして表示し、押下されたテキストを
+    そのまま次の ``prompt`` として再送信する。検証・件数制限は
+    chat_service._parse_response が担う。
+    """
 
     message: str
     operations: list[AgentOperation] = Field(default_factory=list)
+    suggestions: list[str] = Field(default_factory=list)
