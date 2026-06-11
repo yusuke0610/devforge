@@ -1,5 +1,6 @@
 """Ollama クライアント（ローカル開発用。REST 直呼び）。"""
 
+import json
 import logging
 
 import httpx
@@ -43,7 +44,11 @@ class OllamaClient(LLMClient):
             logger.warning("Ollama API 呼び出しに失敗: %s", type(exc).__name__)
             raise LLMError(f"Ollama API error: {type(exc).__name__}") from exc
 
-        text = response.json().get("message", {}).get("content", "")
+        try:
+            text = response.json().get("message", {}).get("content", "")
+        except json.JSONDecodeError as exc:
+            logger.warning("Ollama 応答の JSON パースに失敗: %s", type(exc).__name__)
+            raise LLMError("Ollama 応答が JSON ではありません") from exc
         if not text:
             raise LLMError("Ollama から空の応答が返されました")
         return text

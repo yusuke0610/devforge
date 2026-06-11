@@ -28,7 +28,7 @@ DevForge は現在、手入力データをもとに職務経歴書（`Resume`）
 
 ### アーキテクチャ概要
 
-```
+```text
 [フロント]
 ユーザーがスコープを選択（必須）
 ↓ プロンプト入力
@@ -135,7 +135,7 @@ DevForge の本質的価値は「蓄積データ × LLM による経歴書生成
 | 対象 | 変更内容 |
 |---|---|
 | `backend/app/routers/` | `agent.py` 追加（`POST /agent/chat`、認証ガード + rate limit） |
-| `backend/app/services/` | `agent_service.py` 追加（スコープデータ組み立て + LLM 呼び出し + 差分生成）。LLM プロバイダ抽象は ADR-0004 を参考に再構築 |
+| `backend/app/services/` | `agent/chat_service.py` 追加（スコープデータ組み立て + LLM 呼び出し + 差分生成）。LLM プロバイダ抽象は ADR-0004 を参考に再構築 |
 | `backend/app/schemas/` | Agent リクエスト/レスポンス（差分 operations のパス指定）スキーマ追加 |
 | `backend/app/messages.json` | Agent 関連のエラーメッセージ（LLM 失敗・パース失敗）追加 |
 | `backend/app/core/env_keys.py` ほか 4 箇所 | `ANTHROPIC_API_KEY` 追加（5 箇所同期） |

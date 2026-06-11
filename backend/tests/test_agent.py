@@ -258,6 +258,15 @@ def test_parse_response_invalid_schema_raises() -> None:
         _parse_response('{"message": 1, "operations": "x"}', "self_pr")
 
 
+def test_factory_rejects_unknown_provider(monkeypatch) -> None:
+    """設定ミス（未対応プロバイダ）は LLMError で fail fast。"""
+    from app.services.agent.llm import factory
+
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    with pytest.raises(LLMError, match="LLM_PROVIDER"):
+        factory.get_llm_client()
+
+
 def test_run_agent_chat_target_not_found(monkeypatch) -> None:
     """target 範囲外は LLM を呼ぶ前に AgentTargetNotFoundError。"""
     from app.schemas.agent import AgentChatRequest

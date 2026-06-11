@@ -1,7 +1,7 @@
 """LLM プロバイダの切り替え（LLM_PROVIDER 環境変数で分岐）。"""
 
 from ....core import settings
-from .base import LLMClient
+from .base import LLMClient, LLMError
 
 
 def get_llm_client() -> LLMClient:
@@ -15,6 +15,10 @@ def get_llm_client() -> LLMClient:
         from .anthropic_client import AnthropicClient
 
         return AnthropicClient()
-    from .ollama_client import OllamaClient
+    if provider == "ollama":
+        from .ollama_client import OllamaClient
 
-    return OllamaClient()
+        return OllamaClient()
+    # 設定ミス（"openai" 等）をフォールバックで隠さず fail fast にする。
+    # LLMError は router で 502 + 日本語メッセージにマッピングされる
+    raise LLMError(f"未対応の LLM_PROVIDER です: {provider}")

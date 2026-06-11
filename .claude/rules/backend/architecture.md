@@ -96,4 +96,4 @@ backend/app/
 
 - **routers/auth/ と routers/blog/**: いずれもパッケージ化されている。auth は `endpoints` / `github_auth` / `oauth_flow` / `token_manager`、blog は `accounts` / `score` / `sync` に責務分割
 - **services/tasks/**: Cloud Tasks（本番）と BackgroundTasks（ローカル）を共通の `execute_task` でディスパッチ。状態遷移（`processing` / `completed` / `dead_letter` / `retrying`）は worker が担う。現在登録されているタスクは `GITHUB_LINK` の 1 種類のみだが、`AsyncTaskCacheService` / `TaskHandler` は新規タスク追加の拡張ポイントとして汎用化してある（インライン化しない）
-- **services/intelligence/**: GitHub 連携 → スキル集計パイプライン。`github_link_service` → `pipeline` → `github_collector` → `skill_extractor` が live 経路。LLM は使わず決定論的（ルールベース）に処理する（LLM プロバイダ抽象化は ADR-0008 で撤去済み）
+- **services/intelligence/**: GitHub 連携 → スキル集計パイプライン。`github_link_service` → `pipeline` → `github_collector` → `skill_extractor` が live 経路。LLM は使わず決定論的（ルールベース）に処理する（intelligence モジュールは LLM を使わない。LLM は services/agent/ のみ / ADR-0010）
