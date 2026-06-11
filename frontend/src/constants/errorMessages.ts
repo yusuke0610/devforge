@@ -39,6 +39,14 @@ export const ERROR_CONFIG: Record<
     message: "Qiita API の制限に達しました",
     recovery: { label: "1時間後に再試行", fn: null },
   },
+  AGENT_LLM_ERROR: {
+    message: "AI の応答取得に失敗しました",
+    recovery: { label: "少し待って再試行", fn: null },
+  },
+  AGENT_PARSE_ERROR: {
+    message: "AI の応答を解釈できませんでした",
+    recovery: { label: "もう一度試す", fn: null },
+  },
   RATE_LIMITED: {
     message: "リクエストが集中しています",
     recovery: { label: "少し待って再試行", fn: null },

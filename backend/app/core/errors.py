@@ -30,6 +30,9 @@ class ErrorCode(str, Enum):
     VALIDATION_ERROR = "VALIDATION_ERROR"
     # 外部 API
     QIITA_RATE_LIMITED = "QIITA_RATE_LIMITED"
+    # Agent（LLM チャット / ADR-0010）
+    AGENT_LLM_ERROR = "AGENT_LLM_ERROR"
+    AGENT_PARSE_ERROR = "AGENT_PARSE_ERROR"
     # アプリケーション全体
     RATE_LIMITED = "RATE_LIMITED"
     # サーバー

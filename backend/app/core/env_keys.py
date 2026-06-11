@@ -88,6 +88,15 @@ UPSTASH_REDIS_TOKEN = "UPSTASH_REDIS_TOKEN"
 LOG_FORMAT = "LOG_FORMAT"
 LOG_LEVEL = "LOG_LEVEL"
 
+# --- LLM（DevForge Agent / ADR-0010） ---
+
+# プロバイダ切り替え（"anthropic" | "ollama"。未設定時はローカル向けの ollama）
+LLM_PROVIDER = "LLM_PROVIDER"
+# 本番（Cloud Run）では Secret Manager から注入する。ログ出力禁止
+ANTHROPIC_API_KEY = "ANTHROPIC_API_KEY"
+OLLAMA_BASE_URL = "OLLAMA_BASE_URL"
+OLLAMA_MODEL = "OLLAMA_MODEL"
+
 # --- アプリ起動制御 ---
 
 APP_BOOTSTRAPPED = "APP_BOOTSTRAPPED"

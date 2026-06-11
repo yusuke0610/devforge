@@ -67,6 +67,12 @@
       "internal_unauthorized": "内部タスクエンドポイントへのアクセスが拒否されました。",
       "unknown_task_type": "不明なタスク種別: {task_type}",
       "execution_failed": "タスク実行中に予期しないエラーが発生しました。"
+    },
+    "agent": {
+      "llm_failed": "AI の応答取得に失敗しました。しばらくしてからもう一度お試しください。",
+      "parse_failed": "AI の応答を解釈できませんでした。もう一度お試しください。",
+      "target_required": "project スコープでは対象プロジェクトの指定が必要です。",
+      "target_not_found": "指定されたプロジェクトが見つかりません。"
     }
   },
   "notification": {

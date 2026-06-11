@@ -170,6 +170,29 @@ def get_internal_secret() -> str:
     return secret
 
 
+def get_llm_provider() -> str:
+    """Agent 機能の LLM プロバイダ名（anthropic / ollama）を小文字で取得する。
+
+    未設定時はローカル開発向けに ollama を既定とする（ADR-0010）。
+    """
+    return os.getenv(env_keys.LLM_PROVIDER, "ollama").strip().lower()
+
+
+def get_anthropic_api_key() -> str:
+    """Anthropic API キーを取得する。値はログや例外メッセージに含めないこと。"""
+    return os.getenv(env_keys.ANTHROPIC_API_KEY, "").strip()
+
+
+def get_ollama_base_url() -> str:
+    """ローカル Ollama のベース URL を取得する。"""
+    return os.getenv(env_keys.OLLAMA_BASE_URL, "http://localhost:11434").strip()
+
+
+def get_ollama_model() -> str:
+    """ローカル Ollama で使用するモデル名を取得する。"""
+    return os.getenv(env_keys.OLLAMA_MODEL, "llama3.2").strip()
+
+
 def get_log_format() -> str:
     """ログフォーマット指定（json / text / 空）を小文字で取得する。"""
     return os.getenv(env_keys.LOG_FORMAT, "").strip().lower()
