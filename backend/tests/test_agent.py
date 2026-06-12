@@ -207,7 +207,7 @@ def test_chat_target_index_out_of_range(client: TestClient, monkeypatch) -> None
     assert resp.status_code == 422
     body = resp.json()
     assert body["code"] == "VALIDATION_ERROR"
-    assert "プロジェクトが見つかりません" in body["message"]
+    assert "対象が見つかりません" in body["message"]
 
 
 def test_chat_llm_failure_returns_502(client: TestClient, monkeypatch) -> None:
@@ -405,6 +405,7 @@ def test_chat_without_suggestions_field_defaults_empty(client: TestClient, monke
             "description",
             {"experience_index": 0, "client_index": 0, "project_index": 0},
         ),
+        ("experience", "description", {"experience_index": 0}),
     ],
 )
 def test_chat_system_prompt_is_scope_specific(
@@ -431,6 +432,7 @@ def test_chat_system_prompt_is_scope_specific(
         "career_summary": "# スコープ: 職務要約（career_summary）",
         "self_pr": "# スコープ: 自己PR（self_pr）",
         "project": "# スコープ: プロジェクト詳細（project）",
+        "experience": "# スコープ: 在籍企業（experience）",
     }
     assert scope_headings[scope] in prompt
     for other, heading in scope_headings.items():
@@ -609,7 +611,7 @@ def test_run_agent_chat_target_not_found(monkeypatch) -> None:
 # --- ユニットテスト（output_schema: スコープ → tool 定義） ---
 
 
-@pytest.mark.parametrize("scope", ["career_summary", "self_pr", "project"])
+@pytest.mark.parametrize("scope", ["career_summary", "self_pr", "project", "experience"])
 def test_build_output_schema_operations_branches(scope: str) -> None:
     """スコープの許可 field・文字数上限が operations の oneOf 分岐に反映される。"""
     schema = build_output_schema(scope)
@@ -646,7 +648,7 @@ def test_build_tool_definition_wraps_schema() -> None:
 def test_scope_limits_match_resume_schema() -> None:
     """SCOPE_FIELDS の上限が保存契約（schemas/resume.py）の max_length と一致する（drift 防止）。"""
     from annotated_types import MaxLen
-    from app.schemas.resume import Project, ResumeBase
+    from app.schemas.resume import Experience, Project, ResumeBase
 
     def max_length(model: type, field: str) -> int:
         """model の field から MaxLen メタデータを取り出し、max_length 値を返す。"""
@@ -661,3 +663,259 @@ def test_scope_limits_match_resume_schema() -> None:
     assert SCOPE_FIELDS["self_pr"]["self_pr"] == max_length(ResumeBase, "self_pr")
     assert SCOPE_FIELDS["project"]["description"] == max_length(Project, "description")
     assert SCOPE_FIELDS["project"]["role"] == max_length(Project, "role")
+    assert SCOPE_FIELDS["experience"]["business_description"] == max_length(
+        Experience, "business_description"
+    )
+    assert SCOPE_FIELDS["experience"]["description"] == max_length(Experience, "description")
+
+
+# --- Phase 2: experience スコープのテスト ---
+
+
+def _resume_payload_with_experience() -> dict:
+    """experience スコープのテスト用に description / is_it_company を持つレジュメを返す。"""
+    payload = _resume_payload()
+    payload["experiences"][0]["description"] = "受託開発を中心とした業務をこなしました。"
+    payload["experiences"][0]["is_it_company"] = False
+    return payload
+
+
+def test_chat_experience_success(client: TestClient, monkeypatch) -> None:
+    """正常系: experience スコープ + target 指定で description の operation が返る。"""
+    _mock_llm(monkeypatch, response=_llm_json("description", "改善された職務詳細。"))
+    headers = auth_header(client, "agentuser")
+
+    resp = client.post(
+        "/api/agent/chat",
+        json={
+            "scope": "experience",
+            "prompt": "成果がより伝わる詳細にしてください",
+            "resume": _resume_payload_with_experience(),
+            "target": {"experience_index": 0},
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    ops = resp.json()["operations"]
+    assert ops[0]["field"] == "description"
+    assert ops[0]["value"] == "改善された職務詳細。"
+
+
+def test_chat_experience_scope_requires_target(client: TestClient) -> None:
+    """バリデーション: experience スコープで target 欠落は 422 + VALIDATION_ERROR。"""
+    headers = auth_header(client, "agentuser")
+    resp = client.post(
+        "/api/agent/chat",
+        json={
+            "scope": "experience",
+            "prompt": "改善して",
+            "resume": _resume_payload(),
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 422
+    assert resp.json()["code"] == "VALIDATION_ERROR"
+
+
+def test_chat_experience_target_index_out_of_range(client: TestClient, monkeypatch) -> None:
+    """バリデーション: experience target のインデックス範囲外は 422 + VALIDATION_ERROR。"""
+    _mock_llm(monkeypatch, response=_llm_json("description", "x"))
+    headers = auth_header(client, "agentuser")
+    resp = client.post(
+        "/api/agent/chat",
+        json={
+            "scope": "experience",
+            "prompt": "改善して",
+            "resume": _resume_payload(),
+            "target": {"experience_index": 9},
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 422
+    body = resp.json()
+    assert body["code"] == "VALIDATION_ERROR"
+    assert "対象が見つかりません" in body["message"]
+
+
+def test_chat_project_scope_rejects_experience_target(client: TestClient) -> None:
+    """回帰: scope=project に ExperienceTarget（1 キー）を送ると 422（Phase 1 契約後退なし）。"""
+    headers = auth_header(client, "agentuser")
+    resp = client.post(
+        "/api/agent/chat",
+        json={
+            "scope": "project",
+            "prompt": "改善して",
+            "resume": _resume_payload(),
+            "target": {"experience_index": 0},
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 422
+    assert resp.json()["code"] == "VALIDATION_ERROR"
+
+
+def test_parse_response_experience_normalizes_to_description() -> None:
+    """experience スコープの許可外 field は description に正規化される。"""
+    raw = json.dumps(
+        {
+            "message": "改善案です。",
+            "operations": [
+                {"field": "unknown_field", "value": "正規化される提案"},
+                {"field": "business_description", "value": "事業内容の提案"},
+            ],
+        },
+        ensure_ascii=False,
+    )
+    result = _parse_response(raw, "experience")
+    assert [op.field for op in result.operations] == ["description", "business_description"]
+
+
+def test_parse_response_experience_discards_over_limit() -> None:
+    """experience の business_description(201字) は破棄し、description 上限内は保持する。"""
+    raw = json.dumps(
+        {
+            "message": "m",
+            "operations": [
+                {"field": "business_description", "value": "あ" * 201},
+                {"field": "description", "value": "正常な職務詳細"},
+            ],
+        },
+        ensure_ascii=False,
+    )
+    result = _parse_response(raw, "experience")
+    assert len(result.operations) == 1
+    assert result.operations[0].field == "description"
+
+
+# --- Phase 2: GitHub/ブログ参照コンテキスト連携のテスト ---
+
+
+def _github_cache_result(languages: dict | None = None, calendars: list | None = None) -> dict:
+    """GitHubLinkCache.result に格納する dict を生成する。"""
+    return {
+        "username": "testuser",
+        "repos_analyzed": 5,
+        "unique_skills": 3,
+        "analyzed_at": "2026-01-01",
+        "languages": languages or {"Python": 100000, "TypeScript": 50000},
+        "contribution_calendars": calendars or [
+            {
+                "year": 2025,
+                "total_contributions": 300,
+                "weeks": [
+                    [{"date": "2025-01-01", "count": 1, "level": 1}],
+                ],
+            }
+        ],
+    }
+
+
+def test_chat_career_summary_includes_github_and_blog_context(
+    client: TestClient, monkeypatch, db_session
+) -> None:
+    """Phase 2: career_summary スコープのプロンプトに github_context / blog_context が含まれる。"""
+    from app.models import GitHubLinkCache
+    from app.models.blog import BlogAccount, BlogArticle
+    from app.repositories import UserRepository
+
+    # ユーザーを作成し、GitHubLinkCache と BlogArticle を投入する
+    repo = UserRepository(db_session)
+    if not repo.get_by_username("ctxuser"):
+        repo.create("ctxuser", email="ctxuser@example.com")
+    db_session.commit()
+    user = repo.get_by_username("ctxuser")
+    assert user is not None
+
+    cache = GitHubLinkCache(
+        user_id=user.id,
+        status="completed",
+        result=_github_cache_result(),
+    )
+    db_session.add(cache)
+
+    account = BlogAccount(user_id=user.id, platform="zenn", username="ctxuser")
+    db_session.add(account)
+    db_session.flush()
+    article = BlogArticle(
+        account_id=account.id,
+        external_id="a1",
+        title="Pythonの非同期処理入門",
+        url="https://zenn.dev/ctxuser/a1",
+        likes_count=10,
+    )
+    db_session.add(article)
+    db_session.commit()
+
+    fake = _mock_llm(monkeypatch, response=_llm_json("career_summary", "改善版"))
+    headers = auth_header(client, "ctxuser")
+    resp = client.post(
+        "/api/agent/chat",
+        json={
+            "scope": "career_summary",
+            "prompt": "GitHubを活かして改善して",
+            "resume": _resume_payload(),
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert fake.received_messages is not None
+    user_prompt = fake.received_messages[-1]["content"]
+    assert "github_context" in user_prompt
+    assert "blog_context" in user_prompt
+
+
+def test_chat_project_scope_has_no_reference_context(
+    client: TestClient, monkeypatch, db_session
+) -> None:
+    """Phase 2: project スコープのプロンプトには github/blog コンテキストが付与されない。"""
+    from app.models import GitHubLinkCache
+    from app.repositories import UserRepository
+
+    repo = UserRepository(db_session)
+    if not repo.get_by_username("projuser"):
+        repo.create("projuser", email="projuser@example.com")
+    db_session.commit()
+    user = repo.get_by_username("projuser")
+    assert user is not None
+
+    cache = GitHubLinkCache(
+        user_id=user.id,
+        status="completed",
+        result=_github_cache_result(),
+    )
+    db_session.add(cache)
+    db_session.commit()
+
+    fake = _mock_llm(monkeypatch, response=_llm_json("description", "改善版"))
+    headers = auth_header(client, "projuser")
+    resp = client.post(
+        "/api/agent/chat",
+        json={
+            "scope": "project",
+            "prompt": "改善して",
+            "resume": _resume_payload(),
+            "target": {"experience_index": 0, "client_index": 0, "project_index": 0},
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert fake.received_messages is not None
+    user_prompt = fake.received_messages[-1]["content"]
+    assert "github_context" not in user_prompt
+    assert "blog_context" not in user_prompt
+
+
+def test_chat_no_github_cache_still_returns_200(client: TestClient, monkeypatch) -> None:
+    """Phase 2: GitHub 未連携でも career_summary チャットは正常動作する（degrade）。"""
+    _mock_llm(monkeypatch, response=_llm_json("career_summary", "改善版"))
+    headers = auth_header(client, "nocacheuser")
+    resp = client.post(
+        "/api/agent/chat",
+        json={
+            "scope": "career_summary",
+            "prompt": "改善して",
+            "resume": _resume_payload(),
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 200

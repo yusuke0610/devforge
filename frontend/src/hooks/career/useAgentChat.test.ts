@@ -201,4 +201,18 @@ describe("useAgentChat", () => {
     // 最古の往復（依頼1）が落ち、依頼2 から始まる
     expect(lastCall.history[0]).toEqual({ role: "user", text: "依頼2" });
   });
+
+  it("experience スコープでは target を送る", async () => {
+    postAgentChatMock.mockResolvedValue({ message: "提案です", operations: [] });
+    const { result } = renderHook(() => useAgentChat());
+    const expTarget = { experience_index: 0 };
+
+    await act(async () => {
+      await result.current.send(form, "experience", expTarget, "事業内容を改善して");
+    });
+
+    expect(postAgentChatMock).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: "experience", target: expTarget }),
+    );
+  });
 });

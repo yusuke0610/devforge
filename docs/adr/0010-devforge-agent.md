@@ -58,11 +58,12 @@ resume state に差分適用（DB 更新なし）
 
 Agent が対応するスコープは以下の 3 種類。スコープはフロントで**必須選択**とし、選択に応じて対象データ（および対応する operations の適用先パス）が自動セットされる。
 
-| スコープ | 対象 | operations 適用先 |
-|---|---|---|
-| `project` | 選択中の案件（experience/client/project） | 該当 project の `description` ほか（`role` / `technology_stacks` / `phases`） |
-| `career_summary` | 職務要約 | `ResumeBase.career_summary` |
-| `self_pr` | 自己 PR | `ResumeBase.self_pr` |
+| スコープ | 対象 | operations 適用先 | GitHub/ブログ参照 |
+|---|---|---|---|
+| `project` | 選択中の案件（experience/client/project） | 該当 project の `description` ほか（`role` / `technology_stacks` / `phases`） | なし |
+| `career_summary` | 職務要約 | `ResumeBase.career_summary` | あり（Phase 2） |
+| `self_pr` | 自己 PR | `ResumeBase.self_pr` | あり（Phase 2） |
+| `experience` | 選択中の在籍企業（experience） | 該当 experience の `business_description` / `description`（Phase 2） | なし |
 
 スコープ未選択での汎用モードは Phase 1 では提供しない（Phase 3 で検討）。
 
@@ -98,7 +99,7 @@ Agent の LLM 出力制御は JSON mode ではなく、プロバイダの構造�
 
 | 事象 | HTTP | ErrorCode | messages.json キー |
 |---|---|---|---|
-| project スコープで target 未指定 | 422 | `VALIDATION_ERROR` | `agent.target_required`（schema validator で発火） |
+| project / experience スコープで target 未指定 | 422 | `VALIDATION_ERROR` | `agent.target_required`（schema validator で発火） |
 | target インデックスが範囲外 | 422 | `VALIDATION_ERROR` | `agent.target_not_found` |
 | LLM 呼び出し失敗（タイムアウト / API エラー / モデル未起動） | 502 | `AGENT_LLM_ERROR` | `agent.llm_failed` |
 | LLM 応答の JSON パース / スキーマ検証失敗 | 502 | `AGENT_PARSE_ERROR` | `agent.parse_failed` |
@@ -213,10 +214,48 @@ Phase 1 追補（対話型選択肢。「対話型選択肢（LLM 生成 suggest
 - [x] system prompt（`agent_base.md`）に曖昧入力時の suggestions 生成ルールを追加
 - [x] フロント: suggestions ボタン表示（押下でそのテキストを prompt として再送信）
 
-**Phase 2（拡張）**
+**Phase 2（拡張）— 実装済み**
 
-- experience 単位のスコープ追加
-- GitHub / ブログ分析との連携強化（「コスト設計」のコンテキスト圧縮契約に従う）
+- [x] experience 単位のスコープ追加
+- [x] GitHub / ブログ分析との連携強化（「コスト設計」のコンテキスト圧縮契約に従う）
+
+#### Phase 2 の設計判断
+
+**resume コンテキストは FE state から取得**
+
+GitHub・ブログ分析データは backend が DB から読み取るが、resume コンテキスト（経歴書の編集対象データ）は FE の state から取得する。理由:
+
+1. **未保存編集の可視性**: LLM が見る context と FE が差分適用する state が一致しなければ、operations の適用先を誤る
+2. **差分適用の整合性**: DB に寄せると、ユーザーの未保存編集が LLM に見えずに差分 operations が生成されるため、適用後の state が期待と乖離する
+3. **未保存 resume でも動作**: 初めて使うユーザーがまだ保存していない状態でも Agent を利用できる
+
+GitHub・ブログは「参照データ（read-only な分析結果）」として DB から読む。resume は「編集対象（mutable な下書き）」として FE state から読む。この責務分離は変更しない。
+
+**experience スコープの許可フィールドと target 設計**
+
+`experience` スコープは `business_description`（200 字）と `description`（4500 字）の 2 フィールドを許可する。`AgentExperienceContext` に `description` / `is_it_company` を追加し、non-IT 企業（`is_it_company=false`）では `description` が職務本文になることを LLM が分岐判断できるようにする。
+
+target union は `ProjectTarget | ExperienceTarget` とし `ExperienceTarget(extra="forbid")` を追加した。`extra="forbid"` により ProjectTarget の 3 キー payload が ExperienceTarget にマッチしない。Phase 1 の project 契約（3 キー必須）を後退させない。
+
+**GitHub/ブログ参照コンテキストの付与スコープ**
+
+`career_summary` / `self_pr` のみに付与する。`project` / `experience` には付与しない。理由:
+
+- project/experience は特定の案件・企業の記述を改善する用途であり、GitHub/ブログ情報は文脈として不適切（捏造リスク・トークン浪費）
+- career_summary/self_pr はキャリア全体像を表す文章であり、GitHub の言語傾向・ブログの執筆頻度・記事タイトルは LLM が根拠として参照できる
+
+**degrade 方針**
+
+GitHub・ブログ参照データの取得失敗（未連携・processing 中・0 件・DB 例外）はいずれも `None` に degrade し、チャット本体を落とさない。`build_reference_context` と各ヘルパーが独立に `try/except Exception` + `logger.warning(exc_info=True)` でラップする。
+
+**圧縮の実装値（ADR コスト設計の具体化）**
+
+| 項目 | 上限 |
+|---|---|
+| `languages_top5` | 上位 5 言語（バイト数 → 割合 % に変換） |
+| `contributions_by_year` | 直近 5 年分（weeks は捨てる） |
+| `active_days_last_12_months` | 直近 365 日の count > 0 日数 |
+| `recent_articles` | 直近 5 件（タイトル・タグ先頭 5 個・published_at のみ） |
 
 **Phase 3（将来）**
 

@@ -62,6 +62,14 @@ describe("buildAgentResumeContext", () => {
     // 個人情報（氏名・メール）はコンテキストに含めない
     expect(JSON.stringify(context)).not.toContain("yamada@example.com");
   });
+
+  it("experience の description / is_it_company をコンテキストに含める", () => {
+    const context = buildAgentResumeContext(makeForm());
+    const exp = context.experiences?.[0];
+    expect(exp?.description).toBe("");
+    expect(exp?.is_it_company).toBe(true);
+    expect(exp?.business_description).toBe("受託開発");
+  });
 });
 
 describe("applyAgentOperations", () => {
@@ -109,5 +117,26 @@ describe("applyAgentOperations", () => {
       { field: "career_summary", value: "変更後" },
     ]);
     expect(form.career_summary).toBe("現在の職務要約");
+  });
+
+  it("experience スコープの business_description / description を対象の experience に適用する", () => {
+    const target = { experience_index: 0 };
+    const next = applyAgentOperations(makeForm(), "experience", target, [
+      { field: "business_description", value: "新事業内容" },
+      { field: "description", value: "新詳細" },
+    ]);
+    expect(next.experiences[0].business_description).toBe("新事業内容");
+    expect(next.experiences[0].description).toBe("新詳細");
+    // project や company は変更しない
+    expect(next.experiences[0].company).toBe("株式会社A");
+  });
+
+  it("experience スコープで experience_index が範囲外なら何も変更しない", () => {
+    const form = makeForm();
+    const target = { experience_index: 9 };
+    const next = applyAgentOperations(form, "experience", target, [
+      { field: "description", value: "適用されない" },
+    ]);
+    expect(next).toEqual(form);
   });
 });

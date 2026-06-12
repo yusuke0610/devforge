@@ -18,6 +18,7 @@ SCOPE_FIELDS: dict[str, dict[str, int]] = {
     "career_summary": {"career_summary": 2000},
     "self_pr": {"self_pr": 2000},
     "project": {"description": 4500, "role": 200},
+    "experience": {"business_description": 200, "description": 4500},
 }
 
 # LLM が生成する「次の依頼候補」（suggestions）の制約

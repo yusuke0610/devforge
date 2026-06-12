@@ -7,10 +7,15 @@
  *   （state のみ。保存は既存の保存 API をユーザーが明示的に実行する）
  */
 
-import type { AgentOperation, AgentResumeContext, ProjectTarget } from "../api/types";
+import type {
+  AgentOperation,
+  AgentResumeContext,
+  ExperienceTarget,
+  ProjectTarget,
+} from "../api/types";
 import type { CareerFormState } from "../payloadBuilders";
 
-export type AgentScope = "project" | "career_summary" | "self_pr";
+export type AgentScope = "project" | "career_summary" | "self_pr" | "experience";
 
 /** 編集中フォームを Agent のリクエストコンテキストへ変換する。 */
 export function buildAgentResumeContext(form: CareerFormState): AgentResumeContext {
@@ -20,6 +25,8 @@ export function buildAgentResumeContext(form: CareerFormState): AgentResumeConte
     experiences: form.experiences.map((exp) => ({
       company: exp.company,
       business_description: exp.business_description,
+      description: exp.description,
+      is_it_company: exp.is_it_company,
       clients: exp.clients.map((client) => ({
         name: client.name,
         projects: client.projects.map((project) => ({
@@ -38,12 +45,13 @@ export function buildAgentResumeContext(form: CareerFormState): AgentResumeConte
  * operations をフォーム state に適用した新しい state を返す。
  *
  * project スコープの description / role は target が指す project にのみ反映する。
+ * experience スコープの business_description / description は target が指す experience にのみ反映する。
  * target が範囲外の場合は何も変更しない（backend 検証済みのため通常発生しない）。
  */
 export function applyAgentOperations(
   form: CareerFormState,
   scope: AgentScope,
-  target: ProjectTarget | null,
+  target: ProjectTarget | ExperienceTarget | null,
   operations: AgentOperation[],
 ): CareerFormState {
   let next = form;
@@ -52,8 +60,20 @@ export function applyAgentOperations(
       next = { ...next, career_summary: op.value };
     } else if (scope === "self_pr" && op.field === "self_pr") {
       next = { ...next, self_pr: op.value };
-    } else if (scope === "project" && target && (op.field === "description" || op.field === "role")) {
+    } else if (
+      scope === "project" &&
+      target &&
+      "client_index" in target &&
+      (op.field === "description" || op.field === "role")
+    ) {
       next = applyProjectField(next, target, op.field, op.value);
+    } else if (
+      scope === "experience" &&
+      target &&
+      !("client_index" in target) &&
+      (op.field === "business_description" || op.field === "description")
+    ) {
+      next = applyExperienceField(next, target, op.field, op.value);
     }
   }
   return next;
@@ -88,6 +108,21 @@ function applyProjectField(
                   },
             ),
           },
+    ),
+  };
+}
+
+function applyExperienceField(
+  form: CareerFormState,
+  target: ExperienceTarget,
+  field: "business_description" | "description",
+  value: string,
+): CareerFormState {
+  if (!form.experiences[target.experience_index]) return form;
+  return {
+    ...form,
+    experiences: form.experiences.map((exp, ei) =>
+      ei !== target.experience_index ? exp : { ...exp, [field]: value },
     ),
   };
 }

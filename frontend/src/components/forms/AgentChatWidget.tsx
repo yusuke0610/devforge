@@ -2,14 +2,14 @@
  * Agent チャットウィジェット（ADR-0010）。
  *
  * 職務経歴書フォーム右下のフローティングボタンからチャットパネルを開き、
- * スコープ（職務要約 / 自己PR / プロジェクト）を選んで AI に改善を依頼する。
+ * スコープ（職務要約 / 自己PR / 職務経歴 / プロジェクト）を選んで AI に改善を依頼する。
  * AI 応答の operations は「フォームに反映」でフォーム state にのみ適用され、
  * 保存は既存の保存ボタン（保存 API）をユーザーが明示的に実行する。
  */
 
 import { useCallback, useMemo, useState } from "react";
 
-import type { ProjectTarget } from "../../api/types";
+import type { ExperienceTarget, ProjectTarget } from "../../api/types";
 import { AGENT_MESSAGES } from "../../constants/messages";
 import { useAgentChat, type AgentChatEntry } from "../../hooks/career/useAgentChat";
 import type { CareerFormState } from "../../payloadBuilders";
@@ -28,6 +28,9 @@ type Props = {
 
 /** project スコープで選択できる候補（フォーム state の index で特定する）。 */
 type ProjectOption = { label: string; target: ProjectTarget };
+
+/** experience スコープで選択できる候補（フォーム state の index で特定する）。 */
+type ExperienceOption = { label: string; target: ExperienceTarget };
 
 /** パネルのリサイズ範囲。右下固定のため左上方向にだけ広がる */
 const PANEL_MIN_WIDTH = 320;
@@ -83,10 +86,18 @@ function buildProjectOptions(form: CareerFormState): ProjectOption[] {
   return options;
 }
 
+function buildExperienceOptions(form: CareerFormState): ExperienceOption[] {
+  return form.experiences.map((exp, ei) => ({
+    label: exp.company || AGENT_MESSAGES.TARGET_UNNAMED,
+    target: { experience_index: ei },
+  }));
+}
+
 export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }: Props) {
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState<AgentScope>("career_summary");
-  const [targetIndex, setTargetIndex] = useState(0);
+  const [projectTargetIndex, setProjectTargetIndex] = useState(0);
+  const [experienceTargetIndex, setExperienceTargetIndex] = useState(0);
   const [prompt, setPrompt] = useState("");
   /** ドラッグでリサイズされた寸法。null の間は CSS のデフォルトサイズに従う */
   const [panelSize, setPanelSize] = useState<{ width: number; height: number } | null>(null);
@@ -95,9 +106,23 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
   useMessageToast(error, "error");
 
   const projectOptions = useMemo(() => buildProjectOptions(form), [form]);
-  const selectedTarget = projectOptions[targetIndex]?.target ?? null;
+  const experienceOptions = useMemo(() => buildExperienceOptions(form), [form]);
+
+  const selectedProjectTarget = projectOptions[projectTargetIndex]?.target ?? null;
+  const selectedExperienceTarget = experienceOptions[experienceTargetIndex]?.target ?? null;
+
+  /** 送信時に渡す target（スコープに応じて選択） */
+  function getTarget(): ProjectTarget | ExperienceTarget | null {
+    if (scope === "project") return selectedProjectTarget;
+    if (scope === "experience") return selectedExperienceTarget;
+    return null;
+  }
+
   const canSend =
-    !sending && prompt.trim().length > 0 && (scope !== "project" || selectedTarget !== null);
+    !sending &&
+    prompt.trim().length > 0 &&
+    (scope !== "project" || selectedProjectTarget !== null) &&
+    (scope !== "experience" || selectedExperienceTarget !== null);
 
   const handleOpen = () => {
     if (!isAuthenticated) {
@@ -110,17 +135,20 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
   const handleSend = () => {
     if (!canSend) return;
     clearError();
-    void send(form, scope, scope === "project" ? selectedTarget : null, prompt.trim());
+    void send(form, scope, getTarget(), prompt.trim());
     setPrompt("");
   };
 
   /** suggestions ボタンの送信可否（自由入力と違い入力テキストは不要） */
-  const canSendSuggestion = !sending && (scope !== "project" || selectedTarget !== null);
+  const canSendSuggestion =
+    !sending &&
+    (scope !== "project" || selectedProjectTarget !== null) &&
+    (scope !== "experience" || selectedExperienceTarget !== null);
 
   const handleSuggestion = (suggestion: string) => {
     if (!canSendSuggestion) return;
     clearError();
-    void send(form, scope, scope === "project" ? selectedTarget : null, suggestion);
+    void send(form, scope, getTarget(), suggestion);
   };
 
   // パネル左上のハンドルをドラッグしてリサイズする。パネルは右下固定なので
@@ -206,9 +234,30 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
           >
             <option value="career_summary">{AGENT_MESSAGES.SCOPE_CAREER_SUMMARY}</option>
             <option value="self_pr">{AGENT_MESSAGES.SCOPE_SELF_PR}</option>
+            <option value="experience">{AGENT_MESSAGES.SCOPE_EXPERIENCE}</option>
             <option value="project">{AGENT_MESSAGES.SCOPE_PROJECT}</option>
           </select>
         </label>
+        {scope === "experience" &&
+          (experienceOptions.length === 0 ? (
+            <p className={styles.targetEmpty}>{AGENT_MESSAGES.TARGET_EXPERIENCE_EMPTY}</p>
+          ) : (
+            <label className={styles.scopeLabel}>
+              {AGENT_MESSAGES.TARGET_EXPERIENCE_LABEL}
+              <select
+                className={styles.select}
+                value={experienceTargetIndex}
+                onChange={(e) => setExperienceTargetIndex(Number(e.target.value))}
+                disabled={sending}
+              >
+                {experienceOptions.map((option, i) => (
+                  <option key={option.label + i} value={i}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
         {scope === "project" &&
           (projectOptions.length === 0 ? (
             <p className={styles.targetEmpty}>{AGENT_MESSAGES.TARGET_EMPTY}</p>
@@ -217,8 +266,8 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
               {AGENT_MESSAGES.TARGET_LABEL}
               <select
                 className={styles.select}
-                value={targetIndex}
-                onChange={(e) => setTargetIndex(Number(e.target.value))}
+                value={projectTargetIndex}
+                onChange={(e) => setProjectTargetIndex(Number(e.target.value))}
                 disabled={sending}
               >
                 {projectOptions.map((option, i) => (
