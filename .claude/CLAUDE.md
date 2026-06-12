@@ -4,6 +4,7 @@
 
 - 本ファイルは全体ルールの索引。AI エージェント（Claude Code 含む）が最初に読むべき内容を集約している。
 - 領域固有ルール（backend / frontend / infra）は `.claude/rules/<scope>/*.md` に分割済み。対象パスを編集する際に自動でロードされる。重複は避け、詳細は各 rule ファイルへ寄せる。
+- **DevForge Agent（`backend/app/services/agent/` / `backend/app/prompts/agent_*.md` / `backend/app/schemas/agent.py`）を変更する場合は、作業前に必ず `.claude/rules/backend/agent.md` を読むこと。** 制約の責務分離（スキーマ vs プロンプト）・エラー契約・DB 非更新原則など、意図せず壊しやすい不変条件が集約されている。
 
 ## AI エージェント実行方法
 
