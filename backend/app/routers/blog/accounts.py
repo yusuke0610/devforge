@@ -16,13 +16,14 @@ from ...schemas import (
     BlogAccountUpdate,
     BlogArticleResponse,
 )
-from ...services.blog.account_service import BlogAccountService
+from ...services.blog.account_service import (
+    BlogAccountAlreadyRegisteredError,
+    BlogAccountService,
+)
 from ...services.blog.collector import (
     BlogAccountNotFoundError,
     BlogPlatformRequestError,
     UnsupportedBlogPlatformError,
-    normalize_username,
-    verify_user_exists,
 )
 
 logger = logging.getLogger(__name__)
@@ -51,16 +52,14 @@ async def add_account(
     """連携アカウントを登録する。
     同じプラットフォームは1つまで。ユーザー存在チェックあり。
     """
-    repo = BlogAccountRepository(db, user.id)
-    existing = repo.get_by_platform(body.platform)
-    if existing:
+    service = BlogAccountService(db, user.id)
+    try:
+        return await service.add_account(body.platform, body.username)
+    except BlogAccountAlreadyRegisteredError as exc:
         raise HTTPException(
             status_code=409,
             detail=get_error("blog.account_already_registered"),
-        )
-
-    try:
-        normalized_username = normalize_username(body.platform, body.username)
+        ) from exc
     except UnsupportedBlogPlatformError as exc:
         raise HTTPException(
             status_code=400,
@@ -71,29 +70,16 @@ async def add_account(
             status_code=404,
             detail=get_error("blog.account_not_found"),
         ) from exc
-
-    # 外部プラットフォーム上にユーザーが存在するか検証
-    try:
-        user_exists = await verify_user_exists(body.platform, normalized_username)
-    except UnsupportedBlogPlatformError as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=get_error("blog.platform_not_supported"),
-        ) from exc
     except BlogPlatformRequestError as exc:
         raise HTTPException(
             status_code=502,
             detail=get_error("blog.account_check_failed"),
         ) from exc
-
-    if not user_exists:
+    except BlogAccountNotFoundError as exc:
         raise HTTPException(
             status_code=404,
             detail=get_error("blog.account_not_found"),
-        )
-
-    account = repo.upsert(body.platform, normalized_username)
-    return account
+        ) from exc
 
 
 @router.patch("/accounts/{platform}", response_model=BlogAccountResponse)

@@ -16,7 +16,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.date_utils import format_year_month
 from ..db import Base
-from ..services.shared.sort_utils import sort_by_date_asc, sort_by_period_desc
 
 
 class Resume(Base):
@@ -59,13 +58,13 @@ class Resume(Base):
 
     @property
     def experiences(self) -> list["ResumeExperience"]:
-        """経歴を在籍期間の降順でソートして返す。"""
-        return sort_by_period_desc(list(self.experience_rows))
+        """経歴を返す（save 時に sort_order で在籍期間降順が確定済み）。"""
+        return list(self.experience_rows)
 
     @property
     def qualifications(self) -> list["ResumeQualification"]:
-        """資格を取得日の昇順でソートして返す。"""
-        return sort_by_date_asc(list(self.qualification_rows), date_key="acquired_date_value")
+        """資格を返す（save 時に sort_order で取得日昇順が確定済み）。"""
+        return list(self.qualification_rows)
 
 
 class ResumeQualification(Base):
@@ -166,8 +165,8 @@ class ResumeClient(Base):
 
     @property
     def projects(self) -> list["ResumeProject"]:
-        """プロジェクトを期間の降順でソートして返す。"""
-        return sort_by_period_desc(list(self.project_rows))
+        """プロジェクトを返す（save 時に sort_order で期間降順が確定済み）。"""
+        return list(self.project_rows)
 
     @property
     def vacation_start_date(self) -> str:

@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from conftest import auth_header, make_resume_payload
 
-_ACCOUNT_VERIFY_PATCH = "app.routers.blog.accounts.verify_user_exists"
+_ACCOUNT_VERIFY_PATCH = "app.services.blog.account_service.verify_user_exists"
 _SERVICE_VERIFY_PATCH = "app.services.blog.account_service.verify_user_exists"
 
 

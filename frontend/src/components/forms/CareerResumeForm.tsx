@@ -1,6 +1,8 @@
 import { CSSProperties, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
+import { useCareerFormModals } from "../../hooks/career/useCareerFormModals";
+
 import {
   createCareerResume,
   deleteCareerResume,
@@ -49,13 +51,8 @@ import { CareerSelfPrSection } from "./sections/CareerSelfPrSection";
 export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean }) {
   // 未ログインで要ログイン機能を使おうとしたときに開く共通モーダル。
   const requestLogin = useLoginPrompt();
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  // 保存時の変更点確認ダイアログの表示状態。
-  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   // PDF 原本ビュー（右カラム）の折りたたみ状態。折りたたむと入力フォームが全幅に広がる。
   const [pdfCollapsed, setPdfCollapsed] = useState(false);
-  // 自己PR / 職務要約の入力モーダルの対象フィールド（null で閉じている）。
-  const [editingField, setEditingField] = useState<"career_summary" | "self_pr" | null>(null);
   const assist = useResumeImportAssist();
   const splitRef = useRef<HTMLDivElement>(null);
   const { width: pdfWidth, startResize } = useImportPanelLayout(splitRef);
@@ -96,6 +93,17 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
     // 未ログインのお試し入力では loadLatest を行わず空フォームで起動する（401 を無駄打ちしない）。
     skipLoad: !isAuthenticated,
   });
+
+  const {
+    showDeleteConfirm,
+    setShowDeleteConfirm,
+    showSaveConfirm,
+    setShowSaveConfirm,
+    editingField,
+    setEditingField,
+    handleDelete,
+    handleConfirmSave,
+  } = useCareerFormModals({ save, deleteDoc });
 
   // ログイン後（往復から復帰）に退避ドラフトを復元する情報トースト用メッセージ。
   const [restoreMessage, setRestoreMessage] = useState<string | null>(null);
@@ -260,19 +268,8 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
     setShowSaveConfirm(true);
   };
 
-  /** 確認ダイアログで「この内容で保存」を押したときの確定処理。 */
-  const handleConfirmSave = async () => {
-    await save();
-    setShowSaveConfirm(false);
-  };
-
   const focusLocator = focusTarget?.locator ?? null;
   const focusNonce = focusTarget?.nonce ?? 0;
-
-  const handleDelete = async () => {
-    await deleteDoc();
-    setShowDeleteConfirm(false);
-  };
 
   /**
    * 要ログイン機能（プレビュー / PDF / Markdown 出力）のハンドラ。

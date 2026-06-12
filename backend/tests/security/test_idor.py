@@ -96,7 +96,7 @@ class TestIDOR:
         headers_b = auth_header(client, "idor-blog-patch-b")
         # 早期 404 のため verify_user_exists には到達しないが、念のためモック
         with patch(
-            "app.routers.blog.accounts.verify_user_exists",
+            "app.services.blog.account_service.verify_user_exists",
             new_callable=AsyncMock,
             return_value=True,
         ):

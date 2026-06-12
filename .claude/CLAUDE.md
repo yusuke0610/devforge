@@ -146,6 +146,9 @@ CI 定義: `.github/workflows/ci.yml`
 - **`IntegrityError` 後の再 SELECT は `None` を判定する**: ユニーク制約衝突後の再取得で他セッションが先に commit したケースを想定し、`None` ならば明示的に `RuntimeError` を上げる。戻り値型が non-Optional な関数で握りつぶさないこと。
 - **タスクハンドラの「黙って return」は禁止**: 失敗パスでは `NonRetryableError` / `RetryableError` を `raise` し、worker に `dead_letter` / `retrying` 遷移と通知発行を任せる。早期 return は呼び出し側に completed として観測される。
 - **lint 失敗時は当該ファイルだけ確認**: `make lint-backend` が他ファイルの I001 等で落ちる場合、自分の変更分は `nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check <touched_file>"` で個別検証してから進める（既存違反を巻き込まない）。
+- **Router には「エンドポイント定義・依存性解決・HTTP 変換」のみ**: 外部 API 呼び出し・DB クエリ（`db.query(...)` 直書き）・ビジネスロジックを router に書かない。外部 API の例外は service 層で処理し、router では `raise_app_error` への変換のみ行う。詳細・Bad/Good 例: `.claude/rules/backend/layers.md`
+- **ORM model には「テーブル定義・リレーション」のみ**: ソート・フォーマット等の表示ロジックを `@property` として model に持たせない。`sort_utils` のような presentation 層ユーティリティを model に import しない。ソートは `relationship(order_by=...)` か service 層で行う。詳細: `.claude/rules/backend/layers.md`
+- **300 行超のコンポーネント・500 行超のサービスモジュールは分割を検討する**: 行数は目安（強制閾値ではない）だが、超過したら責務が複数混在していないかを確認する。モーダル状態や更新ハンドラ群は専用フックに切り出す。詳細・Good パターン例: `.claude/rules/frontend/component-design.md`
 
 ## 命名規約
 
