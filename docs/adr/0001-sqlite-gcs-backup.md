@@ -2,7 +2,12 @@
 
 ## ステータス
 
-Accepted
+Deprecated
+
+> **廃止**: Turso (libSQL) への移行に伴い、SQLite + GCS バックアップ方式は廃止。
+> GCS ストレージモジュール (`infra/modules/storage/`) およびバックアップ実装 (`backend/app/db/sqlite_backup.py`) は削除済み。
+> 代替: [docs/data-model.md](../data-model.md) の Turso 接続・運用方針を参照。
+> 関連 ADR: [ADR-0005](./0005-cloudrun-single-instance.md)（Cloud Run single instance 構成は Turso 移行後もコスト最適化の観点で継続）
 
 ## コンテキスト
 
@@ -51,6 +56,6 @@ Alembic のマイグレーション定義は PostgreSQL にも流用できる想
 
 ## 関連リンク
 
-- [backend/app/db/sqlite_backup.py](../../backend/app/db/sqlite_backup.py) — バックアップ・リストア実装
-- [backend/app/db/bootstrap.py](../../backend/app/db/bootstrap.py) — 起動時リストアの呼び出し
-- [infra/modules/storage/main.tf](../../infra/modules/storage/main.tf) — GCS バケット定義
+- [backend/app/db/bootstrap.py](../../backend/app/db/bootstrap.py) — 起動時 DB 初期化（現在は Turso 接続のみ）
+- [docs/data-model.md](../data-model.md) — 現行の Turso (libSQL) 運用方針
+- [ADR-0005](./0005-cloudrun-single-instance.md) — Cloud Run single instance 構成（max-instances=1 は継続）

@@ -54,7 +54,7 @@ jobs:
               - 'docs/**'
               - '.jscpd.json'
               - 'README.md'
-              - 'AGENT.md'
+              - 'AGENTS.md'
               - 'flake.nix'
               - 'Makefile'
 

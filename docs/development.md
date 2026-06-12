@@ -34,7 +34,7 @@ direnv allow   # 初回のみ許可が必要
 nix develop          # devshell に入る（または direnv で自動）
 make setup           # git hooks + backend (.venv + uv) + frontend (npm ci)
 make generate-keys   # JWT RS256 鍵ペアを生成
-cp backend/.env.example backend/.env  # 環境変数を埋める
+touch backend/.env   # 環境変数を設定する（必要な変数一覧: docs/api.md「環境変数」セクション参照）
 ```
 
 #### Docker 起動（推奨: FastAPI + Redis + libSQL）

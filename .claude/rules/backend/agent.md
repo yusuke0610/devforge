@@ -57,7 +57,7 @@ backend/
 - `output_schema.py` の `SCOPE_FIELDS` と異なる上限を `agent.py` の Pydantic フィールドに設定する  
   → `test_scope_limits_match_resume_schema` が drift を検出するが、そもそも揃えること
 - プロンプトへの制約追記で問題を解決しようとする  
-  → 機械検証可能なものはスキーマへ、精度問題はモデル昇格（Haiku → Sonnet）を先に検討する
+  → 機械検証可能なものはスキーマへ、精度問題はモデル昇格（Haiku → Sonnet / Opus / Fable 等、より高性能なモデル）を先に検討する
 
 ## スコープと許可フィールド（正本: `output_schema.py`）
 
