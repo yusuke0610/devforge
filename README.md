@@ -45,7 +45,7 @@ GitHub活動分析、ブログ連携による発信力を集計
 | バックエンドAPI | Python 3.13, FastAPI, SQLAlchemy, Pydantic |
 | データベース | Turso (libSQL / SQLite 互換、`sqlalchemy-libsql`) |
 | 認証 | JWT Cookie (python-jose), bcrypt, GitHub OAuth |
-| 暗号化 | Fernet（フィールド暗号化）, bcrypt（パスワード） |
+| 暗号化 | Fernet（フィールド暗号化） |
 | PDF出力 | WeasyPrint（職務経歴書）, ReportLab（分析レポート補助） |
 | インフラ | GCP (Cloud Run, Artifact Registry, Secret Manager), Turso, Cloudflare Pages |
 | IaC | OpenTofu（モジュール構成、マルチ環境） |
