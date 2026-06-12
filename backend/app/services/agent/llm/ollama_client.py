@@ -22,6 +22,7 @@ class OllamaClient(LLMClient):
     """
 
     def __init__(self) -> None:
+        """設定から Ollama のベース URL とモデル名を読み込む。"""
         self._base_url = settings.get_ollama_base_url()
         self._model = settings.get_ollama_model()
 
@@ -31,6 +32,7 @@ class OllamaClient(LLMClient):
         messages: list[dict[str, str]],
         output_schema: dict,
     ) -> str:
+        """Ollama /api/chat に JSON Schema 形式の format を付与して呼び出し、応答テキストを返す。"""
         payload = {
             "model": self._model,
             "messages": [{"role": "system", "content": system_prompt}, *messages],

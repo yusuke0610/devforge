@@ -25,6 +25,7 @@ class AnthropicClient(LLMClient):
     """Anthropic Messages API を呼び出すクライアント。"""
 
     def __init__(self) -> None:
+        """ANTHROPIC_API_KEY を検証し、非同期クライアントを初期化する。"""
         api_key = settings.get_anthropic_api_key()
         if not api_key:
             raise LLMError("ANTHROPIC_API_KEY が設定されていません")
@@ -38,6 +39,7 @@ class AnthropicClient(LLMClient):
         messages: list[dict[str, str]],
         output_schema: dict,
     ) -> str:
+        """tool use 強制で Anthropic API を呼び出し、tool input を JSON 文字列で返す。"""
         try:
             response = await self._client.messages.create(
                 model=_MODEL,

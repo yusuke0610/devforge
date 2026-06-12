@@ -33,6 +33,7 @@ class _FakeLLM(LLMClient):
     """テスト用の LLM クライアント（固定応答 or 例外）。受信した入力を記録する。"""
 
     def __init__(self, response: str | None = None, error: Exception | None = None):
+        """固定応答または送出例外をセットし、受信内容記録フィールドを初期化する。"""
         self._response = response
         self._error = error
         self.received_system_prompt: str | None = None
@@ -45,6 +46,7 @@ class _FakeLLM(LLMClient):
         messages: list[dict[str, str]],
         output_schema: dict,
     ) -> str:
+        """受信引数を記録し、設定済みの例外を raise するか固定応答を返す。"""
         self.received_system_prompt = system_prompt
         self.received_messages = messages
         self.received_output_schema = output_schema
@@ -55,6 +57,7 @@ class _FakeLLM(LLMClient):
 
 
 def _mock_llm(monkeypatch, *, response: str | None = None, error: Exception | None = None):
+    """monkeypatch で LLM クライアントを _FakeLLM に差し替え、そのインスタンスを返す。"""
     fake = _FakeLLM(response=response, error=error)
     monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
     return fake
@@ -64,6 +67,7 @@ class _SequentialFakeLLM(LLMClient):
     """呼び出しごとに用意した応答を順に返す LLM クライアント（リトライ検証用）。"""
 
     def __init__(self, responses: list[str]):
+        """順に返すべき応答リストを受け取り、コール記録リストを初期化する。"""
         self._responses = list(responses)
         self.calls: list[list[dict[str, str]]] = []
 
@@ -73,11 +77,13 @@ class _SequentialFakeLLM(LLMClient):
         messages: list[dict[str, str]],
         output_schema: dict,
     ) -> str:
+        """受信 messages を記録し、呼び出し順に対応した応答を返す。"""
         self.calls.append(messages)
         return self._responses[len(self.calls) - 1]
 
 
 def _resume_payload() -> dict:
+    """テスト用レジュメペイロード（職務要約・自己 PR・職歴 1 件）を返す。"""
     return {
         "career_summary": "Web エンジニアとして5年の経験。",
         "self_pr": "粘り強く課題解決に取り組みます。",
@@ -107,6 +113,7 @@ def _resume_payload() -> dict:
 
 
 def _llm_json(field: str, value: str, message: str = "改善案です。") -> str:
+    """field / value / message を持つ operations JSON 文字列を生成する。"""
     return json.dumps(
         {"message": message, "operations": [{"field": field, "value": value}]},
         ensure_ascii=False,
@@ -642,6 +649,7 @@ def test_scope_limits_match_resume_schema() -> None:
     from app.schemas.resume import Project, ResumeBase
 
     def max_length(model: type, field: str) -> int:
+        """model の field から MaxLen メタデータを取り出し、max_length 値を返す。"""
         for meta in model.model_fields[field].metadata:
             if isinstance(meta, MaxLen):
                 return meta.max_length
