@@ -4,17 +4,18 @@
 
 | ブランチ | 用途 |
 |---|---|
-| `main` | 本番リリース済みコード |
-| `develop` | 開発統合ブランチ |
+| `main` | 本番リリース済みコード（PR のマージ先） |
 | `feature/*` | 機能開発 |
 | `fix/*` | バグ修正 |
 | `docs/*` | ドキュメント変更 |
 | `refactor/*` | リファクタリング |
 | `infra/*` | インフラ変更 |
 
+> **Note**: 以前は `develop` ブランチを開発統合ブランチとして使っていたが、dev 環境廃止に伴い廃止済み。すべてのブランチを `main` へ直接マージする運用。詳細は `CLAUDE.md`「新規ブランチは `origin/main` 起点で切る」を参照。
+
 ## PR の作り方
 
-- `develop` ブランチに向けて PR を作成する
+- `main` ブランチに向けて PR を作成する
 - PR タイトルは `: <内容>` の形式（例: `feat: GitHub 連携スコア計算の追加`）
 - セルフレビュー後にマージする
 
@@ -74,4 +75,8 @@ docs/adr/XXXX-kebab-case-title.md
 | [ADR-0004](docs/adr/0004-llm-provider-abstraction.md) | LLM プロバイダ抽象化（Ollama/Vertex AI） | Superseded by ADR-0008 |
 | [ADR-0005](docs/adr/0005-cloudrun-single-instance.md) | Cloud Run single instance 構成の採用 | Accepted |
 | [ADR-0006](docs/adr/0006-tanstack-query.md) | TanStack Query 導入検討 | Proposed |
-| [ADR-0008](docs/adr/0008-remove-llm-to-rule-based-design.md) | LLM プロバイダ抽象化の撤去とルールベース設計への統一 | Accepted |
+| [ADR-0007](docs/adr/0007-openapi-typescript-codegen.md) | OpenAPI → TypeScript 型生成（codegen-drift CI） | Accepted |
+| [ADR-0008](docs/adr/0008-remove-llm-to-rule-based-design.md) | LLM プロバイダ抽象化の撤去とルールベース設計への統一 | Superseded by ADR-0010 |
+| [ADR-0009](docs/adr/0009-frontend-toast-notification.md) | フロントエンドのトースト通知統一 | Accepted |
+| [ADR-0009](docs/adr/0009-frontend-textlint-proofread.md) | フロントエンド完結型文章校正（textlint） | Accepted |
+| [ADR-0010](docs/adr/0010-devforge-agent.md) | DevForge Agent 機能の導入 | Accepted |
