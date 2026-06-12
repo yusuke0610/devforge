@@ -16,6 +16,14 @@ from app.services.agent.chat_service import (
     _parse_response,
 )
 from app.services.agent.llm.base import LLMClient, LLMError
+from app.services.agent.output_schema import (
+    MAX_SUGGESTION_LENGTH,
+    MAX_SUGGESTIONS,
+    SCOPE_FIELDS,
+    TOOL_NAME,
+    build_output_schema,
+    build_tool_definition,
+)
 from fastapi.testclient import TestClient
 
 from conftest import auth_header
@@ -50,6 +58,23 @@ def _mock_llm(monkeypatch, *, response: str | None = None, error: Exception | No
     fake = _FakeLLM(response=response, error=error)
     monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
     return fake
+
+
+class _SequentialFakeLLM(LLMClient):
+    """呼び出しごとに用意した応答を順に返す LLM クライアント（リトライ検証用）。"""
+
+    def __init__(self, responses: list[str]):
+        self._responses = list(responses)
+        self.calls: list[list[dict[str, str]]] = []
+
+    async def generate(
+        self,
+        system_prompt: str,
+        messages: list[dict[str, str]],
+        output_schema: dict,
+    ) -> str:
+        self.calls.append(messages)
+        return self._responses[len(self.calls) - 1]
 
 
 def _resume_payload() -> dict:
@@ -212,6 +237,46 @@ def test_chat_invalid_json_returns_502(client: TestClient, monkeypatch) -> None:
     )
     assert resp.status_code == 502
     assert resp.json()["code"] == "AGENT_PARSE_ERROR"
+
+
+def test_chat_retries_once_with_error_feedback(client: TestClient, monkeypatch) -> None:
+    """契約: パース失敗時は違反内容をフィードバックして 1 回だけ再生成する。
+
+    リトライ用 messages は元の会話＋失敗応答（assistant）＋違反内容つき
+    再生成依頼（user）で構成され、リトライが成功すれば 200 で返る。
+    """
+    fake = _SequentialFakeLLM(["JSON ではない応答", _llm_json("self_pr", "再生成の提案")])
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
+    headers = auth_header(client, "agentuser")
+    resp = client.post(
+        "/api/agent/chat",
+        json={"scope": "self_pr", "prompt": "改善して", "resume": _resume_payload()},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["operations"][0]["value"] == "再生成の提案"
+    assert len(fake.calls) == 2
+    retry_messages = fake.calls[1]
+    # 元の会話（1 件）＋失敗応答＋再生成依頼
+    assert len(retry_messages) == len(fake.calls[0]) + 2
+    assert retry_messages[-2] == {"role": "assistant", "content": "JSON ではない応答"}
+    assert retry_messages[-1]["role"] == "user"
+    assert "違反内容" in retry_messages[-1]["content"]
+
+
+def test_chat_retry_failure_returns_502(client: TestClient, monkeypatch) -> None:
+    """契約: リトライ（1 回のみ）も失敗したら 502 + AGENT_PARSE_ERROR。3 回目は呼ばない。"""
+    fake = _SequentialFakeLLM(["不正応答 1 回目", "不正応答 2 回目"])
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
+    headers = auth_header(client, "agentuser")
+    resp = client.post(
+        "/api/agent/chat",
+        json={"scope": "self_pr", "prompt": "改善して", "resume": _resume_payload()},
+        headers=headers,
+    )
+    assert resp.status_code == 502
+    assert resp.json()["code"] == "AGENT_PARSE_ERROR"
+    assert len(fake.calls) == 2
 
 
 def test_chat_normalizes_out_of_scope_operations(client: TestClient, monkeypatch) -> None:
@@ -532,3 +597,59 @@ def test_run_agent_chat_target_not_found(monkeypatch) -> None:
     finally:
         loop.close()
     called.generate.assert_not_called()
+
+
+# --- ユニットテスト（output_schema: スコープ → tool 定義） ---
+
+
+@pytest.mark.parametrize("scope", ["career_summary", "self_pr", "project"])
+def test_build_output_schema_operations_branches(scope: str) -> None:
+    """スコープの許可 field・文字数上限が operations の oneOf 分岐に反映される。"""
+    schema = build_output_schema(scope)
+    branches = schema["properties"]["operations"]["items"]["oneOf"]
+    actual = {
+        branch["properties"]["field"]["const"]: branch["properties"]["value"]["maxLength"]
+        for branch in branches
+    }
+    assert actual == SCOPE_FIELDS[scope]
+    for branch in branches:
+        assert branch["required"] == ["field", "value"]
+        assert branch["additionalProperties"] is False
+
+
+def test_build_output_schema_top_level_contract() -> None:
+    """応答の必須キー・追加キー禁止・suggestions の件数/文字数上限がスキーマに入る。"""
+    schema = build_output_schema("self_pr")
+    assert schema["required"] == ["message", "operations", "suggestions"]
+    assert schema["additionalProperties"] is False
+    suggestions = schema["properties"]["suggestions"]
+    assert suggestions["maxItems"] == MAX_SUGGESTIONS
+    assert suggestions["items"]["maxLength"] == MAX_SUGGESTION_LENGTH
+
+
+def test_build_tool_definition_wraps_schema() -> None:
+    """tool 定義は name / description / input_schema を持ち、スキーマをそのまま包む。"""
+    schema = build_output_schema("project")
+    tool = build_tool_definition(schema)
+    assert tool["name"] == TOOL_NAME
+    assert tool["description"]
+    assert tool["input_schema"] is schema
+
+
+def test_scope_limits_match_resume_schema() -> None:
+    """SCOPE_FIELDS の上限が保存契約（schemas/resume.py）の max_length と一致する（drift 防止）。"""
+    from annotated_types import MaxLen
+    from app.schemas.resume import Project, ResumeBase
+
+    def max_length(model: type, field: str) -> int:
+        for meta in model.model_fields[field].metadata:
+            if isinstance(meta, MaxLen):
+                return meta.max_length
+        raise AssertionError(f"{model.__name__}.{field} に max_length が無い")
+
+    assert SCOPE_FIELDS["career_summary"]["career_summary"] == max_length(
+        ResumeBase, "career_summary"
+    )
+    assert SCOPE_FIELDS["self_pr"]["self_pr"] == max_length(ResumeBase, "self_pr")
+    assert SCOPE_FIELDS["project"]["description"] == max_length(Project, "description")
+    assert SCOPE_FIELDS["project"]["role"] == max_length(Project, "role")
