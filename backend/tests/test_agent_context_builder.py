@@ -207,6 +207,8 @@ def test_blog_context_recent_articles_limit(db_session) -> None:
 def test_blog_context_no_articles_returns_none(db_session) -> None:
     """記事 0 件は blog_context が省略され None になる。"""
     user = _make_user(db_session, "blog_empty")
+    db_session.add(BlogAccount(user_id=user.id, platform="zenn", username="blog_empty"))
+    db_session.commit()
 
     result = build_reference_context(db_session, user.id, "career_summary")
     assert result is None

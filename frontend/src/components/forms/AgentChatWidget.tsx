@@ -291,8 +291,12 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
             {entry.suggestions && (
               <SuggestionButtons
                 items={entry.suggestions}
-                disabled={!canSendSuggestion}
-                onSelect={handleSuggestion}
+                disabled={sending}
+                onSelect={(suggestion) => {
+                  if (sending) return;
+                  clearError();
+                  void send(form, entry.scope, entry.target, suggestion);
+                }}
               />
             )}
             {entry.operations && (

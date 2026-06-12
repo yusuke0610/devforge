@@ -124,7 +124,7 @@ def _build_blog_context(db: Session, user_id: str) -> dict | None:
             {
                 "title": a.title,
                 "tags": a.tags[:_RECENT_ARTICLE_TAGS_N],
-                "published_at": a.published_at,
+                "published_at": a.published_at.isoformat() if a.published_at else None,
             }
             for a in articles[:_RECENT_ARTICLES_N]
         ]

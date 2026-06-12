@@ -118,7 +118,7 @@ class AgentChatRequest(BaseModel):
         """project / experience スコープでは対象の指定を必須とする。"""
         if self.scope == "project" and not isinstance(self.target, ProjectTarget):
             raise ValueError(get_error("agent.target_required"))
-        if self.scope == "experience" and self.target is None:
+        if self.scope == "experience" and not isinstance(self.target, ExperienceTarget):
             raise ValueError(get_error("agent.target_required"))
         return self
 

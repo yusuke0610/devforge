@@ -60,7 +60,7 @@ Agent が対応するスコープは以下の 3 種類。スコープはフロ�
 
 | スコープ | 対象 | operations 適用先 | GitHub/ブログ参照 |
 |---|---|---|---|
-| `project` | 選択中の案件（experience/client/project） | 該当 project の `description` ほか（`role` / `technology_stacks` / `phases`） | なし |
+| `project` | 選択中の案件（experience/client/project） | 該当 project の `description` / `role` | なし |
 | `career_summary` | 職務要約 | `ResumeBase.career_summary` | あり（Phase 2） |
 | `self_pr` | 自己 PR | `ResumeBase.self_pr` | あり（Phase 2） |
 | `experience` | 選択中の在籍企業（experience） | 該当 experience の `business_description` / `description`（Phase 2） | なし |
@@ -219,7 +219,7 @@ Phase 1 追補（対話型選択肢。「対話型選択肢（LLM 生成 suggest
 - [x] experience 単位のスコープ追加
 - [x] GitHub / ブログ分析との連携強化（「コスト設計」のコンテキスト圧縮契約に従う）
 
-#### Phase 2 の設計判断
+### Phase 2 の設計判断
 
 **resume コンテキストは FE state から取得**
 
