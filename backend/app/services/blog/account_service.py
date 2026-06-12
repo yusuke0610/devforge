@@ -1,4 +1,4 @@
-"""ブログ連携アカウントの更新サービス。"""
+"""ブログ連携アカウントの登録・更新サービス。"""
 
 from sqlalchemy.orm import Session
 
@@ -13,6 +13,10 @@ from .collector import (
 )
 
 
+class BlogAccountAlreadyRegisteredError(ValueError):
+    """同じプラットフォームのアカウントが既に登録済みの場合の例外。"""
+
+
 class BlogAccountService:
     """ブログ連携アカウントの更新処理を扱う。"""
 
@@ -24,6 +28,24 @@ class BlogAccountService:
 
     def get_by_platform(self, platform: str) -> BlogAccount | None:
         return self._account_repo.get_by_platform(platform)
+
+    async def add_account(self, platform: str, username: str) -> BlogAccount:
+        """新規ブログアカウントを登録する。
+
+        既に同じプラットフォームが登録済みなら BlogAccountAlreadyRegisteredError を raise する。
+        外部プラットフォームにユーザーが存在しない場合は BlogAccountNotFoundError を raise する。
+        """
+        existing = self._account_repo.get_by_platform(platform)
+        if existing:
+            raise BlogAccountAlreadyRegisteredError(platform)
+
+        normalized_username = normalize_username(platform, username)
+
+        user_exists = await verify_user_exists(platform, normalized_username)
+        if not user_exists:
+            raise BlogAccountNotFoundError(f"アカウントが見つかりません: {platform}/{username}")
+
+        return self._account_repo.upsert(platform, normalized_username)
 
     async def update_username(self, platform: str, username: str) -> BlogAccount:
         account = self._account_repo.get_by_platform(platform)

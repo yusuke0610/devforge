@@ -10,6 +10,8 @@ libSQL (Hrana over HTTP) の idle stream timeout を避けるため、GitHub API
 
 from datetime import datetime, timezone
 
+from sqlalchemy.orm import Session
+
 from ...core.encryption import decrypt_field
 from ...core.logging_utils import get_logger
 from ...core.messages import get_error
@@ -29,6 +31,16 @@ _TOTAL_STEPS = 5
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def get_or_create_github_link_cache(db: Session, user_id: str) -> GitHubLinkCache:
+    """ユーザーの GitHubLinkCache レコードを取得し、存在しなければ作成する。"""
+    cache = db.query(GitHubLinkCache).filter_by(user_id=user_id).first()
+    if not cache:
+        cache = GitHubLinkCache(user_id=user_id)
+        db.add(cache)
+        db.flush()
+    return cache
 
 
 async def run_github_link(session_factory: SessionFactory, payload: dict) -> None:

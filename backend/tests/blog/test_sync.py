@@ -9,7 +9,7 @@ from sqlalchemy.orm.session import Session
 
 from conftest import auth_header
 
-_VERIFY_PATCH = "app.routers.blog.accounts.verify_user_exists"
+_VERIFY_PATCH = "app.services.blog.account_service.verify_user_exists"
 
 
 def test_sync_requires_auth(client: TestClient) -> None:

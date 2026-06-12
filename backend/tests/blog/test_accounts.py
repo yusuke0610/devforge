@@ -10,7 +10,7 @@ from sqlalchemy.orm.session import Session
 from conftest import auth_header
 
 # テスト中は外部 API 呼び出しをモックし、常にユーザーが存在する扱いにする
-_VERIFY_PATCH = "app.routers.blog.accounts.verify_user_exists"
+_VERIFY_PATCH = "app.services.blog.account_service.verify_user_exists"
 
 
 def test_add_blog_account(client: TestClient) -> None:

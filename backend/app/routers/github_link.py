@@ -23,6 +23,7 @@ from ..schemas.github_link import (
     ProgressResponse,
 )
 from ..schemas.shared import TaskAcceptedResponse, TaskStatusResponse
+from ..services.intelligence.github_link_service import get_or_create_github_link_cache
 from ..services.tasks import AsyncTaskCacheService, TaskType
 
 logger = logging.getLogger(__name__)
@@ -38,16 +39,6 @@ def _raise_dispatch_failed() -> None:
         message=get_error("task.dispatch_failed"),
         action="しばらく待ってから再試行してください",
     )
-
-
-def _get_or_create_cache(db: Session, user_id: str) -> GitHubLinkCache:
-    """ユーザーのキャッシュレコードを取得、なければ作成する。"""
-    cache = db.query(GitHubLinkCache).filter_by(user_id=user_id).first()
-    if not cache:
-        cache = GitHubLinkCache(user_id=user_id)
-        db.add(cache)
-        db.flush()
-    return cache
 
 
 def require_github_user(user: User = Depends(get_current_user)) -> User:
@@ -126,7 +117,7 @@ async def start_github_link(
     github_username = user.username
 
     # 進行中のタスクがあればそのステータスを返す
-    cache = _get_or_create_cache(db, user.id)
+    cache = get_or_create_github_link_cache(db, user.id)
     service = AsyncTaskCacheService(db, cache)
 
     # DB 最新状態を取得しつつ pending へアトミック遷移。進行中なら早期リターン
