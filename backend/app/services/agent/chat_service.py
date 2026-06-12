@@ -1,7 +1,9 @@
 """Agent チャットの中核ロジック（コンテキスト組み立て → LLM → operations 検証）。
 
-DB アクセスは行わない。フロントが編集中フォームをリクエストに載せて送り、
-レスポンスの operations はフロントの state にのみ適用される（DB を更新しない原則 / ADR-0010）。
+フロントが編集中フォームをリクエストに載せて送り、レスポンスの operations は
+フロントの state にのみ適用される（DB を更新しない原則 / ADR-0010）。
+参照データ（GitHub・ブログ分析サマリー）は router が context_builder 経由で読み取って渡す。
+本モジュールは DB に触れない。
 """
 
 import json
@@ -13,8 +15,10 @@ from pydantic import ValidationError
 from ...schemas.agent import (
     AgentChatRequest,
     AgentChatResponse,
+    AgentExperienceContext,
     AgentOperation,
     AgentProjectContext,
+    ExperienceTarget,
 )
 from .llm.factory import get_llm_client
 from .output_schema import (
@@ -36,12 +40,12 @@ class AgentResponseParseError(Exception):
 
 # 許可外の field 名を返された時の正規化先。スコープ選択で編集対象は確定しているため、
 # 小型 LLM が「自己PR」等の field 名を返しても既定 field の提案として救済する。
-# project は role / description の 2 候補だが、自由記述の実体は description のみ
-# （role は 1 行の肩書き入力）なので description に倒す
+# project / experience は複数候補だが、自由記述の実体は description なので description に倒す
 _SCOPE_DEFAULT_FIELD: dict[str, str] = {
     "career_summary": "career_summary",
     "self_pr": "self_pr",
     "project": "description",
+    "experience": "description",
 }
 
 # システムプロンプトの正本は app/prompts/ の md ファイル（プロンプト文言の変更を
@@ -70,28 +74,47 @@ _SCOPE_SCHEMAS: dict[str, dict] = {scope: build_output_schema(scope) for scope i
 _MAX_RETRY_ERROR_LENGTH = 500
 
 
-def _build_context(request: AgentChatRequest) -> str:
-    """スコープに応じて LLM に渡すコンテキスト文字列を組み立てる。"""
+def _build_context(request: AgentChatRequest, reference: dict | None = None) -> str:
+    """スコープに応じて LLM に渡すコンテキスト文字列を組み立てる。
+
+    reference には router が context_builder 経由で取得した GitHub/ブログ参照データを渡す。
+    career_summary / self_pr スコープの場合のみ参照データをコンテキストに含める。
+    """
     resume = request.resume
     # 編集対象フィールドのキーは operations の正規 field 名（career_summary 等）に揃える。
     # 小型 LLM はコンテキストのキー名を operations.field に流用しやすいため、
     # 日本語キーにすると許可外 field として破棄される（パース失敗の主因だった）
     if request.scope == "career_summary":
-        return json.dumps(
-            {
-                "career_summary": resume.career_summary,
-                "在籍企業の概要": [
-                    {"会社": e.company, "事業内容": e.business_description}
-                    for e in resume.experiences
-                ],
-            },
-            ensure_ascii=False,
-        )
+        ctx: dict = {
+            "career_summary": resume.career_summary,
+            "在籍企業の概要": [
+                {"会社": e.company, "事業内容": e.business_description}
+                for e in resume.experiences
+            ],
+        }
+        if reference:
+            ctx.update(reference)
+        return json.dumps(ctx, ensure_ascii=False)
     if request.scope == "self_pr":
+        ctx = {
+            "self_pr": resume.self_pr,
+            "職務要約（参考情報）": resume.career_summary,
+        }
+        if reference:
+            ctx.update(reference)
+        return json.dumps(ctx, ensure_ascii=False)
+    if request.scope == "experience":
+        exp = _resolve_target_experience(request)
         return json.dumps(
             {
-                "self_pr": resume.self_pr,
-                "職務要約（参考情報）": resume.career_summary,
+                "会社": exp.company,
+                "business_description": exp.business_description,
+                "description": exp.description,
+                "IT企業かどうか": exp.is_it_company,
+                "取引先・プロジェクト一覧（参考情報）": [
+                    {"取引先": c.name, "プロジェクト数": len(c.projects)}
+                    for c in exp.clients
+                ],
             },
             ensure_ascii=False,
         )
@@ -106,6 +129,19 @@ def _build_context(request: AgentChatRequest) -> str:
         },
         ensure_ascii=False,
     )
+
+
+def _resolve_target_experience(request: AgentChatRequest) -> AgentExperienceContext:
+    """target のインデックスから対象在籍企業を取り出す。範囲外は専用例外。"""
+    target = request.target
+    # scope=experience のとき target は schema で必須検証済み
+    assert isinstance(target, ExperienceTarget)
+    try:
+        return request.resume.experiences[target.experience_index]
+    except IndexError as exc:
+        raise AgentTargetNotFoundError(
+            f"target index out of range: {target}"
+        ) from exc
 
 
 def _resolve_target_project(request: AgentChatRequest) -> AgentProjectContext:
@@ -174,8 +210,14 @@ def _parse_response(raw: str, scope: str) -> AgentChatResponse:
     return AgentChatResponse(message=parsed.message, operations=operations, suggestions=suggestions)
 
 
-async def run_agent_chat(request: AgentChatRequest) -> AgentChatResponse:
+async def run_agent_chat(
+    request: AgentChatRequest, reference: dict | None = None
+) -> AgentChatResponse:
     """Agent チャットを実行する。
+
+    Args:
+        reference: GitHub/ブログ参照コンテキスト（career_summary / self_pr スコープのみ有効）。
+                   router が context_builder 経由で取得して渡す。None の場合は省略される。
 
     Raises:
         AgentTargetNotFoundError: target が範囲外。
@@ -185,7 +227,7 @@ async def run_agent_chat(request: AgentChatRequest) -> AgentChatResponse:
     system_prompt = _SCOPE_PROMPTS[request.scope]
     user_prompt = (
         f"# 編集対象スコープ\n{request.scope}\n\n"
-        f"# 現在の内容\n{_build_context(request)}\n\n"
+        f"# 現在の内容\n{_build_context(request, reference)}\n\n"
         f"# ユーザーの依頼\n{request.prompt}"
     )
     # 調査用ログはメタデータのみ出す。レジュメ本文・プロンプト本文は個人情報を含むため

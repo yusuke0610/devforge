@@ -20,6 +20,7 @@ export interface paths {
          * Agent Chat
          * @description 選択スコープの内容とプロンプトをもとに、職務経歴書への差分 operations を返す。
          *
+         *     career_summary / self_pr スコープでは GitHub・ブログ分析サマリーを参照情報として付与する。
          *     レスポンスはフロントの state にのみ適用され、DB は更新しない。
          *     ユーザーが確認して「適用」した時点で既存の保存 API が呼ばれる。
          */
@@ -731,8 +732,9 @@ export interface components {
              * Scope
              * @enum {string}
              */
-            scope: "project" | "career_summary" | "self_pr";
-            target?: components["schemas"]["ProjectTarget"] | null;
+            scope: "project" | "career_summary" | "self_pr" | "experience";
+            /** Target */
+            target?: components["schemas"]["ProjectTarget"] | components["schemas"]["ExperienceTarget"] | null;
         };
         /**
          * AgentChatResponse
@@ -781,6 +783,16 @@ export interface components {
              * @default
              */
             company: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Is It Company
+             * @default true
+             */
+            is_it_company: boolean;
         };
         /**
          * AgentHistoryEntry
@@ -1262,6 +1274,17 @@ export interface components {
              * @default
              */
             start_date: string;
+        };
+        /**
+         * ExperienceTarget
+         * @description scope=experience のとき対象在籍企業を特定するインデックス。
+         *
+         *     ``extra="forbid"`` により ProjectTarget の 3 キー payload は
+         *     ExperienceTarget にマッチしない（union で型を決定的に区別するため）。
+         */
+        ExperienceTarget: {
+            /** Experience Index */
+            experience_index: number;
         };
         /** GitHubCallbackRequest */
         GitHubCallbackRequest: {

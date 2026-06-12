@@ -5,18 +5,18 @@
 から Agent を呼べる必要があり、保存時バリデーションを再利用すると 422 になるため。
 フィールドの max_length は保存契約（``resume.py``）と同じ上限に揃える。
 
-レスポンスの ``operations`` はテキストフィールドの置換のみ（構造編集なし、Phase 1）。
-スコープ選択が必須で対象 project の位置はリクエストで確定するため、operation は
+レスポンスの ``operations`` はテキストフィールドの置換のみ（構造編集なし）。
+スコープ選択が必須で対象の位置はリクエストで確定するため、operation は
 パス指定を持たず「フィールド名 + 新しい値」だけを返す。
 """
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..core.messages import get_error
 
-AgentScope = Literal["project", "career_summary", "self_pr"]
+AgentScope = Literal["project", "career_summary", "self_pr", "experience"]
 
 
 class AgentTechnologyStack(BaseModel):
@@ -48,6 +48,10 @@ class AgentExperienceContext(BaseModel):
 
     company: str = Field(default="", max_length=120)
     business_description: str = Field(default="", max_length=200)
+    # experience スコープで編集対象となる自由記述欄（非IT企業の職務詳細）
+    description: str = Field(default="", max_length=4500)
+    # IT企業かどうか（experience スコープのプロンプト分岐に使用）
+    is_it_company: bool = True
     clients: list[AgentClientContext] = Field(default_factory=list)
 
 
@@ -71,6 +75,18 @@ class ProjectTarget(BaseModel):
     project_index: int = Field(ge=0)
 
 
+class ExperienceTarget(BaseModel):
+    """scope=experience のとき対象在籍企業を特定するインデックス。
+
+    ``extra="forbid"`` により ProjectTarget の 3 キー payload は
+    ExperienceTarget にマッチしない（union で型を決定的に区別するため）。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    experience_index: int = Field(ge=0)
+
+
 class AgentHistoryEntry(BaseModel):
     """マルチターン用の会話履歴 1 件。
 
@@ -90,14 +106,19 @@ class AgentChatRequest(BaseModel):
     scope: AgentScope
     prompt: str = Field(min_length=1, max_length=2000)
     resume: AgentResumeContext
-    target: ProjectTarget | None = None
+    # project は ProjectTarget | ExperienceTarget | None の union（ProjectTarget を先に配置）。
+    # ExperienceTarget は extra="forbid" により 3 キー payload がマッチしないため
+    # union の解決は決定的。project スコープは ProjectTarget 必須、experience は ExperienceTarget 必須。
+    target: ProjectTarget | ExperienceTarget | None = None
     # 直近 3 往復（6 エントリ）まで。サーバーはセッションを持たずフロントが送る
     history: list[AgentHistoryEntry] = Field(default_factory=list, max_length=6)
 
     @model_validator(mode="after")
     def validate_target(self) -> "AgentChatRequest":
-        """project スコープでは対象プロジェクトの指定を必須とする。"""
-        if self.scope == "project" and self.target is None:
+        """project / experience スコープでは対象の指定を必須とする。"""
+        if self.scope == "project" and not isinstance(self.target, ProjectTarget):
+            raise ValueError(get_error("agent.target_required"))
+        if self.scope == "experience" and not isinstance(self.target, ExperienceTarget):
             raise ValueError(get_error("agent.target_required"))
         return self
 

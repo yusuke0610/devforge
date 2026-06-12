@@ -9,7 +9,12 @@
 import { useCallback, useState } from "react";
 
 import { postAgentChat } from "../../api/agent";
-import type { AgentHistoryEntry, AgentOperation, ProjectTarget } from "../../api/types";
+import type {
+  AgentHistoryEntry,
+  AgentOperation,
+  ExperienceTarget,
+  ProjectTarget,
+} from "../../api/types";
 import { FALLBACK_MESSAGES } from "../../constants/messages";
 import type { CareerFormState } from "../../payloadBuilders";
 import {
@@ -27,7 +32,7 @@ export type AgentChatEntry = {
   suggestions: string[] | null;
   /** 送信時点のスコープ・対象（適用時に参照する） */
   scope: AgentScope;
-  target: ProjectTarget | null;
+  target: ProjectTarget | ExperienceTarget | null;
   /**
    * マルチターン履歴として LLM に送るテキスト。user は依頼文そのまま、
    * assistant は受信時の応答 JSON 文字列（operations が適用済みで
@@ -62,7 +67,7 @@ export function useAgentChat() {
     async (
       form: CareerFormState,
       scope: AgentScope,
-      target: ProjectTarget | null,
+      target: ProjectTarget | ExperienceTarget | null,
       prompt: string,
     ) => {
       setError(null);
@@ -84,7 +89,7 @@ export function useAgentChat() {
           scope,
           prompt,
           resume: buildAgentResumeContext(form),
-          target: scope === "project" ? target : null,
+          target: scope === "project" || scope === "experience" ? target : null,
           history: buildHistory(entries),
         });
         setEntries((prev) => [

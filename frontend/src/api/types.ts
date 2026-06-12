@@ -138,3 +138,6 @@ export type AgentResumeContext = Schemas["AgentResumeContext"];
 
 /** project スコープの対象指定。backend `schemas/agent.py:ProjectTarget`。 */
 export type ProjectTarget = Schemas["ProjectTarget"];
+
+/** experience スコープの対象指定。backend `schemas/agent.py:ExperienceTarget`。 */
+export type ExperienceTarget = Schemas["ExperienceTarget"];

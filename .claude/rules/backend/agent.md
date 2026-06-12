@@ -4,6 +4,7 @@ paths:
   - backend/app/prompts/agent_*.md
   - backend/app/schemas/agent.py
   - backend/tests/test_agent.py
+  - backend/tests/test_agent_context_builder.py
 ---
 
 # DevForge Agent 設計ルール（ADR-0010）
@@ -20,11 +21,13 @@ backend/
 │   │   ├── agent_base.md          # 共通ルール（全スコープに適用）
 │   │   ├── agent_career_summary.md
 │   │   ├── agent_self_pr.md
-│   │   └── agent_project.md
+│   │   ├── agent_project.md
+│   │   └── agent_experience.md    # Phase 2 追加
 │   ├── schemas/
 │   │   └── agent.py               # リクエスト/レスポンス Pydantic スキーマ
 │   └── services/agent/
-│       ├── chat_service.py        # コンテキスト組み立て → LLM → 検証
+│       ├── chat_service.py        # コンテキスト組み立て → LLM → 検証（DB に触れない）
+│       ├── context_builder.py     # Phase 2: GitHub/ブログ参照コンテキスト取得（DB 読み取り専用）
 │       ├── output_schema.py       # tool use スキーマ（機械制約の正本）
 │       └── llm/
 │           ├── base.py            # LLMClient 抽象・LLMError
@@ -32,7 +35,8 @@ backend/
 │           ├── ollama_client.py
 │           └── factory.py
 └── tests/
-    └── test_agent.py
+    ├── test_agent.py
+    └── test_agent_context_builder.py  # Phase 2: context_builder の単体テスト
 ```
 
 ## 制約の責務分離（最重要）
@@ -63,6 +67,8 @@ backend/
 | `self_pr` | `self_pr` | 2000 |
 | `project` | `description` | 4500 |
 | `project` | `role` | 200 |
+| `experience` | `business_description` | 200 |
+| `experience` | `description` | 4500 |
 
 上限値を変更する場合は `output_schema.py` の `SCOPE_FIELDS` を編集する。
 `schemas/resume.py` の max_length と一致させること（`test_scope_limits_match_resume_schema` で検証済み）。
@@ -97,6 +103,7 @@ backend/
 5. `schemas/agent.py` の `AgentScope` Literal に追加
 6. `test_agent.py` に `test_chat_system_prompt_is_scope_specific` のパラメータを追加
 7. `test_scope_limits_match_resume_schema` に上限一致の assert を追加
+8. スコープに `target` が必要な場合: `schemas/agent.py` に Target クラスを追加し `validate_target` を拡張する。`validate_target` は project 先行 union を維持すること（既存契約の後退を防ぐ）
 
 ## 検証の多段構造（変えてはいけない順序）
 
@@ -114,7 +121,7 @@ backend/
 
 | 事象 | HTTP | ErrorCode |
 |---|---|---|
-| project スコープで target 未指定 | 422 | `VALIDATION_ERROR` |
+| project / experience スコープで target 未指定 | 422 | `VALIDATION_ERROR` |
 | target インデックスが範囲外 | 422 | `VALIDATION_ERROR` |
 | LLM 呼び出し失敗 | 502 | `AGENT_LLM_ERROR` |
 | LLM 応答のパース / スキーマ違反（リトライ後も失敗） | 502 | `AGENT_PARSE_ERROR` |
@@ -127,6 +134,20 @@ backend/
 `POST /agent/chat` のレスポンス（operations）はフロントの state にのみ適用する。
 ユーザーが「適用」した時点で既存の保存 API（`PUT /resumes` 系）を呼ぶ設計。
 Agent エンドポイント自体は DB を書き換えない。この原則を崩してはいけない。
+
+`chat_service.py` は DB に触れない。DB 読み取りは `routers/agent.py` → `context_builder.py` 経由のみとする。
+
+## GitHub/ブログ参照コンテキスト（Phase 2）
+
+`career_summary` / `self_pr` スコープのみに GitHub・ブログ分析サマリーを付与する。`project` / `experience` には付与しない。
+
+**付与スコープの理由**: career_summary/self_pr はキャリア全体像を表す文章であり、GitHub の言語傾向・ブログの執筆頻度は LLM が根拠として参照できる。project/experience は特定案件・企業の記述改善用途であり GitHub/ブログ情報は文脈として不適切（捏造リスク・トークン浪費）。
+
+**フロー**: `router → build_reference_context(db, user_id, scope) → run_agent_chat(request, reference)`
+
+**degrade 方針**: GitHub・ブログ参照データの取得失敗は `None` に degrade しチャット本体を落とさない。`build_reference_context` と各ヘルパーが独立に `try/except Exception` + `logger.warning(exc_info=True)` でラップする。例外を握りつぶさずログを残すこと。
+
+**SELECT のみ**: `context_builder.py` は `commit` / `flush` / `add` を書かない。
 
 ## 会話履歴（history）の仕様
 
@@ -151,3 +172,4 @@ Agent エンドポイント自体は DB を書き換えない。この原則を�
 - drift 防止テスト: `SCOPE_FIELDS` と `schemas/resume.py` の max_length 一致を検証（`test_scope_limits_match_resume_schema`）
 - リトライ契約のテスト: `_SequentialFakeLLM` で「失敗→成功」「失敗→失敗」の両パスを検証
 - 上限超過の operation が破棄されること、許可外フィールドが正規化されること、suggestions の件数・文字数バリデーションを必ず検証する
+- `context_builder` のテストは `test_agent_context_builder.py` に分離する。DB モック禁止（実 SQLite セッション）
