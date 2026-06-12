@@ -139,18 +139,6 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
     setPrompt("");
   };
 
-  /** suggestions ボタンの送信可否（自由入力と違い入力テキストは不要） */
-  const canSendSuggestion =
-    !sending &&
-    (scope !== "project" || selectedProjectTarget !== null) &&
-    (scope !== "experience" || selectedExperienceTarget !== null);
-
-  const handleSuggestion = (suggestion: string) => {
-    if (!canSendSuggestion) return;
-    clearError();
-    void send(form, scope, getTarget(), suggestion);
-  };
-
   // パネル左上のハンドルをドラッグしてリサイズする。パネルは右下固定なので
   // ポインタが左上に動くほど大きくなる（差分を加算）
   const handleResizeStart = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
