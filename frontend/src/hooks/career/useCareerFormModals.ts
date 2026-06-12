@@ -8,8 +8,8 @@ export function useCareerFormModals({
   save,
   deleteDoc,
 }: {
-  save: () => Promise<void>;
-  deleteDoc: () => Promise<void>;
+  save: (...args: never[]) => Promise<unknown>;
+  deleteDoc: (...args: never[]) => Promise<unknown>;
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
