@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "make dupe-check 2>/dev/null &"
+            "command": "make dupe-check"
           }
         ]
       }

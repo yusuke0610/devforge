@@ -16,7 +16,7 @@
 ## PR の作り方
 
 - `main` ブランチに向けて PR を作成する
-- PR タイトルは `: <内容>` の形式（例: `feat: GitHub 連携スコア計算の追加`）
+- PR タイトルは `<type>: <内容>` の形式（例: `feat: GitHub 連携スコア計算の追加`）
 - セルフレビュー後にマージする
 
 ## ADR（Architecture Decision Record）
@@ -78,5 +78,5 @@ docs/adr/XXXX-kebab-case-title.md
 | [ADR-0007](docs/adr/0007-openapi-typescript-codegen.md) | OpenAPI → TypeScript 型生成（codegen-drift CI） | Accepted |
 | [ADR-0008](docs/adr/0008-remove-llm-to-rule-based-design.md) | LLM プロバイダ抽象化の撤去とルールベース設計への統一 | Superseded by ADR-0010 |
 | [ADR-0009](docs/adr/0009-frontend-toast-notification.md) | フロントエンドのトースト通知統一 | Accepted |
-| [ADR-0009](docs/adr/0009-frontend-textlint-proofread.md) | フロントエンド完結型文章校正（textlint） | Accepted |
+| [ADR-0011](docs/adr/0011-frontend-textlint-proofread.md) | フロントエンド完結型文章校正（textlint） | Accepted |
 | [ADR-0010](docs/adr/0010-devforge-agent.md) | DevForge Agent 機能の導入 | Accepted |
