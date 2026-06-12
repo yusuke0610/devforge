@@ -51,9 +51,9 @@ function SuggestionButtons({
   if (items.length === 0) return null;
   return (
     <div className={styles.actionRow}>
-      {items.map((item) => (
+      {items.map((item, index) => (
         <button
-          key={item}
+          key={index}
           type="button"
           className={styles.actionButton}
           disabled={disabled}
