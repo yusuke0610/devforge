@@ -19,11 +19,19 @@ class LLMClient(ABC):
     """
 
     @abstractmethod
-    async def generate(self, system_prompt: str, messages: list[dict[str, str]]) -> str:
-        """system プロンプトと会話 messages を渡して応答テキストを返す。
+    async def generate(
+        self,
+        system_prompt: str,
+        messages: list[dict[str, str]],
+        output_schema: dict,
+    ) -> str:
+        """system プロンプトと会話 messages を渡して構造化応答（JSON 文字列）を返す。
 
         messages は ``[{"role": "user" | "assistant", "content": str}, ...]`` で、
         末尾が今回の user プロンプト（マルチターン時は先頭側に履歴が並ぶ）。
+        output_schema は応答が従うべき JSON Schema（output_schema.py で構築）。
+        各プロバイダの構造化出力機構（Anthropic: tool use 強制 / Ollama: format）
+        に渡し、戻り値はスキーマに従う JSON のシリアライズ文字列とする。
 
         Raises:
             LLMError: タイムアウト・接続失敗・API エラー時。

@@ -38,6 +38,34 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+/** LLM が提示した「次の依頼文」候補のボタン列。押下でそのまま prompt として再送する。 */
+function SuggestionButtons({
+  items,
+  disabled,
+  onSelect,
+}: {
+  items: string[];
+  disabled: boolean;
+  onSelect: (suggestion: string) => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div className={styles.actionRow}>
+      {items.map((item, index) => (
+        <button
+          key={index}
+          type="button"
+          className={styles.actionButton}
+          disabled={disabled}
+          onClick={() => onSelect(item)}
+        >
+          {item}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function buildProjectOptions(form: CareerFormState): ProjectOption[] {
   const options: ProjectOption[] = [];
   form.experiences.forEach((exp, ei) => {
@@ -84,6 +112,15 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
     clearError();
     void send(form, scope, scope === "project" ? selectedTarget : null, prompt.trim());
     setPrompt("");
+  };
+
+  /** suggestions ボタンの送信可否（自由入力と違い入力テキストは不要） */
+  const canSendSuggestion = !sending && (scope !== "project" || selectedTarget !== null);
+
+  const handleSuggestion = (suggestion: string) => {
+    if (!canSendSuggestion) return;
+    clearError();
+    void send(form, scope, scope === "project" ? selectedTarget : null, suggestion);
   };
 
   // パネル左上のハンドルをドラッグしてリサイズする。パネルは右下固定なので
@@ -202,6 +239,13 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
             className={entry.role === "user" ? styles.userMessage : styles.assistantMessage}
           >
             <p className={styles.messageText}>{entry.text}</p>
+            {entry.suggestions && (
+              <SuggestionButtons
+                items={entry.suggestions}
+                disabled={!canSendSuggestion}
+                onSelect={handleSuggestion}
+              />
+            )}
             {entry.operations && (
               <div className={styles.operations}>
                 {entry.operations.map((op, j) => (

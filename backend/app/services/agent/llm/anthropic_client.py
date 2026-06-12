@@ -1,10 +1,12 @@
 """Anthropic API クライアント（本番用。モデル: Claude Haiku 4.5）。"""
 
+import json
 import logging
 
 import anthropic
 
 from ....core import settings
+from ..output_schema import TOOL_NAME, build_tool_definition
 from .base import LLMClient, LLMError
 
 logger = logging.getLogger(__name__)
@@ -23,6 +25,7 @@ class AnthropicClient(LLMClient):
     """Anthropic Messages API を呼び出すクライアント。"""
 
     def __init__(self) -> None:
+        """ANTHROPIC_API_KEY を検証し、非同期クライアントを初期化する。"""
         api_key = settings.get_anthropic_api_key()
         if not api_key:
             raise LLMError("ANTHROPIC_API_KEY が設定されていません")
@@ -30,7 +33,13 @@ class AnthropicClient(LLMClient):
             api_key=api_key, timeout=_TIMEOUT_SECONDS
         )
 
-    async def generate(self, system_prompt: str, messages: list[dict[str, str]]) -> str:
+    async def generate(
+        self,
+        system_prompt: str,
+        messages: list[dict[str, str]],
+        output_schema: dict,
+    ) -> str:
+        """tool use 強制で Anthropic API を呼び出し、tool input を JSON 文字列で返す。"""
         try:
             response = await self._client.messages.create(
                 model=_MODEL,
@@ -38,6 +47,10 @@ class AnthropicClient(LLMClient):
                 temperature=_TEMPERATURE,
                 system=system_prompt,
                 messages=messages,
+                # tool use 強制で出力構造をスキーマに従わせる（JSON mode は使わない）。
+                # maxLength は API では強制されないため、上限超過は呼び出し側で破棄する
+                tools=[build_tool_definition(output_schema)],
+                tool_choice={"type": "tool", "name": TOOL_NAME},
             )
         except (
             anthropic.APITimeoutError,
@@ -48,9 +61,10 @@ class AnthropicClient(LLMClient):
             logger.warning("Anthropic API 呼び出しに失敗: %s", type(exc).__name__)
             raise LLMError(f"Anthropic API error: {type(exc).__name__}") from exc
 
-        text = "".join(
-            block.text for block in response.content if block.type == "text"
+        block = next(
+            (b for b in response.content if b.type == "tool_use"), None
         )
-        if not text:
-            raise LLMError("Anthropic API から空の応答が返されました")
-        return text
+        if block is None:
+            raise LLMError("Anthropic API が tool_use 応答を返しませんでした")
+        # 履歴契約（前回応答を JSON 文字列で持ち回す）を維持するため再シリアライズして返す
+        return json.dumps(block.input, ensure_ascii=False)

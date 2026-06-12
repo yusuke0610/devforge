@@ -16,20 +16,28 @@ _TIMEOUT_SECONDS = 120.0
 class OllamaClient(LLMClient):
     """ローカル Ollama の /api/chat を呼び出すクライアント。
 
-    ``format: json`` を指定して JSON のみの応答を強制する
-    （ローカルの小型モデルは前置きテキストを混ぜやすいため）。
+    ``format`` に JSON Schema を渡して構造化出力（文法制約）を強制する。
+    構造・許可 field（const）・maxItems は文法レベルで保証されるが、
+    maxLength は強制されないため上限超過は呼び出し側で破棄する。
     """
 
     def __init__(self) -> None:
+        """設定から Ollama のベース URL とモデル名を読み込む。"""
         self._base_url = settings.get_ollama_base_url()
         self._model = settings.get_ollama_model()
 
-    async def generate(self, system_prompt: str, messages: list[dict[str, str]]) -> str:
+    async def generate(
+        self,
+        system_prompt: str,
+        messages: list[dict[str, str]],
+        output_schema: dict,
+    ) -> str:
+        """Ollama /api/chat に JSON Schema 形式の format を付与して呼び出し、応答テキストを返す。"""
         payload = {
             "model": self._model,
             "messages": [{"role": "system", "content": system_prompt}, *messages],
             "stream": False,
-            "format": "json",
+            "format": output_schema,
             # 職務経歴書の改善提案は事実忠実性が最優先のため低温度に固定する
             # （デフォルト 0.8 では小型モデルが架空の資格・技術を捏造しやすい）
             "options": {"temperature": 0.2},

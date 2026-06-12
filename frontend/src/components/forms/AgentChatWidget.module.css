@@ -231,3 +231,31 @@
   background: var(--text-disabled);
   cursor: not-allowed;
 }
+
+/* LLM が提示する「次の依頼文」候補のボタン列 */
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.actionButton {
+  padding: 4px 10px;
+  border: 1px solid #059669;
+  border-radius: 999px;
+  background: transparent;
+  color: #059669;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.actionButton:hover {
+  background: rgba(5, 150, 105, 0.1);
+}
+
+.actionButton:disabled {
+  border-color: var(--text-disabled);
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
