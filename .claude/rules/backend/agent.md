@@ -4,6 +4,7 @@ paths:
   - backend/app/prompts/agent_*.md
   - backend/app/schemas/agent.py
   - backend/tests/test_agent.py
+  - backend/tests/test_agent_context_builder.py
 ---
 
 # DevForge Agent 設計ルール（ADR-0010）
@@ -26,7 +27,7 @@ backend/
 │   │   └── agent.py               # リクエスト/レスポンス Pydantic スキーマ
 │   └── services/agent/
 │       ├── chat_service.py        # コンテキスト組み立て → LLM → 検証（DB に触れない）
-│       ├── context_builder.py     # Phase 2 追加: GitHub/ブログ参照コンテキスト構築（DB 読み取りはここだけ）
+│       ├── context_builder.py     # Phase 2: GitHub/ブログ参照コンテキスト取得（DB 読み取り専用）
 │       ├── output_schema.py       # tool use スキーマ（機械制約の正本）
 │       └── llm/
 │           ├── base.py            # LLMClient 抽象・LLMError
@@ -35,7 +36,7 @@ backend/
 │           └── factory.py
 └── tests/
     ├── test_agent.py
-    └── test_agent_context_builder.py  # Phase 2 追加
+    └── test_agent_context_builder.py  # Phase 2: context_builder の単体テスト
 ```
 
 ## 制約の責務分離（最重要）
@@ -97,14 +98,12 @@ backend/
 
 1. `output_schema.py` の `SCOPE_FIELDS` にスコープ名とフィールド/上限を追加
 2. `agent_{scope}.md` を `backend/app/prompts/` に作成（品質基準・思考ステップ・few-shot）
-   - **注意**: `SCOPE_FIELDS` 追加と md 作成は**同時**に行う。`_SCOPE_PROMPTS` がモジュールロード時に走査するため、片方だけだと import 時 FileNotFoundError で全テスト落ち
 3. `chat_service._SCOPE_DEFAULT_FIELD` に正規化先を追加
 4. `chat_service._build_context` に該当スコープの分岐を追加
 5. `schemas/agent.py` の `AgentScope` Literal に追加
-   - target が必要なスコープは `validate_target` にガードを追加（project / experience が先例）
-   - target が新しい型なら `AgentChatRequest.target` の union に型を追加（`extra="forbid"` で union 解決を確定させる）
 6. `test_agent.py` に `test_chat_system_prompt_is_scope_specific` のパラメータを追加
 7. `test_scope_limits_match_resume_schema` に上限一致の assert を追加
+8. スコープに `target` が必要な場合: `schemas/agent.py` に Target クラスを追加し `validate_target` を拡張する。`validate_target` は project 先行 union を維持すること（既存契約の後退を防ぐ）
 
 ## 検証の多段構造（変えてはいけない順序）
 
@@ -117,20 +116,6 @@ backend/
 ```
 
 超過 operation を切り詰めて返すことは**禁止**（途中で切れた経歴書は品質として不可）。
-
-## GitHub/ブログ参照コンテキスト（Phase 2）
-
-`career_summary` / `self_pr` スコープのみに GitHub・ブログ分析サマリーを付与する。`project` / `experience` には付与しない（捏造リスク・トークン浪費のため）。
-
-**データフロー**: router → `context_builder.build_reference_context(db, user_id, scope)` → `run_agent_chat(request, reference)` → `_build_context` で JSON に merge。
-
-**DB アクセスの分離**: `context_builder.py` が DB 読み取りを担う。`chat_service.py` は DB に触れない。
-
-**圧縮契約**: `languages_top5`（上位 5 言語・割合 %）/ `contributions_by_year`（直近 5 年・weeks 捨て）/ `active_days_last_12_months` / `recent_articles`（直近 5 件・タイトル + タグ先頭 5 個）。
-
-**degrade**: 取得失敗（未連携・processing・0 件・DB 例外）はいずれも `None` に degrade しチャット本体を継続。`build_reference_context` と各ヘルパーが独立に `try/except Exception` + `logger.warning(exc_info=True)` でラップする。両方 None なら Phase 1 と同一動作。
-
-**読み取りのみ**: `context_builder.py` で commit / flush / add を書いてはいけない。
 
 ## エラー契約（変えてはいけない）
 
@@ -149,6 +134,20 @@ backend/
 `POST /agent/chat` のレスポンス（operations）はフロントの state にのみ適用する。
 ユーザーが「適用」した時点で既存の保存 API（`PUT /resumes` 系）を呼ぶ設計。
 Agent エンドポイント自体は DB を書き換えない。この原則を崩してはいけない。
+
+`chat_service.py` は DB に触れない。DB 読み取りは `routers/agent.py` → `context_builder.py` 経由のみとする。
+
+## GitHub/ブログ参照コンテキスト（Phase 2）
+
+`career_summary` / `self_pr` スコープのみに GitHub・ブログ分析サマリーを付与する。`project` / `experience` には付与しない。
+
+**付与スコープの理由**: career_summary/self_pr はキャリア全体像を表す文章であり、GitHub の言語傾向・ブログの執筆頻度は LLM が根拠として参照できる。project/experience は特定案件・企業の記述改善用途であり GitHub/ブログ情報は文脈として不適切（捏造リスク・トークン浪費）。
+
+**フロー**: `router → build_reference_context(db, user_id, scope) → run_agent_chat(request, reference)`
+
+**degrade 方針**: GitHub・ブログ参照データの取得失敗は `None` に degrade しチャット本体を落とさない。`build_reference_context` と各ヘルパーが独立に `try/except Exception` + `logger.warning(exc_info=True)` でラップする。例外を握りつぶさずログを残すこと。
+
+**SELECT のみ**: `context_builder.py` は `commit` / `flush` / `add` を書かない。
 
 ## 会話履歴（history）の仕様
 
@@ -173,3 +172,4 @@ Agent エンドポイント自体は DB を書き換えない。この原則を�
 - drift 防止テスト: `SCOPE_FIELDS` と `schemas/resume.py` の max_length 一致を検証（`test_scope_limits_match_resume_schema`）
 - リトライ契約のテスト: `_SequentialFakeLLM` で「失敗→成功」「失敗→失敗」の両パスを検証
 - 上限超過の operation が破棄されること、許可外フィールドが正規化されること、suggestions の件数・文字数バリデーションを必ず検証する
+- `context_builder` のテストは `test_agent_context_builder.py` に分離する。DB モック禁止（実 SQLite セッション）
