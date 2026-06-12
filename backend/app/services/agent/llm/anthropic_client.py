@@ -1,4 +1,4 @@
-"""Anthropic API クライアント（本番用。モデル: Claude Haiku 4.5）。"""
+"""Anthropic API クライアント（本番用。モデルは model_catalog.py で解決）。"""
 
 import json
 import logging
@@ -7,13 +7,10 @@ import anthropic
 
 from ....core import settings
 from ..output_schema import TOOL_NAME, build_tool_definition
-from .base import LLMClient, LLMError
+from .base import LLMClient, LLMError, LLMResult
 
 logger = logging.getLogger(__name__)
 
-# 差分 operations の小さい JSON を返す用途のため Haiku を採用（ADR-0010）。
-# 精度不足が判明した場合は claude-sonnet-4-6 へ切り替える。
-_MODEL = "claude-haiku-4-5"
 # operations JSON（最大 4500 文字のテキスト置換 + 説明文）に十分な上限
 _MAX_TOKENS = 4096
 _TIMEOUT_SECONDS = 60.0
@@ -38,11 +35,12 @@ class AnthropicClient(LLMClient):
         system_prompt: str,
         messages: list[dict[str, str]],
         output_schema: dict,
-    ) -> str:
-        """tool use 強制で Anthropic API を呼び出し、tool input を JSON 文字列で返す。"""
+        model_id: str,
+    ) -> LLMResult:
+        """tool use 強制で Anthropic API を呼び出し、tool input と実使用量を返す。"""
         try:
             response = await self._client.messages.create(
-                model=_MODEL,
+                model=model_id,
                 max_tokens=_MAX_TOKENS,
                 temperature=_TEMPERATURE,
                 system=system_prompt,
@@ -66,5 +64,10 @@ class AnthropicClient(LLMClient):
         )
         if block is None:
             raise LLMError("Anthropic API が tool_use 応答を返しませんでした")
-        # 履歴契約（前回応答を JSON 文字列で持ち回す）を維持するため再シリアライズして返す
-        return json.dumps(block.input, ensure_ascii=False)
+        # 履歴契約（前回応答を JSON 文字列で持ち回す）を維持するため再シリアライズして返す。
+        # usage はクレジット課金（ADR-0012）の根拠となるため実測値をそのまま返す
+        return LLMResult(
+            text=json.dumps(block.input, ensure_ascii=False),
+            input_tokens=response.usage.input_tokens,
+            output_tokens=response.usage.output_tokens,
+        )

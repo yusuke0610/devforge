@@ -70,7 +70,12 @@ REST API エンドポイント一覧と、バックエンド／フロントエ�
 - `POST /api/notifications/read-all`: 全て既読
 
 ### Agent（LLM チャット / ADR-0010）
-- `POST /api/agent/chat`: 選択スコープ（`project` / `career_summary` / `self_pr`）の内容とプロンプトをもとに、職務経歴書への差分 operations を返す。DB は更新せず、適用はフロント側でユーザー確認後に既存保存 API を呼ぶ。rate limit 10/min
+- `POST /api/agent/chat`: 選択スコープ（`project` / `career_summary` / `self_pr`）の内容とプロンプトをもとに、職務経歴書への差分 operations を返す。DB は更新せず、適用はフロント側でユーザー確認後に既存保存 API を呼ぶ。rate limit 10/min。`model`（`haiku`: 無料 / `sonnet`: 有料・クレジット消費）を指定可能。sonnet で残高不足の場合は 402 `INSUFFICIENT_CREDITS`（ADR-0012）
+
+### 課金（プリペイドクレジット / ADR-0012）
+- `GET /api/billing/balance`: ログインユーザーのクレジット残高
+- `GET /api/billing/transactions`: クレジット台帳履歴（付与・消費、新しい順）
+- `POST /api/billing/admin/grant`: ユーザーへのクレジット付与（管理者・`ADMIN_TOKEN` Bearer 認証）
 
 ### 内部 API（Cloud Tasks コールバック専用）
 - `POST /internal/tasks/{task_type}`: Cloud Tasks からのタスク実行リクエストを受け付ける。`TASK_RUNNER=cloud_tasks` の場合は `X-CloudTasks-QueueName` ヘッダで検証

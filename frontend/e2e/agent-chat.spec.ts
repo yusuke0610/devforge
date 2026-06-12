@@ -92,6 +92,79 @@ test.describe("Agent チャットウィジェット", () => {
     await expect(page.getByRole("button", { name: "フォームに反映" })).toHaveCount(0);
   });
 
+  test("Sonnet（有料）選択で残高が表示され model=sonnet で送信される", async ({ page }) => {
+    await page.route("**/api/billing/balance", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ balance: 12000 }),
+      }),
+    );
+    let chatRequestBody: Record<string, unknown> | null = null;
+    await page.route("**/api/agent/chat", async (route) => {
+      chatRequestBody = JSON.parse(route.request().postData() ?? "{}");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "高精度モデルの提案です。", operations: [] }),
+      });
+    });
+
+    await page.goto("/career");
+    await waitForAuthenticatedLayout(page);
+
+    await page.getByRole("button", { name: "devforge Agent" }).click();
+
+    // モデルセレクタで Sonnet を選ぶと残高が表示される（ADR-0012）
+    await page.getByLabel("モデル").selectOption("sonnet");
+    await expect(page.getByText("残高: 12,000 クレジット")).toBeVisible();
+
+    await page
+      .getByPlaceholder("例: 成果がより伝わる文章にしてください")
+      .fill("プロらしい文章にして");
+    await page.getByRole("button", { name: "送信", exact: true }).click();
+
+    await expect(page.getByText("高精度モデルの提案です。")).toBeVisible();
+    expect(chatRequestBody).toMatchObject({ model: "sonnet" });
+  });
+
+  test("Sonnet で残高不足（402）はエラートーストで通知される", async ({ page }) => {
+    await page.route("**/api/billing/balance", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ balance: 0 }),
+      }),
+    );
+    await page.route("**/api/agent/chat", (route) =>
+      route.fulfill({
+        status: 402,
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: "INSUFFICIENT_CREDITS",
+          message:
+            "クレジット残高が不足しています。Haiku（無料）に切り替えるか、クレジットを追加してください。",
+        }),
+      }),
+    );
+
+    await page.goto("/career");
+    await waitForAuthenticatedLayout(page);
+
+    await page.getByRole("button", { name: "devforge Agent" }).click();
+    await page.getByLabel("モデル").selectOption("sonnet");
+    await page
+      .getByPlaceholder("例: 成果がより伝わる文章にしてください")
+      .fill("改善して");
+    await page.getByRole("button", { name: "送信", exact: true }).click();
+
+    await expect(
+      page.getByText(
+        "クレジット残高が不足しています。Haiku（無料）に切り替えるか、クレジットを追加してください。",
+      ),
+    ).toBeVisible();
+  });
+
   test("LLM 失敗（502）はエラートーストで通知される", async ({ page }) => {
     await page.route("**/api/agent/chat", (route) =>
       route.fulfill({

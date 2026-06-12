@@ -18,6 +18,10 @@ from ..core.messages import get_error
 
 AgentScope = Literal["project", "career_summary", "self_pr", "experience"]
 
+# 選択可能な LLM モデルのエイリアス（ADR-0012）。実モデル ID・課金レートは
+# services/agent/model_catalog.py の MODEL_CATALOG が正本（キー集合を一致させる）
+AgentModelAlias = Literal["haiku", "sonnet"]
+
 
 class AgentTechnologyStack(BaseModel):
     """LLM コンテキスト用の技術スタック（保存契約より緩い）。"""
@@ -105,6 +109,9 @@ class AgentChatRequest(BaseModel):
 
     scope: AgentScope
     prompt: str = Field(min_length=1, max_length=2000)
+    # 使用モデル。haiku は無料・使い放題、sonnet は有料（クレジット消費 / ADR-0012）。
+    # デフォルト haiku で既存クライアントと後方互換
+    model: AgentModelAlias = "haiku"
     resume: AgentResumeContext
     # project は ProjectTarget | ExperienceTarget | None の union（ProjectTarget を先に配置）。
     # ExperienceTarget は extra="forbid" により 3 キー payload がマッチしないため

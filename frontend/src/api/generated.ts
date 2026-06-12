@@ -21,10 +21,73 @@ export interface paths {
          * @description 選択スコープの内容とプロンプトをもとに、職務経歴書への差分 operations を返す。
          *
          *     career_summary / self_pr スコープでは GitHub・ブログ分析サマリーを参照情報として付与する。
-         *     レスポンスはフロントの state にのみ適用され、DB は更新しない。
+         *     レスポンスはフロントの state にのみ適用され、DB は更新しない
+         *     （クレジット消費・使用ログの記録は除く / ADR-0012）。
          *     ユーザーが確認して「適用」した時点で既存の保存 API が呼ばれる。
          */
         post: operations["agent_chat_api_agent_chat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/billing/admin/grant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Grant Credits
+         * @description 管理者がユーザーへクレジットを付与する（Phase 1 の残高調整・テスト用）。
+         *
+         *     ADMIN_TOKEN（Bearer）認証。Stripe 導入後も返金・補填時の残高調整用に残す。
+         */
+        post: operations["admin_grant_credits_api_billing_admin_grant_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/billing/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Credit Balance
+         * @description ログインユーザーのクレジット残高を返す。
+         */
+        get: operations["get_credit_balance_api_billing_balance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/billing/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Credit Transactions
+         * @description クレジット台帳履歴（付与・消費）を新しい順に返す。
+         */
+        get: operations["list_credit_transactions_api_billing_transactions_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -719,12 +782,30 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AdminCreditGrantRequest
+         * @description 管理者によるクレジット付与（Phase 1 の残高調整・テスト用）。
+         */
+        AdminCreditGrantRequest: {
+            /** Amount */
+            amount: number;
+            /** Description */
+            description?: string | null;
+            /** Username */
+            username: string;
+        };
+        /**
          * AgentChatRequest
          * @description Agent チャットのリクエスト。スコープ選択は必須。
          */
         AgentChatRequest: {
             /** History */
             history?: components["schemas"]["AgentHistoryEntry"][];
+            /**
+             * Model
+             * @default haiku
+             * @enum {string}
+             */
+            model: "haiku" | "sonnet";
             /** Prompt */
             prompt: string;
             resume: components["schemas"]["AgentResumeContext"];
@@ -1174,6 +1255,35 @@ export interface components {
              * @description GitHub の濃淡レベル (0–4)
              */
             level: number;
+        };
+        /**
+         * CreditBalanceResponse
+         * @description クレジット残高。
+         */
+        CreditBalanceResponse: {
+            /** Balance */
+            balance: number;
+        };
+        /**
+         * CreditTransactionResponse
+         * @description クレジット台帳エントリ 1 件（履歴表示用）。
+         */
+        CreditTransactionResponse: {
+            /** Amount */
+            amount: number;
+            /** Balance After */
+            balance_after: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Description */
+            description?: string | null;
+            /** Id */
+            id: string;
+            /** Transaction Type */
+            transaction_type: string;
         };
         /** Experience */
         "Experience-Input": {
@@ -1799,6 +1909,81 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_grant_credits_api_billing_admin_grant_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminCreditGrantRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditBalanceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_credit_balance_api_billing_balance_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditBalanceResponse"];
+                };
+            };
+        };
+    };
+    list_credit_transactions_api_billing_transactions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditTransactionResponse"][];
                 };
             };
         };

@@ -47,6 +47,10 @@ export const ERROR_CONFIG: Record<
     message: "AI の応答を解釈できませんでした",
     recovery: { label: "もう一度試す", fn: null },
   },
+  INSUFFICIENT_CREDITS: {
+    message: "クレジット残高が不足しています",
+    recovery: { label: "Haiku（無料）に切り替える", fn: null },
+  },
   RATE_LIMITED: {
     message: "リクエストが集中しています",
     recovery: { label: "少し待って再試行", fn: null },

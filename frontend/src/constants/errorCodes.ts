@@ -30,6 +30,8 @@ export const ERROR_CODES = [
   // Agent（LLM チャット / ADR-0010）
   "AGENT_LLM_ERROR",
   "AGENT_PARSE_ERROR",
+  // 課金（プリペイドクレジット / ADR-0012）
+  "INSUFFICIENT_CREDITS",
   // アプリケーション全体
   "RATE_LIMITED",
   // サーバー

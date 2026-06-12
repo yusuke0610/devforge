@@ -67,6 +67,7 @@ export const FALLBACK_MESSAGES = {
   GITHUB_OAUTH_START: "GitHub OAuth の開始に失敗しました",
   GITHUB_LINK: "連携に失敗しました",
   AGENT_CHAT: "AI への送信に失敗しました",
+  CREDIT_BALANCE: "クレジット残高の取得に失敗しました",
 } as const;
 
 /**
@@ -390,4 +391,17 @@ export const AGENT_MESSAGES = {
   APPLIED_TOAST: "AI の提案をフォームに反映しました。内容を確認して保存してください。",
   EMPTY_STATE: "編集対象を選んで、改善したい内容を AI に依頼してください。反映後も保存するまで DB は変更されません。",
   LOGIN_REQUIRED: "devforge Agent を使うにはログインが必要です。",
+  MODEL_LABEL: "モデル",
+  MODEL_HAIKU: "Haiku（無料）",
+  MODEL_SONNET: "Sonnet（有料・高精度）",
 } as const;
+
+/** クレジット課金（ADR-0012）の UI 文言。 */
+export const BILLING_MESSAGES = {
+  BALANCE_LOADING: "残高を確認中...",
+} as const;
+
+/** クレジット残高の表示文言（sonnet 選択時にウィジェットへ表示）。 */
+export function creditBalanceLabel(balance: number): string {
+  return `残高: ${balance.toLocaleString("ja-JP")} クレジット`;
+}

@@ -141,3 +141,14 @@ export type ProjectTarget = Schemas["ProjectTarget"];
 
 /** experience スコープの対象指定。backend `schemas/agent.py:ExperienceTarget`。 */
 export type ExperienceTarget = Schemas["ExperienceTarget"];
+
+/** 選択可能な LLM モデルのエイリアス。backend `schemas/agent.py:AgentModelAlias`（ADR-0012）。 */
+export type AgentModelAlias = NonNullable<AgentChatRequest["model"]>;
+
+// ── 課金（billing.py / ADR-0012）─────────────────────────────────────────
+
+/** クレジット残高。backend `schemas/billing.py:CreditBalanceResponse`。 */
+export type CreditBalanceResponse = Schemas["CreditBalanceResponse"];
+
+/** クレジット台帳エントリ。backend `schemas/billing.py:CreditTransactionResponse`。 */
+export type CreditTransactionResponse = Schemas["CreditTransactionResponse"];
