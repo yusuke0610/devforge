@@ -430,6 +430,15 @@ export function creditsForChatsLabel(referenceCredits: number, chats: number): s
   )} 回`;
 }
 
+/** 残高・パックの「{モデル名} 約N回」回数アンカー。suffix で「回」「回分」を切替。 */
+export function modelChatsEstimateLabel(
+  modelName: string,
+  chats: number,
+  suffix: "回" | "回分" = "回",
+): string {
+  return `${modelName} 約${chats.toLocaleString("ja-JP")}${suffix}`;
+}
+
 /** クレジット課金（ADR-0012）の UI 文言。 */
 export const BILLING_MESSAGES = {
   BALANCE_LOADING: "残高を確認中...",

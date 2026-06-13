@@ -19,8 +19,9 @@ export type AgentModelOption = {
   costHint: string;
 };
 
-// 「N クレジットで平均M回」の目安に使う基準クレジット量（残高に依存しない比率表示）
-export const CREDIT_ESTIMATE_REFERENCE = 10_000;
+// 「N クレジットで平均M回」の目安に使う基準クレジット量（残高に依存しない比率表示）。
+// 1 クレジット = ¥1 なので 1,000 クレジット = ¥1,000（手に取りやすい基準額）
+export const CREDIT_ESTIMATE_REFERENCE = 1_000;
 
 export const AGENT_MODEL_OPTIONS: readonly AgentModelOption[] = [
   {

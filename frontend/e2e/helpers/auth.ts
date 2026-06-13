@@ -63,6 +63,18 @@ export async function setupAuth(page: Page) {
     }),
   );
 
+  // モデル別の標準消費レートをモック（サイドバー残高バッジ・モーダルが取得する / ADR-0012）
+  await page.route("**/api/billing/model-rates", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        { model: "haiku", is_free: true, baseline_credits_per_chat: 0 },
+        { model: "sonnet", is_free: false, baseline_credits_per_chat: 12 },
+      ]),
+    }),
+  );
+
   // 認証 API をモック（最高優先）
   await page.route("**/auth/me", (route) =>
     route.fulfill({

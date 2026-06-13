@@ -6,6 +6,7 @@ import {
   modelUsageLabel,
 } from "../../constants/messages";
 import { useAgentUsageSummary } from "../../hooks/useAgentUsageSummary";
+import { useModelRates } from "../../hooks/useModelRates";
 import { useAppDispatch, useAppSelector } from "../../store";
 import { setAgentModel } from "../../store/agentModelSlice";
 import { useCreditBalanceContext } from "../billing/creditBalanceContext";
@@ -22,20 +23,26 @@ export function ModelSelectModal({ onClose }: { onClose: () => void }) {
   const dispatch = useAppDispatch();
   const currentModel = useAppSelector((state) => state.agentModel.model);
   const { balance } = useCreditBalanceContext();
-  // モーダルが開いている間だけ利用実績を取得する
+  // モーダルが開いている間だけ利用実績と標準レートを取得する
   const { getUsage } = useAgentUsageSummary(true);
+  const { getBaselineRate } = useModelRates(true);
 
   const select = (alias: AgentModelAlias) => {
     dispatch(setAgentModel(alias));
     onClose();
   };
 
-  /** 基準クレジット（10,000）あたりの平均利用回数の目安。残高には依存しない。
-   * 平均消費 = 累計消費 / 回数。利用実績が無ければ算出しない。 */
-  const estimatePerReference = (creditCost: number, chatCount: number): number | null => {
-    if (chatCount <= 0 || creditCost <= 0) return null;
-    const avgPerChat = creditCost / chatCount;
-    return Math.floor(CREDIT_ESTIMATE_REFERENCE / avgPerChat);
+  /** 基準クレジット（1,000）あたりの平均利用回数の目安。残高には依存しない。
+   * 1 回あたりの消費 = 実績があれば実測平均（累計消費 / 回数）、無ければ標準レート。 */
+  const estimatePerReference = (
+    alias: AgentModelAlias,
+    creditCost: number,
+    chatCount: number,
+  ): number | null => {
+    const perChat =
+      chatCount > 0 && creditCost > 0 ? creditCost / chatCount : getBaselineRate(alias);
+    if (!perChat || perChat <= 0) return null;
+    return Math.floor(CREDIT_ESTIMATE_REFERENCE / perChat);
   };
 
   return (
@@ -67,7 +74,7 @@ export function ModelSelectModal({ onClose }: { onClose: () => void }) {
             const chatCount = usage?.chat_count ?? 0;
             const creditCost = usage?.credit_cost ?? 0;
             const perReference = option.isPaid
-              ? estimatePerReference(creditCost, chatCount)
+              ? estimatePerReference(option.alias, creditCost, chatCount)
               : null;
             return (
               <button

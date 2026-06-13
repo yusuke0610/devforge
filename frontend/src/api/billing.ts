@@ -5,6 +5,7 @@ import type {
   CreditBalanceResponse,
   CreditPackResponse,
   CreditTransactionResponse,
+  ModelRateEntry,
 } from "./types";
 
 /**
@@ -28,4 +29,9 @@ export function getAgentUsageSummary(): Promise<AgentUsageSummaryEntry[]> {
 /** 購入可能なクレジットパック一覧を取得する。 */
 export function getCreditPacks(): Promise<CreditPackResponse[]> {
   return request<CreditPackResponse[]>(PATHS.billing.packs, { method: "GET" });
+}
+
+/** モデル別の標準消費レート（回数目安用）を取得する。 */
+export function getModelRates(): Promise<ModelRateEntry[]> {
+  return request<ModelRateEntry[]>(PATHS.billing.modelRates, { method: "GET" });
 }

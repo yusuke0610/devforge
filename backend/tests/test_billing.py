@@ -12,9 +12,11 @@ from app.repositories import BillingRepository, UserRepository
 from app.schemas.agent import AgentModelAlias
 from app.services.agent import chat_service
 from app.services.agent.model_catalog import (
-    CREDITS_PER_USD,
     MARGIN_MULTIPLIER,
     MODEL_CATALOG,
+    YEN_PER_CREDIT,
+    YEN_PER_USD,
+    baseline_credits_per_chat,
     calculate_credit_cost,
 )
 from app.services.billing import credit_service
@@ -61,11 +63,14 @@ def test_model_catalog_resolves_real_model_ids() -> None:
     assert MODEL_CATALOG["sonnet"].is_free is False
 
 
-def test_credit_rates_include_margin() -> None:
-    """消費レートは API 原価（USD/MTok）× マージン係数で算出される（ADR-0012）。"""
+def test_credit_rates_are_yen_pegged_with_margin() -> None:
+    """消費レートは API 原価（USD/MTok）を円換算しマージンを乗せて算出される（1cr=¥1 / ADR-0012）。"""
     sonnet = MODEL_CATALOG["sonnet"]
-    assert sonnet.input_credits_per_mtok == int(3.0 * CREDITS_PER_USD * MARGIN_MULTIPLIER)
-    assert sonnet.output_credits_per_mtok == int(15.0 * CREDITS_PER_USD * MARGIN_MULTIPLIER)
+    assert sonnet.input_credits_per_mtok == round(3.0 * YEN_PER_USD * MARGIN_MULTIPLIER / YEN_PER_CREDIT)
+    assert sonnet.output_credits_per_mtok == round(15.0 * YEN_PER_USD * MARGIN_MULTIPLIER / YEN_PER_CREDIT)
+    # 1 クレジット = ¥1 なので Sonnet 入力は 675 クレジット/MTok（= $3 × ¥150 × 1.5）
+    assert sonnet.input_credits_per_mtok == 675
+    assert sonnet.output_credits_per_mtok == 3375
 
 
 def test_calculate_credit_cost_free_model_is_zero() -> None:
@@ -75,14 +80,21 @@ def test_calculate_credit_cost_free_model_is_zero() -> None:
 
 def test_calculate_credit_cost_sonnet_exact() -> None:
     """sonnet のコストは入出力レートの合算（クレジット/MTok）から算出される。"""
-    # input: 1000 tok × 45,000/MTok = 45 / output: 1000 tok × 225,000/MTok = 225
-    assert calculate_credit_cost("sonnet", 1000, 1000) == 270
+    # input 1000 tok × 675/MTok = 0.675 / output 1000 tok × 3375/MTok = 3.375 → 計 4.05 → ceil 5
+    assert calculate_credit_cost("sonnet", 1000, 1000) == 5
 
 
 def test_calculate_credit_cost_rounds_up() -> None:
     """端数は切り上げ、課金対象の利用が 0 クレジットにならない。"""
-    # input 1 tok = 45000 / 1e6 = 0.045 → 1 クレジットに切り上げ
+    # input 1 tok = 675 / 1e6 = 0.000675 → 1 クレジットに切り上げ
     assert calculate_credit_cost("sonnet", 1, 0) == 1
+
+
+def test_baseline_credits_per_chat() -> None:
+    """標準的な 1 回の消費（回数目安用）。Sonnet は概算 12 クレジット、Haiku は 0。"""
+    # 10000×675/1e6 + 1500×3375/1e6 = 6.75 + 5.0625 = 11.8125 → ceil 12
+    assert baseline_credits_per_chat("sonnet") == 12
+    assert baseline_credits_per_chat("haiku") == 0
 
 
 def test_grant_credits_rejects_non_positive(db_session) -> None:
@@ -147,16 +159,16 @@ def test_chat_sonnet_consumes_credits(client: TestClient, monkeypatch) -> None:
     assert resp.status_code == 200
     assert fake.received_model_id == "claude-sonnet-4-6"
     repo = BillingRepository(client._db_session, user_id)
-    # コスト: 1000×45,000/MTok + 1000×225,000/MTok = 270
-    assert repo.get_balance() == 10_000 - 270
+    # コスト: 1000×675/MTok + 1000×3375/MTok = 4.05 → ceil 5（1cr=¥1）
+    assert repo.get_balance() == 10_000 - 5
     transactions = repo.list_transactions()
     consumption = [
         t for t in transactions
         if t.transaction_type == credit_service.TRANSACTION_TYPE_CONSUMPTION
     ]
     assert len(consumption) == 1
-    assert consumption[0].amount == -270
-    assert consumption[0].balance_after == 10_000 - 270
+    assert consumption[0].amount == -5
+    assert consumption[0].balance_after == 10_000 - 5
 
 
 def test_chat_sonnet_with_zero_balance_returns_402(client: TestClient, monkeypatch) -> None:
@@ -183,17 +195,18 @@ def test_chat_sonnet_allows_negative_balance(client: TestClient, monkeypatch) ->
     monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
     headers = auth_header(client, "billing-negative")
     user_id = _get_user_id(client, "billing-negative")
+    # 残高 3 で事前チェックは通るが、実コスト 5 が上回り負残高になる
     credit_service.grant_credits(
         client._db_session,
         user_id,
-        10,
+        3,
         transaction_type=credit_service.TRANSACTION_TYPE_ADMIN_GRANT,
     )
 
     resp = client.post("/api/agent/chat", json=_chat_payload("sonnet"), headers=headers)
 
     assert resp.status_code == 200
-    assert BillingRepository(client._db_session, user_id).get_balance() == 10 - 270
+    assert BillingRepository(client._db_session, user_id).get_balance() == 3 - 5
 
 
 def test_chat_sonnet_retry_usage_is_summed(client: TestClient, monkeypatch) -> None:
@@ -217,8 +230,8 @@ def test_chat_sonnet_retry_usage_is_summed(client: TestClient, monkeypatch) -> N
 
     assert resp.status_code == 200
     assert len(fake.calls) == 2
-    # 2 呼び出し合算: (2000×45,000 + 2000×225,000) / 1e6 = 540
-    assert BillingRepository(client._db_session, user_id).get_balance() == 10_000 - 540
+    # 2 呼び出し合算 2000/2000 トークン: (2000×675 + 2000×3375)/1e6 = 8.1 → ceil 9
+    assert BillingRepository(client._db_session, user_id).get_balance() == 10_000 - 9
 
 
 def test_chat_rejects_unknown_model_alias(client: TestClient, monkeypatch) -> None:
@@ -290,8 +303,8 @@ def test_list_transactions_returns_history(client: TestClient, monkeypatch) -> N
     assert types == {"admin_grant", "consumption"}
     # 台帳エントリは金額と適用後残高のスナップショットを持つ
     consumption = next(e for e in body if e["transaction_type"] == "consumption")
-    assert consumption["amount"] == -270
-    assert consumption["balance_after"] == 1_000 - 270
+    assert consumption["amount"] == -5
+    assert consumption["balance_after"] == 1_000 - 5
 
 
 # --- 統合テスト（使用量サマリ） ---
@@ -329,7 +342,7 @@ def test_usage_summary_aggregates_per_model(client: TestClient, monkeypatch) -> 
     assert by_model["haiku"]["output_tokens"] == 400
     assert by_model["haiku"]["credit_cost"] == 0
     assert by_model["sonnet"]["chat_count"] == 1
-    assert by_model["sonnet"]["credit_cost"] == 270
+    assert by_model["sonnet"]["credit_cost"] == 5
 
 
 def test_usage_summary_empty_when_no_usage(client: TestClient) -> None:
@@ -359,7 +372,26 @@ def test_list_credit_packs(client: TestClient) -> None:
     assert ids == ["starter", "standard", "pro"]
     starter = packs[0]
     assert starter["price_jpy"] == 500
-    assert starter["credits"] == 30_000
+    # 1 クレジット = ¥1。スターターは等価
+    assert starter["credits"] == 500
+
+
+def test_list_model_rates(client: TestClient) -> None:
+    """GET /api/billing/model-rates はモデル別の標準消費レートを返す。"""
+    auth_header(client, "billing-rates")
+    resp = client.get("/api/billing/model-rates")
+    assert resp.status_code == 200
+    by_model = {entry["model"]: entry for entry in resp.json()}
+    assert by_model["haiku"]["is_free"] is True
+    assert by_model["haiku"]["baseline_credits_per_chat"] == 0
+    assert by_model["sonnet"]["is_free"] is False
+    assert by_model["sonnet"]["baseline_credits_per_chat"] == 12
+
+
+def test_list_model_rates_requires_auth(client: TestClient) -> None:
+    """未ログインのレート取得は 401。"""
+    resp = client.get("/api/billing/model-rates")
+    assert resp.status_code == 401
 
 
 def test_list_credit_packs_requires_auth(client: TestClient) -> None:

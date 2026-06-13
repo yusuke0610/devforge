@@ -74,6 +74,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/billing/model-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Model Rates
+         * @description モデル別の標準消費レート（回数目安の算出用 / ADR-0012）を返す。
+         *
+         *     フロントは残高・パック・モデルカードを「Sonnet 約N回」に換算するのに使う。
+         *     利用実績のあるユーザーは usage-summary の実測平均を優先し、本値は新規ユーザーの
+         *     フォールバックとして使う。
+         */
+        get: operations["list_model_rates_api_billing_model_rates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/billing/packs": {
         parameters: {
             query?: never;
@@ -1578,6 +1602,21 @@ export interface components {
             sort_order: number;
         };
         /**
+         * ModelRateEntry
+         * @description モデル別の標準消費レート（回数目安の算出用 / ADR-0012）。
+         *
+         *     1 クレジット = ¥1。``baseline_credits_per_chat`` は標準的な 1 回の消費の概算で、
+         *     フロントが残高・パックを「Sonnet 約N回」に換算するのに使う（無料モデルは 0）。
+         */
+        ModelRateEntry: {
+            /** Baseline Credits Per Chat */
+            baseline_credits_per_chat: number;
+            /** Is Free */
+            is_free: boolean;
+            /** Model */
+            model: string;
+        };
+        /**
          * NotificationResponse
          * @description 通知レスポンス。
          */
@@ -2039,6 +2078,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CreditBalanceResponse"];
+                };
+            };
+        };
+    };
+    list_model_rates_api_billing_model_rates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelRateEntry"][];
                 };
             };
         };

@@ -20,9 +20,9 @@ async function setupBillingApi(page: Page) {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify([
-        { id: "starter", name: "スターター", price_jpy: 500, credits: 30000 },
-        { id: "standard", name: "スタンダード", price_jpy: 1000, credits: 65000 },
-        { id: "pro", name: "プロ", price_jpy: 3000, credits: 210000 },
+        { id: "starter", name: "スターター", price_jpy: 500, credits: 500 },
+        { id: "standard", name: "スタンダード", price_jpy: 1000, credits: 1100 },
+        { id: "pro", name: "プロ", price_jpy: 3000, credits: 3500 },
       ]),
     }),
   );
@@ -67,9 +67,10 @@ test("UserMenu からトークン購入画面を開き、残高・パック・�
   const main = page.locator("main");
   await expect(main.getByText("現在の残高")).toBeVisible();
   await expect(main.getByText("12,000")).toBeVisible();
-  // パック
+  // パック（回数アンカー付き。残高12,000 / Sonnet 標準12クレジット → 約1,000回）
   await expect(main.getByText("スターター")).toBeVisible();
   await expect(main.getByText("¥500")).toBeVisible();
+  await expect(main.getByText(/Sonnet 約1,000回/)).toBeVisible();
   // 履歴
   await expect(main.getByText("Agent チャット（sonnet）")).toBeVisible();
 

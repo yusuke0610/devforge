@@ -6,17 +6,23 @@ import { useBillingPage } from "./useBillingPage";
 const getCreditBalanceMock = vi.fn();
 const getCreditPacksMock = vi.fn();
 const getCreditTransactionsMock = vi.fn();
+const getModelRatesMock = vi.fn();
 
 vi.mock("../api/billing", () => ({
   getCreditBalance: () => getCreditBalanceMock(),
   getCreditPacks: () => getCreditPacksMock(),
   getCreditTransactions: () => getCreditTransactionsMock(),
+  getModelRates: () => getModelRatesMock(),
 }));
 
 beforeEach(() => {
   getCreditBalanceMock.mockReset();
   getCreditPacksMock.mockReset();
   getCreditTransactionsMock.mockReset();
+  getModelRatesMock.mockReset();
+  getModelRatesMock.mockResolvedValue([
+    { model: "sonnet", is_free: false, baseline_credits_per_chat: 12 },
+  ]);
 });
 
 describe("useBillingPage", () => {
@@ -44,6 +50,8 @@ describe("useBillingPage", () => {
     expect(result.current.balance).toBe(12000);
     expect(result.current.packs).toHaveLength(1);
     expect(result.current.transactions).toHaveLength(1);
+    // 有料モデル（Sonnet）の標準消費レートも取得する（回数目安に使う）
+    expect(result.current.paidRate).toBe(12);
     expect(result.current.error).toBeNull();
   });
 

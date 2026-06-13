@@ -1,12 +1,18 @@
 .badge {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 2px;
   padding: 0.4rem 0.75rem;
   margin-bottom: 0.4rem;
   font-size: 0.78rem;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--sidebar-border);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .label {
@@ -17,6 +23,12 @@
   font-weight: 600;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
+}
+
+.estimate {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  opacity: 0.8;
 }
 
 .error {

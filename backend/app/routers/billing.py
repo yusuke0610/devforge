@@ -22,7 +22,9 @@ from ..schemas.billing import (
     CreditBalanceResponse,
     CreditPackResponse,
     CreditTransactionResponse,
+    ModelRateEntry,
 )
+from ..services.agent.model_catalog import MODEL_CATALOG, baseline_credits_per_chat
 from ..services.billing import credit_service
 from ..services.billing.pricing import CREDIT_PACKS
 
@@ -63,6 +65,26 @@ def list_credit_packs(
             id=pack.id, name=pack.name, price_jpy=pack.price_jpy, credits=pack.credits
         )
         for pack in CREDIT_PACKS
+    ]
+
+
+@router.get("/model-rates", response_model=list[ModelRateEntry])
+def list_model_rates(
+    _: User = Depends(get_current_user),
+) -> list[ModelRateEntry]:
+    """モデル別の標準消費レート（回数目安の算出用 / ADR-0012）を返す。
+
+    フロントは残高・パック・モデルカードを「Sonnet 約N回」に換算するのに使う。
+    利用実績のあるユーザーは usage-summary の実測平均を優先し、本値は新規ユーザーの
+    フォールバックとして使う。
+    """
+    return [
+        ModelRateEntry(
+            model=alias,
+            is_free=spec.is_free,
+            baseline_credits_per_chat=baseline_credits_per_chat(alias),
+        )
+        for alias, spec in MODEL_CATALOG.items()
     ]
 
 

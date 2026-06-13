@@ -4,8 +4,9 @@
 課金レートは本モジュールでマップする。任意のモデル文字列をクライアントから
 受け付けない（コスト爆発・未検証モデルの注入を防ぐ）。
 
-クレジット単位は「1 クレジット = $0.0001」（USD ペッグ）。消費レートは
-API 原価 × マージン係数で算出する。定数の根拠は ADR-0012 を参照。
+クレジット単位は「1 クレジット = ¥1」（円ペッグ）。消費レートは API 原価（USD）を
+円換算し、マージン係数を乗じて算出する。為替変動は YEN_PER_USD の調整で吸収する。
+定数の根拠は ADR-0012 を参照。
 """
 
 import math
@@ -14,9 +15,11 @@ from typing import get_args
 
 from ...schemas.agent import AgentModelAlias
 
-# 1 USD あたりのクレジット数（1 クレジット = $0.0001）
-CREDITS_PER_USD = 10_000
-# API 原価に乗せるマージン係数（為替・キャッシュ未ヒット・運用コストのバッファ）
+# 1 クレジットあたりの円換算（1 クレジット = ¥1）。クライアント表示の正本
+YEN_PER_CREDIT = 1
+# 円換算に使う想定為替（USD→JPY）。為替変動はここの調整で吸収する
+YEN_PER_USD = 150
+# API 原価に乗せるマージン係数（為替変動・キャッシュ未ヒット・運用コストのバッファ）
 MARGIN_MULTIPLIER = 1.5
 
 # Anthropic API の公表原価（USD / 100 万トークン）。改定時はここだけ直す
@@ -25,10 +28,18 @@ _HAIKU_OUTPUT_USD_PER_MTOK = 5.0
 _SONNET_INPUT_USD_PER_MTOK = 3.0
 _SONNET_OUTPUT_USD_PER_MTOK = 15.0
 
+# 「N クレジットで平均M回」「約N回」の目安に使う標準的な 1 回の消費トークン。
+# Agent はシステムプロンプト + レジュメ + 参照 + 履歴で入力が大きいため、入力多めの
+# 概算を置く。利用実績ゼロの新規ユーザー向けのフォールバック（実消費は
+# agent_usage_logs の実測値で算出。本値は概算で、実データに合わせて調整可）
+BASELINE_INPUT_TOKENS = 10_000
+BASELINE_OUTPUT_TOKENS = 1_500
+
 
 def _credits_per_mtok(usd_per_mtok: float) -> int:
-    """USD/MTok の原価をマージン込みのクレジット/MTok レートに換算する。"""
-    return int(usd_per_mtok * CREDITS_PER_USD * MARGIN_MULTIPLIER)
+    """USD/MTok の原価を、マージン込みのクレジット/MTok レート（円ペッグ）に換算する。"""
+    yen_per_mtok = usd_per_mtok * YEN_PER_USD * MARGIN_MULTIPLIER
+    return round(yen_per_mtok / YEN_PER_CREDIT)
 
 
 @dataclass(frozen=True)
@@ -85,3 +96,12 @@ def calculate_credit_cost(alias: str, input_tokens: int, output_tokens: int) -> 
         + output_tokens * spec.output_credits_per_mtok
     )
     return math.ceil(raw / 1_000_000)
+
+
+def baseline_credits_per_chat(alias: str) -> int:
+    """標準的な 1 回のチャットの消費クレジット（回数目安用 / ADR-0012）。
+
+    利用実績ゼロの新規ユーザーでも「N クレジットで約M回」を出すための概算。
+    無料モデルは 0。
+    """
+    return calculate_credit_cost(alias, BASELINE_INPUT_TOKENS, BASELINE_OUTPUT_TOKENS)

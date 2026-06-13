@@ -1,13 +1,18 @@
+import { getModelOption } from "../../constants/agentModels";
 import {
   BILLING_PAGE_MESSAGES,
   formatCreditAmount,
   formatYen,
+  modelChatsEstimateLabel,
   transactionAmountLabel,
   transactionTypeLabel,
 } from "../../constants/messages";
 import { useBillingPage } from "../../hooks/useBillingPage";
+import { estimateChats, PAID_REFERENCE_MODEL } from "../../utils/creditEstimate";
 import { useToast } from "../ui/toast";
 import styles from "./BillingView.module.css";
+
+const PAID_MODEL_NAME = getModelOption(PAID_REFERENCE_MODEL).name;
 
 /**
  * トークン購入画面（ADR-0012）。残高・購入パック・取引履歴を表示する。
@@ -16,13 +21,15 @@ import styles from "./BillingView.module.css";
  * 表示し、押下時に準備中である旨を通知する（画面は確認できる状態に保つ）。
  */
 export function BillingView() {
-  const { balance, packs, transactions, loading, error } = useBillingPage();
+  const { balance, packs, transactions, paidRate, loading, error } = useBillingPage();
   const { showSuccess } = useToast();
 
   const handlePurchase = () => {
     // Phase 2 で POST /api/billing/checkout → Stripe Checkout へ遷移させる
     showSuccess(BILLING_PAGE_MESSAGES.CHECKOUT_PREPARING);
   };
+
+  const balanceChats = balance !== null ? estimateChats(balance, paidRate) : null;
 
   return (
     <div className={styles.page}>
@@ -34,6 +41,11 @@ export function BillingView() {
             {balance !== null ? formatCreditAmount(balance) : "—"}
             <span className={styles.balanceUnit}>{BILLING_PAGE_MESSAGES.CREDITS_UNIT}</span>
           </span>
+          {balanceChats !== null && (
+            <span className={styles.balanceEstimate}>
+              {modelChatsEstimateLabel(PAID_MODEL_NAME, balanceChats)}
+            </span>
+          )}
         </div>
       </header>
 
@@ -47,21 +59,29 @@ export function BillingView() {
         </div>
         <p className={styles.sectionNote}>{BILLING_PAGE_MESSAGES.PACKS_NOTE}</p>
         <div className={styles.packs}>
-          {packs.map((pack) => (
-            <div key={pack.id} className={styles.packCard}>
-              <span className={styles.packName}>{pack.name}</span>
-              <span className={styles.packCredits}>
-                {formatCreditAmount(pack.credits)}
-                <span className={styles.packCreditsUnit}>
-                  {BILLING_PAGE_MESSAGES.CREDITS_UNIT}
+          {packs.map((pack) => {
+            const packChats = estimateChats(pack.credits, paidRate);
+            return (
+              <div key={pack.id} className={styles.packCard}>
+                <span className={styles.packName}>{pack.name}</span>
+                <span className={styles.packCredits}>
+                  {formatCreditAmount(pack.credits)}
+                  <span className={styles.packCreditsUnit}>
+                    {BILLING_PAGE_MESSAGES.CREDITS_UNIT}
+                  </span>
                 </span>
-              </span>
-              <span className={styles.packPrice}>{formatYen(pack.price_jpy)}</span>
-              <button type="button" className={styles.purchaseButton} onClick={handlePurchase}>
-                {BILLING_PAGE_MESSAGES.PURCHASE_BUTTON}
-              </button>
-            </div>
-          ))}
+                {packChats !== null && (
+                  <span className={styles.packEstimate}>
+                    {modelChatsEstimateLabel(PAID_MODEL_NAME, packChats, "回分")}
+                  </span>
+                )}
+                <span className={styles.packPrice}>{formatYen(pack.price_jpy)}</span>
+                <button type="button" className={styles.purchaseButton} onClick={handlePurchase}>
+                  {BILLING_PAGE_MESSAGES.PURCHASE_BUTTON}
+                </button>
+              </div>
+            );
+          })}
         </div>
       </section>
 

@@ -12,10 +12,17 @@ import {
 import { ModelSelectModal } from "./ModelSelectModal";
 
 const getAgentUsageSummaryMock = vi.fn();
+const getModelRatesMock = vi.fn();
 
 vi.mock("../../api/billing", () => ({
   getAgentUsageSummary: (...args: unknown[]) => getAgentUsageSummaryMock(...args),
+  getModelRates: (...args: unknown[]) => getModelRatesMock(...args),
 }));
+
+const DEFAULT_RATES = [
+  { model: "haiku", is_free: true, baseline_credits_per_chat: 0 },
+  { model: "sonnet", is_free: false, baseline_credits_per_chat: 12 },
+];
 
 type Store = ReturnType<typeof makeStore>;
 
@@ -33,6 +40,7 @@ function renderModal(opts: {
   usage?: { model: string; chat_count: number; input_tokens: number; output_tokens: number; credit_cost: number }[];
 }) {
   getAgentUsageSummaryMock.mockResolvedValue(opts.usage ?? []);
+  getModelRatesMock.mockResolvedValue(DEFAULT_RATES);
   const store = opts.store ?? makeStore();
   const balanceValue: CreditBalanceContextValue = {
     balance: opts.balance ?? null,
@@ -52,6 +60,8 @@ function renderModal(opts: {
 beforeEach(() => {
   getAgentUsageSummaryMock.mockReset();
   getAgentUsageSummaryMock.mockResolvedValue([]);
+  getModelRatesMock.mockReset();
+  getModelRatesMock.mockResolvedValue(DEFAULT_RATES);
 });
 
 describe("ModelSelectModal", () => {
@@ -92,28 +102,40 @@ describe("ModelSelectModal", () => {
     expect(within(sonnetCard).queryByText(/残高が不足/)).toBeNull();
   });
 
-  it("利用実績があると利用回数と『10,000クレジットで平均N回』の目安を表示する", async () => {
+  it("利用実績があると実測平均から『1,000クレジットで平均N回』を表示する", async () => {
     renderModal({
       balance: 2700,
       usage: [
-        { model: "sonnet", chat_count: 4, input_tokens: 4000, output_tokens: 4000, credit_cost: 1080 },
+        { model: "sonnet", chat_count: 4, input_tokens: 4000, output_tokens: 4000, credit_cost: 20 },
       ],
     });
 
     const sonnetCard = screen.getByRole("button", { name: /^Sonnet/ });
-    // これまで 4 回・約 1,080 クレジット消費
+    // これまで 4 回・約 20 クレジット消費（実測平均 5/回）
     await waitFor(() => {
       expect(within(sonnetCard).getByText(/これまで 4 回/)).toBeTruthy();
     });
-    // 平均 270/回 → 10,000 クレジットで平均 37 回（残高には依存しない）
-    expect(within(sonnetCard).getByText(/10,000 クレジットで平均 37 回/)).toBeTruthy();
+    // 平均 5/回 → 1,000 クレジットで平均 200 回（残高には依存しない）
+    expect(within(sonnetCard).getByText(/1,000 クレジットで平均 200 回/)).toBeTruthy();
   });
 
-  it("利用実績が無いカードは『まだ利用していません』を表示する", async () => {
+  it("利用実績が無くてもベースラインレートで平均回数を出す", async () => {
+    // usage 空・rates baseline sonnet=12 → 1,000 / 12 = 83
+    renderModal({ balance: 1000 });
+    const sonnetCard = screen.getByRole("button", { name: /^Sonnet/ });
+    await waitFor(() => {
+      expect(within(sonnetCard).getByText(/1,000 クレジットで平均 83 回/)).toBeTruthy();
+    });
+    // 利用実績のテキストは「まだ利用していません」
+    expect(within(sonnetCard).getByText("まだ利用していません")).toBeTruthy();
+  });
+
+  it("無料モデル（Haiku）には回数目安を出さない", async () => {
     renderModal({ balance: 1000 });
     const haikuCard = screen.getByRole("button", { name: /^Haiku/ });
     await waitFor(() => {
       expect(within(haikuCard).getByText("まだ利用していません")).toBeTruthy();
     });
+    expect(within(haikuCard).queryByText(/クレジットで平均/)).toBeNull();
   });
 });

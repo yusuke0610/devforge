@@ -35,6 +35,18 @@ class CreditPackResponse(BaseModel):
     credits: int
 
 
+class ModelRateEntry(BaseModel):
+    """モデル別の標準消費レート（回数目安の算出用 / ADR-0012）。
+
+    1 クレジット = ¥1。``baseline_credits_per_chat`` は標準的な 1 回の消費の概算で、
+    フロントが残高・パックを「Sonnet 約N回」に換算するのに使う（無料モデルは 0）。
+    """
+
+    model: str
+    is_free: bool
+    baseline_credits_per_chat: int
+
+
 class AgentUsageSummaryEntry(BaseModel):
     """モデル別の使用量サマリ 1 件（モデル選択モーダルの利用実績表示用 / ADR-0012）。"""
 

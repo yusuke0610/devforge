@@ -48,6 +48,11 @@
   color: var(--text-secondary);
 }
 
+.balanceEstimate {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
 .error {
   color: var(--warning-text);
   font-size: 0.85rem;
@@ -123,6 +128,11 @@
   margin-left: 0.25rem;
   font-size: 0.75rem;
   font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.packEstimate {
+  font-size: 0.75rem;
   color: var(--text-secondary);
 }
 

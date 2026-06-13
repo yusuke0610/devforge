@@ -158,3 +158,6 @@ export type AgentUsageSummaryEntry = Schemas["AgentUsageSummaryEntry"];
 
 /** 購入可能なクレジットパック。backend `schemas/billing.py:CreditPackResponse`。 */
 export type CreditPackResponse = Schemas["CreditPackResponse"];
+
+/** モデル別の標準消費レート（回数目安用）。backend `schemas/billing.py:ModelRateEntry`。 */
+export type ModelRateEntry = Schemas["ModelRateEntry"];

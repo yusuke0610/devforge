@@ -21,11 +21,12 @@ class CreditPack:
     credits: int
 
 
-# 目安: Sonnet 1 回 ≒ 270 クレジット。スタンダード以上はボーナス分を上乗せ
+# 1 クレジット = ¥1（ADR-0012）。スターターは等価、スタンダード以上はボーナス上乗せ。
+# 目安: Sonnet 1 回 ≒ 9 クレジット（standard 1,100 クレジット ≒ 120 回）
 CREDIT_PACKS: list[CreditPack] = [
-    CreditPack(id="starter", name="スターター", price_jpy=500, credits=30_000),
-    CreditPack(id="standard", name="スタンダード", price_jpy=1_000, credits=65_000),
-    CreditPack(id="pro", name="プロ", price_jpy=3_000, credits=210_000),
+    CreditPack(id="starter", name="スターター", price_jpy=500, credits=500),
+    CreditPack(id="standard", name="スタンダード", price_jpy=1_000, credits=1_100),
+    CreditPack(id="pro", name="プロ", price_jpy=3_000, credits=3_500),
 ]
 
 _PACKS_BY_ID = {pack.id: pack for pack in CREDIT_PACKS}
