@@ -18,6 +18,7 @@ from ..models import User
 from ..repositories import BillingRepository, UserRepository
 from ..schemas.billing import (
     AdminCreditGrantRequest,
+    AgentUsageSummaryEntry,
     CreditBalanceResponse,
     CreditTransactionResponse,
 )
@@ -45,6 +46,29 @@ def list_credit_transactions(
     """クレジット台帳履歴（付与・消費）を新しい順に返す。"""
     transactions = BillingRepository(db, user.id).list_transactions()
     return [CreditTransactionResponse.model_validate(t) for t in transactions]
+
+
+@router.get("/usage-summary", response_model=list[AgentUsageSummaryEntry])
+def get_usage_summary(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[AgentUsageSummaryEntry]:
+    """モデル別の使用量サマリ（チャット回数・トークン・消費クレジット）を返す。
+
+    モデル選択モーダルで「あなたの利用実績」を表示するために使う。残りチャット回数の
+    目安は残高と組み合わせてフロントで算出する。
+    """
+    rows = BillingRepository(db, user.id).usage_summary()
+    return [
+        AgentUsageSummaryEntry(
+            model=row.model_alias,
+            chat_count=row.chat_count,
+            input_tokens=row.input_tokens,
+            output_tokens=row.output_tokens,
+            credit_cost=row.credit_cost,
+        )
+        for row in rows
+    ]
 
 
 @router.post("/admin/grant", response_model=CreditBalanceResponse)

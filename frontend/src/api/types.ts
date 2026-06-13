@@ -152,3 +152,6 @@ export type CreditBalanceResponse = Schemas["CreditBalanceResponse"];
 
 /** クレジット台帳エントリ。backend `schemas/billing.py:CreditTransactionResponse`。 */
 export type CreditTransactionResponse = Schemas["CreditTransactionResponse"];
+
+/** モデル別の使用量サマリ。backend `schemas/billing.py:AgentUsageSummaryEntry`。 */
+export type AgentUsageSummaryEntry = Schemas["AgentUsageSummaryEntry"];

@@ -54,6 +54,15 @@ export async function setupAuth(page: Page) {
     }),
   );
 
+  // モデル別使用量サマリをモック（モデル選択モーダルが開くと取得する / ADR-0012。デフォルト: 空）
+  await page.route("**/api/billing/usage-summary", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    }),
+  );
+
   // 認証 API をモック（最高優先）
   await page.route("**/auth/me", (route) =>
     route.fulfill({

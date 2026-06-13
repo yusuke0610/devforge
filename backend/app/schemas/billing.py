@@ -26,6 +26,18 @@ class CreditTransactionResponse(BaseModel):
     created_at: datetime
 
 
+class AgentUsageSummaryEntry(BaseModel):
+    """モデル別の使用量サマリ 1 件（モデル選択モーダルの利用実績表示用 / ADR-0012）。"""
+
+    # model_catalog.py のエイリアス（haiku / sonnet）
+    model: str
+    chat_count: int
+    input_tokens: int
+    output_tokens: int
+    # 消費クレジット合計（無料モデルは 0）
+    credit_cost: int
+
+
 class AdminCreditGrantRequest(BaseModel):
     """管理者によるクレジット付与（Phase 1 の残高調整・テスト用）。"""
 

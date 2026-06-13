@@ -33,6 +33,7 @@ export const PATHS = {
   billing: {
     balance: "/api/billing/balance",
     transactions: "/api/billing/transactions",
+    usageSummary: "/api/billing/usage-summary",
   },
   resumes: {
     base: "/api/resumes",

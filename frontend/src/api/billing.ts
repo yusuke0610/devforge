@@ -1,6 +1,10 @@
 import { request } from "./client";
 import { PATHS } from "./paths";
-import type { CreditBalanceResponse, CreditTransactionResponse } from "./types";
+import type {
+  AgentUsageSummaryEntry,
+  CreditBalanceResponse,
+  CreditTransactionResponse,
+} from "./types";
 
 /**
  * クレジット残高を取得する（ADR-0012）。
@@ -13,4 +17,9 @@ export function getCreditBalance(): Promise<CreditBalanceResponse> {
 /** クレジット台帳履歴（付与・消費）を新しい順に取得する。 */
 export function getCreditTransactions(): Promise<CreditTransactionResponse[]> {
   return request<CreditTransactionResponse[]>(PATHS.billing.transactions, { method: "GET" });
+}
+
+/** モデル別の使用量サマリ（チャット回数・トークン・消費クレジット）を取得する。 */
+export function getAgentUsageSummary(): Promise<AgentUsageSummaryEntry[]> {
+  return request<AgentUsageSummaryEntry[]>(PATHS.billing.usageSummary, { method: "GET" });
 }

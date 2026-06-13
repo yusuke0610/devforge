@@ -68,6 +68,7 @@ export const FALLBACK_MESSAGES = {
   GITHUB_LINK: "連携に失敗しました",
   AGENT_CHAT: "AI への送信に失敗しました",
   CREDIT_BALANCE: "クレジット残高の取得に失敗しました",
+  USAGE_SUMMARY: "利用状況の取得に失敗しました",
 } as const;
 
 /**
@@ -404,12 +405,28 @@ export const AGENT_MODEL_MESSAGES = {
   CURRENT_BADGE: "選択中",
   FREE_BADGE: "無料",
   PAID_BADGE: "有料",
-  INSUFFICIENT_HINT: "残高が不足しています。チャージするか Haiku をご利用ください。",
+  // 課金（チャージ）導線はここに混ぜず、購入は専用サーフェスに分離する（ADR-0012）
+  INSUFFICIENT_HINT: "残高が不足しています。Haiku をご利用ください。",
+  USAGE_NONE: "まだ利用していません",
   HAIKU_TAGLINE: "高速・標準精度。無料で使い放題。",
   HAIKU_COST: "消費クレジット: なし",
   SONNET_TAGLINE: "高精度。重要な仕上げや複雑な依頼に。",
   SONNET_COST: "消費クレジット: 利用したトークン量に応じて",
 } as const;
+
+/** モデルカードの利用実績ラベル（これまでの回数・消費クレジット）。 */
+export function modelUsageLabel(chatCount: number, creditCost: number): string {
+  const count = chatCount.toLocaleString("ja-JP");
+  if (creditCost > 0) {
+    return `これまで ${count} 回・約 ${creditCost.toLocaleString("ja-JP")} クレジット消費`;
+  }
+  return `これまで ${count} 回利用`;
+}
+
+/** 残高で実行できる有料チャットの残回数目安ラベル。 */
+export function remainingChatsLabel(remaining: number): string {
+  return `残高であと約 ${remaining.toLocaleString("ja-JP")} 回`;
+}
 
 /** クレジット課金（ADR-0012）の UI 文言。 */
 export const BILLING_MESSAGES = {

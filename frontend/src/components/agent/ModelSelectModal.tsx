@@ -1,6 +1,11 @@
 import type { AgentModelAlias } from "../../api/types";
 import { AGENT_MODEL_OPTIONS } from "../../constants/agentModels";
-import { AGENT_MODEL_MESSAGES } from "../../constants/messages";
+import {
+  AGENT_MODEL_MESSAGES,
+  modelUsageLabel,
+  remainingChatsLabel,
+} from "../../constants/messages";
+import { useAgentUsageSummary } from "../../hooks/useAgentUsageSummary";
 import { useAppDispatch, useAppSelector } from "../../store";
 import { setAgentModel } from "../../store/agentModelSlice";
 import { useCreditBalanceContext } from "../billing/creditBalanceContext";
@@ -17,10 +22,19 @@ export function ModelSelectModal({ onClose }: { onClose: () => void }) {
   const dispatch = useAppDispatch();
   const currentModel = useAppSelector((state) => state.agentModel.model);
   const { balance } = useCreditBalanceContext();
+  // モーダルが開いている間だけ利用実績を取得する
+  const { getUsage } = useAgentUsageSummary(true);
 
   const select = (alias: AgentModelAlias) => {
     dispatch(setAgentModel(alias));
     onClose();
+  };
+
+  /** 有料モデルの残回数目安（平均消費 = 累計消費 / 回数 と残高から算出）。 */
+  const estimateRemaining = (creditCost: number, chatCount: number): number | null => {
+    if (balance === null || chatCount <= 0 || creditCost <= 0) return null;
+    const avgPerChat = creditCost / chatCount;
+    return Math.floor(balance / avgPerChat);
   };
 
   return (
@@ -48,6 +62,12 @@ export function ModelSelectModal({ onClose }: { onClose: () => void }) {
           {AGENT_MODEL_OPTIONS.map((option) => {
             const isCurrent = option.alias === currentModel;
             const insufficient = option.isPaid && (balance ?? 0) <= 0;
+            const usage = getUsage(option.alias);
+            const chatCount = usage?.chat_count ?? 0;
+            const creditCost = usage?.credit_cost ?? 0;
+            const remaining = option.isPaid
+              ? estimateRemaining(creditCost, chatCount)
+              : null;
             return (
               <button
                 key={option.alias}
@@ -71,6 +91,12 @@ export function ModelSelectModal({ onClose }: { onClose: () => void }) {
                 </div>
                 <p className={styles.cardTagline}>{option.tagline}</p>
                 <p className={styles.cardCost}>{option.costHint}</p>
+                <p className={styles.cardUsage}>
+                  {chatCount > 0
+                    ? modelUsageLabel(chatCount, creditCost)
+                    : AGENT_MODEL_MESSAGES.USAGE_NONE}
+                  {remaining !== null && <span>・{remainingChatsLabel(remaining)}</span>}
+                </p>
                 {insufficient && (
                   <p className={styles.insufficient}>{AGENT_MODEL_MESSAGES.INSUFFICIENT_HINT}</p>
                 )}

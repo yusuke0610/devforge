@@ -6,7 +6,8 @@
 分散ロックは持たない。
 """
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
+from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session
 
 from ..models.billing import AgentUsageLog, CreditTransaction
@@ -89,3 +90,21 @@ class BillingRepository:
             .limit(limit)
         )
         return list(self.db.scalars(stmt).all())
+
+    def usage_summary(self) -> list[Row]:
+        """使用ログをモデル別に集計し、(model_alias, chat_count, input/output tokens,
+        credit_cost) の行を返す。利用実績のないモデルは行に現れない
+        （表示側がモデル一覧の正本を持ち、0 件は表示側で補う / ADR-0012）。
+        """
+        stmt = (
+            select(
+                AgentUsageLog.model_alias.label("model_alias"),
+                func.count().label("chat_count"),
+                func.coalesce(func.sum(AgentUsageLog.input_tokens), 0).label("input_tokens"),
+                func.coalesce(func.sum(AgentUsageLog.output_tokens), 0).label("output_tokens"),
+                func.coalesce(func.sum(AgentUsageLog.credit_cost), 0).label("credit_cost"),
+            )
+            .where(AgentUsageLog.user_id == self.user_id)
+            .group_by(AgentUsageLog.model_alias)
+        )
+        return list(self.db.execute(stmt).all())

@@ -94,6 +94,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/billing/usage-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Usage Summary
+         * @description モデル別の使用量サマリ（チャット回数・トークン・消費クレジット）を返す。
+         *
+         *     モデル選択モーダルで「あなたの利用実績」を表示するために使う。残りチャット回数の
+         *     目安は残高と組み合わせてフロントで算出する。
+         */
+        get: operations["get_usage_summary_api_billing_usage_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/blog/accounts": {
         parameters: {
             query?: never;
@@ -971,6 +994,22 @@ export interface components {
              * @default
              */
             name: string;
+        };
+        /**
+         * AgentUsageSummaryEntry
+         * @description モデル別の使用量サマリ 1 件（モデル選択モーダルの利用実績表示用 / ADR-0012）。
+         */
+        AgentUsageSummaryEntry: {
+            /** Chat Count */
+            chat_count: number;
+            /** Credit Cost */
+            credit_cost: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Model */
+            model: string;
+            /** Output Tokens */
+            output_tokens: number;
         };
         /**
          * BlogAccountCreate
@@ -1984,6 +2023,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CreditTransactionResponse"][];
+                };
+            };
+        };
+    };
+    get_usage_summary_api_billing_usage_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentUsageSummaryEntry"][];
                 };
             };
         };

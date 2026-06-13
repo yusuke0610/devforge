@@ -294,6 +294,58 @@ def test_list_transactions_returns_history(client: TestClient, monkeypatch) -> N
     assert consumption["balance_after"] == 1_000 - 270
 
 
+# --- 統合テスト（使用量サマリ） ---
+
+
+def test_usage_summary_aggregates_per_model(client: TestClient, monkeypatch) -> None:
+    """GET /api/billing/usage-summary はモデル別にチャット回数・トークン・消費を集計する。"""
+    headers = auth_header(client, "billing-usage")
+    user_id = _get_user_id(client, "billing-usage")
+    credit_service.grant_credits(
+        client._db_session,
+        user_id,
+        10_000,
+        transaction_type=credit_service.TRANSACTION_TYPE_ADMIN_GRANT,
+    )
+    # haiku 2 回（無料）・sonnet 1 回（有料）
+    haiku = _FakeLLM(
+        response=_llm_json("self_pr", "提案"), input_tokens=500, output_tokens=200
+    )
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda: haiku)
+    client.post("/api/agent/chat", json=_chat_payload(), headers=headers)
+    client.post("/api/agent/chat", json=_chat_payload(), headers=headers)
+    sonnet = _FakeLLM(
+        response=_llm_json("self_pr", "提案"), input_tokens=1000, output_tokens=1000
+    )
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda: sonnet)
+    client.post("/api/agent/chat", json=_chat_payload("sonnet"), headers=headers)
+
+    resp = client.get("/api/billing/usage-summary")
+
+    assert resp.status_code == 200
+    by_model = {entry["model"]: entry for entry in resp.json()}
+    assert by_model["haiku"]["chat_count"] == 2
+    assert by_model["haiku"]["input_tokens"] == 1000
+    assert by_model["haiku"]["output_tokens"] == 400
+    assert by_model["haiku"]["credit_cost"] == 0
+    assert by_model["sonnet"]["chat_count"] == 1
+    assert by_model["sonnet"]["credit_cost"] == 270
+
+
+def test_usage_summary_empty_when_no_usage(client: TestClient) -> None:
+    """利用実績が無ければ空配列（モデル一覧の補完は表示側が担う）。"""
+    auth_header(client, "billing-no-usage")
+    resp = client.get("/api/billing/usage-summary")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_usage_summary_requires_auth(client: TestClient) -> None:
+    """未ログインの使用量サマリ取得は 401。"""
+    resp = client.get("/api/billing/usage-summary")
+    assert resp.status_code == 401
+
+
 # --- 統合テスト（管理者付与） ---
 
 
