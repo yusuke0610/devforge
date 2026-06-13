@@ -3,6 +3,7 @@ import { PATHS } from "./paths";
 import type {
   AgentUsageSummaryEntry,
   CreditBalanceResponse,
+  CreditPackResponse,
   CreditTransactionResponse,
 } from "./types";
 
@@ -22,4 +23,9 @@ export function getCreditTransactions(): Promise<CreditTransactionResponse[]> {
 /** モデル別の使用量サマリ（チャット回数・トークン・消費クレジット）を取得する。 */
 export function getAgentUsageSummary(): Promise<AgentUsageSummaryEntry[]> {
   return request<AgentUsageSummaryEntry[]>(PATHS.billing.usageSummary, { method: "GET" });
+}
+
+/** 購入可能なクレジットパック一覧を取得する。 */
+export function getCreditPacks(): Promise<CreditPackResponse[]> {
+  return request<CreditPackResponse[]>(PATHS.billing.packs, { method: "GET" });
 }

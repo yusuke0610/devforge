@@ -423,9 +423,11 @@ export function modelUsageLabel(chatCount: number, creditCost: number): string {
   return `これまで ${count} 回利用`;
 }
 
-/** 残高で実行できる有料チャットの残回数目安ラベル。 */
-export function remainingChatsLabel(remaining: number): string {
-  return `残高であと約 ${remaining.toLocaleString("ja-JP")} 回`;
+/** 一定クレジットあたりの平均利用回数の目安ラベル（残高に依存しない比率表示）。 */
+export function creditsForChatsLabel(referenceCredits: number, chats: number): string {
+  return `${referenceCredits.toLocaleString("ja-JP")} クレジットで平均 ${chats.toLocaleString(
+    "ja-JP",
+  )} 回`;
 }
 
 /** クレジット課金（ADR-0012）の UI 文言。 */
@@ -437,4 +439,41 @@ export const BILLING_MESSAGES = {
 /** クレジット残高の数値を 3 桁区切りで整形する（単位ラベルは別途付与）。 */
 export function formatCreditAmount(balance: number): string {
   return balance.toLocaleString("ja-JP");
+}
+
+/** トークン購入画面（ADR-0012）の UI 文言。 */
+export const BILLING_PAGE_MESSAGES = {
+  TITLE: "クレジット",
+  MENU_ITEM: "クレジットを購入",
+  BALANCE_LABEL: "現在の残高",
+  CREDITS_UNIT: "クレジット",
+  PACKS_TITLE: "クレジットを購入",
+  PACKS_NOTE: "Sonnet など有料モデルの利用に使えます。Haiku は無料で使い放題です。",
+  PURCHASE_BUTTON: "購入する",
+  CHECKOUT_PREPARING: "クレジット購入（Stripe 決済）は現在準備中です。",
+  PREPARING_BADGE: "準備中",
+  HISTORY_TITLE: "利用・購入履歴",
+  HISTORY_EMPTY: "まだ履歴はありません。",
+  LOADING: "読み込み中...",
+  TYPE_PURCHASE: "購入",
+  TYPE_CONSUMPTION: "消費",
+  TYPE_ADMIN_GRANT: "付与",
+} as const;
+
+/** 金額を日本円表記に整形する。 */
+export function formatYen(amount: number): string {
+  return `¥${amount.toLocaleString("ja-JP")}`;
+}
+
+/** 台帳の種別コードを表示ラベルに変換する。 */
+export function transactionTypeLabel(type: string): string {
+  if (type === "purchase") return BILLING_PAGE_MESSAGES.TYPE_PURCHASE;
+  if (type === "consumption") return BILLING_PAGE_MESSAGES.TYPE_CONSUMPTION;
+  return BILLING_PAGE_MESSAGES.TYPE_ADMIN_GRANT;
+}
+
+/** 台帳の符号付き増減量を表示文字列に整形する（付与/購入は +、消費は -）。 */
+export function transactionAmountLabel(amount: number): string {
+  const sign = amount > 0 ? "+" : "";
+  return `${sign}${amount.toLocaleString("ja-JP")}`;
 }

@@ -20,9 +20,11 @@ from ..schemas.billing import (
     AdminCreditGrantRequest,
     AgentUsageSummaryEntry,
     CreditBalanceResponse,
+    CreditPackResponse,
     CreditTransactionResponse,
 )
 from ..services.billing import credit_service
+from ..services.billing.pricing import CREDIT_PACKS
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +48,22 @@ def list_credit_transactions(
     """クレジット台帳履歴（付与・消費）を新しい順に返す。"""
     transactions = BillingRepository(db, user.id).list_transactions()
     return [CreditTransactionResponse.model_validate(t) for t in transactions]
+
+
+@router.get("/packs", response_model=list[CreditPackResponse])
+def list_credit_packs(
+    _: User = Depends(get_current_user),
+) -> list[CreditPackResponse]:
+    """購入可能なクレジットパック一覧を返す（トークン購入画面用 / ADR-0012）。
+
+    価格・付与クレジットの正本は services/billing/pricing.py。
+    """
+    return [
+        CreditPackResponse(
+            id=pack.id, name=pack.name, price_jpy=pack.price_jpy, credits=pack.credits
+        )
+        for pack in CREDIT_PACKS
+    ]
 
 
 @router.get("/usage-summary", response_model=list[AgentUsageSummaryEntry])

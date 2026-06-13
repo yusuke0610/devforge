@@ -26,6 +26,15 @@ class CreditTransactionResponse(BaseModel):
     created_at: datetime
 
 
+class CreditPackResponse(BaseModel):
+    """購入可能なクレジットパック 1 種（トークン購入画面用 / ADR-0012）。"""
+
+    id: str
+    name: str
+    price_jpy: int
+    credits: int
+
+
 class AgentUsageSummaryEntry(BaseModel):
     """モデル別の使用量サマリ 1 件（モデル選択モーダルの利用実績表示用 / ADR-0012）。"""
 

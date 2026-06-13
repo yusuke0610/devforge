@@ -346,6 +346,28 @@ def test_usage_summary_requires_auth(client: TestClient) -> None:
     assert resp.status_code == 401
 
 
+# --- 統合テスト（クレジットパック） ---
+
+
+def test_list_credit_packs(client: TestClient) -> None:
+    """GET /api/billing/packs は pricing.py のパック一覧を返す。"""
+    auth_header(client, "billing-packs")
+    resp = client.get("/api/billing/packs")
+    assert resp.status_code == 200
+    packs = resp.json()
+    ids = [p["id"] for p in packs]
+    assert ids == ["starter", "standard", "pro"]
+    starter = packs[0]
+    assert starter["price_jpy"] == 500
+    assert starter["credits"] == 30_000
+
+
+def test_list_credit_packs_requires_auth(client: TestClient) -> None:
+    """未ログインのパック一覧取得は 401。"""
+    resp = client.get("/api/billing/packs")
+    assert resp.status_code == 401
+
+
 # --- 統合テスト（管理者付与） ---
 
 

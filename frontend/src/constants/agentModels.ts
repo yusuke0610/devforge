@@ -19,6 +19,9 @@ export type AgentModelOption = {
   costHint: string;
 };
 
+// 「N クレジットで平均M回」の目安に使う基準クレジット量（残高に依存しない比率表示）
+export const CREDIT_ESTIMATE_REFERENCE = 10_000;
+
 export const AGENT_MODEL_OPTIONS: readonly AgentModelOption[] = [
   {
     alias: "haiku",

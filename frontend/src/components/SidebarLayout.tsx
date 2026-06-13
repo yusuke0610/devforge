@@ -203,6 +203,7 @@ export function SidebarLayout({
               onLogout={onLogout}
               onLogin={handleLogin}
               onOpenModelSelect={isAuthenticated ? () => setModelSelectOpen(true) : undefined}
+              onOpenBilling={isAuthenticated ? () => navigate("/billing") : undefined}
             />
           </div>
         </aside>

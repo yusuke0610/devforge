@@ -7,6 +7,7 @@ import { PrivateRoute, PublicRoute, type AuthUser } from "./guards";
 import CareerPage from "../pages/CareerPage";
 import GitHubLinkPage from "../pages/GitHubLinkPage";
 import BlogPage from "../pages/BlogPage";
+import BillingPage from "../pages/BillingPage";
 import GitHubCallbackPage from "../pages/GitHubCallbackPage";
 import LoginPage from "../pages/LoginPage";
 import NotFoundPage from "../pages/NotFoundPage";
@@ -101,6 +102,7 @@ export default function AppRoutes({
         >
           <Route path="/github_link" element={<GitHubLinkPage />} />
           <Route path="/blog" element={<BlogPage />} />
+          <Route path="/billing" element={<BillingPage />} />
         </Route>
       </Route>
 

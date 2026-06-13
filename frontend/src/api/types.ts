@@ -155,3 +155,6 @@ export type CreditTransactionResponse = Schemas["CreditTransactionResponse"];
 
 /** モデル別の使用量サマリ。backend `schemas/billing.py:AgentUsageSummaryEntry`。 */
 export type AgentUsageSummaryEntry = Schemas["AgentUsageSummaryEntry"];
+
+/** 購入可能なクレジットパック。backend `schemas/billing.py:CreditPackResponse`。 */
+export type CreditPackResponse = Schemas["CreditPackResponse"];

@@ -92,7 +92,7 @@ describe("ModelSelectModal", () => {
     expect(within(sonnetCard).queryByText(/残高が不足/)).toBeNull();
   });
 
-  it("利用実績があるとカードに利用回数・消費クレジットと残回数目安を表示する", async () => {
+  it("利用実績があると利用回数と『10,000クレジットで平均N回』の目安を表示する", async () => {
     renderModal({
       balance: 2700,
       usage: [
@@ -105,8 +105,8 @@ describe("ModelSelectModal", () => {
     await waitFor(() => {
       expect(within(sonnetCard).getByText(/これまで 4 回/)).toBeTruthy();
     });
-    // 平均 270/回・残高 2700 → あと約 10 回
-    expect(within(sonnetCard).getByText(/あと約 10 回/)).toBeTruthy();
+    // 平均 270/回 → 10,000 クレジットで平均 37 回（残高には依存しない）
+    expect(within(sonnetCard).getByText(/10,000 クレジットで平均 37 回/)).toBeTruthy();
   });
 
   it("利用実績が無いカードは『まだ利用していません』を表示する", async () => {

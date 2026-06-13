@@ -74,6 +74,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/billing/packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Credit Packs
+         * @description 購入可能なクレジットパック一覧を返す（トークン購入画面用 / ADR-0012）。
+         *
+         *     価格・付与クレジットの正本は services/billing/pricing.py。
+         */
+        get: operations["list_credit_packs_api_billing_packs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/billing/transactions": {
         parameters: {
             query?: never;
@@ -1304,6 +1326,20 @@ export interface components {
             balance: number;
         };
         /**
+         * CreditPackResponse
+         * @description 購入可能なクレジットパック 1 種（トークン購入画面用 / ADR-0012）。
+         */
+        CreditPackResponse: {
+            /** Credits */
+            credits: number;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Price Jpy */
+            price_jpy: number;
+        };
+        /**
          * CreditTransactionResponse
          * @description クレジット台帳エントリ 1 件（履歴表示用）。
          */
@@ -2003,6 +2039,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CreditBalanceResponse"];
+                };
+            };
+        };
+    };
+    list_credit_packs_api_billing_packs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditPackResponse"][];
                 };
             };
         };

@@ -1,9 +1,9 @@
 import type { AgentModelAlias } from "../../api/types";
-import { AGENT_MODEL_OPTIONS } from "../../constants/agentModels";
+import { AGENT_MODEL_OPTIONS, CREDIT_ESTIMATE_REFERENCE } from "../../constants/agentModels";
 import {
   AGENT_MODEL_MESSAGES,
+  creditsForChatsLabel,
   modelUsageLabel,
-  remainingChatsLabel,
 } from "../../constants/messages";
 import { useAgentUsageSummary } from "../../hooks/useAgentUsageSummary";
 import { useAppDispatch, useAppSelector } from "../../store";
@@ -30,11 +30,12 @@ export function ModelSelectModal({ onClose }: { onClose: () => void }) {
     onClose();
   };
 
-  /** 有料モデルの残回数目安（平均消費 = 累計消費 / 回数 と残高から算出）。 */
-  const estimateRemaining = (creditCost: number, chatCount: number): number | null => {
-    if (balance === null || chatCount <= 0 || creditCost <= 0) return null;
+  /** 基準クレジット（10,000）あたりの平均利用回数の目安。残高には依存しない。
+   * 平均消費 = 累計消費 / 回数。利用実績が無ければ算出しない。 */
+  const estimatePerReference = (creditCost: number, chatCount: number): number | null => {
+    if (chatCount <= 0 || creditCost <= 0) return null;
     const avgPerChat = creditCost / chatCount;
-    return Math.floor(balance / avgPerChat);
+    return Math.floor(CREDIT_ESTIMATE_REFERENCE / avgPerChat);
   };
 
   return (
@@ -65,8 +66,8 @@ export function ModelSelectModal({ onClose }: { onClose: () => void }) {
             const usage = getUsage(option.alias);
             const chatCount = usage?.chat_count ?? 0;
             const creditCost = usage?.credit_cost ?? 0;
-            const remaining = option.isPaid
-              ? estimateRemaining(creditCost, chatCount)
+            const perReference = option.isPaid
+              ? estimatePerReference(creditCost, chatCount)
               : null;
             return (
               <button
@@ -95,7 +96,9 @@ export function ModelSelectModal({ onClose }: { onClose: () => void }) {
                   {chatCount > 0
                     ? modelUsageLabel(chatCount, creditCost)
                     : AGENT_MODEL_MESSAGES.USAGE_NONE}
-                  {remaining !== null && <span>・{remainingChatsLabel(remaining)}</span>}
+                  {perReference !== null && (
+                    <span>・{creditsForChatsLabel(CREDIT_ESTIMATE_REFERENCE, perReference)}</span>
+                  )}
                 </p>
                 {insufficient && (
                   <p className={styles.insufficient}>{AGENT_MODEL_MESSAGES.INSUFFICIENT_HINT}</p>
