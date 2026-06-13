@@ -41,6 +41,7 @@ const ALLOWLIST = {
 const BLOCKING_SEVERITIES = new Set(["high", "critical"]);
 
 // `npm audit --json` は脆弱性検出時に exit code !=0 を返すため、例外から stdout を回収する。
+// registry/auth/lockfile 等の実行失敗時も JSON を stdout に書き出し、その中に error を含める。
 function runAudit() {
   try {
     return execFileSync("npm", ["audit", "--json"], {
@@ -49,7 +50,9 @@ function runAudit() {
       maxBuffer: 64 * 1024 * 1024,
     });
   } catch (err) {
-    if (err.stdout) return err.stdout;
+    // JSON が stdout に出ていれば（脆弱性検出 or audit 失敗）回収する。
+    // stdout が空＝JSON すら出ない致命的クラッシュは本物のエラーとして投げる。
+    if (typeof err.stdout === "string" && err.stdout.length > 0) return err.stdout;
     throw err;
   }
 }
@@ -61,6 +64,16 @@ function ghsaIdFromUrl(url) {
 }
 
 const audit = JSON.parse(runAudit());
+
+// npm audit 自体が registry/auth/lockfile 等で失敗した場合は JSON に error が乗る。
+// これを成功扱い（脆弱性ゼロ）にすると fail-open になるため、必ず CI を落とす。
+if (audit.error) {
+  console.error(
+    "npm audit の実行に失敗しました:",
+    audit.error.summary ?? audit.error.code ?? audit.error.message ?? audit.error,
+  );
+  process.exit(1);
+}
 
 // 各パッケージの via から「advisory 本体オブジェクト」を集約し、GHSA 単位で重複排除する。
 const advisories = new Map(); // ghsaId -> { id, title, severity, url }

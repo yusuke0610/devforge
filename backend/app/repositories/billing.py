@@ -50,8 +50,8 @@ class BillingRepository:
             select(User.credit_balance).where(User.id == self.user_id)
         )
         if balance_after is None:
-            # CASCADE 削除等でユーザーが消えた直後の競合。残高不明のまま進めない
-            self.db.rollback()
+            # CASCADE 削除等でユーザーが消えた直後の競合。残高不明のまま進めない。
+            # rollback はトランザクション境界を持つ呼び出し側（commit する側）に委ねる
             raise RuntimeError(f"残高更新対象のユーザーが存在しません: {self.user_id}")
         self.db.add(
             CreditTransaction(
