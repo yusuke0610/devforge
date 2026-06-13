@@ -391,9 +391,24 @@ export const AGENT_MESSAGES = {
   APPLIED_TOAST: "AI の提案をフォームに反映しました。内容を確認して保存してください。",
   EMPTY_STATE: "編集対象を選んで、改善したい内容を AI に依頼してください。反映後も保存するまで DB は変更されません。",
   LOGIN_REQUIRED: "devforge Agent を使うにはログインが必要です。",
-  MODEL_LABEL: "モデル",
-  MODEL_HAIKU: "Haiku（無料）",
-  MODEL_SONNET: "Sonnet（有料・高精度）",
+} as const;
+
+/** AI モデル選択（ADR-0012）の UI 文言。製品名（Haiku / Sonnet）は constants/agentModels.ts。 */
+export const AGENT_MODEL_MESSAGES = {
+  SIDEBAR_LABEL: "使用モデル",
+  MENU_ITEM: "AI モデルを切り替え",
+  MODAL_TITLE: "AI モデルを選択",
+  MODAL_DESCRIPTION:
+    "依頼の精度とコストに合わせて選べます。設定はこの端末に保存され、すべての AI 機能で使われます。",
+  CLOSE_LABEL: "閉じる",
+  CURRENT_BADGE: "選択中",
+  FREE_BADGE: "無料",
+  PAID_BADGE: "有料",
+  INSUFFICIENT_HINT: "残高が不足しています。チャージするか Haiku をご利用ください。",
+  HAIKU_TAGLINE: "高速・標準精度。無料で使い放題。",
+  HAIKU_COST: "消費クレジット: なし",
+  SONNET_TAGLINE: "高精度。重要な仕上げや複雑な依頼に。",
+  SONNET_COST: "消費クレジット: 利用したトークン量に応じて",
 } as const;
 
 /** クレジット課金（ADR-0012）の UI 文言。 */

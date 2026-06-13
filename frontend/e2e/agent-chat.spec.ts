@@ -38,6 +38,14 @@ async function setupResumeApi(page: Page) {
   );
 }
 
+/** UserMenu → モデル選択モーダル経由で使用モデルを切り替える（ADR-0012）。 */
+async function selectModel(page: Page, modelName: "Haiku" | "Sonnet") {
+  await page.getByRole("button", { name: "e2e-test-user" }).click();
+  await page.getByRole("button", { name: "AI モデルを切り替え" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: new RegExp(`^${modelName}`) }).click();
+}
+
 test.describe("Agent チャットウィジェット", () => {
   test.beforeEach(async ({ page }) => {
     await setupAuth(page);
@@ -92,7 +100,9 @@ test.describe("Agent チャットウィジェット", () => {
     await expect(page.getByRole("button", { name: "フォームに反映" })).toHaveCount(0);
   });
 
-  test("残高はサイドバーに表示され、Sonnet 送信で model=sonnet が送られる", async ({ page }) => {
+  test("使用モデルはサイドバーに表示され、UserMenu のモーダルで Sonnet に切り替えられる", async ({
+    page,
+  }) => {
     // サイドバーの残高（ADR-0012）。setupAuth のデフォルトより後に登録して上書きする
     await page.route("**/api/billing/balance", (route) =>
       route.fulfill({
@@ -114,13 +124,18 @@ test.describe("Agent チャットウィジェット", () => {
     await page.goto("/career");
     await waitForAuthenticatedLayout(page);
 
-    // 残高はサイドバー（ユーザーステータス）に常時表示される（ウィジェットを開かなくても見える）
-    await expect(page.getByText("クレジット残高")).toBeVisible();
-    await expect(page.getByText("12,000")).toBeVisible();
+    const sidebar = page.locator("aside").first();
+    // 使用モデル・残高はサイドバーに常時表示される（既定は Haiku）
+    await expect(sidebar.getByText("使用モデル")).toBeVisible();
+    await expect(sidebar.getByText("Haiku")).toBeVisible();
+    await expect(sidebar.getByText("クレジット残高")).toBeVisible();
+    await expect(sidebar.getByText("12,000")).toBeVisible();
+
+    // UserMenu → モデル選択モーダル → Sonnet カードで切り替え
+    await selectModel(page, "Sonnet");
+    await expect(sidebar.getByText("Sonnet")).toBeVisible();
 
     await page.getByRole("button", { name: "devforge Agent" }).click();
-    await page.getByLabel("モデル").selectOption("sonnet");
-
     await page
       .getByPlaceholder("例: 成果がより伝わる文章にしてください")
       .fill("プロらしい文章にして");
@@ -146,8 +161,9 @@ test.describe("Agent チャットウィジェット", () => {
     await page.goto("/career");
     await waitForAuthenticatedLayout(page);
 
+    // 残高 0（setupAuth の既定）で Sonnet に切り替えてから送信
+    await selectModel(page, "Sonnet");
     await page.getByRole("button", { name: "devforge Agent" }).click();
-    await page.getByLabel("モデル").selectOption("sonnet");
     await page
       .getByPlaceholder("例: 成果がより伝わる文章にしてください")
       .fill("改善して");

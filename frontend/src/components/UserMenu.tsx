@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
-import { AUTH_PROMPT_MESSAGES, EXTERNAL_LINKS, UI_MESSAGES } from "../constants/messages";
+import {
+  AGENT_MODEL_MESSAGES,
+  AUTH_PROMPT_MESSAGES,
+  EXTERNAL_LINKS,
+  UI_MESSAGES,
+} from "../constants/messages";
 import type { Theme } from "../hooks/useTheme";
 import { GitHubMarkIcon } from "./icons/GitHubMarkIcon";
 import styles from "./UserMenu.module.css";
@@ -18,6 +23,7 @@ export function UserMenu({
   onToggleTheme,
   onLogout,
   onLogin,
+  onOpenModelSelect,
 }: {
   isAuthenticated: boolean;
   username: string | null;
@@ -25,6 +31,8 @@ export function UserMenu({
   onToggleTheme: () => void;
   onLogout: () => void;
   onLogin: () => void;
+  /** AI モデル選択モーダルを開く（認証済みのみ表示 / ADR-0012）。 */
+  onOpenModelSelect?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -53,6 +61,22 @@ export function UserMenu({
             </span>
           </button>
           <div className={styles.separator} />
+          {/* AI モデル切り替えは認証済みのみ（モデル選択はログインユーザーの設定 / ADR-0012）。 */}
+          {isAuthenticated && onOpenModelSelect && (
+            <>
+              <button
+                type="button"
+                className={styles.menuItem}
+                onClick={() => {
+                  setOpen(false);
+                  onOpenModelSelect();
+                }}
+              >
+                <span className={styles.menuItemLabel}>{AGENT_MODEL_MESSAGES.MENU_ITEM}</span>
+              </button>
+              <div className={styles.separator} />
+            </>
+          )}
           {/* 未認証ではログインはトリガー側のボタンに集約するため、メニューには出さない。 */}
           {isAuthenticated && (
             <>
