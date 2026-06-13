@@ -67,15 +67,21 @@ test("UserMenu からトークン購入画面を開き、残高・パック・�
   const main = page.locator("main");
   await expect(main.getByText("現在の残高")).toBeVisible();
   await expect(main.getByText("12,000")).toBeVisible();
-  // パック（回数アンカー付き。残高12,000 / Sonnet 標準12クレジット → 約1,000回）
-  await expect(main.getByText("スターター")).toBeVisible();
-  await expect(main.getByText("¥500")).toBeVisible();
-  await expect(main.getByText(/Sonnet 約1,000回/)).toBeVisible();
   // 履歴
   await expect(main.getByText("Agent チャット（sonnet）")).toBeVisible();
 
+  // 任意クレジット入力 → onChange でリアルタイム円換算 + 回数（残高12,000/Sonnet標準12 → ）
+  const amountInput = page.getByLabel("購入するクレジット数");
+  await amountInput.fill("2000");
+  await expect(main.getByText("¥2,000")).toBeVisible();
+  await expect(main.getByText(/Sonnet 約166回/)).toBeVisible();
+
+  // preset で入力欄が埋まる
+  await page.getByRole("button", { name: "1,100" }).click();
+  await expect(main.getByText("¥1,100")).toBeVisible();
+
   // 購入ボタン → 準備中トースト（Stripe は Phase 2）
-  await page.getByRole("button", { name: "購入する" }).first().click();
+  await page.getByRole("button", { name: "購入する" }).click();
   await expect(
     page.getByText("クレジット購入（Stripe 決済）は現在準備中です。"),
   ).toBeVisible();

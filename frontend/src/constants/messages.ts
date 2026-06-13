@@ -458,6 +458,9 @@ export const BILLING_PAGE_MESSAGES = {
   CREDITS_UNIT: "クレジット",
   PACKS_TITLE: "クレジットを購入",
   PACKS_NOTE: "Sonnet など有料モデルの利用に使えます。Haiku は無料で使い放題です。",
+  INPUT_LABEL: "購入するクレジット数",
+  INPUT_PLACEHOLDER: "例: 1000",
+  PRESETS_LABEL: "クイック選択",
   PURCHASE_BUTTON: "購入する",
   CHECKOUT_PREPARING: "クレジット購入（Stripe 決済）は現在準備中です。",
   PREPARING_BADGE: "準備中",
@@ -485,4 +488,9 @@ export function transactionTypeLabel(type: string): string {
 export function transactionAmountLabel(amount: number): string {
   const sign = amount > 0 ? "+" : "";
   return `${sign}${amount.toLocaleString("ja-JP")}`;
+}
+
+/** 購入クレジットの入力範囲ヒント。 */
+export function purchaseRangeHint(min: number, max: number): string {
+  return `${min.toLocaleString("ja-JP")}〜${max.toLocaleString("ja-JP")} クレジットで入力してください`;
 }

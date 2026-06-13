@@ -2,7 +2,6 @@ import { getModelOption } from "../../constants/agentModels";
 import {
   BILLING_PAGE_MESSAGES,
   formatCreditAmount,
-  formatYen,
   modelChatsEstimateLabel,
   transactionAmountLabel,
   transactionTypeLabel,
@@ -10,6 +9,7 @@ import {
 import { useBillingPage } from "../../hooks/useBillingPage";
 import { estimateChats, PAID_REFERENCE_MODEL } from "../../utils/creditEstimate";
 import { useToast } from "../ui/toast";
+import { CreditPurchaseForm } from "./CreditPurchaseForm";
 import styles from "./BillingView.module.css";
 
 const PAID_MODEL_NAME = getModelOption(PAID_REFERENCE_MODEL).name;
@@ -24,8 +24,8 @@ export function BillingView() {
   const { balance, packs, transactions, paidRate, loading, error } = useBillingPage();
   const { showSuccess } = useToast();
 
+  // Phase 2 で onPurchase(credits) を受け、POST /api/billing/checkout → Stripe Checkout へ遷移させる
   const handlePurchase = () => {
-    // Phase 2 で POST /api/billing/checkout → Stripe Checkout へ遷移させる
     showSuccess(BILLING_PAGE_MESSAGES.CHECKOUT_PREPARING);
   };
 
@@ -58,31 +58,7 @@ export function BillingView() {
           <span className={styles.preparingBadge}>{BILLING_PAGE_MESSAGES.PREPARING_BADGE}</span>
         </div>
         <p className={styles.sectionNote}>{BILLING_PAGE_MESSAGES.PACKS_NOTE}</p>
-        <div className={styles.packs}>
-          {packs.map((pack) => {
-            const packChats = estimateChats(pack.credits, paidRate);
-            return (
-              <div key={pack.id} className={styles.packCard}>
-                <span className={styles.packName}>{pack.name}</span>
-                <span className={styles.packCredits}>
-                  {formatCreditAmount(pack.credits)}
-                  <span className={styles.packCreditsUnit}>
-                    {BILLING_PAGE_MESSAGES.CREDITS_UNIT}
-                  </span>
-                </span>
-                {packChats !== null && (
-                  <span className={styles.packEstimate}>
-                    {modelChatsEstimateLabel(PAID_MODEL_NAME, packChats, "回分")}
-                  </span>
-                )}
-                <span className={styles.packPrice}>{formatYen(pack.price_jpy)}</span>
-                <button type="button" className={styles.purchaseButton} onClick={handlePurchase}>
-                  {BILLING_PAGE_MESSAGES.PURCHASE_BUTTON}
-                </button>
-              </div>
-            );
-          })}
-        </div>
+        <CreditPurchaseForm packs={packs} paidRate={paidRate} onPurchase={handlePurchase} />
       </section>
 
       <section className={styles.section}>

@@ -10,6 +10,19 @@ import type { AgentModelAlias } from "../api/types";
 /** 回数アンカーの基準にする有料モデル。 */
 export const PAID_REFERENCE_MODEL: AgentModelAlias = "sonnet";
 
+// 1 クレジット = ¥1（ADR-0012）。購入フォームの円換算に使う。
+// ※ペッグの正本は backend（pricing / model_catalog）。表示用の換算係数として保持する
+export const YEN_PER_CREDIT = 1;
+
+// 任意クレジット購入の入力範囲（誤入力の桁あふれ・極小購入を防ぐ）
+export const MIN_PURCHASE_CREDITS = 100;
+export const MAX_PURCHASE_CREDITS = 1_000_000;
+
+/** クレジット数を円に換算する（1 クレジット = ¥1）。 */
+export function creditsToYen(credits: number): number {
+  return credits * YEN_PER_CREDIT;
+}
+
 /** クレジット量と 1 回あたりの消費から利用回数の目安を返す。算出不能なら null。 */
 export function estimateChats(
   credits: number,
