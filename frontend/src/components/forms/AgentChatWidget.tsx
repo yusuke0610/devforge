@@ -10,13 +10,9 @@
 import { useCallback, useMemo, useState } from "react";
 
 import type { AgentModelAlias, ExperienceTarget, ProjectTarget } from "../../api/types";
-import {
-  AGENT_MESSAGES,
-  BILLING_MESSAGES,
-  creditBalanceLabel,
-} from "../../constants/messages";
+import { AGENT_MESSAGES } from "../../constants/messages";
 import { useAgentChat, type AgentChatEntry } from "../../hooks/career/useAgentChat";
-import { useCreditBalance } from "../../hooks/useCreditBalance";
+import { useCreditBalanceContext } from "../billing/creditBalanceContext";
 import type { CareerFormState } from "../../payloadBuilders";
 import { useMessageToast, useToast } from "../ui/toast";
 import { applyAgentOperations, type AgentScope } from "../../utils/agentOperations";
@@ -108,9 +104,10 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
   /** ドラッグでリサイズされた寸法。null の間は CSS のデフォルトサイズに従う */
   const [panelSize, setPanelSize] = useState<{ width: number; height: number } | null>(null);
   const { entries, sending, error, send, markApplied, clearError } = useAgentChat();
-  // 残高は有料モデル（sonnet）選択時のみ取得・表示する（ADR-0012）
+  // 残高はサイドバーに常時表示する（ADR-0012）。ウィジェットは有料モデル消費後に
+  // サイドバーの数値を最新化するため refresh のみ利用する
   const isPaidModel = model === "sonnet";
-  const balanceState = useCreditBalance(open && isPaidModel);
+  const { refresh: refreshBalance } = useCreditBalanceContext();
   const { showSuccess } = useToast();
   useMessageToast(error, "error");
 
@@ -156,7 +153,7 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
   ) => {
     await send(form, sendScope, target, text, model);
     if (isPaidModel) {
-      void balanceState.refresh();
+      void refreshBalance();
     }
   };
 
@@ -259,13 +256,6 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
             <option value="sonnet">{AGENT_MESSAGES.MODEL_SONNET}</option>
           </select>
         </label>
-        {isPaidModel && (
-          <p className={styles.creditBalance}>
-            {balanceState.balance !== null
-              ? creditBalanceLabel(balanceState.balance)
-              : (balanceState.error ?? BILLING_MESSAGES.BALANCE_LOADING)}
-          </p>
-        )}
         {scope === "experience" &&
           (experienceOptions.length === 0 ? (
             <p className={styles.targetEmpty}>{AGENT_MESSAGES.TARGET_EXPERIENCE_EMPTY}</p>

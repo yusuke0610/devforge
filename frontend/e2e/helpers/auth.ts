@@ -45,6 +45,15 @@ export async function setupAuth(page: Page) {
     }),
   );
 
+  // クレジット残高をモック（サイドバーが認証済み全ページで取得する / ADR-0012。デフォルト: 0）
+  await page.route("**/api/billing/balance", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ balance: 0 }),
+    }),
+  );
+
   // 認証 API をモック（最高優先）
   await page.route("**/auth/me", (route) =>
     route.fulfill({

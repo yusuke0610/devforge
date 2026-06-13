@@ -92,7 +92,8 @@ test.describe("Agent チャットウィジェット", () => {
     await expect(page.getByRole("button", { name: "フォームに反映" })).toHaveCount(0);
   });
 
-  test("Sonnet（有料）選択で残高が表示され model=sonnet で送信される", async ({ page }) => {
+  test("残高はサイドバーに表示され、Sonnet 送信で model=sonnet が送られる", async ({ page }) => {
+    // サイドバーの残高（ADR-0012）。setupAuth のデフォルトより後に登録して上書きする
     await page.route("**/api/billing/balance", (route) =>
       route.fulfill({
         status: 200,
@@ -113,11 +114,12 @@ test.describe("Agent チャットウィジェット", () => {
     await page.goto("/career");
     await waitForAuthenticatedLayout(page);
 
-    await page.getByRole("button", { name: "devforge Agent" }).click();
+    // 残高はサイドバー（ユーザーステータス）に常時表示される（ウィジェットを開かなくても見える）
+    await expect(page.getByText("クレジット残高")).toBeVisible();
+    await expect(page.getByText("12,000")).toBeVisible();
 
-    // モデルセレクタで Sonnet を選ぶと残高が表示される（ADR-0012）
+    await page.getByRole("button", { name: "devforge Agent" }).click();
     await page.getByLabel("モデル").selectOption("sonnet");
-    await expect(page.getByText("残高: 12,000 クレジット")).toBeVisible();
 
     await page
       .getByPlaceholder("例: 成果がより伝わる文章にしてください")
@@ -129,13 +131,6 @@ test.describe("Agent チャットウィジェット", () => {
   });
 
   test("Sonnet で残高不足（402）はエラートーストで通知される", async ({ page }) => {
-    await page.route("**/api/billing/balance", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ balance: 0 }),
-      }),
-    );
     await page.route("**/api/agent/chat", (route) =>
       route.fulfill({
         status: 402,

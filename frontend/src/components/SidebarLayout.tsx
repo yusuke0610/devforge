@@ -8,6 +8,8 @@ import type { Theme } from "../hooks/useTheme";
 import { AUTH_PROMPT_MESSAGES, UI_MESSAGES } from "../constants/messages";
 import { NotificationBell } from "./NotificationBell";
 import { UserMenu } from "./UserMenu";
+import { CreditBalanceBadge } from "./billing/CreditBalanceBadge";
+import { CreditBalanceProvider } from "./billing/CreditBalanceProvider";
 import { useLoginPrompt } from "./auth/loginPromptContext";
 import { ChevronDownIcon } from "./icons/ChevronDownIcon";
 import shared from "../styles/shared.module.css";
@@ -66,6 +68,9 @@ export function SidebarLayout({
 
   return (
     <div className={shared.page}>
+      {/* 残高（アカウント属性）をサイドバーと Agent ウィジェットで共有する（ADR-0012）。
+          認証済みの間だけ取得し、ウィジェットの有料モデル消費後に refresh で更新される。 */}
+      <CreditBalanceProvider enabled={isAuthenticated}>
       <div
         className={`${styles.appLayout} ${sidebarCollapsed ? styles.sidebarCollapsed : ""}`}
       >
@@ -181,6 +186,8 @@ export function SidebarLayout({
             )}
           </nav>
           <div className={styles.sidebarFooter}>
+            {/* クレジット残高（ユーザーステータス）は認証済みのみ表示。 */}
+            {isAuthenticated && <CreditBalanceBadge />}
             {/* 通知ベルは認証済みのみ（未認証はポーリングで 401 を連発しないよう出さない）。 */}
             {isAuthenticated && <NotificationBell />}
             <UserMenu
@@ -196,6 +203,7 @@ export function SidebarLayout({
 
         <main className={styles.mainContent}>{children ?? <Outlet />}</main>
       </div>
+      </CreditBalanceProvider>
     </div>
   );
 }

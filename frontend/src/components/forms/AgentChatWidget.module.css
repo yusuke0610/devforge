@@ -113,12 +113,6 @@
   color: var(--warning-text);
 }
 
-.creditBalance {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
-
 .messages {
   flex: 1;
   overflow-y: auto;

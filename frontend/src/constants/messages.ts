@@ -399,9 +399,10 @@ export const AGENT_MESSAGES = {
 /** クレジット課金（ADR-0012）の UI 文言。 */
 export const BILLING_MESSAGES = {
   BALANCE_LOADING: "残高を確認中...",
+  SIDEBAR_LABEL: "クレジット残高",
 } as const;
 
-/** クレジット残高の表示文言（sonnet 選択時にウィジェットへ表示）。 */
-export function creditBalanceLabel(balance: number): string {
-  return `残高: ${balance.toLocaleString("ja-JP")} クレジット`;
+/** クレジット残高の数値を 3 桁区切りで整形する（単位ラベルは別途付与）。 */
+export function formatCreditAmount(balance: number): string {
+  return balance.toLocaleString("ja-JP");
 }
