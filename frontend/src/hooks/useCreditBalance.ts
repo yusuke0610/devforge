@@ -5,7 +5,7 @@
  * チャット送信後は呼び出し側が refresh() で最新残高に更新する。
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getCreditBalance } from "../api/billing";
 import { FALLBACK_MESSAGES } from "../constants/messages";
@@ -14,17 +14,22 @@ export function useCreditBalance(enabled: boolean) {
   const [balance, setBalance] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // refresh が重なったとき、古い応答が新しい状態を上書きしないよう最新だけ反映する
+  const requestSeqRef = useRef(0);
 
   const refresh = useCallback(async () => {
+    const seq = ++requestSeqRef.current;
     setLoading(true);
     setError(null);
     try {
       const response = await getCreditBalance();
-      setBalance(response.balance);
+      if (seq === requestSeqRef.current) setBalance(response.balance);
     } catch (e) {
-      setError(e instanceof Error ? e.message : FALLBACK_MESSAGES.CREDIT_BALANCE);
+      if (seq === requestSeqRef.current) {
+        setError(e instanceof Error ? e.message : FALLBACK_MESSAGES.CREDIT_BALANCE);
+      }
     } finally {
-      setLoading(false);
+      if (seq === requestSeqRef.current) setLoading(false);
     }
   }, []);
 

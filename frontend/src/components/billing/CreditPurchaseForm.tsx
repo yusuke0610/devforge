@@ -38,9 +38,13 @@ export function CreditPurchaseForm({
 }) {
   const [creditInput, setCreditInput] = useState("");
 
-  const parsed = Number.parseInt(creditInput, 10);
+  // 整数文字列のみ受理する。parseInt は "100.9" を 100 に切り詰めてしまい、
+  // 誤入力が別の有効額として課金されるのを防ぐ（厳密パース）
+  const normalized = creditInput.trim();
+  const parsed = Number(normalized);
   const isValid =
-    Number.isInteger(parsed) &&
+    /^\d+$/.test(normalized) &&
+    Number.isSafeInteger(parsed) &&
     parsed >= MIN_PURCHASE_CREDITS &&
     parsed <= MAX_PURCHASE_CREDITS;
   const yen = isValid ? creditsToYen(parsed) : null;

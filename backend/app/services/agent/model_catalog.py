@@ -72,10 +72,12 @@ MODEL_CATALOG: dict[str, ModelSpec] = {
     ),
 }
 
-# モジュールロード時にスキーマの Literal とカタログの drift を fail fast で検出する
-assert set(MODEL_CATALOG) == set(get_args(AgentModelAlias)), (
-    "MODEL_CATALOG のキーは schemas/agent.py の AgentModelAlias と一致させること"
-)
+# モジュールロード時にスキーマの Literal とカタログの drift を fail fast で検出する。
+# assert は -O / PYTHONOPTIMIZE で除去されるため、不変条件は明示的に raise する
+if set(MODEL_CATALOG) != set(get_args(AgentModelAlias)):
+    raise RuntimeError(
+        "MODEL_CATALOG のキーは schemas/agent.py の AgentModelAlias と一致させること"
+    )
 
 
 def get_model_spec(alias: str) -> ModelSpec:

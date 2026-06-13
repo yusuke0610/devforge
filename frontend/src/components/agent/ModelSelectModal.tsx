@@ -69,7 +69,8 @@ export function ModelSelectModal({ onClose }: { onClose: () => void }) {
         <div className={styles.cards}>
           {AGENT_MODEL_OPTIONS.map((option) => {
             const isCurrent = option.alias === currentModel;
-            const insufficient = option.isPaid && (balance ?? 0) <= 0;
+            // 残高未取得（null: 初期/ローディング/エラー）の間は不足扱いにしない
+            const insufficient = option.isPaid && balance !== null && balance <= 0;
             const usage = getUsage(option.alias);
             const chatCount = usage?.chat_count ?? 0;
             const creditCost = usage?.credit_cost ?? 0;

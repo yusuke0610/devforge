@@ -11,6 +11,7 @@ from app.models import AgentUsageLog
 from app.repositories import BillingRepository, UserRepository
 from app.schemas.agent import AgentModelAlias
 from app.services.agent import chat_service
+from app.services.agent.chat_service import AgentUsage
 from app.services.agent.model_catalog import (
     MARGIN_MULTIPLIER,
     MODEL_CATALOG,
@@ -232,6 +233,44 @@ def test_chat_sonnet_retry_usage_is_summed(client: TestClient, monkeypatch) -> N
     assert len(fake.calls) == 2
     # 2 呼び出し合算 2000/2000 トークン: (2000×675 + 2000×3375)/1e6 = 8.1 → ceil 9
     assert BillingRepository(client._db_session, user_id).get_balance() == 10_000 - 9
+
+
+def test_record_chat_usage_is_atomic_on_log_failure(
+    client: TestClient, monkeypatch
+) -> None:
+    """使用ログ記録が失敗したらクレジット消費も rollback される（課金済み・ログ無しを防ぐ / ADR-0012）。"""
+    auth_header(client, "billing-atomic")
+    user_id = _get_user_id(client, "billing-atomic")
+    db = client._db_session
+    credit_service.grant_credits(
+        db,
+        user_id,
+        10_000,
+        transaction_type=credit_service.TRANSACTION_TYPE_ADMIN_GRANT,
+    )
+
+    # 単一トランザクションの後半（使用ログ insert）で例外を起こす
+    import app.repositories.billing as billing_repo
+
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("使用ログ記録失敗（テスト）")
+
+    monkeypatch.setattr(billing_repo, "AgentUsageLog", _boom)
+
+    usage = AgentUsage(model="sonnet", input_tokens=1000, output_tokens=1000)
+    with pytest.raises(RuntimeError, match="使用ログ"):
+        credit_service.record_chat_usage(db, user_id, usage)
+
+    # 消費が rollback され、残高据え置き・consumption 台帳なし・使用ログなし
+    repo = BillingRepository(db, user_id)
+    assert repo.get_balance() == 10_000
+    consumption = [
+        t
+        for t in repo.list_transactions()
+        if t.transaction_type == credit_service.TRANSACTION_TYPE_CONSUMPTION
+    ]
+    assert consumption == []
+    assert db.query(AgentUsageLog).filter_by(user_id=user_id).all() == []
 
 
 def test_chat_rejects_unknown_model_alias(client: TestClient, monkeypatch) -> None:

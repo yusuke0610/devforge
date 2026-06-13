@@ -28,7 +28,7 @@ class BillingRepository:
         )
         return balance or 0
 
-    def apply_transaction(
+    def _stage_balance_change(
         self,
         *,
         amount: int,
@@ -36,10 +36,10 @@ class BillingRepository:
         description: str | None = None,
         stripe_session_id: str | None = None,
     ) -> int:
-        """残高を原子的に増減し、台帳へ追記して適用後残高を返す。
+        """残高を原子的に増減し台帳へ追記する（commit はしない）。適用後残高を返す。
 
-        amount は符号付き（付与: 正 / 消費: 負）。残高更新と台帳追記を
-        同一トランザクションで commit する（片方だけ反映される状態を作らない）。
+        commit は呼び出し側の責務。単独付与（``apply_transaction``）と、消費＋使用ログを
+        1 トランザクションにまとめる用途（``record_chat_consumption``）の両方から使う。
         """
         self.db.execute(
             update(User)
@@ -63,23 +63,74 @@ class BillingRepository:
                 stripe_session_id=stripe_session_id,
             )
         )
-        self.db.commit()
         return balance_after
 
-    def add_usage_log(
-        self, *, model_alias: str, input_tokens: int, output_tokens: int, credit_cost: int
-    ) -> None:
-        """Agent チャット 1 回分の使用ログを記録する（無料モデルも記録する）。"""
-        self.db.add(
-            AgentUsageLog(
-                user_id=self.user_id,
-                model_alias=model_alias,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                credit_cost=credit_cost,
+    def apply_transaction(
+        self,
+        *,
+        amount: int,
+        transaction_type: str,
+        description: str | None = None,
+        stripe_session_id: str | None = None,
+    ) -> int:
+        """残高を原子的に増減し、台帳へ追記して適用後残高を返す。
+
+        amount は符号付き（付与: 正 / 消費: 負）。残高更新と台帳追記を
+        同一トランザクションで commit する（片方だけ反映される状態を作らない）。
+        """
+        try:
+            balance_after = self._stage_balance_change(
+                amount=amount,
+                transaction_type=transaction_type,
+                description=description,
+                stripe_session_id=stripe_session_id,
             )
-        )
-        self.db.commit()
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return balance_after
+
+    def record_chat_consumption(
+        self,
+        *,
+        amount: int,
+        transaction_type: str,
+        description: str,
+        model_alias: str,
+        input_tokens: int,
+        output_tokens: int,
+        credit_cost: int,
+    ) -> int | None:
+        """Agent チャット 1 回分の「クレジット消費 + 使用ログ」を単一トランザクションで確定する。
+
+        amount は符号付き消費額（消費: 負 / 無料モデル: 0）。0 のときは残高更新・台帳追記を
+        スキップし使用ログのみ記録する。残高更新・台帳・使用ログはすべて同一 commit で確定し、
+        いずれか失敗時は全体を rollback する（課金済みなのに使用ログが無い、等の半端な状態を
+        作らない / ADR-0012）。適用後残高を返す（無料モデルは None）。
+        """
+        balance_after: int | None = None
+        try:
+            if amount != 0:
+                balance_after = self._stage_balance_change(
+                    amount=amount,
+                    transaction_type=transaction_type,
+                    description=description,
+                )
+            self.db.add(
+                AgentUsageLog(
+                    user_id=self.user_id,
+                    model_alias=model_alias,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    credit_cost=credit_cost,
+                )
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return balance_after
 
     def list_transactions(self, limit: int = 50) -> list[CreditTransaction]:
         """台帳履歴を新しい順に返す。"""

@@ -73,4 +73,30 @@ describe("useCreditBalance", () => {
 
     expect(result.current.balance).toBe(730);
   });
+
+  it("古い refresh 応答は新しい応答を上書きしない（リクエスト順序の整合）", async () => {
+    // enabled=false で自動取得を抑止し、手動 refresh の順序だけを検証する
+    let resolveStale: (v: { balance: number }) => void = () => {};
+    const stalePending = new Promise<{ balance: number }>((resolve) => {
+      resolveStale = resolve;
+    });
+    // 1 回目（古い）は保留、2 回目（新しい）は即解決
+    getCreditBalanceMock.mockReturnValueOnce(stalePending);
+    getCreditBalanceMock.mockResolvedValueOnce({ balance: 730 });
+
+    const { result } = renderHook(() => useCreditBalance(false));
+
+    await act(async () => {
+      void result.current.refresh(); // seq=1（保留中）
+      await result.current.refresh(); // seq=2（先に解決 → 730）
+    });
+    expect(result.current.balance).toBe(730);
+
+    // 後から古い応答が解決しても最新（730）を上書きしない
+    await act(async () => {
+      resolveStale({ balance: 9_999 });
+      await stalePending;
+    });
+    expect(result.current.balance).toBe(730);
+  });
 });

@@ -28,6 +28,8 @@ export function estimateChats(
   credits: number,
   creditsPerChat: number | null | undefined,
 ): number | null {
+  // 負残高（ADR-0012 の有界損失で発生しうる）では「約 -N 回」になり混乱するため出さない
+  if (credits < 0) return null;
   if (!creditsPerChat || creditsPerChat <= 0) return null;
   return Math.floor(credits / creditsPerChat);
 }

@@ -102,6 +102,12 @@ describe("ModelSelectModal", () => {
     expect(within(sonnetCard).queryByText(/残高が不足/)).toBeNull();
   });
 
+  it("残高未取得（null）の間は Sonnet カードに残高不足の警告を出さない", () => {
+    renderModal({ balance: null });
+    const sonnetCard = screen.getByRole("button", { name: /^Sonnet/ });
+    expect(within(sonnetCard).queryByText(/残高が不足/)).toBeNull();
+  });
+
   it("利用実績があると実測平均から『1,000クレジットで平均N回』を表示する", async () => {
     renderModal({
       balance: 2700,
