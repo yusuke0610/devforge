@@ -43,7 +43,8 @@ async function selectModel(page: Page, modelName: "Haiku" | "Sonnet") {
   await page.getByRole("button", { name: "e2e-test-user" }).click();
   await page.getByRole("button", { name: "AI モデルを切り替え" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByRole("button", { name: new RegExp(`^${modelName}`) }).click();
+  // modelName はリテラル union（"Haiku" | "Sonnet"）。部分一致で対象ボタンを特定する
+  await dialog.getByRole("button", { name: modelName, exact: false }).click();
 }
 
 test.describe("Agent チャットウィジェット", () => {

@@ -39,7 +39,16 @@ class AgentTargetNotFoundError(Exception):
 
 
 class AgentResponseParseError(Exception):
-    """LLM 応答の JSON パースまたはスキーマ検証に失敗。"""
+    """LLM 応答の JSON パースまたはスキーマ検証に失敗。
+
+    リトライ後も失敗した場合、消費済みトークンの課金漏れを防ぐため確定済みの
+    使用量を ``usage`` に載せて呼び出し元（router）へ伝播する（ADR-0012）。
+    パース前段（リトライ未到達）の失敗では ``usage`` は None。
+    """
+
+    def __init__(self, message: str, *, usage: "AgentUsage | None" = None) -> None:
+        super().__init__(message)
+        self.usage = usage
 
 
 @dataclass(frozen=True)
@@ -301,7 +310,19 @@ async def run_agent_chat(
         input_tokens += result.input_tokens
         output_tokens += result.output_tokens
         logger.debug("Agent LLM リトライ応答（パース前）: len=%d", len(result.text))
-        response = _parse_response(result.text, request.scope)
+        try:
+            response = _parse_response(result.text, request.scope)
+        except AgentResponseParseError as retry_exc:
+            # 2 回目も失敗。1・2 回目分の API 原価は発生済みのため、合算した使用量を
+            # 載せて伝播し、router 側で課金を確定させる（課金漏れを防ぐ / ADR-0012）
+            raise AgentResponseParseError(
+                str(retry_exc),
+                usage=AgentUsage(
+                    model=request.model,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                ),
+            ) from retry_exc
     usage = AgentUsage(
         model=request.model, input_tokens=input_tokens, output_tokens=output_tokens
     )

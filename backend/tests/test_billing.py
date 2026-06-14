@@ -235,6 +235,50 @@ def test_chat_sonnet_retry_usage_is_summed(client: TestClient, monkeypatch) -> N
     assert BillingRepository(client._db_session, user_id).get_balance() == 10_000 - 9
 
 
+def test_chat_sonnet_retry_failure_still_bills_usage(
+    client: TestClient, monkeypatch
+) -> None:
+    """パース失敗 → リトライも失敗（502）でも、消費済み 2 回分の API 原価は課金する。
+
+    リトライ後も失敗した場合に課金をスキップすると、有料モデルの呼び出し原価が
+    課金漏れになる。502 を返しつつ残高減算・使用ログ記録を確定させる（ADR-0012）。
+    """
+    fake = _SequentialFakeLLM(
+        ["不正応答 1 回目", "不正応答 2 回目"],
+        input_tokens=1000,
+        output_tokens=1000,
+    )
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
+    headers = auth_header(client, "billing-retry-fail")
+    user_id = _get_user_id(client, "billing-retry-fail")
+    credit_service.grant_credits(
+        client._db_session,
+        user_id,
+        10_000,
+        transaction_type=credit_service.TRANSACTION_TYPE_ADMIN_GRANT,
+    )
+
+    resp = client.post("/api/agent/chat", json=_chat_payload("sonnet"), headers=headers)
+
+    assert resp.status_code == 502
+    assert resp.json()["code"] == "AGENT_PARSE_ERROR"
+    assert len(fake.calls) == 2
+    repo = BillingRepository(client._db_session, user_id)
+    # 2 呼び出し合算 2000/2000 トークン: (2000×675 + 2000×3375)/1e6 = 8.1 → ceil 9
+    assert repo.get_balance() == 10_000 - 9
+    consumption = [
+        t
+        for t in repo.list_transactions()
+        if t.transaction_type == credit_service.TRANSACTION_TYPE_CONSUMPTION
+    ]
+    assert len(consumption) == 1
+    assert consumption[0].amount == -9
+    logs = client._db_session.query(AgentUsageLog).filter_by(user_id=user_id).all()
+    assert len(logs) == 1
+    assert logs[0].model_alias == "sonnet"
+    assert logs[0].credit_cost == 9
+
+
 def test_record_chat_usage_is_atomic_on_log_failure(
     client: TestClient, monkeypatch
 ) -> None:

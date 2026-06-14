@@ -5,6 +5,7 @@ router 側で ``InsufficientCreditsError`` → 402 ``INSUFFICIENT_CREDITS`` に�
 """
 
 import logging
+from typing import Literal
 
 from sqlalchemy.orm import Session
 
@@ -14,10 +15,12 @@ from ..agent.model_catalog import calculate_credit_cost, get_model_spec
 
 logger = logging.getLogger(__name__)
 
-# 台帳の transaction_type（models/billing.py のコメントと同期）
-TRANSACTION_TYPE_CONSUMPTION = "consumption"
-TRANSACTION_TYPE_ADMIN_GRANT = "admin_grant"
-TRANSACTION_TYPE_PURCHASE = "purchase"
+# 台帳の transaction_type の閉じた集合（models/billing.py の transaction_type と同期）。
+# 自由文字列を許すとタイポで台帳が汚れ、種別フィルタ/集計が壊れるため Literal で縛る
+TransactionType = Literal["consumption", "admin_grant", "purchase"]
+TRANSACTION_TYPE_CONSUMPTION: TransactionType = "consumption"
+TRANSACTION_TYPE_ADMIN_GRANT: TransactionType = "admin_grant"
+TRANSACTION_TYPE_PURCHASE: TransactionType = "purchase"
 
 
 class InsufficientCreditsError(Exception):
@@ -77,7 +80,7 @@ def grant_credits(
     user_id: str,
     amount: int,
     *,
-    transaction_type: str,
+    transaction_type: TransactionType,
     description: str | None = None,
     stripe_session_id: str | None = None,
 ) -> int:
