@@ -12,6 +12,9 @@ htmlcov/
 node_modules/
 dist/
 frontend/.test-dist/
+# Playwright E2E の生成物（実行ごとに作られるローカル成果物）
+frontend/test-results/
+frontend/playwright-report/
 frontend/tsconfig.app.tsbuildinfo
 frontend/tsconfig.node.tsbuildinfo
 frontend/vite.config.js
