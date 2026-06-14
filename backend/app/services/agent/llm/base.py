@@ -2,6 +2,10 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..chat_service import AgentUsage
 
 
 class LLMError(Exception):
@@ -9,7 +13,15 @@ class LLMError(Exception):
 
     プロバイダ固有の例外は各クライアントで本例外にラップする。
     呼び出し側（router）は本例外を 502 + ``AGENT_LLM_ERROR`` にマッピングする。
+
+    リトライ前の試行で消費済みトークンがある状態で本例外が起きた場合、課金漏れを
+    防ぐため確定済みの使用量を ``usage`` に載せて伝播する（chat_service が設定 /
+    ADR-0012）。通常の発生時（消費前の失敗）は ``None``。
     """
+
+    def __init__(self, message: str = "", *, usage: "AgentUsage | None" = None) -> None:
+        super().__init__(message)
+        self.usage = usage
 
 
 @dataclass(frozen=True)

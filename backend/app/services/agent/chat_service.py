@@ -22,6 +22,7 @@ from ...schemas.agent import (
     AgentProjectContext,
     ExperienceTarget,
 )
+from .llm.base import LLMError
 from .llm.factory import get_llm_client
 from .model_catalog import get_model_spec
 from .output_schema import (
@@ -306,7 +307,19 @@ async def run_agent_chat(
                 ),
             },
         ]
-        result = await client.generate(system_prompt, retry_messages, output_schema, model_id)
+        try:
+            result = await client.generate(
+                system_prompt, retry_messages, output_schema, model_id
+            )
+        except LLMError as retry_exc:
+            # リトライ呼び出し自体が失敗。1 回目の API 原価は発生済みのため使用量を
+            # 載せて伝播し、router 側で課金を確定させる（課金漏れを防ぐ / ADR-0012）
+            retry_exc.usage = AgentUsage(
+                model=request.model,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+            )
+            raise
         input_tokens += result.input_tokens
         output_tokens += result.output_tokens
         logger.debug("Agent LLM リトライ応答（パース前）: len=%d", len(result.text))

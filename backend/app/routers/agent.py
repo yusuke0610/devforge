@@ -66,7 +66,15 @@ async def agent_chat(
             code=ErrorCode.VALIDATION_ERROR,
             message=get_error("agent.target_not_found"),
         )
-    except LLMError:
+    except LLMError as exc:
+        # リトライ呼び出しが失敗した場合、1 回目分の消費済みトークンを課金してから
+        # 502 を返す（課金漏れを防ぐ / ADR-0012）。課金記録自体の失敗はログに残し、
+        # 本来の LLM 失敗（502）を優先して返す
+        if exc.usage is not None:
+            try:
+                credit_service.record_chat_usage(db, user.id, exc.usage)
+            except Exception:
+                logger.error("LLM 失敗時のクレジット消費記録に失敗", exc_info=True)
         raise_app_error(
             status_code=502,
             code=ErrorCode.AGENT_LLM_ERROR,

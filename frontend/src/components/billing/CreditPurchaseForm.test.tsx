@@ -89,6 +89,10 @@ describe("CreditPurchaseForm", () => {
     fireEvent.change(screen.getByLabelText(INPUT_LABEL), { target: { value: "1000" } });
 
     expect(screen.getByText(formatYen(1000))).toBeTruthy();
-    expect(screen.queryByText(new RegExp(`${PAID_MODEL_NAME} 約`))).toBeNull();
+    // paidRate=null では回数目安が描画されない。SSoT ヘルパーが生成する文言（部分一致）が
+    // 不在であることで「Sonnet 約N回」が出ていないことを検証する
+    expect(
+      screen.queryByText(modelChatsEstimateLabel(PAID_MODEL_NAME, 83), { exact: false }),
+    ).toBeNull();
   });
 });

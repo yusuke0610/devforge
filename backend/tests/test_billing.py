@@ -12,6 +12,7 @@ from app.repositories import BillingRepository, UserRepository
 from app.schemas.agent import AgentModelAlias
 from app.services.agent import chat_service
 from app.services.agent.chat_service import AgentUsage
+from app.services.agent.llm.base import LLMClient, LLMError, LLMResult
 from app.services.agent.model_catalog import (
     MARGIN_MULTIPLIER,
     MODEL_CATALOG,
@@ -277,6 +278,51 @@ def test_chat_sonnet_retry_failure_still_bills_usage(
     assert len(logs) == 1
     assert logs[0].model_alias == "sonnet"
     assert logs[0].credit_cost == 9
+
+
+def test_chat_sonnet_retry_llm_error_still_bills_first_attempt(
+    client: TestClient, monkeypatch
+) -> None:
+    """1 回目成功（パース失敗）→ リトライ呼び出しが LLMError でも 1 回目分は課金する。
+
+    リトライの API 呼び出し自体が失敗（502 AGENT_LLM_ERROR）しても、1 回目の原価は
+    発生済みのため課金を確定させる（課金漏れを防ぐ / ADR-0012）。
+    """
+
+    class _FailOnRetryLLM(LLMClient):
+        """1 回目はパース不能応答（課金対象トークンつき）、2 回目は LLMError を投げる。"""
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def generate(self, *_args, **_kwargs) -> LLMResult:
+            self.calls += 1
+            if self.calls == 1:
+                return LLMResult(text="不正応答", input_tokens=1000, output_tokens=1000)
+            raise LLMError("リトライ呼び出し失敗（テスト）")
+
+    fake = _FailOnRetryLLM()
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
+    headers = auth_header(client, "billing-retry-llm-error")
+    user_id = _get_user_id(client, "billing-retry-llm-error")
+    credit_service.grant_credits(
+        client._db_session,
+        user_id,
+        10_000,
+        transaction_type=credit_service.TRANSACTION_TYPE_ADMIN_GRANT,
+    )
+
+    resp = client.post("/api/agent/chat", json=_chat_payload("sonnet"), headers=headers)
+
+    assert resp.status_code == 502
+    assert resp.json()["code"] == "AGENT_LLM_ERROR"
+    assert fake.calls == 2
+    repo = BillingRepository(client._db_session, user_id)
+    # 1 回目のみ 1000/1000 トークン: (1000×675 + 1000×3375)/1e6 = 4.05 → ceil 5
+    assert repo.get_balance() == 10_000 - 5
+    logs = client._db_session.query(AgentUsageLog).filter_by(user_id=user_id).all()
+    assert len(logs) == 1
+    assert logs[0].credit_cost == 5
 
 
 def test_record_chat_usage_is_atomic_on_log_failure(
