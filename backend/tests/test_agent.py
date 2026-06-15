@@ -15,7 +15,7 @@ from app.services.agent.chat_service import (
     AgentTargetNotFoundError,
     _parse_response,
 )
-from app.services.agent.llm.base import LLMClient, LLMError
+from app.services.agent.llm.base import LLMClient, LLMError, LLMResult
 from app.services.agent.output_schema import (
     MAX_SUGGESTION_LENGTH,
     MAX_SUGGESTIONS,
@@ -32,28 +32,43 @@ from conftest import auth_header
 class _FakeLLM(LLMClient):
     """テスト用の LLM クライアント（固定応答 or 例外）。受信した入力を記録する。"""
 
-    def __init__(self, response: str | None = None, error: Exception | None = None):
+    def __init__(
+        self,
+        response: str | None = None,
+        error: Exception | None = None,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+    ):
         """固定応答または送出例外をセットし、受信内容記録フィールドを初期化する。"""
         self._response = response
         self._error = error
+        self._input_tokens = input_tokens
+        self._output_tokens = output_tokens
         self.received_system_prompt: str | None = None
         self.received_messages: list[dict[str, str]] | None = None
         self.received_output_schema: dict | None = None
+        self.received_model_id: str | None = None
 
     async def generate(
         self,
         system_prompt: str,
         messages: list[dict[str, str]],
         output_schema: dict,
-    ) -> str:
+        model_id: str,
+    ) -> LLMResult:
         """受信引数を記録し、設定済みの例外を raise するか固定応答を返す。"""
         self.received_system_prompt = system_prompt
         self.received_messages = messages
         self.received_output_schema = output_schema
+        self.received_model_id = model_id
         if self._error:
             raise self._error
         assert self._response is not None
-        return self._response
+        return LLMResult(
+            text=self._response,
+            input_tokens=self._input_tokens,
+            output_tokens=self._output_tokens,
+        )
 
 
 def _mock_llm(monkeypatch, *, response: str | None = None, error: Exception | None = None):
@@ -66,9 +81,13 @@ def _mock_llm(monkeypatch, *, response: str | None = None, error: Exception | No
 class _SequentialFakeLLM(LLMClient):
     """呼び出しごとに用意した応答を順に返す LLM クライアント（リトライ検証用）。"""
 
-    def __init__(self, responses: list[str]):
+    def __init__(
+        self, responses: list[str], input_tokens: int = 0, output_tokens: int = 0
+    ):
         """順に返すべき応答リストを受け取り、コール記録リストを初期化する。"""
         self._responses = list(responses)
+        self._input_tokens = input_tokens
+        self._output_tokens = output_tokens
         self.calls: list[list[dict[str, str]]] = []
 
     async def generate(
@@ -76,10 +95,15 @@ class _SequentialFakeLLM(LLMClient):
         system_prompt: str,
         messages: list[dict[str, str]],
         output_schema: dict,
-    ) -> str:
+        model_id: str,
+    ) -> LLMResult:
         """受信 messages を記録し、呼び出し順に対応した応答を返す。"""
         self.calls.append(messages)
-        return self._responses[len(self.calls) - 1]
+        return LLMResult(
+            text=self._responses[len(self.calls) - 1],
+            input_tokens=self._input_tokens,
+            output_tokens=self._output_tokens,
+        )
 
 
 def _resume_payload() -> dict:

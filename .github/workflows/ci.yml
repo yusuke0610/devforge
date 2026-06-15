@@ -116,7 +116,7 @@ jobs:
         run: npm ci --prefix frontend
 
       - name: 脆弱性スキャン (npm audit)
-        run: npm audit --audit-level=high --prefix frontend
+        run: node frontend/scripts/audit-check.mjs
 
       - name: Lint frontend
         run: npm run lint --prefix frontend

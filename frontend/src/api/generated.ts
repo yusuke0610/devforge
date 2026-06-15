@@ -21,10 +21,142 @@ export interface paths {
          * @description 選択スコープの内容とプロンプトをもとに、職務経歴書への差分 operations を返す。
          *
          *     career_summary / self_pr スコープでは GitHub・ブログ分析サマリーを参照情報として付与する。
-         *     レスポンスはフロントの state にのみ適用され、DB は更新しない。
+         *     レスポンスはフロントの state にのみ適用され、DB は更新しない
+         *     （クレジット消費・使用ログの記録は除く / ADR-0012）。
          *     ユーザーが確認して「適用」した時点で既存の保存 API が呼ばれる。
          */
         post: operations["agent_chat_api_agent_chat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/billing/admin/grant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Grant Credits
+         * @description 管理者がユーザーへクレジットを付与する（Phase 1 の残高調整・テスト用）。
+         *
+         *     ADMIN_TOKEN（Bearer）認証。Stripe 導入後も返金・補填時の残高調整用に残す。
+         */
+        post: operations["admin_grant_credits_api_billing_admin_grant_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/billing/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Credit Balance
+         * @description ログインユーザーのクレジット残高を返す。
+         */
+        get: operations["get_credit_balance_api_billing_balance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/billing/model-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Model Rates
+         * @description モデル別の標準消費レート（回数目安の算出用 / ADR-0012）を返す。
+         *
+         *     フロントは残高・パック・モデルカードを「Sonnet 約N回」に換算するのに使う。
+         *     利用実績のあるユーザーは usage-summary の実測平均を優先し、本値は新規ユーザーの
+         *     フォールバックとして使う。
+         */
+        get: operations["list_model_rates_api_billing_model_rates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/billing/packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Credit Packs
+         * @description 購入可能なクレジットパック一覧を返す（トークン購入画面用 / ADR-0012）。
+         *
+         *     価格・付与クレジットの正本は services/billing/pricing.py。
+         */
+        get: operations["list_credit_packs_api_billing_packs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/billing/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Credit Transactions
+         * @description クレジット台帳履歴（付与・消費）を新しい順に返す。
+         */
+        get: operations["list_credit_transactions_api_billing_transactions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/billing/usage-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Usage Summary
+         * @description モデル別の使用量サマリ（チャット回数・トークン・消費クレジット）を返す。
+         *
+         *     モデル選択モーダルで「あなたの利用実績」を表示するために使う。残りチャット回数の
+         *     目安は残高と組み合わせてフロントで算出する。
+         */
+        get: operations["get_usage_summary_api_billing_usage_summary_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -719,12 +851,30 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AdminCreditGrantRequest
+         * @description 管理者によるクレジット付与（Phase 1 の残高調整・テスト用）。
+         */
+        AdminCreditGrantRequest: {
+            /** Amount */
+            amount: number;
+            /** Description */
+            description?: string | null;
+            /** Username */
+            username: string;
+        };
+        /**
          * AgentChatRequest
          * @description Agent チャットのリクエスト。スコープ選択は必須。
          */
         AgentChatRequest: {
             /** History */
             history?: components["schemas"]["AgentHistoryEntry"][];
+            /**
+             * Model
+             * @default haiku
+             * @enum {string}
+             */
+            model: "haiku" | "sonnet";
             /** Prompt */
             prompt: string;
             resume: components["schemas"]["AgentResumeContext"];
@@ -890,6 +1040,22 @@ export interface components {
              * @default
              */
             name: string;
+        };
+        /**
+         * AgentUsageSummaryEntry
+         * @description モデル別の使用量サマリ 1 件（モデル選択モーダルの利用実績表示用 / ADR-0012）。
+         */
+        AgentUsageSummaryEntry: {
+            /** Chat Count */
+            chat_count: number;
+            /** Credit Cost */
+            credit_cost: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Model */
+            model: string;
+            /** Output Tokens */
+            output_tokens: number;
         };
         /**
          * BlogAccountCreate
@@ -1175,6 +1341,49 @@ export interface components {
              */
             level: number;
         };
+        /**
+         * CreditBalanceResponse
+         * @description クレジット残高。
+         */
+        CreditBalanceResponse: {
+            /** Balance */
+            balance: number;
+        };
+        /**
+         * CreditPackResponse
+         * @description 購入可能なクレジットパック 1 種（トークン購入画面用 / ADR-0012）。
+         */
+        CreditPackResponse: {
+            /** Credits */
+            credits: number;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Price Jpy */
+            price_jpy: number;
+        };
+        /**
+         * CreditTransactionResponse
+         * @description クレジット台帳エントリ 1 件（履歴表示用）。
+         */
+        CreditTransactionResponse: {
+            /** Amount */
+            amount: number;
+            /** Balance After */
+            balance_after: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Description */
+            description?: string | null;
+            /** Id */
+            id: string;
+            /** Transaction Type */
+            transaction_type: string;
+        };
         /** Experience */
         "Experience-Input": {
             /** Business Description */
@@ -1391,6 +1600,21 @@ export interface components {
              * @default 0
              */
             sort_order: number;
+        };
+        /**
+         * ModelRateEntry
+         * @description モデル別の標準消費レート（回数目安の算出用 / ADR-0012）。
+         *
+         *     1 クレジット = ¥1。``baseline_credits_per_chat`` は標準的な 1 回の消費の概算で、
+         *     フロントが残高・パックを「Sonnet 約N回」に換算するのに使う（無料モデルは 0）。
+         */
+        ModelRateEntry: {
+            /** Baseline Credits Per Chat */
+            baseline_credits_per_chat: number;
+            /** Is Free */
+            is_free: boolean;
+            /** Model */
+            model: string;
         };
         /**
          * NotificationResponse
@@ -1799,6 +2023,141 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_grant_credits_api_billing_admin_grant_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminCreditGrantRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditBalanceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_credit_balance_api_billing_balance_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditBalanceResponse"];
+                };
+            };
+        };
+    };
+    list_model_rates_api_billing_model_rates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelRateEntry"][];
+                };
+            };
+        };
+    };
+    list_credit_packs_api_billing_packs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditPackResponse"][];
+                };
+            };
+        };
+    };
+    list_credit_transactions_api_billing_transactions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditTransactionResponse"][];
+                };
+            };
+        };
+    };
+    get_usage_summary_api_billing_usage_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentUsageSummaryEntry"][];
                 };
             };
         };

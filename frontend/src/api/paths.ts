@@ -30,6 +30,13 @@ export const PATHS = {
   agent: {
     chat: "/api/agent/chat",
   },
+  billing: {
+    balance: "/api/billing/balance",
+    transactions: "/api/billing/transactions",
+    usageSummary: "/api/billing/usage-summary",
+    packs: "/api/billing/packs",
+    modelRates: "/api/billing/model-rates",
+  },
   resumes: {
     base: "/api/resumes",
     latest: "/api/resumes/latest",

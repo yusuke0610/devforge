@@ -12,6 +12,8 @@ import { useCallback, useMemo, useState } from "react";
 import type { ExperienceTarget, ProjectTarget } from "../../api/types";
 import { AGENT_MESSAGES } from "../../constants/messages";
 import { useAgentChat, type AgentChatEntry } from "../../hooks/career/useAgentChat";
+import { useAppSelector } from "../../store";
+import { useCreditBalanceContext } from "../billing/creditBalanceContext";
 import type { CareerFormState } from "../../payloadBuilders";
 import { useMessageToast, useToast } from "../ui/toast";
 import { applyAgentOperations, type AgentScope } from "../../utils/agentOperations";
@@ -96,12 +98,18 @@ function buildExperienceOptions(form: CareerFormState): ExperienceOption[] {
 export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }: Props) {
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState<AgentScope>("career_summary");
+  // 使用モデルはグローバル設定（サイドバー表示 / UserMenu で切り替え）。ここでは読むだけ
+  const model = useAppSelector((state) => state.agentModel.model);
   const [projectTargetIndex, setProjectTargetIndex] = useState(0);
   const [experienceTargetIndex, setExperienceTargetIndex] = useState(0);
   const [prompt, setPrompt] = useState("");
   /** ドラッグでリサイズされた寸法。null の間は CSS のデフォルトサイズに従う */
   const [panelSize, setPanelSize] = useState<{ width: number; height: number } | null>(null);
   const { entries, sending, error, send, markApplied, clearError } = useAgentChat();
+  // モデル・残高はともにサイドバーで表示・切り替えする（ADR-0012）。ウィジェットは
+  // 有料モデル消費後にサイドバーの残高を最新化するため refresh のみ利用する
+  const isPaidModel = model === "sonnet";
+  const { refresh: refreshBalance } = useCreditBalanceContext();
   const { showSuccess } = useToast();
   useMessageToast(error, "error");
 
@@ -135,8 +143,20 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
   const handleSend = () => {
     if (!canSend) return;
     clearError();
-    void send(form, scope, getTarget(), prompt.trim());
+    void sendAndRefreshBalance(scope, getTarget(), prompt.trim());
     setPrompt("");
+  };
+
+  /** 送信後、有料モデルなら残高を最新化する（消費は実トークン量で事後確定するため）。 */
+  const sendAndRefreshBalance = async (
+    sendScope: AgentScope,
+    target: ProjectTarget | ExperienceTarget | null,
+    text: string,
+  ) => {
+    await send(form, sendScope, target, text, model);
+    if (isPaidModel) {
+      void refreshBalance();
+    }
   };
 
   // パネル左上のハンドルをドラッグしてリサイズする。パネルは右下固定なので
@@ -283,7 +303,7 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
                 onSelect={(suggestion) => {
                   if (sending) return;
                   clearError();
-                  void send(form, entry.scope, entry.target, suggestion);
+                  void sendAndRefreshBalance(entry.scope, entry.target, suggestion);
                 }}
               />
             )}

@@ -1,11 +1,14 @@
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import { persistReducer, persistStore } from "redux-persist";
 import { useDispatch, useSelector, type TypedUseSelectorHook } from "react-redux";
+import agentModelReducer from "./agentModelSlice";
 import formCacheReducer from "./formCacheSlice";
 import { persistConfig } from "./persistConfig";
 
 const rootReducer = combineReducers({
   formCache: formCacheReducer,
+  // 使用モデルのグローバル設定（永続化する。PII を含まない / ADR-0012）
+  agentModel: agentModelReducer,
 });
 
 /** persistConfig の blacklist に基づき機密スライスを除外した永続化リデューサー */

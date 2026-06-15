@@ -1,0 +1,27 @@
+.badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.label {
+  color: var(--text-secondary);
+}
+
+.value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.paid {
+  margin-left: auto;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+}

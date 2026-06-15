@@ -47,6 +47,11 @@ export const ERROR_CONFIG: Record<
     message: "AI の応答を解釈できませんでした",
     recovery: { label: "もう一度試す", fn: null },
   },
+  INSUFFICIENT_CREDITS: {
+    // fn は null（自動切替はしない）。ユーザー自身がモデル選択で切り替える手動アクション
+    message: "クレジット残高が不足しています",
+    recovery: { label: "モデル選択で Haiku（無料）に切り替える", fn: null },
+  },
   RATE_LIMITED: {
     message: "リクエストが集中しています",
     recovery: { label: "少し待って再試行", fn: null },

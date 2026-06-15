@@ -24,6 +24,8 @@ from ..services.agent.chat_service import (
 )
 from ..services.agent.context_builder import build_reference_context
 from ..services.agent.llm.base import LLMError
+from ..services.billing import credit_service
+from ..services.billing.credit_service import InsufficientCreditsError
 
 logger = logging.getLogger(__name__)
 
@@ -41,27 +43,58 @@ async def agent_chat(
     """選択スコープの内容とプロンプトをもとに、職務経歴書への差分 operations を返す。
 
     career_summary / self_pr スコープでは GitHub・ブログ分析サマリーを参照情報として付与する。
-    レスポンスはフロントの state にのみ適用され、DB は更新しない。
+    レスポンスはフロントの state にのみ適用され、DB は更新しない
+    （クレジット消費・使用ログの記録は除く / ADR-0012）。
     ユーザーが確認して「適用」した時点で既存の保存 API が呼ばれる。
     """
+    # 有料モデル（sonnet）は LLM を呼ぶ前に残高をチェックする。実コストは応答後に
+    # 確定するため事後減算とし、チェック通過後の負残高は許容する（ADR-0012）
+    try:
+        credit_service.ensure_can_use_model(db, user.id, body.model)
+    except InsufficientCreditsError:
+        raise_app_error(
+            status_code=402,
+            code=ErrorCode.INSUFFICIENT_CREDITS,
+            message=get_error("billing.insufficient_credits"),
+        )
     try:
         reference = build_reference_context(db, user.id, body.scope)
-        return await chat_service.run_agent_chat(body, reference)
+        result = await chat_service.run_agent_chat(body, reference)
     except AgentTargetNotFoundError:
         raise_app_error(
             status_code=422,
             code=ErrorCode.VALIDATION_ERROR,
             message=get_error("agent.target_not_found"),
         )
-    except LLMError:
+    except LLMError as exc:
+        # リトライ呼び出しが失敗した場合、1 回目分の消費済みトークンを課金してから
+        # 502 を返す（課金漏れを防ぐ / ADR-0012）。課金記録自体の失敗はログに残し、
+        # 本来の LLM 失敗（502）を優先して返す
+        if exc.usage is not None:
+            try:
+                credit_service.record_chat_usage(db, user.id, exc.usage)
+            except Exception:
+                logger.error("LLM 失敗時のクレジット消費記録に失敗", exc_info=True)
         raise_app_error(
             status_code=502,
             code=ErrorCode.AGENT_LLM_ERROR,
             message=get_error("agent.llm_failed"),
         )
-    except AgentResponseParseError:
+    except AgentResponseParseError as exc:
+        # リトライ後も失敗。消費済みトークン（リトライ含む API 原価）があれば課金を
+        # 確定してから 502 を返す（課金漏れを防ぐ / ADR-0012）。課金記録自体の失敗は
+        # ログに残し、本来のパース失敗（502）を優先して返す
+        if exc.usage is not None:
+            try:
+                credit_service.record_chat_usage(db, user.id, exc.usage)
+            except Exception:
+                logger.error("パース失敗時のクレジット消費記録に失敗", exc_info=True)
         raise_app_error(
             status_code=502,
             code=ErrorCode.AGENT_PARSE_ERROR,
             message=get_error("agent.parse_failed"),
         )
+    # 実トークン量に基づくクレジット消費 + 使用ログ記録（haiku はログのみ）。
+    # 記録失敗は応答を返さず 500 にする（課金漏れを黙って通さない / ADR-0012）
+    credit_service.record_chat_usage(db, user.id, result.usage)
+    return result.response

@@ -67,6 +67,8 @@ export const FALLBACK_MESSAGES = {
   GITHUB_OAUTH_START: "GitHub OAuth の開始に失敗しました",
   GITHUB_LINK: "連携に失敗しました",
   AGENT_CHAT: "AI への送信に失敗しました",
+  CREDIT_BALANCE: "クレジット残高の取得に失敗しました",
+  USAGE_SUMMARY: "利用状況の取得に失敗しました",
 } as const;
 
 /**
@@ -391,3 +393,104 @@ export const AGENT_MESSAGES = {
   EMPTY_STATE: "編集対象を選んで、改善したい内容を AI に依頼してください。反映後も保存するまで DB は変更されません。",
   LOGIN_REQUIRED: "devforge Agent を使うにはログインが必要です。",
 } as const;
+
+/** AI モデル選択（ADR-0012）の UI 文言。製品名（Haiku / Sonnet）は constants/agentModels.ts。 */
+export const AGENT_MODEL_MESSAGES = {
+  SIDEBAR_LABEL: "使用モデル",
+  MENU_ITEM: "AI モデルを切り替え",
+  MODAL_TITLE: "AI モデルを選択",
+  MODAL_DESCRIPTION:
+    "依頼の精度とコストに合わせて選べます。設定はこの端末に保存され、すべての AI 機能で使われます。",
+  CLOSE_LABEL: "閉じる",
+  CURRENT_BADGE: "選択中",
+  FREE_BADGE: "無料",
+  PAID_BADGE: "有料",
+  // 課金（チャージ）導線はここに混ぜず、購入は専用サーフェスに分離する（ADR-0012）
+  INSUFFICIENT_HINT: "残高が不足しています。Haiku をご利用ください。",
+  USAGE_NONE: "まだ利用していません",
+  HAIKU_TAGLINE: "高速・標準精度。無料で使い放題。",
+  HAIKU_COST: "消費クレジット: なし",
+  SONNET_TAGLINE: "高精度。重要な仕上げや複雑な依頼に。",
+  SONNET_COST: "消費クレジット: 利用したトークン量に応じて",
+} as const;
+
+/** モデルカードの利用実績ラベル（これまでの回数・消費クレジット）。 */
+export function modelUsageLabel(chatCount: number, creditCost: number): string {
+  const count = chatCount.toLocaleString("ja-JP");
+  if (creditCost > 0) {
+    return `これまで ${count} 回・約 ${creditCost.toLocaleString("ja-JP")} クレジット消費`;
+  }
+  return `これまで ${count} 回利用`;
+}
+
+/** 一定クレジットあたりの平均利用回数の目安ラベル（残高に依存しない比率表示）。 */
+export function creditsForChatsLabel(referenceCredits: number, chats: number): string {
+  return `${referenceCredits.toLocaleString("ja-JP")} クレジットで平均 ${chats.toLocaleString(
+    "ja-JP",
+  )} 回`;
+}
+
+/** 残高・パックの「{モデル名} 約N回」回数アンカー。suffix で「回」「回分」を切替。 */
+export function modelChatsEstimateLabel(
+  modelName: string,
+  chats: number,
+  suffix: "回" | "回分" = "回",
+): string {
+  return `${modelName} 約${chats.toLocaleString("ja-JP")}${suffix}`;
+}
+
+/** クレジット課金（ADR-0012）の UI 文言。 */
+export const BILLING_MESSAGES = {
+  BALANCE_LOADING: "残高を確認中...",
+  SIDEBAR_LABEL: "クレジット残高",
+} as const;
+
+/** クレジット残高の数値を 3 桁区切りで整形する（単位ラベルは別途付与）。 */
+export function formatCreditAmount(balance: number): string {
+  return balance.toLocaleString("ja-JP");
+}
+
+/** トークン購入画面（ADR-0012）の UI 文言。 */
+export const BILLING_PAGE_MESSAGES = {
+  TITLE: "クレジット",
+  MENU_ITEM: "クレジットを購入",
+  BALANCE_LABEL: "現在の残高",
+  CREDITS_UNIT: "クレジット",
+  PACKS_TITLE: "クレジットを購入",
+  PACKS_NOTE: "Sonnet など有料モデルの利用に使えます。Haiku は無料で使い放題です。",
+  INPUT_LABEL: "購入するクレジット数",
+  INPUT_PLACEHOLDER: "例: 1000",
+  PRESETS_LABEL: "クイック選択",
+  PURCHASE_BUTTON: "購入する",
+  CHECKOUT_PREPARING: "クレジット購入（Stripe 決済）は現在準備中です。",
+  PREPARING_BADGE: "準備中",
+  HISTORY_TITLE: "利用・購入履歴",
+  HISTORY_EMPTY: "まだ履歴はありません。",
+  LOADING: "読み込み中...",
+  TYPE_PURCHASE: "購入",
+  TYPE_CONSUMPTION: "消費",
+  TYPE_ADMIN_GRANT: "付与",
+} as const;
+
+/** 金額を日本円表記に整形する。 */
+export function formatYen(amount: number): string {
+  return `¥${amount.toLocaleString("ja-JP")}`;
+}
+
+/** 台帳の種別コードを表示ラベルに変換する。 */
+export function transactionTypeLabel(type: string): string {
+  if (type === "purchase") return BILLING_PAGE_MESSAGES.TYPE_PURCHASE;
+  if (type === "consumption") return BILLING_PAGE_MESSAGES.TYPE_CONSUMPTION;
+  return BILLING_PAGE_MESSAGES.TYPE_ADMIN_GRANT;
+}
+
+/** 台帳の符号付き増減量を表示文字列に整形する（付与/購入は +、消費は -）。 */
+export function transactionAmountLabel(amount: number): string {
+  const sign = amount > 0 ? "+" : "";
+  return `${sign}${amount.toLocaleString("ja-JP")}`;
+}
+
+/** 購入クレジットの入力範囲ヒント。 */
+export function purchaseRangeHint(min: number, max: number): string {
+  return `${min.toLocaleString("ja-JP")}〜${max.toLocaleString("ja-JP")} クレジットで入力してください`;
+}

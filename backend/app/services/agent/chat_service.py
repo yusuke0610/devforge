@@ -8,6 +8,7 @@
 
 import json
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -16,11 +17,14 @@ from ...schemas.agent import (
     AgentChatRequest,
     AgentChatResponse,
     AgentExperienceContext,
+    AgentModelAlias,
     AgentOperation,
     AgentProjectContext,
     ExperienceTarget,
 )
+from .llm.base import LLMError
 from .llm.factory import get_llm_client
+from .model_catalog import get_model_spec
 from .output_schema import (
     MAX_SUGGESTION_LENGTH,
     MAX_SUGGESTIONS,
@@ -36,7 +40,37 @@ class AgentTargetNotFoundError(Exception):
 
 
 class AgentResponseParseError(Exception):
-    """LLM 応答の JSON パースまたはスキーマ検証に失敗。"""
+    """LLM 応答の JSON パースまたはスキーマ検証に失敗。
+
+    リトライ後も失敗した場合、消費済みトークンの課金漏れを防ぐため確定済みの
+    使用量を ``usage`` に載せて呼び出し元（router）へ伝播する（ADR-0012）。
+    パース前段（リトライ未到達）の失敗では ``usage`` は None。
+    """
+
+    def __init__(self, message: str, *, usage: "AgentUsage | None" = None) -> None:
+        super().__init__(message)
+        self.usage = usage
+
+
+@dataclass(frozen=True)
+class AgentUsage:
+    """チャット 1 回分の実トークン使用量（リトライ分を含む合算 / ADR-0012）。
+
+    router がクレジット消費・使用ログ記録（services/billing）へ渡す。
+    本モジュールは DB に触れない原則を維持するため、記録自体は行わない。
+    """
+
+    model: AgentModelAlias
+    input_tokens: int
+    output_tokens: int
+
+
+@dataclass(frozen=True)
+class AgentChatResult:
+    """run_agent_chat の戻り値（API レスポンス + 課金用の使用量）。"""
+
+    response: AgentChatResponse
+    usage: AgentUsage
 
 # 許可外の field 名を返された時の正規化先。スコープ選択で編集対象は確定しているため、
 # 小型 LLM が「自己PR」等の field 名を返しても既定 field の提案として救済する。
@@ -212,8 +246,8 @@ def _parse_response(raw: str, scope: str) -> AgentChatResponse:
 
 async def run_agent_chat(
     request: AgentChatRequest, reference: dict | None = None
-) -> AgentChatResponse:
-    """Agent チャットを実行する。
+) -> AgentChatResult:
+    """Agent チャットを実行し、レスポンスと実トークン使用量を返す。
 
     Args:
         reference: GitHub/ブログ参照コンテキスト（career_summary / self_pr スコープのみ有効）。
@@ -225,6 +259,8 @@ async def run_agent_chat(
         LLMError: LLM 呼び出しの失敗（llm.base 参照）。
     """
     system_prompt = _SCOPE_PROMPTS[request.scope]
+    # エイリアス → 実モデル ID の解決はサーバー側で行う（クライアントに実 ID を持たせない）
+    model_id = get_model_spec(request.model).model_id
     user_prompt = (
         f"# 編集対象スコープ\n{request.scope}\n\n"
         f"# 現在の内容\n{_build_context(request, reference)}\n\n"
@@ -233,8 +269,9 @@ async def run_agent_chat(
     # 調査用ログはメタデータのみ出す。レジュメ本文・プロンプト本文は個人情報を含むため
     # DEBUG でもログに載せない（.claude/rules/security.md「ログへの秘密情報出力禁止」）
     logger.debug(
-        "Agent LLM 入力: scope=%s target=%s history=%d resume_len=%d user_prompt_len=%d",
+        "Agent LLM 入力: scope=%s model=%s target=%s history=%d resume_len=%d user_prompt_len=%d",
         request.scope,
+        request.model,
         request.target,
         len(request.history),
         len(request.resume.model_dump_json()),
@@ -246,10 +283,13 @@ async def run_agent_chat(
     messages.append({"role": "user", "content": user_prompt})
     client = get_llm_client()
     output_schema = _SCOPE_SCHEMAS[request.scope]
-    raw = await client.generate(system_prompt, messages, output_schema)
-    logger.debug("Agent LLM 生応答（パース前）: len=%d", len(raw))
+    result = await client.generate(system_prompt, messages, output_schema, model_id)
+    # リトライしても 1 回目の API 原価は発生しているため、使用量は全呼び出しの合算で課金する
+    input_tokens = result.input_tokens
+    output_tokens = result.output_tokens
+    logger.debug("Agent LLM 生応答（パース前）: len=%d", len(result.text))
     try:
-        return _parse_response(raw, request.scope)
+        response = _parse_response(result.text, request.scope)
     except AgentResponseParseError as exc:
         # スキーマ違反応答は 1 回だけリトライする。バリデーションエラーの内容を
         # フィードバックして再生成させ、2 回目も失敗したらそのまま raise
@@ -257,7 +297,7 @@ async def run_agent_chat(
         logger.warning("LLM 応答が出力契約に違反したためリトライ: %s", type(exc).__name__)
         retry_messages = [
             *messages,
-            {"role": "assistant", "content": raw},
+            {"role": "assistant", "content": result.text},
             {
                 "role": "user",
                 "content": (
@@ -267,6 +307,36 @@ async def run_agent_chat(
                 ),
             },
         ]
-        raw = await client.generate(system_prompt, retry_messages, output_schema)
-        logger.debug("Agent LLM リトライ応答（パース前）: len=%d", len(raw))
-        return _parse_response(raw, request.scope)
+        try:
+            result = await client.generate(
+                system_prompt, retry_messages, output_schema, model_id
+            )
+        except LLMError as retry_exc:
+            # リトライ呼び出し自体が失敗。1 回目の API 原価は発生済みのため使用量を
+            # 載せて伝播し、router 側で課金を確定させる（課金漏れを防ぐ / ADR-0012）
+            retry_exc.usage = AgentUsage(
+                model=request.model,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+            )
+            raise
+        input_tokens += result.input_tokens
+        output_tokens += result.output_tokens
+        logger.debug("Agent LLM リトライ応答（パース前）: len=%d", len(result.text))
+        try:
+            response = _parse_response(result.text, request.scope)
+        except AgentResponseParseError as retry_exc:
+            # 2 回目も失敗。1・2 回目分の API 原価は発生済みのため、合算した使用量を
+            # 載せて伝播し、router 側で課金を確定させる（課金漏れを防ぐ / ADR-0012）
+            raise AgentResponseParseError(
+                str(retry_exc),
+                usage=AgentUsage(
+                    model=request.model,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                ),
+            ) from retry_exc
+    usage = AgentUsage(
+        model=request.model, input_tokens=input_tokens, output_tokens=output_tokens
+    )
+    return AgentChatResult(response=response, usage=usage)

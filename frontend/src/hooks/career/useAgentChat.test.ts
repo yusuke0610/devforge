@@ -202,6 +202,28 @@ describe("useAgentChat", () => {
     expect(lastCall.history[0]).toEqual({ role: "user", text: "依頼2" });
   });
 
+  it("model 未指定の送信では haiku（無料）を送る", async () => {
+    postAgentChatMock.mockResolvedValue({ message: "提案です", operations: [] });
+    const { result } = renderHook(() => useAgentChat());
+
+    await act(async () => {
+      await result.current.send(form, "self_pr", null, "改善して");
+    });
+
+    expect(postAgentChatMock).toHaveBeenCalledWith(expect.objectContaining({ model: "haiku" }));
+  });
+
+  it("sonnet 指定の送信では model=sonnet を送る（有料モデル / ADR-0012）", async () => {
+    postAgentChatMock.mockResolvedValue({ message: "提案です", operations: [] });
+    const { result } = renderHook(() => useAgentChat());
+
+    await act(async () => {
+      await result.current.send(form, "self_pr", null, "改善して", "sonnet");
+    });
+
+    expect(postAgentChatMock).toHaveBeenCalledWith(expect.objectContaining({ model: "sonnet" }));
+  });
+
   it("experience スコープでは target を送る", async () => {
     postAgentChatMock.mockResolvedValue({ message: "提案です", operations: [] });
     const { result } = renderHook(() => useAgentChat());

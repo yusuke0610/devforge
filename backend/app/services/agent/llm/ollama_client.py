@@ -6,7 +6,7 @@ import logging
 import httpx
 
 from ....core import settings
-from .base import LLMClient, LLMError
+from .base import LLMClient, LLMError, LLMResult
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +31,13 @@ class OllamaClient(LLMClient):
         system_prompt: str,
         messages: list[dict[str, str]],
         output_schema: dict,
-    ) -> str:
-        """Ollama /api/chat に JSON Schema 形式の format を付与して呼び出し、応答テキストを返す。"""
+        model_id: str,
+    ) -> LLMResult:
+        """Ollama /api/chat に JSON Schema 形式の format を付与して呼び出し、応答テキストを返す。
+
+        model_id（Anthropic 用の実モデル ID）は使わず、ローカル設定（OLLAMA_MODEL）の
+        モデルを使う。トークン使用量は返せないため 0 とする（ローカルは無料扱い / ADR-0012）。
+        """
         payload = {
             "model": self._model,
             "messages": [{"role": "system", "content": system_prompt}, *messages],
@@ -64,4 +69,4 @@ class OllamaClient(LLMClient):
         text = data.get("message", {}).get("content", "")
         if not text:
             raise LLMError("Ollama から空の応答が返されました")
-        return text
+        return LLMResult(text=text)

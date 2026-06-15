@@ -11,6 +11,7 @@ import { useCallback, useState } from "react";
 import { postAgentChat } from "../../api/agent";
 import type {
   AgentHistoryEntry,
+  AgentModelAlias,
   AgentOperation,
   ExperienceTarget,
   ProjectTarget,
@@ -69,6 +70,7 @@ export function useAgentChat() {
       scope: AgentScope,
       target: ProjectTarget | ExperienceTarget | null,
       prompt: string,
+      model: AgentModelAlias = "haiku",
     ) => {
       setError(null);
       setSending(true);
@@ -88,6 +90,8 @@ export function useAgentChat() {
         const response = await postAgentChat({
           scope,
           prompt,
+          // 使用モデル（haiku: 無料 / sonnet: 有料・クレジット消費 / ADR-0012）
+          model,
           resume: buildAgentResumeContext(form),
           target: scope === "project" || scope === "experience" ? target : null,
           history: buildHistory(entries),
