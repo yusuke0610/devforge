@@ -36,6 +36,7 @@ export const PATHS = {
     usageSummary: "/api/billing/usage-summary",
     packs: "/api/billing/packs",
     modelRates: "/api/billing/model-rates",
+    checkout: "/api/billing/checkout",
   },
   resumes: {
     base: "/api/resumes",

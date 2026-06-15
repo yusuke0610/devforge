@@ -74,6 +74,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/billing/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Checkout
+         * @description クレジット購入の Stripe Checkout セッションを作成し、決済ページ URL を返す（ADR-0012）。
+         *
+         *     外部 API（Stripe）を呼ぶ高コスト endpoint のため rate limit を付与する。
+         *     入金確定は Webhook（checkout.session.completed）が正であり、本エンドポイントは
+         *     決済ページへ誘導する URL を返すだけで残高は更新しない。
+         */
+        post: operations["create_checkout_api_billing_checkout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/billing/model-rates": {
         parameters: {
             query?: never;
@@ -157,6 +181,31 @@ export interface paths {
         get: operations["get_usage_summary_api_billing_usage_summary_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/billing/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stripe Webhook
+         * @description Stripe Webhook（checkout.session.completed）でクレジットを付与する（ADR-0012）。
+         *
+         *     署名検証必須。入金確定はこのエンドポイントが正で、付与の冪等性は
+         *     credit_transactions.stripe_session_id の UNIQUE 制約で担保する。呼び出し元は Stripe の
+         *     ため get_current_user は付けない（認証 Cookie は届かない）。Cloudflare を経由せず
+         *     Cloud Run へ直接届くため InternalSecretMiddleware の対象外にしてある（main.py 参照）。
+         */
+        post: operations["stripe_webhook_api_billing_webhook_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1208,6 +1257,22 @@ export interface components {
             warning_message?: string | null;
         };
         /**
+         * CheckoutSessionRequest
+         * @description クレジット購入の Stripe Checkout セッション作成リクエスト（ADR-0012 Phase 2）。
+         */
+        CheckoutSessionRequest: {
+            /** Credits */
+            credits: number;
+        };
+        /**
+         * CheckoutSessionResponse
+         * @description Stripe Checkout 決済ページの URL。フロントはこの URL へリダイレクトする。
+         */
+        CheckoutSessionResponse: {
+            /** Checkout Url */
+            checkout_url: string;
+        };
+        /**
          * Client
          * @description ユーザ（常駐先/クライアント企業）。
          *
@@ -2082,6 +2147,39 @@ export interface operations {
             };
         };
     };
+    create_checkout_api_billing_checkout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckoutSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutSessionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_model_rates_api_billing_model_rates_get: {
         parameters: {
             query?: never;
@@ -2158,6 +2256,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentUsageSummaryEntry"][];
+                };
+            };
+        };
+    };
+    stripe_webhook_api_billing_webhook_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
                 };
             };
         };

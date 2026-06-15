@@ -14,6 +14,9 @@ class UserRepository:
         self.db.refresh(user)
         return user
 
+    def get_by_id(self, user_id: str) -> User | None:
+        return self.db.scalar(select(User).where(User.id == user_id))
+
     def get_by_username(self, username: str) -> User | None:
         return self.db.scalar(select(User).where(User.username == username))
 

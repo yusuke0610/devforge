@@ -78,6 +78,8 @@ REST API エンドポイント一覧と、バックエンド／フロントエ�
 - `GET /api/billing/packs`: 購入可能なクレジットパック一覧（`pricing.py` が正本）
 - `GET /api/billing/model-rates`: モデル別の標準消費レート（回数目安用）
 - `GET /api/billing/usage-summary`: ログインユーザーのモデル別利用実績サマリ
+- `POST /api/billing/checkout`: クレジット購入の Stripe Checkout セッションを作成し決済ページ URL を返す（Phase 2・要ログイン・rate limit）
+- `POST /api/billing/webhook`: Stripe Webhook（`checkout.session.completed`）でクレジットを付与（Phase 2・`Stripe-Signature` 署名検証必須・認証ガード無し）
 - `POST /api/billing/admin/grant`: ユーザーへのクレジット付与（管理者・`ADMIN_TOKEN` Bearer 認証）
 
 ### 内部 API（Cloud Tasks コールバック専用）
@@ -144,6 +146,13 @@ REST API エンドポイント一覧と、バックエンド／フロントエ�
 | `ANTHROPIC_API_KEY` | Anthropic API キー（本番は Secret Manager `anthropic-api-key` から注入） |
 | `OLLAMA_BASE_URL` | ローカル Ollama のベース URL（既定: `http://localhost:11434`） |
 | `OLLAMA_MODEL` | ローカル Ollama のモデル名（既定: `llama3.2`） |
+
+### 決済（Stripe Checkout / ADR-0012 Phase 2）
+
+| 変数 | 用途 |
+|---|---|
+| `STRIPE_SECRET_KEY` | Stripe シークレットキー（本番は Secret Manager `stripe-secret-key` から注入）。未設定なら購入機能は無効（`/api/billing/checkout` が 503） |
+| `STRIPE_WEBHOOK_SECRET` | Stripe Webhook 署名シークレット（`whsec_...`、本番は Secret Manager `stripe-webhook-secret` から注入）。`/api/billing/webhook` の署名検証に必須 |
 
 ### 運用・ロギング
 

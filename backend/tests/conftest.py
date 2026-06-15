@@ -56,6 +56,10 @@ os.environ.setdefault("ENVIRONMENT", "local")
 os.environ.setdefault("INTERNAL_SECRET", "")
 os.environ.setdefault("TASK_MAX_ATTEMPTS", "3")
 os.environ.setdefault("CALLBACK_BASE_URL", "")
+# 決済（Stripe / ADR-0012 Phase 2）。既定は未設定で、checkout/webhook テストは
+# stripe_service をモックするか個別に環境変数を設定する
+os.environ.setdefault("STRIPE_SECRET_KEY", "")
+os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "")
 os.environ.setdefault("LOG_LEVEL", "")
 os.environ.setdefault("LOG_FORMAT", "")
 os.environ.setdefault("APP_VERSION", "")

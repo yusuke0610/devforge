@@ -132,6 +132,20 @@ class BillingRepository:
             raise
         return balance_after
 
+    def find_by_stripe_session_id(
+        self, stripe_session_id: str
+    ) -> CreditTransaction | None:
+        """指定の Stripe Checkout Session ID の台帳エントリを返す（冪等性チェック用）。
+
+        ``stripe_session_id`` は全体で UNIQUE のため user_id ではスコープしない
+        （Webhook 再送・同一セッションの二重付与を検出する / ADR-0012）。
+        """
+        return self.db.scalar(
+            select(CreditTransaction).where(
+                CreditTransaction.stripe_session_id == stripe_session_id
+            )
+        )
+
     def list_transactions(self, limit: int = 50) -> list[CreditTransaction]:
         """台帳履歴を新しい順に返す。"""
         stmt = (

@@ -7,6 +7,7 @@ LLM（外部 API）のみモックし、残高チェック・消費・台帳記�
 from typing import get_args
 
 import pytest
+from app.core import settings
 from app.models import AgentUsageLog
 from app.repositories import BillingRepository, UserRepository
 from app.schemas.agent import AgentModelAlias
@@ -21,13 +22,37 @@ from app.services.agent.model_catalog import (
     baseline_credits_per_chat,
     calculate_credit_cost,
 )
-from app.services.billing import credit_service
+from app.services.billing import credit_service, stripe_service
 from fastapi.testclient import TestClient
 
 from conftest import auth_header
 from test_agent import _FakeLLM, _llm_json, _resume_payload, _SequentialFakeLLM
 
 _ADMIN_HEADERS = {"Authorization": "Bearer test-admin-token"}
+
+
+def _completed_event(
+    user_id: str,
+    credits: int,
+    *,
+    session_id: str = "cs_test_123",
+    payment_status: str = "paid",
+    event_type: str = "checkout.session.completed",
+) -> dict:
+    """Stripe Webhook の checkout.session.completed イベント相当の dict を返す。
+
+    stripe.Event は dict ライクに振る舞うため、署名検証をモックする際はこの構造で代用できる。
+    """
+    return {
+        "type": event_type,
+        "data": {
+            "object": {
+                "id": session_id,
+                "payment_status": payment_status,
+                "metadata": {"user_id": user_id, "credits": str(credits)},
+            }
+        },
+    }
 
 
 def _chat_payload(model: str | None = None) -> dict:
@@ -586,3 +611,216 @@ def test_admin_grant_rejects_non_positive_amount(client: TestClient) -> None:
         headers=_ADMIN_HEADERS,
     )
     assert resp.status_code == 422
+
+
+# --- ユニットテスト（Stripe 購入の冪等性 / ADR-0012 Phase 2） ---
+
+
+def test_record_stripe_purchase_grants_once(client: TestClient) -> None:
+    """同一 stripe_session_id の Webhook 再送は二重付与しない（UNIQUE 制約 + 事前チェック）。"""
+    auth_header(client, "billing-purchase-idem")
+    user_id = _get_user_id(client, "billing-purchase-idem")
+    db = client._db_session
+
+    first = credit_service.record_stripe_purchase(
+        db, user_id, 1_000, stripe_session_id="cs_idem_1"
+    )
+    second = credit_service.record_stripe_purchase(
+        db, user_id, 1_000, stripe_session_id="cs_idem_1"
+    )
+
+    assert first == 1_000
+    # 2 回目は処理済みのため None（付与スキップ）
+    assert second is None
+    repo = BillingRepository(db, user_id)
+    assert repo.get_balance() == 1_000
+    purchases = [
+        t for t in repo.list_transactions()
+        if t.transaction_type == credit_service.TRANSACTION_TYPE_PURCHASE
+    ]
+    assert len(purchases) == 1
+    assert purchases[0].amount == 1_000
+    assert purchases[0].stripe_session_id == "cs_idem_1"
+
+
+def test_extract_completed_purchase_skips_unpaid() -> None:
+    """未払い（payment_status != paid）のイベントは付与対象にしない。"""
+    event = _completed_event("u1", 1_000, payment_status="unpaid")
+    assert stripe_service.extract_completed_purchase(event) is None
+
+
+def test_extract_completed_purchase_skips_other_event_types() -> None:
+    """checkout.session.completed 以外のイベントは付与対象にしない。"""
+    event = _completed_event("u1", 1_000, event_type="payment_intent.created")
+    assert stripe_service.extract_completed_purchase(event) is None
+
+
+# --- 統合テスト（Checkout セッション作成） ---
+
+
+def test_create_checkout_returns_url(client: TestClient, monkeypatch) -> None:
+    """POST /api/billing/checkout は Stripe Checkout の URL を返し、入力どおりに呼び出す。"""
+    headers = auth_header(client, "billing-checkout")
+    captured: dict = {}
+
+    def _fake_create(*, user_id, credits, success_url, cancel_url):
+        captured.update(
+            user_id=user_id,
+            credits=credits,
+            success_url=success_url,
+            cancel_url=cancel_url,
+        )
+        return "https://checkout.stripe.com/c/pay/cs_test_123"
+
+    monkeypatch.setattr(stripe_service, "create_checkout_session", _fake_create)
+
+    resp = client.post("/api/billing/checkout", json={"credits": 1_000}, headers=headers)
+
+    assert resp.status_code == 200
+    assert resp.json() == {"checkout_url": "https://checkout.stripe.com/c/pay/cs_test_123"}
+    assert captured["credits"] == 1_000
+    # success/cancel URL はサーバー側で信頼済みベース URL から組み立てる（オープンリダイレクト防止）
+    assert captured["success_url"].endswith("/billing?checkout=success")
+    assert captured["cancel_url"].endswith("/billing?checkout=cancel")
+
+
+def test_create_checkout_requires_auth(client: TestClient) -> None:
+    """未ログインの Checkout 作成は 401。"""
+    resp = client.post("/api/billing/checkout", json={"credits": 1_000})
+    assert resp.status_code == 401
+
+
+def test_create_checkout_rejects_out_of_range(client: TestClient) -> None:
+    """購入クレジットが下限未満はスキーマ検証で 422。"""
+    headers = auth_header(client, "billing-checkout-range")
+    resp = client.post("/api/billing/checkout", json={"credits": 1}, headers=headers)
+    assert resp.status_code == 422
+
+
+def test_create_checkout_unconfigured_returns_503(client: TestClient, monkeypatch) -> None:
+    """STRIPE_SECRET_KEY 未設定なら 503 PAYMENT_ERROR（決済機能無効）。"""
+    headers = auth_header(client, "billing-checkout-unconfigured")
+    monkeypatch.setattr(settings, "get_stripe_secret_key", lambda: "")
+
+    resp = client.post("/api/billing/checkout", json={"credits": 1_000}, headers=headers)
+
+    assert resp.status_code == 503
+    assert resp.json()["code"] == "PAYMENT_ERROR"
+
+
+def test_create_checkout_stripe_error_returns_502(client: TestClient, monkeypatch) -> None:
+    """Stripe API 呼び出し失敗は 502 PAYMENT_ERROR。"""
+    headers = auth_header(client, "billing-checkout-error")
+
+    def _boom(**_kwargs):
+        raise stripe_service.StripeCheckoutError("Stripe error: APIError")
+
+    monkeypatch.setattr(stripe_service, "create_checkout_session", _boom)
+
+    resp = client.post("/api/billing/checkout", json={"credits": 1_000}, headers=headers)
+
+    assert resp.status_code == 502
+    assert resp.json()["code"] == "PAYMENT_ERROR"
+
+
+# --- 統合テスト（Stripe Webhook 入金処理） ---
+
+
+def test_webhook_grants_credits_on_completed(client: TestClient, monkeypatch) -> None:
+    """checkout.session.completed（支払い済み）でクレジットを付与し purchase 台帳を記録する。"""
+    auth_header(client, "billing-webhook")
+    user_id = _get_user_id(client, "billing-webhook")
+    client.cookies.clear()  # Stripe からの受信を模す（Cookie なし → CSRF 対象外）
+    event = _completed_event(user_id, 2_000, session_id="cs_webhook_1")
+    monkeypatch.setattr(stripe_service, "parse_webhook_event", lambda *_a, **_k: event)
+
+    resp = client.post(
+        "/api/billing/webhook",
+        content=b"{}",
+        headers={"Stripe-Signature": "t=1,v1=sig"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json() == {"received": True}
+    repo = BillingRepository(client._db_session, user_id)
+    assert repo.get_balance() == 2_000
+    purchases = [
+        t for t in repo.list_transactions()
+        if t.transaction_type == credit_service.TRANSACTION_TYPE_PURCHASE
+    ]
+    assert len(purchases) == 1
+    assert purchases[0].amount == 2_000
+    assert purchases[0].stripe_session_id == "cs_webhook_1"
+
+
+def test_webhook_is_idempotent_on_resend(client: TestClient, monkeypatch) -> None:
+    """同一イベントの再送では二重付与しない（Webhook 再送に対する冪等性）。"""
+    auth_header(client, "billing-webhook-idem")
+    user_id = _get_user_id(client, "billing-webhook-idem")
+    client.cookies.clear()  # Stripe からの受信を模す（Cookie なし → CSRF 対象外）
+    event = _completed_event(user_id, 2_000, session_id="cs_webhook_resend")
+    monkeypatch.setattr(stripe_service, "parse_webhook_event", lambda *_a, **_k: event)
+
+    first = client.post("/api/billing/webhook", content=b"{}", headers={"Stripe-Signature": "s"})
+    second = client.post("/api/billing/webhook", content=b"{}", headers={"Stripe-Signature": "s"})
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    repo = BillingRepository(client._db_session, user_id)
+    # 2 回受信しても付与は 1 回分のみ
+    assert repo.get_balance() == 2_000
+    purchases = [
+        t for t in repo.list_transactions()
+        if t.transaction_type == credit_service.TRANSACTION_TYPE_PURCHASE
+    ]
+    assert len(purchases) == 1
+
+
+def test_webhook_invalid_signature_returns_400(client: TestClient, monkeypatch) -> None:
+    """署名検証に失敗したら 400（付与しない）。"""
+    def _bad_sig(*_a, **_k):
+        raise stripe_service.WebhookVerificationError("Webhook verification failed")
+
+    monkeypatch.setattr(stripe_service, "parse_webhook_event", _bad_sig)
+
+    resp = client.post("/api/billing/webhook", content=b"{}", headers={"Stripe-Signature": "bad"})
+
+    assert resp.status_code == 400
+
+
+def test_webhook_unconfigured_returns_503(client: TestClient) -> None:
+    """STRIPE_WEBHOOK_SECRET 未設定なら署名検証できず 503（fail-closed）。"""
+    resp = client.post("/api/billing/webhook", content=b"{}", headers={"Stripe-Signature": "x"})
+    assert resp.status_code == 503
+
+
+def test_webhook_ignores_non_completed_event(client: TestClient, monkeypatch) -> None:
+    """付与対象外イベントは 200 で受領しつつ付与しない。"""
+    auth_header(client, "billing-webhook-other")
+    user_id = _get_user_id(client, "billing-webhook-other")
+    client.cookies.clear()  # Stripe からの受信を模す（Cookie なし → CSRF 対象外）
+    event = _completed_event(user_id, 2_000, event_type="payment_intent.created")
+    monkeypatch.setattr(stripe_service, "parse_webhook_event", lambda *_a, **_k: event)
+
+    resp = client.post("/api/billing/webhook", content=b"{}", headers={"Stripe-Signature": "s"})
+
+    assert resp.status_code == 200
+    assert BillingRepository(client._db_session, user_id).get_balance() == 0
+
+
+def test_webhook_unknown_user_returns_200_without_grant(client: TestClient, monkeypatch) -> None:
+    """metadata のユーザーが存在しなくても 200 で受領する（再送で解決しないため）。"""
+    event = _completed_event("no-such-user-id", 2_000, session_id="cs_unknown")
+    monkeypatch.setattr(stripe_service, "parse_webhook_event", lambda *_a, **_k: event)
+
+    resp = client.post("/api/billing/webhook", content=b"{}", headers={"Stripe-Signature": "s"})
+
+    assert resp.status_code == 200
+    assert resp.json() == {"received": True}
+
+
+def test_webhook_path_is_internal_secret_exempt() -> None:
+    """Webhook は Cloudflare を経由せず Cloud Run へ直接届くため InternalSecret 検証の対象外。"""
+    import app.main as main_module
+
+    assert "/api/billing/webhook" in main_module._INTERNAL_SECRET_SKIP_PATHS

@@ -11,18 +11,23 @@ locals {
     "turso-auth-token",
     # DevForge Agent（ADR-0010）の Anthropic API キー
     "anthropic-api-key",
+    # 決済（Stripe Checkout / ADR-0012 Phase 2）の API キーと Webhook 署名シークレット
+    "stripe-secret-key",
+    "stripe-webhook-secret",
     # 棚卸し TODO: "field-encryption-key"（FIELD_ENCRYPTION_KEY / Fernet 鍵）は
     # このリストから除外し対応する Secret Manager シークレットを削除すること。
     # 削除前に全環境（dev/stg/prod）の Cloud Run 設定から環境変数を外すこと。
   ]
   required_secret_env = {
-    FIELD_ENCRYPTION_KEY = "field-encryption-key"
-    ADMIN_TOKEN          = "admin-token"
-    JWT_PRIVATE_KEY      = "jwt-private-key"
-    JWT_PUBLIC_KEY       = "jwt-public-key"
-    INTERNAL_SECRET      = "internal-secret"
-    TURSO_AUTH_TOKEN     = "turso-auth-token"
-    ANTHROPIC_API_KEY    = "anthropic-api-key"
+    FIELD_ENCRYPTION_KEY  = "field-encryption-key"
+    ADMIN_TOKEN           = "admin-token"
+    JWT_PRIVATE_KEY       = "jwt-private-key"
+    JWT_PUBLIC_KEY        = "jwt-public-key"
+    INTERNAL_SECRET       = "internal-secret"
+    TURSO_AUTH_TOKEN      = "turso-auth-token"
+    ANTHROPIC_API_KEY     = "anthropic-api-key"
+    STRIPE_SECRET_KEY     = "stripe-secret-key"
+    STRIPE_WEBHOOK_SECRET = "stripe-webhook-secret"
   }
   github_secret_env = var.enable_github_oauth ? {
     GITHUB_CLIENT_ID     = "github-client-id"
