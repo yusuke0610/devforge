@@ -80,12 +80,14 @@ test("UserMenu からトークン購入画面を開き、残高・パック・�
   await page.getByRole("button", { name: "1,100" }).click();
   await expect(main.getByText("¥1,100")).toBeVisible();
 
-  // 購入ボタン → Checkout セッション作成 → 返却 URL（決済ページ）へリダイレクト
+  // 購入ボタン → Checkout セッション作成 → 返却 URL（決済ページ）へリダイレクト。
+  // スタブ URL は baseURL / ポート差異に強くするため現在のページオリジンから動的に組み立てる
+  const stubUrl = new URL("/__stripe_stub", page.url()).href;
   await page.route("**/api/billing/checkout", (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ checkout_url: "http://localhost:5173/__stripe_stub" }),
+      body: JSON.stringify({ checkout_url: stubUrl }),
     }),
   );
   // 外部決済ページの代わりに同一オリジンのスタブへ遷移させ、ナビゲーションを安定させる
