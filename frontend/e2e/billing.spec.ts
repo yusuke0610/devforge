@@ -4,7 +4,7 @@ import { setupAuth, waitForAuthenticatedLayout } from "./helpers/auth";
 /**
  * トークン購入画面（ADR-0012）E2E。
  * UserMenu の「クレジットを購入」→ /billing。残高・パック・履歴が表示され、
- * 購入ボタン押下で準備中トーストが出る（Stripe 連携は Phase 2）。
+ * 購入ボタン押下で Stripe Checkout セッションを作成し決済ページへ遷移する（Phase 2）。
  */
 
 async function setupBillingApi(page: Page) {
@@ -80,9 +80,29 @@ test("UserMenu からトークン購入画面を開き、残高・パック・�
   await page.getByRole("button", { name: "1,100" }).click();
   await expect(main.getByText("¥1,100")).toBeVisible();
 
-  // 購入ボタン → 準備中トースト（Stripe は Phase 2）
+  // 購入ボタン → Checkout セッション作成 → 返却 URL（決済ページ）へリダイレクト。
+  // スタブ URL は baseURL / ポート差異に強くするため現在のページオリジンから動的に組み立てる
+  const stubUrl = new URL("/__stripe_stub", page.url()).href;
+  await page.route("**/api/billing/checkout", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ checkout_url: stubUrl }),
+    }),
+  );
+  // 外部決済ページの代わりに同一オリジンのスタブへ遷移させ、ナビゲーションを安定させる
+  await page.route("**/__stripe_stub", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "text/html",
+      body: "<html><body>stripe checkout stub</body></html>",
+    }),
+  );
+
+  const checkoutRequest = page.waitForRequest("**/api/billing/checkout");
   await page.getByRole("button", { name: "購入する" }).click();
-  await expect(
-    page.getByText("クレジット購入（Stripe 決済）は現在準備中です。"),
-  ).toBeVisible();
+  const request = await checkoutRequest;
+  expect(request.postDataJSON()).toEqual({ credits: 1100 });
+  // 決済ページ（スタブ）へ遷移する
+  await expect(page).toHaveURL(/__stripe_stub/);
 });

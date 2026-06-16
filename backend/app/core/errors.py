@@ -35,6 +35,8 @@ class ErrorCode(str, Enum):
     AGENT_PARSE_ERROR = "AGENT_PARSE_ERROR"
     # 課金（プリペイドクレジット / ADR-0012）
     INSUFFICIENT_CREDITS = "INSUFFICIENT_CREDITS"
+    # 決済（Stripe Checkout / ADR-0012 Phase 2）
+    PAYMENT_ERROR = "PAYMENT_ERROR"
     # アプリケーション全体
     RATE_LIMITED = "RATE_LIMITED"
     # サーバー

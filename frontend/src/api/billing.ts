@@ -2,6 +2,7 @@ import { request } from "./client";
 import { PATHS } from "./paths";
 import type {
   AgentUsageSummaryEntry,
+  CheckoutSessionResponse,
   CreditBalanceResponse,
   CreditPackResponse,
   CreditTransactionResponse,
@@ -34,4 +35,15 @@ export function getCreditPacks(): Promise<CreditPackResponse[]> {
 /** モデル別の標準消費レート（回数目安用）を取得する。 */
 export function getModelRates(): Promise<ModelRateEntry[]> {
   return request<ModelRateEntry[]>(PATHS.billing.modelRates, { method: "GET" });
+}
+
+/**
+ * クレジット購入の Stripe Checkout セッションを作成し、決済ページの URL を取得する（ADR-0012）。
+ * 返却された URL へリダイレクトすると Stripe ホストの決済ページに遷移する。
+ */
+export function createCheckoutSession(credits: number): Promise<CheckoutSessionResponse> {
+  return request<CheckoutSessionResponse>(PATHS.billing.checkout, {
+    method: "POST",
+    body: JSON.stringify({ credits }),
+  });
 }

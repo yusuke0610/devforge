@@ -4,6 +4,11 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# 任意クレジット購入の入力範囲（誤入力の桁あふれ・極小購入を防ぐ）。
+# frontend/src/utils/creditEstimate.ts の MIN/MAX_PURCHASE_CREDITS と一致させる
+MIN_PURCHASE_CREDITS = 100
+MAX_PURCHASE_CREDITS = 1_000_000
+
 
 class CreditBalanceResponse(BaseModel):
     """クレジット残高。"""
@@ -57,6 +62,19 @@ class AgentUsageSummaryEntry(BaseModel):
     output_tokens: int
     # 消費クレジット合計（無料モデルは 0）
     credit_cost: int
+
+
+class CheckoutSessionRequest(BaseModel):
+    """クレジット購入の Stripe Checkout セッション作成リクエスト（ADR-0012 Phase 2）。"""
+
+    # 1 クレジット = ¥1。入力範囲は誤入力の桁あふれ・極小購入を防ぐ
+    credits: int = Field(ge=MIN_PURCHASE_CREDITS, le=MAX_PURCHASE_CREDITS)
+
+
+class CheckoutSessionResponse(BaseModel):
+    """Stripe Checkout 決済ページの URL。フロントはこの URL へリダイレクトする。"""
+
+    checkout_url: str
 
 
 class AdminCreditGrantRequest(BaseModel):

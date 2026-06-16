@@ -97,6 +97,13 @@ ANTHROPIC_API_KEY = "ANTHROPIC_API_KEY"
 OLLAMA_BASE_URL = "OLLAMA_BASE_URL"
 OLLAMA_MODEL = "OLLAMA_MODEL"
 
+# --- 決済（Stripe Checkout / ADR-0012 Phase 2） ---
+
+# 本番（Cloud Run）では Secret Manager から注入する。ログ出力禁止
+STRIPE_SECRET_KEY = "STRIPE_SECRET_KEY"
+# Webhook 署名検証用シークレット（whsec_...）。ログ出力禁止
+STRIPE_WEBHOOK_SECRET = "STRIPE_WEBHOOK_SECRET"
+
 # --- アプリ起動制御 ---
 
 APP_BOOTSTRAPPED = "APP_BOOTSTRAPPED"

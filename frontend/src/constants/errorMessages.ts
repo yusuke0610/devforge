@@ -52,6 +52,10 @@ export const ERROR_CONFIG: Record<
     message: "クレジット残高が不足しています",
     recovery: { label: "モデル選択で Haiku（無料）に切り替える", fn: null },
   },
+  PAYMENT_ERROR: {
+    message: "決済処理に失敗しました",
+    recovery: { label: "少し待って再試行", fn: null },
+  },
   RATE_LIMITED: {
     message: "リクエストが集中しています",
     recovery: { label: "少し待って再試行", fn: null },

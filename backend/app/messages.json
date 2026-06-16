@@ -76,7 +76,11 @@
     },
     "billing": {
       "insufficient_credits": "クレジット残高が不足しています。Haiku（無料）に切り替えるか、クレジットを追加してください。",
-      "grant_user_not_found": "付与対象のユーザーが見つかりません。"
+      "grant_user_not_found": "付与対象のユーザーが見つかりません。",
+      "checkout_unavailable": "クレジット購入機能は現在利用できません。時間をおいて再度お試しください。",
+      "checkout_failed": "決済ページの作成に失敗しました。時間をおいて再度お試しください。",
+      "webhook_unavailable": "決済通知を処理できません。",
+      "webhook_invalid": "決済通知の検証に失敗しました。"
     }
   },
   "notification": {

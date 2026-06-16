@@ -1,31 +1,34 @@
 """クレジット課金エンドポイント（ADR-0012）。
 
-Phase 1: 残高照会・台帳履歴・管理者付与のみ。
-Phase 2 で Stripe Checkout（購入セッション作成・Webhook 入金）を追加する。
+Phase 1: 残高照会・台帳履歴・管理者付与。
+Phase 2: Stripe Checkout（購入セッション作成・Webhook 入金）。
 """
 
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from ..core.errors import ErrorCode, raise_app_error
 from ..core.messages import get_error
 from ..core.security.auth import get_current_user
-from ..core.security.dependencies import verify_admin_token
+from ..core.security.dependencies import limiter, verify_admin_token
+from ..core.settings import get_billing_return_base_url
 from ..db import get_db
 from ..models import User
 from ..repositories import BillingRepository, UserRepository
 from ..schemas.billing import (
     AdminCreditGrantRequest,
     AgentUsageSummaryEntry,
+    CheckoutSessionRequest,
+    CheckoutSessionResponse,
     CreditBalanceResponse,
     CreditPackResponse,
     CreditTransactionResponse,
     ModelRateEntry,
 )
 from ..services.agent.model_catalog import MODEL_CATALOG, baseline_credits_per_chat
-from ..services.billing import credit_service
+from ..services.billing import credit_service, stripe_service
 from ..services.billing.pricing import CREDIT_PACKS
 
 logger = logging.getLogger(__name__)
@@ -109,6 +112,91 @@ def get_usage_summary(
         )
         for row in rows
     ]
+
+
+@router.post("/checkout", response_model=CheckoutSessionResponse)
+@limiter.limit("20/minute")
+def create_checkout(
+    request: Request,
+    body: CheckoutSessionRequest,
+    user: User = Depends(get_current_user),
+) -> CheckoutSessionResponse:
+    """クレジット購入の Stripe Checkout セッションを作成し、決済ページ URL を返す（ADR-0012）。
+
+    外部 API（Stripe）を呼ぶ高コスト endpoint のため rate limit を付与する。
+    入金確定は Webhook（checkout.session.completed）が正であり、本エンドポイントは
+    決済ページへ誘導する URL を返すだけで残高は更新しない。
+    """
+    base_url = get_billing_return_base_url()
+    success_url = f"{base_url}/billing?checkout=success"
+    cancel_url = f"{base_url}/billing?checkout=cancel"
+    try:
+        checkout_url = stripe_service.create_checkout_session(
+            user_id=user.id,
+            credits=body.credits,
+            success_url=success_url,
+            cancel_url=cancel_url,
+        )
+    except stripe_service.StripeNotConfiguredError:
+        raise_app_error(
+            status_code=503,
+            code=ErrorCode.PAYMENT_ERROR,
+            message=get_error("billing.checkout_unavailable"),
+        )
+    except stripe_service.StripeCheckoutError:
+        raise_app_error(
+            status_code=502,
+            code=ErrorCode.PAYMENT_ERROR,
+            message=get_error("billing.checkout_failed"),
+        )
+    return CheckoutSessionResponse(checkout_url=checkout_url)
+
+
+@router.post("/webhook")
+async def stripe_webhook(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    """Stripe Webhook（checkout.session.completed）でクレジットを付与する（ADR-0012）。
+
+    署名検証必須。入金確定はこのエンドポイントが正で、付与の冪等性は
+    credit_transactions.stripe_session_id の UNIQUE 制約で担保する。呼び出し元は Stripe の
+    ため get_current_user は付けない（認証 Cookie は届かない）。Cloudflare を経由せず
+    Cloud Run へ直接届くため InternalSecretMiddleware の対象外にしてある（main.py 参照）。
+    """
+    payload = await request.body()
+    signature = request.headers.get("Stripe-Signature")
+    try:
+        event = stripe_service.parse_webhook_event(payload, signature)
+    except stripe_service.StripeNotConfiguredError:
+        raise_app_error(
+            status_code=503,
+            code=ErrorCode.PAYMENT_ERROR,
+            message=get_error("billing.webhook_unavailable"),
+        )
+    except stripe_service.WebhookVerificationError:
+        raise_app_error(
+            status_code=400,
+            code=ErrorCode.VALIDATION_ERROR,
+            message=get_error("billing.webhook_invalid"),
+        )
+
+    purchase = stripe_service.extract_completed_purchase(event)
+    if purchase is not None:
+        target = UserRepository(db).get_by_id(purchase.user_id)
+        if target is None:
+            # 付与対象が存在しない（退会等）。再送しても解決しないため 200 で受領する
+            logger.warning(
+                "Webhook 付与対象ユーザーが存在しません: user_id=%s", purchase.user_id
+            )
+        else:
+            credit_service.record_stripe_purchase(
+                db,
+                purchase.user_id,
+                purchase.credits,
+                stripe_session_id=purchase.stripe_session_id,
+            )
+    return {"received": True}
 
 
 @router.post("/admin/grant", response_model=CreditBalanceResponse)

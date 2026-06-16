@@ -7,6 +7,7 @@ router 側で ``InsufficientCreditsError`` → 402 ``INSUFFICIENT_CREDITS`` に�
 import logging
 from typing import Literal
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...repositories.billing import BillingRepository
@@ -98,3 +99,44 @@ def grant_credits(
         description=description,
         stripe_session_id=stripe_session_id,
     )
+
+
+def record_stripe_purchase(
+    db: Session,
+    user_id: str,
+    credits: int,
+    *,
+    stripe_session_id: str,
+) -> int | None:
+    """Stripe Checkout の入金確定でクレジットを付与する（Webhook から呼ぶ / ADR-0012）。
+
+    付与の冪等性は ``credit_transactions.stripe_session_id`` の UNIQUE 制約で担保する。
+    既に同一セッションで付与済みなら付与せず ``None`` を返す（Webhook 再送に対する冪等性）。
+    付与した場合は適用後残高を返す。
+    """
+    repo = BillingRepository(db, user_id)
+    if repo.find_by_stripe_session_id(stripe_session_id) is not None:
+        logger.info("Stripe 購入は処理済みのため付与をスキップ: session_id=%s", stripe_session_id)
+        return None
+    try:
+        balance_after = grant_credits(
+            db,
+            user_id,
+            credits,
+            transaction_type=TRANSACTION_TYPE_PURCHASE,
+            description=f"クレジット購入（{credits:,} クレジット）",
+            stripe_session_id=stripe_session_id,
+        )
+    except IntegrityError:
+        # 事前チェックと INSERT の間に同一イベントが先に commit した競合。二重付与を防ぐ。
+        # apply_transaction が既に rollback 済みのため、ここでは付与スキップとして扱う
+        logger.info("Stripe 購入の競合を検出し付与をスキップ: session_id=%s", stripe_session_id)
+        return None
+    logger.info(
+        "Stripe 購入を付与: user_id=%s credits=%d balance_after=%d session_id=%s",
+        user_id,
+        credits,
+        balance_after,
+        stripe_session_id,
+    )
+    return balance_after

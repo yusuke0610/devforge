@@ -134,7 +134,9 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 
-_INTERNAL_SECRET_SKIP_PATHS = {"/health"}
+# Stripe Webhook は Cloudflare Pages を経由せず Cloud Run へ直接届くため
+# X-Internal-Secret を持たない。署名検証（Stripe-Signature）で別途防御する（ADR-0012）
+_INTERNAL_SECRET_SKIP_PATHS = {"/health", "/api/billing/webhook"}
 _INTERNAL_SECRET_HEADER = "x-internal-secret"
 
 

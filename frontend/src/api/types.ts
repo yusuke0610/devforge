@@ -161,3 +161,9 @@ export type CreditPackResponse = Schemas["CreditPackResponse"];
 
 /** モデル別の標準消費レート（回数目安用）。backend `schemas/billing.py:ModelRateEntry`。 */
 export type ModelRateEntry = Schemas["ModelRateEntry"];
+
+/** クレジット購入の Checkout セッション作成リクエスト。backend `schemas/billing.py:CheckoutSessionRequest`。 */
+export type CheckoutSessionRequest = Schemas["CheckoutSessionRequest"];
+
+/** Stripe Checkout 決済ページの URL。backend `schemas/billing.py:CheckoutSessionResponse`。 */
+export type CheckoutSessionResponse = Schemas["CheckoutSessionResponse"];

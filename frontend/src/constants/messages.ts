@@ -69,6 +69,7 @@ export const FALLBACK_MESSAGES = {
   AGENT_CHAT: "AI への送信に失敗しました",
   CREDIT_BALANCE: "クレジット残高の取得に失敗しました",
   USAGE_SUMMARY: "利用状況の取得に失敗しました",
+  CHECKOUT: "決済ページへの遷移に失敗しました",
 } as const;
 
 /**
@@ -462,8 +463,8 @@ export const BILLING_PAGE_MESSAGES = {
   INPUT_PLACEHOLDER: "例: 1000",
   PRESETS_LABEL: "クイック選択",
   PURCHASE_BUTTON: "購入する",
-  CHECKOUT_PREPARING: "クレジット購入（Stripe 決済）は現在準備中です。",
-  PREPARING_BADGE: "準備中",
+  CHECKOUT_SUCCESS: "お支払いが完了しました。残高に反映されるまで少し時間がかかる場合があります。",
+  CHECKOUT_CANCELED: "購入をキャンセルしました。",
   HISTORY_TITLE: "利用・購入履歴",
   HISTORY_EMPTY: "まだ履歴はありません。",
   LOADING: "読み込み中...",
