@@ -124,7 +124,9 @@ def _build_blog_context(db: Session, user_id: str) -> dict | None:
             {
                 "title": a.title,
                 "tags": a.tags[:_RECENT_ARTICLE_TAGS_N],
-                "published_at": a.published_at.isoformat() if a.published_at else None,
+                # published_at は format_iso_date 済みの str（または None）を返すプロパティ。
+                # ここで .isoformat() を呼ぶと str に対する呼び出しで AttributeError になる。
+                "published_at": a.published_at,
             }
             for a in articles[:_RECENT_ARTICLES_N]
         ]

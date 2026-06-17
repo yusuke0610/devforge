@@ -21,6 +21,7 @@ from ..services.agent import chat_service
 from ..services.agent.chat_service import (
     AgentResponseParseError,
     AgentTargetNotFoundError,
+    AgentUsage,
 )
 from ..services.agent.context_builder import build_reference_context
 from ..services.agent.llm.base import LLMError
@@ -30,6 +31,19 @@ from ..services.billing.credit_service import InsufficientCreditsError
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
+
+
+def _record_usage_after_llm(db: Session, user_id: str, usage: AgentUsage) -> None:
+    """LLM 応答後のクレジット消費・使用ログ記録を、ストリームを開き直してから行う。
+
+    LLM 呼び出しの await 中にリクエストの DB セッションがアイドルになり、libSQL
+    （Hrana over HTTP）のストリームが idle timeout で失効する。失効したまま commit
+    すると `STREAM_EXPIRED` で 400 → 500 になり、課金記録も落ちる。`db.close()` で
+    失効ストリームを解放しておけば、record_chat_usage 内の次の SELECT/commit が
+    新しいコネクション（=新規 Hrana ストリーム）を取得して正常に確定できる。
+    """
+    db.close()
+    credit_service.record_chat_usage(db, user_id, usage)
 
 
 @router.post("/chat", response_model=AgentChatResponse)
@@ -72,7 +86,7 @@ async def agent_chat(
         # 本来の LLM 失敗（502）を優先して返す
         if exc.usage is not None:
             try:
-                credit_service.record_chat_usage(db, user.id, exc.usage)
+                _record_usage_after_llm(db, user.id, exc.usage)
             except Exception:
                 logger.error("LLM 失敗時のクレジット消費記録に失敗", exc_info=True)
         raise_app_error(
@@ -86,7 +100,7 @@ async def agent_chat(
         # ログに残し、本来のパース失敗（502）を優先して返す
         if exc.usage is not None:
             try:
-                credit_service.record_chat_usage(db, user.id, exc.usage)
+                _record_usage_after_llm(db, user.id, exc.usage)
             except Exception:
                 logger.error("パース失敗時のクレジット消費記録に失敗", exc_info=True)
         raise_app_error(
@@ -96,5 +110,5 @@ async def agent_chat(
         )
     # 実トークン量に基づくクレジット消費 + 使用ログ記録（haiku はログのみ）。
     # 記録失敗は応答を返さず 500 にする（課金漏れを黙って通さない / ADR-0012）
-    credit_service.record_chat_usage(db, user.id, result.usage)
+    _record_usage_after_llm(db, user.id, result.usage)
     return result.response

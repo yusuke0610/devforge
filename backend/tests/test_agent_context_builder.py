@@ -204,6 +204,47 @@ def test_blog_context_recent_articles_limit(db_session) -> None:
     assert "avg_monthly_posts" in blog
 
 
+def test_blog_context_published_at_is_iso_string(db_session) -> None:
+    """published_at が設定された記事でも例外を出さず ISO 文字列で返す（二重変換の回帰防止）。
+
+    BlogArticle.published_at は format_iso_date 済みの str を返すプロパティ。
+    以前は context_builder が `.isoformat()` を二重に呼び AttributeError で
+    ブログコンテキスト全体が degrade していた。
+    """
+    user = _make_user(db_session, "blog_pub")
+    account = BlogAccount(user_id=user.id, platform="zenn", username="blog_pub")
+    db_session.add(account)
+    db_session.flush()
+    # 1 件目は published_at あり、2 件目は None（どちらの分岐も検証する）
+    article_with_date = BlogArticle(
+        account_id=account.id,
+        external_id="with-date",
+        title="技術記事 日付あり",
+        url="https://zenn.dev/blog_pub/1",
+        likes_count=3,
+        published_at_value=date(2026, 1, 15),
+    )
+    article_without_date = BlogArticle(
+        account_id=account.id,
+        external_id="without-date",
+        title="技術記事 日付なし",
+        url="https://zenn.dev/blog_pub/2",
+        likes_count=1,
+    )
+    db_session.add_all([article_with_date, article_without_date])
+    db_session.flush()
+    db_session.add(BlogArticleTag(article_id=article_with_date.id, sort_order=0, name="Python"))
+    db_session.add(BlogArticleTag(article_id=article_without_date.id, sort_order=0, name="Python"))
+    db_session.commit()
+
+    result = build_reference_context(db_session, user.id, "career_summary")
+    assert result is not None
+    recent = result["blog_context"]["recent_articles"]
+    published_values = {a["title"]: a["published_at"] for a in recent}
+    assert published_values["技術記事 日付あり"] == "2026-01-15"
+    assert published_values["技術記事 日付なし"] is None
+
+
 def test_blog_context_no_articles_returns_none(db_session) -> None:
     """記事 0 件は blog_context が省略され None になる。"""
     user = _make_user(db_session, "blog_empty")

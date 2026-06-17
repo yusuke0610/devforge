@@ -48,6 +48,7 @@
             # --- ミドルウェア ---
             redis              # Redis 7（ローカル開発用）
             turso-cli          # Turso (libSQL) CLI（ローカル開発用）
+            stripe-cli         # Stripe CLI（Webhook 転送 / ローカル決済確認用）
 
             # --- IaC ---
             opentofu           # OpenTofu CLI（Terraform 互換 / インフラ管理）
@@ -78,6 +79,7 @@
             echo "  Redis  : $(redis-server --version)"
             echo "  tofu   : $(tofu --version | head -1)"
             echo "  Turso  : $(turso --version 2>/dev/null | head -1)"
+            echo "  Stripe : $(stripe version 2>/dev/null | head -1)"
             echo "  gh     : $(gh --version | head -1)"
             echo ""
             echo "セットアップ: make setup"

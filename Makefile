@@ -1,6 +1,6 @@
 .PHONY: help \
 	setup install-hooks install-backend install-frontend generate-keys \
-	dev dev-build dev-down dev-frontend preview-frontend dev-proxy dev-proxy-only \
+	dev dev-build dev-down dev-frontend preview-frontend dev-proxy dev-proxy-only stripe-webhook \
 	test test-backend test-frontend \
 	lint lint-backend lint-frontend lint-frontend-messages lint-fix \
 	format format-check \
@@ -29,6 +29,7 @@ help:
 	@echo "  dev-down          docker-compose を停止"
 	@echo "  dev-frontend      Frontend 開発サーバーを起動 (Vite / localhost:5173)"
 	@echo "  preview-frontend  ビルド済みを wrangler でローカル提供 (HMR なし / localhost:8788)"
+	@echo "  stripe-webhook    Stripe Webhook を localhost:8000 へ転送 (要 stripe login / whsec を .env へ)"
 	@echo ""
 	@echo "テスト・リント"
 	@echo "  ci                lint + test + build-frontend を一括実行 (CI 相当)"
@@ -100,6 +101,9 @@ dev-build:
 
 dev-down:
 	docker compose down
+
+stripe-webhook:
+	nix develop --command stripe listen --forward-to localhost:8000/api/billing/webhook
 
 dev-frontend:
 	nix develop --command bash -c "cd frontend && npm run dev"
