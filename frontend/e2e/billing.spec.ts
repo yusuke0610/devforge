@@ -74,7 +74,7 @@ test("UserMenu からトークン購入画面を開き、残高・パック・�
   const amountInput = page.getByLabel("購入するクレジット数");
   await amountInput.fill("2000");
   await expect(main.getByText("¥2,000")).toBeVisible();
-  await expect(main.getByText(/Sonnet 約166回/)).toBeVisible();
+  await expect(main.getByText(/Sonnet 4\.6 約166回/)).toBeVisible();
 
   // preset で入力欄が埋まる
   await page.getByRole("button", { name: "1,100" }).click();
