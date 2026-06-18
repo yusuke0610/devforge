@@ -170,17 +170,29 @@ def get_internal_secret() -> str:
     return secret
 
 
-def get_llm_provider() -> str:
-    """Agent 機能の LLM プロバイダ名（anthropic / ollama）を小文字で取得する。
+def use_local_ollama() -> bool:
+    """ローカル Ollama 上書きが有効かを返す（ADR-0013）。
 
-    未設定時はローカル開発向けに ollama を既定とする（ADR-0010）。
+    True の場合、選択モデル（provider）に関わらず全リクエストをローカル Ollama に
+    通す。ローカル開発で実 API 課金を発生させずに動作確認するための無料パス。
+    本番（Cloud Run）では未設定＝無効。"1" / "true" / "yes" を真とみなす。
     """
-    return os.getenv(env_keys.LLM_PROVIDER, "ollama").strip().lower()
+    return os.getenv(env_keys.LLM_LOCAL_OLLAMA, "").strip().lower() in {"1", "true", "yes"}
 
 
 def get_anthropic_api_key() -> str:
     """Anthropic API キーを取得する。値はログや例外メッセージに含めないこと。"""
     return os.getenv(env_keys.ANTHROPIC_API_KEY, "").strip()
+
+
+def get_google_api_key() -> str:
+    """Google Generative AI（Gemini）API キーを取得する。値はログに含めないこと。"""
+    return os.getenv(env_keys.GOOGLE_API_KEY, "").strip()
+
+
+def get_openai_api_key() -> str:
+    """OpenAI API キーを取得する。値はログに含めないこと。"""
+    return os.getenv(env_keys.OPENAI_API_KEY, "").strip()
 
 
 def get_ollama_base_url() -> str:

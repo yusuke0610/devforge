@@ -11,7 +11,9 @@
 
 .dialog {
   width: 100%;
-  max-width: 460px;
+  max-width: 820px;
+  max-height: 90vh;
+  overflow-y: auto;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -44,6 +46,34 @@
   margin: 0.5rem 0 1rem;
   font-size: 0.85rem;
   color: var(--text-secondary);
+}
+
+/* プロバイダごとの列（Claude / GPT / Gemini）。狭い画面では縦積みに折り返す */
+.columns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.columnLabel {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .cards {

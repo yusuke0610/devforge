@@ -32,12 +32,27 @@ backend/
 │       └── llm/
 │           ├── base.py            # LLMClient 抽象・LLMError
 │           ├── anthropic_client.py
+│           ├── google_client.py   # Gemini（ADR-0013）
+│           ├── openai_client.py   # GPT（ADR-0013）
 │           ├── ollama_client.py
-│           └── factory.py
+│           └── factory.py         # get_llm_client(provider) で分岐（ADR-0013）
 └── tests/
     ├── test_agent.py
     └── test_agent_context_builder.py  # Phase 2: context_builder の単体テスト
 ```
+
+## プロバイダ抽象（ADR-0013）
+
+- プロバイダ選択は **モデルエイリアスの属性**（`model_catalog.ModelSpec.provider`）に紐づき、
+  リクエスト単位で切り替わる。グローバルな `LLM_PROVIDER` は廃止。
+- **プロバイダ切替は `factory.get_llm_client(provider)` の 1 箇所**に集約する（この原則は維持）。
+  `LLM_LOCAL_OLLAMA=1` の時だけ provider を無視してローカル Ollama に通す（dev 無料パス）。
+- **構造化出力は 3 方式とも `output_schema.py` 由来**: Anthropic = tool use（`build_tool_definition`）/
+  Gemini = `response_schema` / OpenAI = strict `response_format`。後者 2 つは `oneOf`/`const`/`maxLength`
+  を受け付けないため `to_portable_schema` で `field` を enum 化・上限除去した移植スキーマを渡す。
+  上限の実強制は従来どおり `_parse_response` が担う（二重防衛）。
+- 新プロバイダ・新モデルを足すときは `model_catalog`（provider + 実 ID + レート）と
+  `schemas/agent.py:AgentModelAlias` を**両方**更新する（drift チェックが落ちる）。
 
 ## 制約の責務分離（最重要）
 

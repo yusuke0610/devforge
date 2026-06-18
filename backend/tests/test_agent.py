@@ -74,7 +74,7 @@ class _FakeLLM(LLMClient):
 def _mock_llm(monkeypatch, *, response: str | None = None, error: Exception | None = None):
     """monkeypatch で LLM クライアントを _FakeLLM に差し替え、そのインスタンスを返す。"""
     fake = _FakeLLM(response=response, error=error)
-    monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda provider: fake)
     return fake
 
 
@@ -277,7 +277,7 @@ def test_chat_retries_once_with_error_feedback(client: TestClient, monkeypatch) 
     再生成依頼（user）で構成され、リトライが成功すれば 200 で返る。
     """
     fake = _SequentialFakeLLM(["JSON ではない応答", _llm_json("self_pr", "再生成の提案")])
-    monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda provider: fake)
     headers = auth_header(client, "agentuser")
     resp = client.post(
         "/api/agent/chat",
@@ -298,7 +298,7 @@ def test_chat_retries_once_with_error_feedback(client: TestClient, monkeypatch) 
 def test_chat_retry_failure_returns_502(client: TestClient, monkeypatch) -> None:
     """契約: リトライ（1 回のみ）も失敗したら 502 + AGENT_PARSE_ERROR。3 回目は呼ばない。"""
     fake = _SequentialFakeLLM(["不正応答 1 回目", "不正応答 2 回目"])
-    monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda provider: fake)
     headers = auth_header(client, "agentuser")
     resp = client.post(
         "/api/agent/chat",
@@ -601,12 +601,22 @@ def test_parse_response_invalid_schema_raises() -> None:
 
 
 def test_factory_rejects_unknown_provider(monkeypatch) -> None:
-    """設定ミス（未対応プロバイダ）は LLMError で fail fast。"""
+    """未対応プロバイダ識別子は LLMError で fail fast。"""
     from app.services.agent.llm import factory
 
-    monkeypatch.setenv("LLM_PROVIDER", "openai")
-    with pytest.raises(LLMError, match="LLM_PROVIDER"):
-        factory.get_llm_client()
+    monkeypatch.delenv("LLM_LOCAL_OLLAMA", raising=False)
+    with pytest.raises(LLMError, match="未対応の LLM プロバイダ"):
+        factory.get_llm_client("mistral")
+
+
+def test_factory_local_ollama_override(monkeypatch) -> None:
+    """LLM_LOCAL_OLLAMA 有効時は provider に関わらず OllamaClient を返す。"""
+    from app.services.agent.llm import factory
+    from app.services.agent.llm.ollama_client import OllamaClient
+
+    monkeypatch.setenv("LLM_LOCAL_OLLAMA", "1")
+    assert isinstance(factory.get_llm_client("anthropic"), OllamaClient)
+    assert isinstance(factory.get_llm_client("google"), OllamaClient)
 
 
 def test_run_agent_chat_target_not_found(monkeypatch) -> None:
@@ -614,7 +624,7 @@ def test_run_agent_chat_target_not_found(monkeypatch) -> None:
     from app.schemas.agent import AgentChatRequest
 
     called = AsyncMock()
-    monkeypatch.setattr(chat_service, "get_llm_client", lambda: called)
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda provider: called)
     request = AgentChatRequest.model_validate(
         {
             "scope": "project",

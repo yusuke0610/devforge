@@ -142,8 +142,10 @@ REST API エンドポイント一覧と、バックエンド／フロントエ�
 
 | 変数 | 用途 |
 |---|---|
-| `LLM_PROVIDER` | LLM プロバイダ切り替え（`anthropic`: 本番 / `ollama`: ローカル既定） |
+| `LLM_LOCAL_OLLAMA` | ローカル Ollama 上書き（`1`/`true`/`yes` で有効）。選択モデルに関わらず全リクエストを Ollama に通す無料パス。本番は未設定＝無効（ADR-0013） |
 | `ANTHROPIC_API_KEY` | Anthropic API キー（本番は Secret Manager `anthropic-api-key` から注入） |
+| `GOOGLE_API_KEY` | Google Gemini API キー（ADR-0013。`enable_extra_llm_providers=true` の環境で Secret Manager `google-api-key` から注入） |
+| `OPENAI_API_KEY` | OpenAI API キー（ADR-0013。`enable_extra_llm_providers=true` の環境で Secret Manager `openai-api-key` から注入） |
 | `OLLAMA_BASE_URL` | ローカル Ollama のベース URL（既定: `http://localhost:11434`） |
 | `OLLAMA_MODEL` | ローカル Ollama のモデル名（既定: `llama3.2`） |
 | `OLLAMA_TIMEOUT_SECONDS` | ローカル Ollama 呼び出しの HTTP タイムアウト秒数（既定: `300`） |

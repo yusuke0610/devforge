@@ -22,11 +22,28 @@ YEN_PER_USD = 150
 # API 原価に乗せるマージン係数（為替変動・キャッシュ未ヒット・運用コストのバッファ）
 MARGIN_MULTIPLIER = 1.5
 
-# Anthropic API の公表原価（USD / 100 万トークン）。改定時はここだけ直す
+# 各社 API の公表原価（USD / 100 万トークン）。改定時はここだけ直す。
+# Anthropic
 _HAIKU_INPUT_USD_PER_MTOK = 1.0
 _HAIKU_OUTPUT_USD_PER_MTOK = 5.0
 _SONNET_INPUT_USD_PER_MTOK = 3.0
 _SONNET_OUTPUT_USD_PER_MTOK = 15.0
+# Google Gemini 2.5（ADR-0013）
+_GEMINI_FLASH_INPUT_USD_PER_MTOK = 0.30
+_GEMINI_FLASH_OUTPUT_USD_PER_MTOK = 2.50
+_GEMINI_PRO_INPUT_USD_PER_MTOK = 1.25
+_GEMINI_PRO_OUTPUT_USD_PER_MTOK = 10.0
+# OpenAI GPT（ADR-0013）。gpt-mini = 廉価（gpt-4o-mini 系）、gpt = 高級（GPT-4.1/5 系）
+_GPT_MINI_INPUT_USD_PER_MTOK = 0.15
+_GPT_MINI_OUTPUT_USD_PER_MTOK = 0.60
+_GPT_INPUT_USD_PER_MTOK = 2.0
+_GPT_OUTPUT_USD_PER_MTOK = 8.0
+
+# LLM プロバイダ識別子（factory.get_llm_client の分岐キー / ADR-0013）
+PROVIDER_ANTHROPIC = "anthropic"
+PROVIDER_GOOGLE = "google"
+PROVIDER_OPENAI = "openai"
+_VALID_PROVIDERS = frozenset({PROVIDER_ANTHROPIC, PROVIDER_GOOGLE, PROVIDER_OPENAI})
 
 # 「N クレジットで平均M回」「約N回」の目安に使う標準的な 1 回の消費トークン。
 # Agent はシステムプロンプト + レジュメ + 参照 + 履歴で入力が大きいため、入力多めの
@@ -46,7 +63,9 @@ def _credits_per_mtok(usd_per_mtok: float) -> int:
 class ModelSpec:
     """エイリアス 1 件分のモデル定義。"""
 
-    # Anthropic API に渡す実モデル ID
+    # 担当プロバイダ（factory がこの値でクライアントを選ぶ / ADR-0013）
+    provider: str
+    # 各プロバイダ API に渡す実モデル ID
     model_id: str
     # True なら残高チェック・クレジット消費を行わない（使用ログのみ記録）
     is_free: bool
@@ -59,16 +78,48 @@ class ModelSpec:
 # 一致させる。drift は test_model_catalog_matches_schema_alias で検出する）
 MODEL_CATALOG: dict[str, ModelSpec] = {
     "haiku": ModelSpec(
+        provider=PROVIDER_ANTHROPIC,
         model_id="claude-haiku-4-5",
         is_free=True,
         input_credits_per_mtok=_credits_per_mtok(_HAIKU_INPUT_USD_PER_MTOK),
         output_credits_per_mtok=_credits_per_mtok(_HAIKU_OUTPUT_USD_PER_MTOK),
     ),
     "sonnet": ModelSpec(
+        provider=PROVIDER_ANTHROPIC,
         model_id="claude-sonnet-4-6",
         is_free=False,
         input_credits_per_mtok=_credits_per_mtok(_SONNET_INPUT_USD_PER_MTOK),
         output_credits_per_mtok=_credits_per_mtok(_SONNET_OUTPUT_USD_PER_MTOK),
+    ),
+    "gemini-flash": ModelSpec(
+        provider=PROVIDER_GOOGLE,
+        model_id="gemini-2.5-flash",
+        # 低単価のため無料枠として開放（実 API 原価は運営が負担 / ADR-0013）
+        is_free=True,
+        input_credits_per_mtok=_credits_per_mtok(_GEMINI_FLASH_INPUT_USD_PER_MTOK),
+        output_credits_per_mtok=_credits_per_mtok(_GEMINI_FLASH_OUTPUT_USD_PER_MTOK),
+    ),
+    "gemini-pro": ModelSpec(
+        provider=PROVIDER_GOOGLE,
+        model_id="gemini-2.5-pro",
+        is_free=False,
+        input_credits_per_mtok=_credits_per_mtok(_GEMINI_PRO_INPUT_USD_PER_MTOK),
+        output_credits_per_mtok=_credits_per_mtok(_GEMINI_PRO_OUTPUT_USD_PER_MTOK),
+    ),
+    "gpt-mini": ModelSpec(
+        provider=PROVIDER_OPENAI,
+        model_id="gpt-4o-mini",
+        # 低単価のため無料枠として開放（実 API 原価は運営が負担 / ADR-0013）
+        is_free=True,
+        input_credits_per_mtok=_credits_per_mtok(_GPT_MINI_INPUT_USD_PER_MTOK),
+        output_credits_per_mtok=_credits_per_mtok(_GPT_MINI_OUTPUT_USD_PER_MTOK),
+    ),
+    "gpt": ModelSpec(
+        provider=PROVIDER_OPENAI,
+        model_id="gpt-4.1",
+        is_free=False,
+        input_credits_per_mtok=_credits_per_mtok(_GPT_INPUT_USD_PER_MTOK),
+        output_credits_per_mtok=_credits_per_mtok(_GPT_OUTPUT_USD_PER_MTOK),
     ),
 }
 
@@ -78,6 +129,15 @@ if set(MODEL_CATALOG) != set(get_args(AgentModelAlias)):
     raise RuntimeError(
         "MODEL_CATALOG のキーは schemas/agent.py の AgentModelAlias と一致させること"
     )
+
+# 各 spec の provider が既知の識別子であることを保証する（タイポ・未対応値の早期検出）
+_invalid_providers = {
+    alias: spec.provider
+    for alias, spec in MODEL_CATALOG.items()
+    if spec.provider not in _VALID_PROVIDERS
+}
+if _invalid_providers:
+    raise RuntimeError(f"MODEL_CATALOG に未対応の provider があります: {_invalid_providers}")
 
 
 def get_model_spec(alias: str) -> ModelSpec:

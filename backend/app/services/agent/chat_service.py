@@ -259,8 +259,9 @@ async def run_agent_chat(
         LLMError: LLM 呼び出しの失敗（llm.base 参照）。
     """
     system_prompt = _SCOPE_PROMPTS[request.scope]
-    # エイリアス → 実モデル ID の解決はサーバー側で行う（クライアントに実 ID を持たせない）
-    model_id = get_model_spec(request.model).model_id
+    # エイリアス → プロバイダ・実モデル ID の解決はサーバー側で行う（クライアントに実 ID を持たせない）
+    spec = get_model_spec(request.model)
+    model_id = spec.model_id
     user_prompt = (
         f"# 編集対象スコープ\n{request.scope}\n\n"
         f"# 現在の内容\n{_build_context(request, reference)}\n\n"
@@ -281,7 +282,7 @@ async def run_agent_chat(
     # 最新ターンにのみ載せる（履歴側はフロントが依頼文 / 前回応答 JSON だけを送る契約）
     messages = [{"role": e.role, "content": e.text} for e in request.history]
     messages.append({"role": "user", "content": user_prompt})
-    client = get_llm_client()
+    client = get_llm_client(spec.provider)
     output_schema = _SCOPE_SCHEMAS[request.scope]
     result = await client.generate(system_prompt, messages, output_schema, model_id)
     # リトライしても 1 回目の API 原価は発生しているため、使用量は全呼び出しの合算で課金する

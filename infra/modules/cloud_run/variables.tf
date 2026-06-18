@@ -24,6 +24,12 @@ variable "enable_github_oauth" {
   default     = false
 }
 
+variable "enable_extra_llm_providers" {
+  description = "Whether to inject Gemini / OpenAI API keys into Cloud Run (ADR-0013). false leaves the secrets uninjected so deploy is not blocked."
+  type        = bool
+  default     = false
+}
+
 variable "turso_database_url" {
   description = "Turso (libSQL) データベースの接続 URL（例: libsql://devforge-dev-xxxx.turso.io）。Turso CLI で発行する。"
   type        = string

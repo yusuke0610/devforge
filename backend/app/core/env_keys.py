@@ -88,12 +88,17 @@ UPSTASH_REDIS_TOKEN = "UPSTASH_REDIS_TOKEN"
 LOG_FORMAT = "LOG_FORMAT"
 LOG_LEVEL = "LOG_LEVEL"
 
-# --- LLM（DevForge Agent / ADR-0010） ---
+# --- LLM（DevForge Agent / ADR-0010・ADR-0013） ---
 
-# プロバイダ切り替え（"anthropic" | "ollama"。未設定時はローカル向けの ollama）
-LLM_PROVIDER = "LLM_PROVIDER"
+# ローカル Ollama 上書き（"1"/"true"/"yes" で有効）。選択モデルに関わらず全リクエストを
+# ローカル Ollama に通す無料パス。本番（Cloud Run）では未設定＝無効。
+# プロバイダ選択はモデルエイリアスに紐づくため、グローバルな LLM_PROVIDER は廃止（ADR-0013）
+LLM_LOCAL_OLLAMA = "LLM_LOCAL_OLLAMA"
 # 本番（Cloud Run）では Secret Manager から注入する。ログ出力禁止
 ANTHROPIC_API_KEY = "ANTHROPIC_API_KEY"
+# Google Gemini / OpenAI GPT の API キー（ADR-0013）。Secret Manager 注入・ログ出力禁止
+GOOGLE_API_KEY = "GOOGLE_API_KEY"
+OPENAI_API_KEY = "OPENAI_API_KEY"
 OLLAMA_BASE_URL = "OLLAMA_BASE_URL"
 OLLAMA_MODEL = "OLLAMA_MODEL"
 # ローカル Ollama 呼び出しの HTTP タイムアウト秒数（既定 300。ローカル開発専用）
