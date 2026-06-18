@@ -72,6 +72,8 @@ def test_google_client_returns_text_and_usage(monkeypatch) -> None:
     # response_schema に移植済みスキーマ（oneOf なし）が渡っている
     config = gen.await_args.kwargs["config"]
     assert "oneOf" not in str(config.response_schema)
+    # Gemini は additionalProperties 非対応のため除去されている
+    assert "additionalProperties" not in str(config.response_schema)
 
 
 def test_google_client_missing_key_raises(monkeypatch) -> None:
@@ -135,6 +137,8 @@ def test_openai_client_returns_text_and_usage(monkeypatch) -> None:
     assert fmt["type"] == "json_schema"
     assert fmt["json_schema"]["strict"] is True
     assert "oneOf" not in str(fmt["json_schema"]["schema"])
+    # OpenAI strict は additionalProperties: false が必須のため保持されている
+    assert fmt["json_schema"]["schema"]["additionalProperties"] is False
 
 
 def test_openai_client_missing_key_raises(monkeypatch) -> None:

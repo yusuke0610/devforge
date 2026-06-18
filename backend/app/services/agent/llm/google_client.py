@@ -33,6 +33,7 @@ class GoogleClient(LLMClient):
             raise LLMError("GOOGLE_API_KEY が設定されていません")
         self._client = genai.Client(
             api_key=api_key,
+            # HttpOptions.timeout はミリ秒単位（google-genai 仕様）。60s = 60000ms
             http_options=genai_types.HttpOptions(timeout=int(_TIMEOUT_SECONDS * 1000)),
         )
 
@@ -56,7 +57,8 @@ class GoogleClient(LLMClient):
             system_instruction=system_prompt,
             temperature=_TEMPERATURE,
             response_mime_type="application/json",
-            response_schema=to_portable_schema(output_schema),
+            # Gemini の response_schema は additionalProperties 非対応のため除去する
+            response_schema=to_portable_schema(output_schema, drop_additional_properties=True),
         )
         try:
             response = await self._client.aio.models.generate_content(

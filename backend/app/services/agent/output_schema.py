@@ -81,7 +81,7 @@ def build_tool_definition(input_schema: dict) -> dict:
     }
 
 
-def to_portable_schema(schema: dict) -> dict:
+def to_portable_schema(schema: dict, *, drop_additional_properties: bool = False) -> dict:
     """build_output_schema の出力を、Gemini/OpenAI の構造化出力に通る形へ変換する（ADR-0013）。
 
     Gemini ``response_schema`` / OpenAI strict ``response_format`` は ``oneOf`` / ``const`` /
@@ -91,9 +91,16 @@ def to_portable_schema(schema: dict) -> dict:
     - operations.items の ``oneOf`` 分岐 → ``field`` を許可値の ``enum`` に畳んだ単一オブジェクト
     - ``maxLength`` / ``maxItems`` を除去（上限の実強制は chat_service._parse_response が担う / 二重防衛）
 
+    ``additionalProperties`` の扱いはプロバイダで非対称:
+    - OpenAI strict は ``additionalProperties: false`` が必須 → 残す（drop_additional_properties=False）
+    - Gemini ``response_schema`` は ``additionalProperties`` 非対応 → 除去する（drop_additional_properties=True）
+
     Anthropic（tool use）と Ollama（format）は元スキーマをそのまま使うため本関数は通さない。
     """
-    portable = _strip_constraints(schema)
+    strip_keys = {"maxLength", "maxItems"}
+    if drop_additional_properties:
+        strip_keys = strip_keys | {"additionalProperties"}
+    portable = _strip_constraints(schema, strip_keys)
     operations = portable.get("properties", {}).get("operations", {})
     items = operations.get("items", {})
     branches = items.get("oneOf")
@@ -104,7 +111,7 @@ def to_portable_schema(schema: dict) -> dict:
             for b in branches
             if "const" in b.get("properties", {}).get("field", {})
         ]
-        operations["items"] = {
+        item_schema: dict = {
             "type": "object",
             "properties": {
                 "field": {"type": "string", "enum": allowed_fields},
@@ -114,19 +121,21 @@ def to_portable_schema(schema: dict) -> dict:
                 },
             },
             "required": ["field", "value"],
-            "additionalProperties": False,
         }
+        if not drop_additional_properties:
+            item_schema["additionalProperties"] = False
+        operations["items"] = item_schema
     return portable
 
 
-def _strip_constraints(node: object) -> object:
-    """maxLength / maxItems を再帰的に除去したコピーを返す（破壊しない）。"""
+def _strip_constraints(node: object, strip_keys: set[str]) -> object:
+    """strip_keys のキーを再帰的に除去したコピーを返す（破壊しない）。"""
     if isinstance(node, dict):
         return {
-            key: _strip_constraints(value)
+            key: _strip_constraints(value, strip_keys)
             for key, value in node.items()
-            if key not in {"maxLength", "maxItems"}
+            if key not in strip_keys
         }
     if isinstance(node, list):
-        return [_strip_constraints(item) for item in node]
+        return [_strip_constraints(item, strip_keys) for item in node]
     return node
