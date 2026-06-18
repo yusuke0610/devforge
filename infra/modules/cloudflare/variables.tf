@@ -5,9 +5,16 @@ variable "cloudflare_account_id" {
 }
 
 variable "cloudflare_zone_id" {
-  description = "Cloudflare DNS ゾーン ID（devforge.app ドメインのゾーン）。"
+  description = "Cloudflare DNS ゾーン ID（devforge.app ドメインのゾーン）。use_custom_domain = false の場合は不要。"
   type        = string
   sensitive   = true
+  default     = ""
+}
+
+variable "use_custom_domain" {
+  description = "カスタムドメイン（CNAME レコード）を作成するか。false なら Pages のデフォルト *.pages.dev のみで運用する。"
+  type        = bool
+  default     = false
 }
 
 variable "project_name" {

@@ -146,6 +146,7 @@ REST API エンドポイント一覧と、バックエンド／フロントエ�
 | `ANTHROPIC_API_KEY` | Anthropic API キー（本番は Secret Manager `anthropic-api-key` から注入） |
 | `OLLAMA_BASE_URL` | ローカル Ollama のベース URL（既定: `http://localhost:11434`） |
 | `OLLAMA_MODEL` | ローカル Ollama のモデル名（既定: `llama3.2`） |
+| `OLLAMA_TIMEOUT_SECONDS` | ローカル Ollama 呼び出しの HTTP タイムアウト秒数（既定: `300`） |
 
 ### 決済（Stripe Checkout / ADR-0012 Phase 2）
 

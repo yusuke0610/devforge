@@ -111,14 +111,21 @@ variable "cloudflare_zone_id" {
   default     = ""
 }
 
+variable "cloudflare_use_custom_domain" {
+  description = "カスタムドメイン（CNAME レコード）を作成するか。false なら Pages のデフォルト *.pages.dev のみで運用する。"
+  type        = bool
+  default     = false
+}
+
 variable "cloudflare_pages_project_name" {
   description = "Cloudflare Pages プロジェクト名（例: devforge-dev / devforge-stg / devforge）。"
   type        = string
 }
 
 variable "cloudflare_subdomain" {
-  description = "Cloudflare DNS レコード名（例: app-dev / app-stg / app）。{subdomain}.devforge.app となる。"
+  description = "Cloudflare DNS レコード名（例: app-dev / app-stg / app）。{subdomain}.devforge.app となる。use_custom_domain = false なら未使用。"
   type        = string
+  default     = ""
 }
 
 variable "cloudflare_production_branch" {

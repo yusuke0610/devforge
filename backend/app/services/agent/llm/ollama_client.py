@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 
 import httpx
 
@@ -10,7 +11,8 @@ from .base import LLMClient, LLMError, LLMResult
 
 logger = logging.getLogger(__name__)
 
-_TIMEOUT_SECONDS = 120.0
+# この秒数を超えた呼び出しは警告ログを出し、タイムアウト値の妥当性を判断する材料にする
+_SLOW_REQUEST_THRESHOLD_SECONDS = 120.0
 
 
 class OllamaClient(LLMClient):
@@ -22,9 +24,10 @@ class OllamaClient(LLMClient):
     """
 
     def __init__(self) -> None:
-        """設定から Ollama のベース URL とモデル名を読み込む。"""
+        """設定から Ollama のベース URL・モデル名・タイムアウトを読み込む。"""
         self._base_url = settings.get_ollama_base_url()
         self._model = settings.get_ollama_model()
+        self._timeout_seconds = settings.get_ollama_timeout_seconds()
 
     async def generate(
         self,
@@ -47,8 +50,9 @@ class OllamaClient(LLMClient):
             # （デフォルト 0.8 では小型モデルが架空の資格・技術を捏造しやすい）
             "options": {"temperature": 0.2},
         }
+        started_at = time.monotonic()
         try:
-            async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS) as client:
+            async with httpx.AsyncClient(timeout=self._timeout_seconds) as client:
                 response = await client.post(
                     f"{self._base_url}/api/chat", json=payload
                 )
@@ -56,6 +60,16 @@ class OllamaClient(LLMClient):
         except httpx.HTTPError as exc:
             logger.warning("Ollama API 呼び出しに失敗: %s", type(exc).__name__)
             raise LLMError(f"Ollama API error: {type(exc).__name__}") from exc
+
+        elapsed = time.monotonic() - started_at
+        if elapsed >= _SLOW_REQUEST_THRESHOLD_SECONDS:
+            # 閾値超過が常態化するならタイムアウト値（OLLAMA_TIMEOUT_SECONDS）の見直し材料にする
+            logger.warning(
+                "Ollama 応答が遅延: %.1fs（閾値 %.0fs / タイムアウト %.0fs）",
+                elapsed,
+                _SLOW_REQUEST_THRESHOLD_SECONDS,
+                self._timeout_seconds,
+            )
 
         try:
             data = response.json()

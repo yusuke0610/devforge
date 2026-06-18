@@ -67,14 +67,21 @@ variable "cloudflare_zone_id" {
   default     = ""
 }
 
+variable "cloudflare_use_custom_domain" {
+  description = "Whether to create a custom-domain CNAME record. false uses only the default *.pages.dev subdomain."
+  type        = bool
+  default     = false
+}
+
 variable "cloudflare_pages_project_name" {
   description = "Cloudflare Pages project name for this environment."
   type        = string
 }
 
 variable "cloudflare_subdomain" {
-  description = "Cloudflare DNS record name for this environment."
+  description = "Cloudflare DNS record name for this environment. Unused when cloudflare_use_custom_domain = false."
   type        = string
+  default     = ""
 }
 
 variable "cloudflare_production_branch" {
