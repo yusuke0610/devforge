@@ -41,6 +41,7 @@ module "devforge_stack" {
 
   cloudflare_account_id         = var.cloudflare_account_id
   cloudflare_zone_id            = var.cloudflare_zone_id
+  cloudflare_use_custom_domain  = var.cloudflare_use_custom_domain
   cloudflare_pages_project_name = var.cloudflare_pages_project_name
   cloudflare_subdomain          = var.cloudflare_subdomain
   cloudflare_production_branch  = var.cloudflare_production_branch

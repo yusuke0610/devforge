@@ -10,7 +10,7 @@ from .base import LLMClient, LLMError, LLMResult
 
 logger = logging.getLogger(__name__)
 
-_TIMEOUT_SECONDS = 120.0
+_TIMEOUT_SECONDS = 300.0
 
 
 class OllamaClient(LLMClient):
