@@ -135,7 +135,7 @@ test.describe("Agent チャットウィジェット", () => {
     // UserMenu → モデル選択モーダル → Sonnet カードで切り替え
     // （残高バッジの「Sonnet 約N回」と区別するため使用モデル値を厳密一致で確認）
     await selectModel(page, "Sonnet");
-    await expect(sidebar.getByText("Sonnet", { exact: true })).toBeVisible();
+    await expect(sidebar.getByText("Sonnet 4.6", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "devforge Agent" }).click();
     await page

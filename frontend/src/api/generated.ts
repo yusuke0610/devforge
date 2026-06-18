@@ -923,7 +923,7 @@ export interface components {
              * @default haiku
              * @enum {string}
              */
-            model: "haiku" | "sonnet";
+            model: "haiku" | "sonnet" | "gemini-flash" | "gemini-pro" | "gpt-mini" | "gpt";
             /** Prompt */
             prompt: string;
             resume: components["schemas"]["AgentResumeContext"];

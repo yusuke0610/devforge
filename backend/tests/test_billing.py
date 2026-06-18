@@ -90,6 +90,32 @@ def test_model_catalog_resolves_real_model_ids() -> None:
     assert MODEL_CATALOG["sonnet"].is_free is False
 
 
+def test_model_catalog_providers_are_valid() -> None:
+    """全 spec の provider は既知の識別子（anthropic / google / openai）である。"""
+    valid = {"anthropic", "google", "openai"}
+    assert all(spec.provider in valid for spec in MODEL_CATALOG.values())
+
+
+def test_model_catalog_multi_provider_entries() -> None:
+    """Gemini / GPT エイリアスが正しいプロバイダ・実モデル ID で登録されている（ADR-0013）。"""
+    assert MODEL_CATALOG["gemini-flash"].provider == "google"
+    assert MODEL_CATALOG["gemini-flash"].model_id == "gemini-2.5-flash"
+    assert MODEL_CATALOG["gemini-pro"].provider == "google"
+    assert MODEL_CATALOG["gpt-mini"].provider == "openai"
+    assert MODEL_CATALOG["gpt"].provider == "openai"
+
+
+def test_model_catalog_free_and_paid_tiers() -> None:
+    """低単価モデル（haiku / gemini-flash / gpt-mini）は無料枠、上位は有料（ADR-0013）。"""
+    for alias in ("haiku", "gemini-flash", "gpt-mini"):
+        assert MODEL_CATALOG[alias].is_free is True
+        assert calculate_credit_cost(alias, 10_000, 1_500) == 0
+    for alias in ("sonnet", "gemini-pro", "gpt"):
+        assert MODEL_CATALOG[alias].is_free is False
+        # 有料モデルは非ゼロのトークンで必ずコストが出る
+        assert calculate_credit_cost(alias, 10_000, 1_500) > 0
+
+
 def test_credit_rates_are_yen_pegged_with_margin() -> None:
     """消費レートは API 原価（USD/MTok）を円換算しマージンを乗せて算出される（1cr=¥1 / ADR-0012）。"""
     sonnet = MODEL_CATALOG["sonnet"]
@@ -145,7 +171,7 @@ def test_chat_haiku_works_with_zero_balance(client: TestClient, monkeypatch) -> 
         input_tokens=1200,
         output_tokens=300,
     )
-    monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda provider: fake)
     headers = auth_header(client, "billing-haiku")
 
     resp = client.post("/api/agent/chat", json=_chat_payload(), headers=headers)
@@ -171,7 +197,7 @@ def test_chat_sonnet_consumes_credits(client: TestClient, monkeypatch) -> None:
         input_tokens=1000,
         output_tokens=1000,
     )
-    monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda provider: fake)
     headers = auth_header(client, "billing-sonnet")
     user_id = _get_user_id(client, "billing-sonnet")
     credit_service.grant_credits(
@@ -213,7 +239,7 @@ def test_chat_refreshes_session_before_recording_usage(
         input_tokens=1000,
         output_tokens=1000,
     )
-    monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda provider: fake)
     headers = auth_header(client, "billing-refresh")
     user_id = _get_user_id(client, "billing-refresh")
     credit_service.grant_credits(
@@ -252,7 +278,7 @@ def test_chat_refreshes_session_before_recording_usage(
 def test_chat_sonnet_with_zero_balance_returns_402(client: TestClient, monkeypatch) -> None:
     """sonnet は残高 0 で 402 INSUFFICIENT_CREDITS。LLM は呼ばれない。"""
     fake = _FakeLLM(response=_llm_json("self_pr", "提案"))
-    monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda provider: fake)
     headers = auth_header(client, "billing-empty")
 
     resp = client.post("/api/agent/chat", json=_chat_payload("sonnet"), headers=headers)
@@ -270,7 +296,7 @@ def test_chat_sonnet_allows_negative_balance(client: TestClient, monkeypatch) ->
         input_tokens=1000,
         output_tokens=1000,
     )
-    monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda provider: fake)
     headers = auth_header(client, "billing-negative")
     user_id = _get_user_id(client, "billing-negative")
     # 残高 3 で事前チェックは通るが、実コスト 5 が上回り負残高になる
@@ -294,7 +320,7 @@ def test_chat_sonnet_retry_usage_is_summed(client: TestClient, monkeypatch) -> N
         input_tokens=1000,
         output_tokens=1000,
     )
-    monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda provider: fake)
     headers = auth_header(client, "billing-retry")
     user_id = _get_user_id(client, "billing-retry")
     credit_service.grant_credits(
@@ -325,7 +351,7 @@ def test_chat_sonnet_retry_failure_still_bills_usage(
         input_tokens=1000,
         output_tokens=1000,
     )
-    monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda provider: fake)
     headers = auth_header(client, "billing-retry-fail")
     user_id = _get_user_id(client, "billing-retry-fail")
     credit_service.grant_credits(
@@ -378,7 +404,7 @@ def test_chat_sonnet_retry_llm_error_still_bills_first_attempt(
             raise LLMError("リトライ呼び出し失敗（テスト）")
 
     fake = _FailOnRetryLLM()
-    monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda provider: fake)
     headers = auth_header(client, "billing-retry-llm-error")
     user_id = _get_user_id(client, "billing-retry-llm-error")
     credit_service.grant_credits(
@@ -442,7 +468,7 @@ def test_record_chat_usage_is_atomic_on_log_failure(
 def test_chat_rejects_unknown_model_alias(client: TestClient, monkeypatch) -> None:
     """カタログ外のモデル指定はスキーマ検証で 422（実モデル ID の注入を防ぐ）。"""
     fake = _FakeLLM(response=_llm_json("self_pr", "提案"))
-    monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda provider: fake)
     headers = auth_header(client, "billing-unknown-model")
 
     resp = client.post(
@@ -486,7 +512,7 @@ def test_list_transactions_returns_history(client: TestClient, monkeypatch) -> N
     fake = _FakeLLM(
         response=_llm_json("self_pr", "提案"), input_tokens=1000, output_tokens=1000
     )
-    monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda provider: fake)
     headers = auth_header(client, "billing-history")
     user_id = _get_user_id(client, "billing-history")
     credit_service.grant_credits(
@@ -529,13 +555,13 @@ def test_usage_summary_aggregates_per_model(client: TestClient, monkeypatch) -> 
     haiku = _FakeLLM(
         response=_llm_json("self_pr", "提案"), input_tokens=500, output_tokens=200
     )
-    monkeypatch.setattr(chat_service, "get_llm_client", lambda: haiku)
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda provider: haiku)
     client.post("/api/agent/chat", json=_chat_payload(), headers=headers)
     client.post("/api/agent/chat", json=_chat_payload(), headers=headers)
     sonnet = _FakeLLM(
         response=_llm_json("self_pr", "提案"), input_tokens=1000, output_tokens=1000
     )
-    monkeypatch.setattr(chat_service, "get_llm_client", lambda: sonnet)
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda provider: sonnet)
     client.post("/api/agent/chat", json=_chat_payload("sonnet"), headers=headers)
 
     resp = client.get("/api/billing/usage-summary")

@@ -1,5 +1,8 @@
 import type { AgentModelAlias } from "../../api/types";
-import { AGENT_MODEL_OPTIONS, CREDIT_ESTIMATE_REFERENCE } from "../../constants/agentModels";
+import {
+  CREDIT_ESTIMATE_REFERENCE,
+  getModelOptionsByProvider,
+} from "../../constants/agentModels";
 import {
   AGENT_MODEL_MESSAGES,
   creditsForChatsLabel,
@@ -66,54 +69,65 @@ export function ModelSelectModal({ onClose }: { onClose: () => void }) {
           </button>
         </header>
         <p className={styles.description}>{AGENT_MODEL_MESSAGES.MODAL_DESCRIPTION}</p>
-        <div className={styles.cards}>
-          {AGENT_MODEL_OPTIONS.map((option) => {
-            const isCurrent = option.alias === currentModel;
-            // 残高未取得（null: 初期/ローディング/エラー）の間は不足扱いにしない
-            const insufficient = option.isPaid && balance !== null && balance <= 0;
-            const usage = getUsage(option.alias);
-            const chatCount = usage?.chat_count ?? 0;
-            const creditCost = usage?.credit_cost ?? 0;
-            const perReference = option.isPaid
-              ? estimatePerReference(option.alias, creditCost, chatCount)
-              : null;
-            return (
-              <button
-                key={option.alias}
-                type="button"
-                className={`${styles.card} ${isCurrent ? styles.cardCurrent : ""}`}
-                onClick={() => select(option.alias)}
-                aria-pressed={isCurrent}
-              >
-                <div className={styles.cardHead}>
-                  <span className={styles.cardName}>{option.name}</span>
-                  <span className={option.isPaid ? styles.paidBadge : styles.freeBadge}>
-                    {option.isPaid
-                      ? AGENT_MODEL_MESSAGES.PAID_BADGE
-                      : AGENT_MODEL_MESSAGES.FREE_BADGE}
-                  </span>
-                  {isCurrent && (
-                    <span className={styles.currentBadge}>
-                      {AGENT_MODEL_MESSAGES.CURRENT_BADGE}
-                    </span>
-                  )}
-                </div>
-                <p className={styles.cardTagline}>{option.tagline}</p>
-                <p className={styles.cardCost}>{option.costHint}</p>
-                <p className={styles.cardUsage}>
-                  {chatCount > 0
-                    ? modelUsageLabel(chatCount, creditCost)
-                    : AGENT_MODEL_MESSAGES.USAGE_NONE}
-                  {perReference !== null && (
-                    <span>・{creditsForChatsLabel(CREDIT_ESTIMATE_REFERENCE, perReference)}</span>
-                  )}
-                </p>
-                {insufficient && (
-                  <p className={styles.insufficient}>{AGENT_MODEL_MESSAGES.INSUFFICIENT_HINT}</p>
-                )}
-              </button>
-            );
-          })}
+        <div className={styles.columns}>
+          {getModelOptionsByProvider().map((group) => (
+            <div key={group.provider} className={styles.column}>
+              <h3 className={styles.columnLabel}>{group.label}</h3>
+              <div className={styles.cards}>
+                {group.options.map((option) => {
+                  const isCurrent = option.alias === currentModel;
+                  // 残高未取得（null: 初期/ローディング/エラー）の間は不足扱いにしない
+                  const insufficient = option.isPaid && balance !== null && balance <= 0;
+                  const usage = getUsage(option.alias);
+                  const chatCount = usage?.chat_count ?? 0;
+                  const creditCost = usage?.credit_cost ?? 0;
+                  const perReference = option.isPaid
+                    ? estimatePerReference(option.alias, creditCost, chatCount)
+                    : null;
+                  return (
+                    <button
+                      key={option.alias}
+                      type="button"
+                      className={`${styles.card} ${isCurrent ? styles.cardCurrent : ""}`}
+                      onClick={() => select(option.alias)}
+                      aria-pressed={isCurrent}
+                    >
+                      <div className={styles.cardHead}>
+                        <span className={styles.cardName}>{option.name}</span>
+                        <span className={option.isPaid ? styles.paidBadge : styles.freeBadge}>
+                          {option.isPaid
+                            ? AGENT_MODEL_MESSAGES.PAID_BADGE
+                            : AGENT_MODEL_MESSAGES.FREE_BADGE}
+                        </span>
+                        {isCurrent && (
+                          <span className={styles.currentBadge}>
+                            {AGENT_MODEL_MESSAGES.CURRENT_BADGE}
+                          </span>
+                        )}
+                      </div>
+                      <p className={styles.cardTagline}>{option.tagline}</p>
+                      <p className={styles.cardCost}>{option.costHint}</p>
+                      <p className={styles.cardUsage}>
+                        {chatCount > 0
+                          ? modelUsageLabel(chatCount, creditCost)
+                          : AGENT_MODEL_MESSAGES.USAGE_NONE}
+                        {perReference !== null && (
+                          <span>
+                            ・{creditsForChatsLabel(CREDIT_ESTIMATE_REFERENCE, perReference)}
+                          </span>
+                        )}
+                      </p>
+                      {insufficient && (
+                        <p className={styles.insufficient}>
+                          {AGENT_MODEL_MESSAGES.INSUFFICIENT_HINT}
+                        </p>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

@@ -14,6 +14,9 @@ pytest==9.0.3
 python-jose[cryptography]==3.5.0
 httpx==0.28.1
 anthropic>=0.40,<1
+# マルチプロバイダ LLM（ADR-0013）。Gemini = google-genai、GPT = openai
+google-genai>=1.0,<3
+openai>=1.50,<2
 # Stripe Checkout / Webhook 署名検証（ADR-0012 Phase 2）。公式ライブラリを使う
 stripe>=11,<13
 PyGithub==2.5.0

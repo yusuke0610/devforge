@@ -11,6 +11,10 @@ locals {
     "turso-auth-token",
     # DevForge Agent（ADR-0010）の Anthropic API キー
     "anthropic-api-key",
+    # マルチプロバイダ LLM（ADR-0013）の Gemini / OpenAI API キー。
+    # コンテナは常に作成し、注入は enable_extra_llm_providers が true の環境のみ
+    "google-api-key",
+    "openai-api-key",
     # 決済（Stripe Checkout / ADR-0012 Phase 2）の API キーと Webhook 署名シークレット
     "stripe-secret-key",
     "stripe-webhook-secret",
@@ -32,6 +36,12 @@ locals {
   github_secret_env = var.enable_github_oauth ? {
     GITHUB_CLIENT_ID     = "github-client-id"
     GITHUB_CLIENT_SECRET = "github-client-secret"
+  } : {}
+  # マルチプロバイダ LLM（ADR-0013）。有効時のみ Gemini / OpenAI キーを注入する。
+  # 無効なら secret version 未投入でも Cloud Run が起動できる
+  llm_secret_env = var.enable_extra_llm_providers ? {
+    GOOGLE_API_KEY = "google-api-key"
+    OPENAI_API_KEY = "openai-api-key"
   } : {}
 
   # 初回 apply 時のブートストラップ用イメージ。
@@ -138,11 +148,8 @@ resource "google_cloud_run_v2_service" "app" {
         name  = "LOG_LEVEL"
         value = "INFO"
       }
-      env {
-        # DevForge Agent（ADR-0010）。本番は Anthropic API（Haiku 4.5）を使用
-        name  = "LLM_PROVIDER"
-        value = "anthropic"
-      }
+      # DevForge Agent（ADR-0010・ADR-0013）。プロバイダ選択はモデルエイリアスに
+      # 紐づくため、本番では LLM プロバイダ env を持たない（LLM_LOCAL_OLLAMA も未設定＝無効）。
 
       dynamic "env" {
         for_each = local.required_secret_env
@@ -159,6 +166,19 @@ resource "google_cloud_run_v2_service" "app" {
 
       dynamic "env" {
         for_each = local.github_secret_env
+        content {
+          name = env.key
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.app[env.value].secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
+
+      dynamic "env" {
+        for_each = local.llm_secret_env
         content {
           name = env.key
           value_source {

@@ -413,6 +413,14 @@ export const AGENT_MODEL_MESSAGES = {
   HAIKU_COST: "消費クレジット: なし",
   SONNET_TAGLINE: "高精度。重要な仕上げや複雑な依頼に。",
   SONNET_COST: "消費クレジット: 利用したトークン量に応じて",
+  GEMINI_FLASH_TAGLINE: "高速・標準精度。日本語も自然で無料で使い放題。",
+  GEMINI_FLASH_COST: "消費クレジット: なし",
+  GEMINI_PRO_TAGLINE: "高精度。長文構成や難しい依頼に。",
+  GEMINI_PRO_COST: "消費クレジット: 利用したトークン量に応じて",
+  GPT_MINI_TAGLINE: "高速・標準精度。構造化出力が得意で無料。",
+  GPT_MINI_COST: "消費クレジット: なし",
+  GPT_TAGLINE: "高精度・厳格な構造化出力。仕上げに。",
+  GPT_COST: "消費クレジット: 利用したトークン量に応じて",
 } as const;
 
 /** モデルカードの利用実績ラベル（これまでの回数・消費クレジット）。 */
