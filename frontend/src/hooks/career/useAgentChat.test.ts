@@ -158,6 +158,45 @@ describe("useAgentChat", () => {
             text: JSON.stringify({
               message: "提案です",
               operations: [{ field: "self_pr", value: "改善案" }],
+              suggestions: [],
+            }),
+          },
+        ],
+      }),
+    );
+  });
+
+  it("suggestions を含む応答は history の assistant text にも suggestions を載せる", async () => {
+    // 1 往復目: 曖昧依頼に対し選択肢を返す（operations は空）
+    postAgentChatMock.mockResolvedValueOnce({
+      message: "どの方向で改善しますか？",
+      operations: [],
+      suggestions: ["300字に要約して", "成果を強調して書き直して"],
+    });
+    // 2 往復目（選択肢を選んで再送）
+    postAgentChatMock.mockResolvedValue({ message: "提案です", operations: [] });
+    const { result } = renderHook(() => useAgentChat());
+
+    await act(async () => {
+      await result.current.send(form, "self_pr", null, "改善して");
+    });
+    await act(async () => {
+      await result.current.send(form, "self_pr", null, "300字に要約して");
+    });
+
+    // 選択肢を選んだ次の送信時、history の assistant エントリに suggestions が含まれ、
+    // LLM が「前ターンで選択肢を提示した」文脈を受け取れる（選択肢ループ回帰防止）
+    expect(postAgentChatMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        prompt: "300字に要約して",
+        history: [
+          { role: "user", text: "改善して" },
+          {
+            role: "assistant",
+            text: JSON.stringify({
+              message: "どの方向で改善しますか？",
+              operations: [],
+              suggestions: ["300字に要約して", "成果を強調して書き直して"],
             }),
           },
         ],

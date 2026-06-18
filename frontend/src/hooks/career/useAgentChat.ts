@@ -105,10 +105,14 @@ export function useAgentChat() {
             suggestions: response.suggestions?.length ? response.suggestions : null,
             scope,
             target,
-            // 応答 JSON の原文を履歴用に保持する（出力形式の実例としても機能する）
+            // 応答 JSON の原文を履歴用に保持する（出力形式の実例としても機能する）。
+            // suggestions も含めることで、次ターンの LLM が「前ターンで選択肢を提示し、
+            // ユーザーがその 1 つを選んだ」文脈を認識でき、選択肢ループから operations へ
+            // 収束しやすくなる（suggestions を落とすと曖昧依頼と再判定され提案が続く）
             historyText: JSON.stringify({
               message: response.message,
               operations: response.operations ?? [],
+              suggestions: response.suggestions ?? [],
             }),
           },
         ]);

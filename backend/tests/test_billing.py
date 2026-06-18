@@ -198,6 +198,57 @@ def test_chat_sonnet_consumes_credits(client: TestClient, monkeypatch) -> None:
     assert consumption[0].balance_after == 10_000 - 5
 
 
+def test_chat_refreshes_session_before_recording_usage(
+    client: TestClient, monkeypatch
+) -> None:
+    """LLM 応答後、消費記録の前に DB セッションを開き直す（Hrana STREAM_EXPIRED 回帰防止）。
+
+    libSQL（Hrana over HTTP）は LLM の await 中に idle stream が失効するため、消費記録の
+    commit 前に ``db.close()`` で失効ストリームを解放し、新規ストリームで commit させる。
+    本テストは「close が record_chat_usage より前に呼ばれる」順序と、消費が正しく確定する
+    ことを検証する。
+    """
+    fake = _FakeLLM(
+        response=_llm_json("self_pr", "改善した自己PR"),
+        input_tokens=1000,
+        output_tokens=1000,
+    )
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda: fake)
+    headers = auth_header(client, "billing-refresh")
+    user_id = _get_user_id(client, "billing-refresh")
+    credit_service.grant_credits(
+        client._db_session,
+        user_id,
+        10_000,
+        transaction_type=credit_service.TRANSACTION_TYPE_ADMIN_GRANT,
+    )
+
+    events: list[str] = []
+    original_close = client._db_session.close
+    monkeypatch.setattr(
+        client._db_session,
+        "close",
+        lambda *a, **kw: (events.append("close"), original_close(*a, **kw))[1],
+    )
+    import app.routers.agent as agent_router
+
+    original_record = credit_service.record_chat_usage
+
+    def _spy_record(*a, **kw):
+        events.append("record")
+        return original_record(*a, **kw)
+
+    monkeypatch.setattr(agent_router.credit_service, "record_chat_usage", _spy_record)
+
+    resp = client.post("/api/agent/chat", json=_chat_payload("sonnet"), headers=headers)
+
+    assert resp.status_code == 200
+    # close が record より前に呼ばれている
+    assert events == ["close", "record"]
+    # セッション刷新後も消費が正しく確定している
+    assert BillingRepository(client._db_session, user_id).get_balance() == 10_000 - 5
+
+
 def test_chat_sonnet_with_zero_balance_returns_402(client: TestClient, monkeypatch) -> None:
     """sonnet は残高 0 で 402 INSUFFICIENT_CREDITS。LLM は呼ばれない。"""
     fake = _FakeLLM(response=_llm_json("self_pr", "提案"))

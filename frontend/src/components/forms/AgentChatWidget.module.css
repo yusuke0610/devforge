@@ -243,7 +243,7 @@
 .actionButton {
   padding: 4px 10px;
   border: 1px solid #059669;
-  border-radius: 999px;
+  border-radius: 6px;
   background: transparent;
   color: #059669;
   font-size: 0.78rem;
