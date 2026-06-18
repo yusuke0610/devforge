@@ -24,4 +24,13 @@ resource "cloudflare_record" "app" {
   type    = "CNAME"
   value   = cloudflare_pages_project.app.subdomain
   proxied = true
+
+  lifecycle {
+    # use_custom_domain = true なのに zone_id 未指定だと provider が不明瞭な
+    # エラーで失敗するため、apply 前に明示的なメッセージで弾く。
+    precondition {
+      condition     = var.cloudflare_zone_id != ""
+      error_message = "use_custom_domain = true の場合は cloudflare_zone_id（devforge.app のゾーン ID）を指定してください。"
+    }
+  }
 }

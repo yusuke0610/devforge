@@ -12,4 +12,4 @@ deployer_service_account_email = "devforge-github-deploy@devforge-dev-20260311.i
 
 # Turso organization slug（個人プランは Turso の username）。実値に置き換えること。
 # turso_api_token は機密のため TF_VAR_turso_api_token 環境変数で渡す。
-turso_organization = "REPLACE_ME"
+turso_organization = "yusuke0610"

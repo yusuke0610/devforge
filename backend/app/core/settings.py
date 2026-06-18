@@ -193,6 +193,22 @@ def get_ollama_model() -> str:
     return os.getenv(env_keys.OLLAMA_MODEL, "llama3.2").strip()
 
 
+def get_ollama_timeout_seconds() -> float:
+    """ローカル Ollama 呼び出しの HTTP タイムアウト秒数を取得する。
+
+    小型ローカルモデルでの長文生成は数分かかることがあるため既定を長めに取る。
+    環境に応じて OLLAMA_TIMEOUT_SECONDS で調整する。不正値は既定にフォールバックする。
+    """
+    raw = os.getenv(env_keys.OLLAMA_TIMEOUT_SECONDS, "").strip()
+    if not raw:
+        return 300.0
+    try:
+        value = float(raw)
+    except ValueError:
+        return 300.0
+    return value if value > 0 else 300.0
+
+
 def get_stripe_secret_key() -> str:
     """Stripe シークレットキー（sk_...）を取得する。値はログや例外メッセージに含めないこと。"""
     return os.getenv(env_keys.STRIPE_SECRET_KEY, "").strip()
