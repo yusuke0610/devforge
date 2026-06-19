@@ -24,12 +24,12 @@ Claude Code では対象パス編集時に自動ロードされる領域別ル�
 - [.claude/rules/backend/auth-security.md](./.claude/rules/backend/auth-security.md) — 認証・認可
 - [.claude/rules/backend/test.md](./.claude/rules/backend/test.md) — テスト方針
 
-### frontend（`frontend/` を触るとき）
+### web（`web/` を触るとき）
 
-- [.claude/rules/frontend/architecture.md](./.claude/rules/frontend/architecture.md) — ディレクトリ構成・責務分離
-- [.claude/rules/frontend/typescript.md](./.claude/rules/frontend/typescript.md) — TypeScript コーディング規約
-- [.claude/rules/frontend/messages.md](./.claude/rules/frontend/messages.md) — メッセージ管理（リテラル禁止・SSoT）
-- [.claude/rules/frontend/test.md](./.claude/rules/frontend/test.md) — テスト方針
+- [.claude/rules/web/architecture.md](./.claude/rules/web/architecture.md) — ディレクトリ構成・責務分離
+- [.claude/rules/web/typescript.md](./.claude/rules/web/typescript.md) — TypeScript コーディング規約
+- [.claude/rules/web/messages.md](./.claude/rules/web/messages.md) — メッセージ管理（リテラル禁止・SSoT）
+- [.claude/rules/web/test.md](./.claude/rules/web/test.md) — テスト方針
 
 ### infra（`infra/` を触るとき）
 

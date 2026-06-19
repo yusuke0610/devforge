@@ -58,7 +58,7 @@ nix develop --command bash -c "tofu -chdir=infra/environments/dev plan"
 
 GitHub Actions が `dev` ブランチ push 時に自動実行:
 
-1. frontend → Cloudflare Pages
+1. web → Cloudflare Pages
 2. backend → Docker → Artifact Registry → Cloud Run
 
 インフラ変更（`infra/**`）は別の GitHub Actions ワークフローまたは手動 `tofu apply` で適用する。

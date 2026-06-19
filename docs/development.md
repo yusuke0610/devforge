@@ -32,7 +32,7 @@ direnv allow   # 初回のみ許可が必要
 
 ```bash
 nix develop          # devshell に入る（または direnv で自動）
-make setup           # git hooks + backend (.venv + uv) + frontend (npm ci)
+make setup           # git hooks + backend (.venv + uv) + web (npm ci)
 make generate-keys   # JWT RS256 鍵ペアを生成
 touch backend/.env   # 環境変数を設定する（必要な変数一覧: docs/api.md「環境変数」セクション参照）
 ```
@@ -67,7 +67,7 @@ ollama pull llama3.2  # OLLAMA_MODEL の既定値
 #### フロントエンド単体起動（バックエンドは docker / 別途）
 
 ```bash
-make dev-frontend    # Vite 開発サーバー（http://localhost:5173）
+make dev-web    # Vite 開発サーバー（http://localhost:5173）
 make dev-proxy       # Vite + Cloudflare Pages dev proxy（http://localhost:8788）
 ```
 
@@ -114,7 +114,7 @@ make dev
 ### CI 相当を一括実行
 
 ```bash
-make ci          # lint + test + build-frontend
+make ci          # lint + test + build-web
 ```
 
 ### バックエンド
@@ -134,19 +134,19 @@ nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check <pat
 ### フロントエンド（ユニット・ビルド）
 
 ```bash
-make lint-frontend       # eslint
-make test-frontend       # vitest
-make build-frontend      # Vite ビルド
+make lint-web       # eslint
+make test-web       # vitest
+make build-web      # Vite ビルド
 ```
 
 ### フロントエンド E2E（Playwright）
 
 ```bash
-nix develop --command bash -c "cd frontend && npm run test:e2e"        # ヘッドレス
-nix develop --command bash -c "cd frontend && npm run test:e2e:ui"     # UI モード（デバッグ用）
+nix develop --command bash -c "cd web && npm run test:e2e"        # ヘッドレス
+nix develop --command bash -c "cd web && npm run test:e2e:ui"     # UI モード（デバッグ用）
 ```
 
-E2E テストは `frontend/e2e/` に配置。新しいページ・ルート・認証/ナビゲーション/レイアウト変更時は必ず実行すること。
+E2E テストは `web/e2e/` に配置。新しいページ・ルート・認証/ナビゲーション/レイアウト変更時は必ず実行すること。
 
 ### インフラ（OpenTofu）
 

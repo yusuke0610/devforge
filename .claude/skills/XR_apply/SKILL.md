@@ -1,13 +1,13 @@
 ---
 name: XR_apply
-description: Use when applying the cross-realm refactor plan produced by the XR_refacter skill. Reads `report/XR_report_<timestamp>.md` (latest by default, or a path passed as argument), confirms scope with the user, implements SSoT consolidation across backend / frontend / infra / docs in a single PR, runs the impacted validations, then writes a result report to `report/XR_pr_<timestamp>.md`. Trigger on requests such as "XR_apply 実行", "領域横断のリファクタを適用", "XR レポートの内容を実装", "BE/FE/infra の SSoT 統合を実装".
+description: Use when applying the cross-realm refactor plan produced by the XR_refacter skill. Reads `report/XR_report_<timestamp>.md` (latest by default, or a path passed as argument), confirms scope with the user, implements SSoT consolidation across backend / web / infra / docs in a single PR, runs the impacted validations, then writes a result report to `report/XR_pr_<timestamp>.md`. Trigger on requests such as "XR_apply 実行", "領域横断のリファクタを適用", "XR レポートの内容を実装", "BE/FE/infra の SSoT 統合を実装".
 ---
 
 # Cross-Realm Refactor Apply
 
 `XR_refacter` skill が生成したレビュー (`report/XR_report_*.md`) を入力にして、領域跨ぎ (BE / FE / infra / docs) の SSoT 統合を **1 PR で扱う** ための skill。
 
-各領域単独の修正は `BE_apply` / `FE_apply` / `INFRA_apply` に委ねる。本 skill は「複数領域に同時に手を入れないと意味がない」変更だけを扱う。
+各領域単独の修正は `BE_apply` / `WEB_apply` / `INFRA_apply` に委ねる。本 skill は「複数領域に同時に手を入れないと意味がない」変更だけを扱う。
 
 ## 先に読む
 
@@ -15,10 +15,10 @@ description: Use when applying the cross-realm refactor plan produced by the XR_
 - `.claude/skills/XR_refacter/SKILL.md`（出力フォーマットの参照元）
 - `.claude/rules/common/duplication.md`
 - `.claude/rules/backend/architecture.md`
-- `.claude/rules/frontend/architecture.md`
+- `.claude/rules/web/architecture.md`
 - `.claude/rules/infra/opentofu.md`
 
-影響範囲に応じて backend/frontend/infra 各 rules も追加で読む。
+影響範囲に応じて backend/web/infra 各 rules も追加で読む。
 
 ## 入力（対象レポートの選択）
 
@@ -64,13 +64,13 @@ Allowed Duplication: 7（記録のみ・実装変更なし）
 1. **タスク化**: 採用した各 SSoT Violation を `TaskCreate` で 1 タスクずつ切る。1 SSoT = 1 タスク（BE / FE / infra をまたいでも 1 タスクとして扱う）。
 2. **領域ごとの規約厳守**:
    - backend: コメント・docstring 日本語、例外握りつぶし禁止
-   - frontend: コメント・JSDoc 日本語、any 禁止
+   - web: コメント・JSDoc 日本語、any 禁止
    - infra: modules の variable 化、env 別値は tfvars で
 3. **SSoT 統合パターン**:
    - **環境変数名**: backend `settings.py` を正本に。infra の `cloud_run/main.tf` と `.github/workflows/ci.yml`、`docker-compose.yml` を順に書き換える。コメントで「正本: backend/app/core/settings.py の `Settings.XXX`」と明記
-   - **エラーコード**: backend `core/errors.py` の `ErrorCode` 列挙を正本に。frontend `utils/appError.ts` のマップを手で同期。OpenAPI codegen は本 PR の対象外（別 PR）
-   - **API パス**: frontend `api/<scope>.ts` に定数 `const ENDPOINTS = { ... }` を作り、コンポーネントからは定数経由でのみ参照させる
-   - **DTO**: backend が正本。frontend `types.ts` / `formTypes.ts` を手動同期し、対応コメントを残す
+   - **エラーコード**: backend `core/errors.py` の `ErrorCode` 列挙を正本に。web `utils/appError.ts` のマップを手で同期。OpenAPI codegen は本 PR の対象外（別 PR）
+   - **API パス**: web `api/<scope>.ts` に定数 `const ENDPOINTS = { ... }` を作り、コンポーネントからは定数経由でのみ参照させる
+   - **DTO**: backend が正本。web `types.ts` / `formTypes.ts` を手動同期し、対応コメントを残す
    - **ドキュメント手順**: 正本に決めたファイルだけ残し、他は `> 手順は [<正本パス>](<相対 path>) を参照` の 1 行に置換
 4. **import / 参照パスの追従**: ファイル移動や定数化を含む場合、`rg` で全参照を洗ってから着手
 5. **コミット粒度**: SSoT 1 つ = 1 コミットを目安に。BE/FE/infra 同時変更が必要な場合でも、レビュアブルな単位に分ける
@@ -83,9 +83,9 @@ Allowed Duplication: 7（記録のみ・実装変更なし）
 # 影響範囲に応じて
 make lint-backend
 make test-backend
-make lint-frontend
-make test-frontend
-make build-frontend
+make lint-web
+make test-web
+make build-web
 make infra-fmt-check
 make infra-validate
 make dupe-check
@@ -102,7 +102,7 @@ sandbox が `~/.cache/nix/fetcher-locks/*.lock` で落ちる場合は `dangerous
 UI フローに影響する API 変更を含む場合は E2E も回す:
 
 ```bash
-nix develop --command bash -c "cd frontend && npm run test:e2e"
+nix develop --command bash -c "cd web && npm run test:e2e"
 ```
 
 検証 fail を残したまま PR レポートを書かない。`--no-verify` 等で hook を skip しない。
@@ -158,9 +158,9 @@ nix develop --command bash -c "cd frontend && npm run test:e2e"
 ## Validation
 - `make lint-backend`: pass / fail
 - `make test-backend`: pass / fail
-- `make lint-frontend`: pass / fail
-- `make test-frontend`: pass / fail
-- `make build-frontend`: pass / fail
+- `make lint-web`: pass / fail
+- `make test-web`: pass / fail
+- `make build-web`: pass / fail
 - `make infra-fmt-check` / `make infra-validate`: pass / fail
 - `make dupe-check`: 重複率の before / after
 - E2E: 実行有無と結果

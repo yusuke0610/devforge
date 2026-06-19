@@ -1,12 +1,12 @@
 ---
 paths:
-  - frontend/**
+  - web/**
 ---
 
 # Frontend アーキテクチャ (React 18 + Vite + TypeScript)
 
 ```
-frontend/src/
+web/src/
 ├── main.tsx              # BrowserRouter + Redux Provider ラップ
 ├── App.tsx               # 認証ステート管理 + <AppRoutes />
 ├── App.module.css

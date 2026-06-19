@@ -178,9 +178,9 @@ Secret Manager は secret 本体だけでなく secret version が必要です�
 
 ### アプリケーション CI（`.github/workflows/ci.yml`）
 
-- **実行タイミング**: `pull_request` / `push`（target: `dev` / `stg` / `main`、`frontend/**` or `backend/**` 変更時）
+- **実行タイミング**: `pull_request` / `push`（target: `dev` / `stg` / `main`、`web/**` or `backend/**` 変更時）
 - **テスト内容**:
-  - frontend: `npm run lint`, `npm run test`, `npm run build`, E2E（Playwright / Chromium）
+  - web: `npm run lint`, `npm run test`, `npm run build`, E2E（Playwright / Chromium）
   - backend: `ruff check`, `pytest`
 - **自動デプロイ**（`dev` ブランチ push 時のみ）:
   - フロントエンド → Cloudflare Pages へデプロイ

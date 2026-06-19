@@ -6,15 +6,15 @@
 
 ### 必須確認
 
-- [ ] `make ci` が pass している（lint + test + build-frontend）
+- [ ] `make ci` が pass している（lint + test + build-web）
 - [ ] コメント・ドキュメント・エラーメッセージは日本語で記述した
 
 ### 条件付き確認（該当する場合のみ N/A と記入）
 
-- [ ] `app/schemas/` または `app/routers/` を変更した場合: `make codegen-types` を実行し `frontend/src/api/generated.ts` の差分をコミットした
-- [ ] 新しいページ・認証・ナビゲーション・レイアウトを変更した場合: E2E を実行した（`nix develop --command bash -c "cd frontend && npm run test:e2e"`）
+- [ ] `app/schemas/` または `app/routers/` を変更した場合: `make codegen-types` を実行し `web/src/api/generated.ts` の差分をコミットした
+- [ ] 新しいページ・認証・ナビゲーション・レイアウトを変更した場合: E2E を実行した（`nix develop --command bash -c "cd web && npm run test:e2e"`）
 - [ ] 新規環境変数を追加した場合: `env_keys.py` / `docs/api.md` / `infra/modules/cloud_run/main.tf` / `docker-compose.yml` の 4 箇所を同期した
-- [ ] `frontend/src/` で日本語メッセージを `frontend/src/constants/messages.ts` の定数経由で参照した（リテラル直書きなし）
+- [ ] `web/src/` で日本語メッセージを `web/src/constants/messages.ts` の定数経由で参照した（リテラル直書きなし）
 
 ### 破壊的変更
 

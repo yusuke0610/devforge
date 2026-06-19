@@ -1,7 +1,7 @@
 # コード重複 / DRY ポリシー（共通）
 
-このルールは backend / frontend / infra すべての領域に適用される。
-領域別のコーディング規約（`.claude/rules/{backend,frontend,infra}/`）と併せて参照すること。
+このルールは backend / web / infra すべての領域に適用される。
+領域別のコーディング規約（`.claude/rules/{backend,web,infra}/`）と併せて参照すること。
 
 ## 原則
 
@@ -30,7 +30,7 @@ CLAUDE.md にある通り「PEP8 を守るな、PEP8 を理解した上で抽象
 - **エラーマッピング**: バックエンドのエラーコード ↔ ユーザー向けメッセージの対応表
 - **API パス文字列**: `/api/v1/...` のリテラルが複数モジュールに散在
 - **環境変数名のリテラル**: `os.environ["TURSO_DATABASE_URL"]` のような文字列を `settings.py` 以外で参照
-- **DTO / 型定義**: backend `app/schemas/` ↔ frontend `src/types.ts` の二重定義（同じフィールド構造を別言語で持つこと自体は許容、ただし片方の変更がもう片方の更新を忘れさせるなら検知できる仕組みが必要）
+- **DTO / 型定義**: backend `app/schemas/` ↔ web `src/types.ts` の二重定義（同じフィールド構造を別言語で持つこと自体は許容、ただし片方の変更がもう片方の更新を忘れさせるなら検知できる仕組みが必要）
 
 ## 許容される類似（偶発的重複）
 
@@ -59,12 +59,12 @@ CLAUDE.md にある通り「PEP8 を守るな、PEP8 を理解した上で抽象
 
 ### Frontend (React + TypeScript)
 
-1. **状態管理を含む共通ロジック** → `frontend/src/hooks/` の新規フック（`useDocumentForm`, `useTaskPolling` パターン）
-2. **純粋関数 / 文字列変換 / 日付処理** → `frontend/src/utils/`
-3. **API クライアントの共通パターン** → `frontend/src/api/client.ts` のラッパー追加
-4. **フォーム入出力変換** → `frontend/src/formMappers.ts` / `frontend/src/payloadBuilders.ts`
-5. **共通 UI コンポーネント** → `frontend/src/components/ui/`（toast/, Skeleton 等の配置例）
-6. **型定義** → `frontend/src/types.ts` / `frontend/src/formTypes.ts`
+1. **状態管理を含む共通ロジック** → `web/src/hooks/` の新規フック（`useDocumentForm`, `useTaskPolling` パターン）
+2. **純粋関数 / 文字列変換 / 日付処理** → `web/src/utils/`
+3. **API クライアントの共通パターン** → `web/src/api/client.ts` のラッパー追加
+4. **フォーム入出力変換** → `web/src/formMappers.ts` / `web/src/payloadBuilders.ts`
+5. **共通 UI コンポーネント** → `web/src/components/ui/`（toast/, Skeleton 等の配置例）
+6. **型定義** → `web/src/types.ts` / `web/src/formTypes.ts`
 
 ### Infra (OpenTofu)
 
@@ -76,7 +76,7 @@ CLAUDE.md にある通り「PEP8 を守るな、PEP8 を理解した上で抽象
 
 ### 領域横断 (BE ↔ FE ↔ infra)
 
-1. **エラーコード**: backend の `app/core/errors.py` を Single Source of Truth とし、frontend の `utils/appError.ts` は OpenAPI 経由で同期できないか検討する
+1. **エラーコード**: backend の `app/core/errors.py` を Single Source of Truth とし、web の `utils/appError.ts` は OpenAPI 経由で同期できないか検討する
 2. **環境変数名**: backend の `app/core/settings.py` で定義したフィールド名を、infra 側 (`infra/modules/cloud_run/main.tf` の `env` ブロック) と CI (`.github/workflows/ci.yml`) で参照する。リテラル文字列のコピペは避ける
 3. **手順書 / README / docs**: 重複しがちな手順は `docs/` に正本を置き、README からはリンクで参照する
 
@@ -100,7 +100,7 @@ PR 前に 1 度走らせて、新規重複が増えていないか確認する�
 
 ### AI レビュー (refacter skill)
 
-- 領域内: `BE_refacter` / `FE_refacter` / `INFRA_refacter`
+- 領域内: `BE_refacter` / `WEB_refacter` / `INFRA_refacter`
 - 領域横断: `XR_refacter`
 
 各 skill は `report/dupe/jscpd-*.json` を読み込んでから、「形だけ似ているのか / 本質的に重複しているのか」を判定する。

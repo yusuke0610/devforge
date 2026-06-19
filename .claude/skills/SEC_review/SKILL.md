@@ -16,7 +16,7 @@ description: Use when running a security review / vulnerability check against th
 - `.claude/rules/security.md`（**正本**。末尾のチェックリストが走査軸）
 - `.claude/rules/backend/auth-security.md`（JWT / Cookie / rate limit / CORS / INTERNAL_SECRET）
 - `backend/app/core/env_keys.py`（環境変数名の正本。リテラル参照検出の基準）
-- `.claude/rules/frontend/messages.md`（誤検知除外の基準。テスト・英語開発者向け・console は許容）
+- `.claude/rules/web/messages.md`（誤検知除外の基準。テスト・英語開発者向け・console は許容）
 - `report/dupe/jscpd-report.json` が存在すれば参考程度に（重複は本 skill の主目的ではない）
 
 ## スキャン範囲の決定
@@ -31,8 +31,8 @@ description: Use when running a security review / vulnerability check against th
 /SEC_review full
 ```
 
-- **差分（デフォルト）**: `git diff --name-only origin/main...HEAD`。`origin/main` が無ければ `origin/dev`、それも無ければ `HEAD~1` にフォールバック。検出されたファイルのうち `backend/** frontend/** infra/** .github/workflows/**` に該当するものを対象にする。
-- **全体（`full`）**: `backend/** frontend/** infra/** .github/workflows/**` 全体を security.md 全項目で走査する。
+- **差分（デフォルト）**: `git diff --name-only origin/main...HEAD`。`origin/main` が無ければ `origin/dev`、それも無ければ `HEAD~1` にフォールバック。検出されたファイルのうち `backend/** web/** infra/** .github/workflows/**` に該当するものを対象にする。
+- **全体（`full`）**: `backend/** web/** infra/** .github/workflows/**` 全体を security.md 全項目で走査する。
 - 差分が空（コミットなし）なら全体スキャンに自動フォールバックし、その旨を 1 行で告げる。
 
 ```text
@@ -74,7 +74,7 @@ description: Use when running a security review / vulnerability check against th
 - **オブジェクトレベル認可 / IDOR**: エンドポイントが `user_id` 境界を必ず効かせているか。`resumes` / `blog_accounts` 等のリソースを ID 直指定で取得・更新する経路で「他人のリソースを取れてしまう」穴がないか（`get_current_user` で認証だけ通して認可（所有者一致）を確認していないケースが典型）。repository のクエリに `user_id` フィルタが入っているかまで追う。
 - **信頼境界（Trust boundary）**: Cloudflare Pages → Cloud Run の `INTERNAL_SECRET` ヘッダ検証が `routers/internal.py`（Cloud Tasks → backend）で実際に効いているか。内部 API が認証なしで外部公開されていないか。
 - **SSRF / 外部フェッチ**: `services/intelligence/github/api_client.py` や blog collector がユーザー指定の URL / リポジトリ名を使って外部へ fetch する経路で、宛先を検証せず任意 URL を叩けないか（内部メタデータエンドポイントへの到達など）。
-- **OAuth フローの設計**: GitHub OAuth の `state` が backend Cookie で検証されているか（frontend のみ検証は不可）、`redirect_uri` が許可リスト内に固定されているか（オープンリダイレクト防止）。
+- **OAuth フローの設計**: GitHub OAuth の `state` が backend Cookie で検証されているか（web のみ検証は不可）、`redirect_uri` が許可リスト内に固定されているか（オープンリダイレクト防止）。
 - **トークンライフサイクル**: アクセス/リフレッシュトークンの失効・ローテーション、ログアウト時の Cookie 破棄、リフレッシュトークン再利用検知の有無。
 - **マスアサインメント**: Pydantic スキーマが更新系で「ユーザーが書き換えてはいけないフィールド」（`user_id` / `role` / `is_admin` 相当 / タイムスタンプ）まで受け付けていないか。入力スキーマと DB モデルのフィールド差を確認。
 - **ビジネスロジック濫用**: rate limit のない高コスト経路（外部 API / PDF 生成）を繰り返し叩くコスト増幅、冪等性のない副作用の二重実行。
@@ -92,14 +92,14 @@ description: Use when running a security review / vulnerability check against th
 - `.env` / `.env.*` / `*.pem` / `*.key` / GCP サービスアカウント鍵 / トークンをハードコードした設定が **git 追跡対象に入っていないか**:
   - `git ls-files | rg -n '\.(env|pem|key)$|service.?account.*\.json'`
   - `.gitignore` に上記が入っているかも確認
-- ソース中のハードコードされた認証情報: `rg -n '(api[_-]?key|secret|token|password)\s*[:=]\s*["'"'"'][A-Za-z0-9_\-]{16,}' backend frontend infra`
+- ソース中のハードコードされた認証情報: `rg -n '(api[_-]?key|secret|token|password)\s*[:=]\s*["'"'"'][A-Za-z0-9_\-]{16,}' backend web infra`
 - 実ツールがあれば併用: `gitleaks detect --no-banner`（無ければ「未実行・要手動」と Secrets Scan に記録）
 
 ### 2. 環境変数のリテラル直接参照
 
 - `rg -n 'os\.getenv\("' backend/app`（`env_keys.XXX` 経由でないリテラルは違反）
 - `rg -n 'os\.environ\[' backend/app`
-- frontend は `import.meta.env.VITE_...` の散在を確認
+- web は `import.meta.env.VITE_...` の散在を確認
 
 ### 3. ログへの秘密情報出力
 
@@ -117,13 +117,13 @@ description: Use when running a security review / vulnerability check against th
 
 ### 6. Frontend XSS
 
-- `rg -n 'dangerouslySetInnerHTML|\.innerHTML|eval\(|new Function\(' frontend/src`
-- `target="_blank"` の `rel="noopener noreferrer"` 欠落: `rg -n 'target=["'"'"']_blank' frontend/src` → 各箇所で rel を確認
+- `rg -n 'dangerouslySetInnerHTML|\.innerHTML|eval\(|new Function\(' web/src`
+- `target="_blank"` の `rel="noopener noreferrer"` 欠落: `rg -n 'target=["'"'"']_blank' web/src` → 各箇所で rel を確認
 - Markdown レンダラの sanitize 無効化（`react-markdown` の `rehype-raw` 等）
 
 ### 7. トークン保管（Frontend）
 
-- `rg -n '(localStorage|sessionStorage)\.(set|get)Item' frontend/src` でトークン保存がないか
+- `rg -n '(localStorage|sessionStorage)\.(set|get)Item' web/src` でトークン保存がないか
 - Redux store に生のトークン文字列を載せていないか
 
 ### 8. 認証ガード
@@ -153,7 +153,7 @@ description: Use when running a security review / vulnerability check against th
 既知 CVE だけでなく「依存経路そのものが攻撃面になる」観点で見る。CI には既に audit が配線済み（`.github/workflows/ci.yml`: `npm audit --audit-level=high` / `uv tool run pip-audit -r requirements.txt`）なので、ローカルでは差分の妥当性確認に重点を置く。
 
 - **既知 CVE スキャン**（実行可能なら）:
-  - `nix develop --command bash -c "cd frontend && npm audit --audit-level=high"`
+  - `nix develop --command bash -c "cd web && npm audit --audit-level=high"`
   - `nix develop --command bash -c "cd backend && uv tool run pip-audit -r requirements.txt"`（実行できなければ「未実行・要手動」と記録。**本 skill で新規ツール導入はしない**）
   - High / Critical を Findings に取り込む
 - **バージョン固定 / lockfile 整合**: 直接依存にレンジ指定（`^` / `~` / `*` / `>=` のみ）が無いか、lockfile（`package-lock.json` / `uv.lock` 等）が commit され integrity hash を持つか。`requirements.txt` が pin（`==`）されているか。
@@ -169,7 +169,7 @@ description: Use when running a security review / vulnerability check against th
 - **High**: env リテラル参照、認証ガード欠落、`dangerouslySetInnerHTML` 新規使用、High CVE
 - **Medium**: rate limit 欠落、`rel` 欠落、`sensitive` 欠落、ログ漏洩の疑い
 - **Low**: 軽微な hardening 余地
-- **Info / Allowed**: 誤検知・許容例外（テストコード / `constants/messages.ts` / 英語開発者向けメッセージ / `console.*` / 意図的な公開エンドポイント）。**理由を必ず残す**（`.claude/rules/frontend/messages.md` の例外節に準拠）。
+- **Info / Allowed**: 誤検知・許容例外（テストコード / `constants/messages.ts` / 英語開発者向けメッセージ / `console.*` / 意図的な公開エンドポイント）。**理由を必ず残す**（`.claude/rules/web/messages.md` の例外節に準拠）。
 
 各 Finding には **security.md のどのルール違反か** を必ず引用する。
 

@@ -1,11 +1,11 @@
 ---
 name: XR_refacter
-description: Use when reviewing duplication that crosses backend / frontend / infra boundaries — DTO 二重定義 (backend schemas ↔ frontend types), エラーコードの BE/FE 同期, 環境変数名の infra/backend/CI 散在, README/CLAUDE.md/docs の手順重複. Triggers: "領域横断の重複を見て", "BE と FE の DTO 重複", "infra と backend で env 名がズレてる", "XR_refacter 実行", "クロスリポ重複レビュー".
+description: Use when reviewing duplication that crosses backend / web / infra boundaries — DTO 二重定義 (backend schemas ↔ web types), エラーコードの BE/FE 同期, 環境変数名の infra/backend/CI 散在, README/CLAUDE.md/docs の手順重複. Triggers: "領域横断の重複を見て", "BE と FE の DTO 重複", "infra と backend で env 名がズレてる", "XR_refacter 実行", "クロスリポ重複レビュー".
 ---
 
 # Cross-Realm Refactor Review (BE ↔ FE ↔ infra ↔ docs)
 
-各領域内 (BE / FE / infra) の重複は `BE_refacter` / `FE_refacter` / `INFRA_refacter` が見る。
+各領域内 (BE / FE / infra) の重複は `BE_refacter` / `WEB_refacter` / `INFRA_refacter` が見る。
 この skill は **境界を跨ぐ重複だけ** に集中する。各領域内の問題は本 skill では扱わない。
 
 ## 先に読む
@@ -13,7 +13,7 @@ description: Use when reviewing duplication that crosses backend / frontend / in
 - `.claude/CLAUDE.md`
 - `.claude/rules/common/duplication.md`
 - `.claude/rules/backend/architecture.md`
-- `.claude/rules/frontend/architecture.md`
+- `.claude/rules/web/architecture.md`
 - `.claude/rules/infra/opentofu.md`
 - `report/dupe/jscpd-report.json`（存在すれば）
 
@@ -23,12 +23,12 @@ description: Use when reviewing duplication that crosses backend / frontend / in
 
 | 観点 | BE 側 | FE 側 | infra/CI 側 |
 |---|---|---|---|
-| DTO / 型 | `backend/app/schemas/**` | `frontend/src/types.ts`, `formTypes.ts` | — |
-| エラーコード | `backend/app/core/errors.py` | `frontend/src/utils/appError.ts` | — |
-| API パス | `backend/app/routers/**` | `frontend/src/api/**` | — |
-| 環境変数名 | `backend/app/core/settings.py` | `frontend/.env*`, `vite.config.*` | `infra/modules/cloud_run/main.tf` の `env` ブロック、`.github/workflows/ci.yml`、`docker-compose.yml` |
+| DTO / 型 | `backend/app/schemas/**` | `web/src/types.ts`, `formTypes.ts` | — |
+| エラーコード | `backend/app/core/errors.py` | `web/src/utils/appError.ts` | — |
+| API パス | `backend/app/routers/**` | `web/src/api/**` | — |
+| 環境変数名 | `backend/app/core/settings.py` | `web/.env*`, `vite.config.*` | `infra/modules/cloud_run/main.tf` の `env` ブロック、`.github/workflows/ci.yml`、`docker-compose.yml` |
 | 領域共通の値（region / image / project_id） | `core/settings.py` | — | `infra/environments/<env>/terraform.tfvars` |
-| 手順説明 | `backend/README.md` | `frontend/README.md` | `infra/README.md` |
+| 手順説明 | `backend/README.md` | `web/README.md` | `infra/README.md` |
 | プロジェクト概要 | — | — | `README.md`, `CLAUDE.md`, `AGENT.md`, `docs/**` |
 
 ## 成果物の出力先（必須）
@@ -61,27 +61,27 @@ description: Use when reviewing duplication that crosses backend / frontend / in
 
 - DTO の二重定義
   - `rg -n "class \w+\(BaseModel\)" backend/app/schemas/`
-  - `rg -n "^(export )?(interface|type) \w+" frontend/src/types.ts frontend/src/formTypes.ts`
+  - `rg -n "^(export )?(interface|type) \w+" web/src/types.ts web/src/formTypes.ts`
 - API パスの散在
-  - `rg -n "['\"]/api/" frontend/src/api/`
+  - `rg -n "['\"]/api/" web/src/api/`
   - backend 側のパスは `routers/**` の `@router.<method>("/...")` を抽出
 - 環境変数名の散在
   - `rg -n "os\.environ\[" backend/app/`
-  - `rg -n "VITE_\w+" frontend/`
+  - `rg -n "VITE_\w+" web/`
   - `rg -n "env\s*=\s*\[" infra/modules/`
   - `.github/workflows/*.yml` の `env:` / `with:` ブロック
 - エラーコード
   - `backend/app/core/errors.py` の `ErrorCode` enum
-  - `frontend/src/utils/appError.ts` のマップ定義
+  - `web/src/utils/appError.ts` のマップ定義
 - 手順書
-  - `README.md`, `CLAUDE.md`, `AGENT.md`, `docs/**`, `backend/README.md`, `frontend/README.md`, `infra/README.md` の見出し列を比較
+  - `README.md`, `CLAUDE.md`, `AGENT.md`, `docs/**`, `backend/README.md`, `web/README.md`, `infra/README.md` の見出し列を比較
 
 ### 2. 重複の分類
 
 検出した重複を 3 つに分類する。
 
 - **SSoT 違反**（要修正）: 同じ意味の情報が複数領域に独立して定義されており、片方の変更で他方が壊れる
-  - 例: `User` DTO が backend と frontend で別個に定義され、フィールド追加時に同期忘れする
+  - 例: `User` DTO が backend と web で別個に定義され、フィールド追加時に同期忘れする
   - 例: `TURSO_DATABASE_URL` という名前が `settings.py` / `cloud_run/main.tf` / `ci.yml` / `docker-compose.yml` に文字列で散在
 - **意図的な複製**（許容）: 言語境界やデプロイ境界で物理的に同期できないが、それぞれの正本がある
   - 例: Pydantic schema と TypeScript interface（言語が違うので別定義は不可避、ただし生成元 OpenAPI など SSoT 経路は検討余地あり）
@@ -94,10 +94,10 @@ description: Use when reviewing duplication that crosses backend / frontend / in
 
 SSoT 違反に対して、どこを正本にするかを提案する:
 
-- **エラーコード**: `backend/app/core/errors.py` を正本とし、frontend は OpenAPI から型生成するか、enum を別途同期する運用ルールを明文化
+- **エラーコード**: `backend/app/core/errors.py` を正本とし、web は OpenAPI から型生成するか、enum を別途同期する運用ルールを明文化
 - **環境変数名**: `backend/app/core/settings.py` の `Settings` モデルのフィールド名を正本とし、infra / CI はそれを参照（コメントで対応関係を明記）
-- **API パス**: backend の router がパスの正本。frontend は API クライアントモジュール 1 箇所に定数化してから呼ぶ
-- **DTO**: 短期は backend `schemas/` を正本として frontend は手動同期、中期は OpenAPI → TypeScript 型生成パイプラインを検討
+- **API パス**: backend の router がパスの正本。web は API クライアントモジュール 1 箇所に定数化してから呼ぶ
+- **DTO**: 短期は backend `schemas/` を正本として web は手動同期、中期は OpenAPI → TypeScript 型生成パイプラインを検討
 
 ### 4. 構造変更の提案
 
@@ -151,14 +151,14 @@ SSoT 違反に対して、どこを正本にするかを提案する:
 3. 最後にどの検証を回すか（BE / FE / infra の影響範囲）
 
 ## Validation
-- 実行したコマンド（`make dupe-check`, `make lint-backend`, `make lint-frontend`, `make infra-validate` など）
+- 実行したコマンド（`make dupe-check`, `make lint-backend`, `make lint-web`, `make infra-validate` など）
 - 未実行ならその理由
 ````
 
 ## 最低限の検証コマンド
 
 - `make dupe-check`（sandbox 無効化必要）
-- 影響範囲に応じて `make lint-backend` / `make lint-frontend` / `make infra-validate`
+- 影響範囲に応じて `make lint-backend` / `make lint-web` / `make infra-validate`
 - 構造提案だけの場合は実装変更が無いので、grep / find の結果と jscpd レポートの抜粋を Validation に記録する
 
 実装変更は `XR_apply` skill が担う。本 skill はレビューと提案までで止める。

@@ -5,7 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 # 任意クレジット購入の入力範囲（誤入力の桁あふれ・極小購入を防ぐ）。
-# frontend/src/utils/creditEstimate.ts の MIN/MAX_PURCHASE_CREDITS と一致させる
+# web/src/utils/creditEstimate.ts の MIN/MAX_PURCHASE_CREDITS と一致させる
 MIN_PURCHASE_CREDITS = 100
 MAX_PURCHASE_CREDITS = 1_000_000
 

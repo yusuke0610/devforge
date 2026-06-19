@@ -1,23 +1,23 @@
 ---
 paths:
-  - frontend/**
+  - web/**
 ---
 
 # TypeScript/React コーディング規約
 
 - ESLint / Prettier の設定に従うこと
-- リントは `make lint-frontend`、テストは `make test-frontend` を使う（Nix devshell 経由で解決される）
-- 個別スクリプトを叩きたい場合は `nix develop --command bash -c "cd frontend && npm run <script>"` を使う。生シェルでの `cd frontend && npm ...` は AI エージェントでは禁止
+- リントは `make lint-web`、テストは `make test-web` を使う（Nix devshell 経由で解決される）
+- 個別スクリプトを叩きたい場合は `nix develop --command bash -c "cd web && npm run <script>"` を使う。生シェルでの `cd web && npm ...` は AI エージェントでは禁止
 - 重複検知 / DRY ポリシーは `.claude/rules/common/duplication.md` を参照（抽出先は `src/hooks/` `src/utils/` `src/components/ui/`）
 
 ## E2E テスト（Playwright）
 
-E2E テストは `frontend/e2e/` に配置する。
+E2E テストは `web/e2e/` に配置する。
 
 ### 実行タイミング
 新しいページ・ルート・認証フロー・ナビゲーション・レイアウトコンポーネントを追加・変更した場合は必ず実行すること（Makefile に E2E ターゲットは無いため nix wrap で叩く）:
 ```bash
-nix develop --command bash -c "cd frontend && npm run test:e2e"
+nix develop --command bash -c "cd web && npm run test:e2e"
 ```
 
 ### ルートモックの注意点（重要）

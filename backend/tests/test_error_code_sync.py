@@ -2,7 +2,7 @@
 
 エラーコードは OpenAPI のスキーマに enum 値として乗らないため codegen で同期できず、
 ``backend/app/core/errors.py:ErrorCode``（正本）と
-``frontend/src/constants/errorCodes.ts:ERROR_CODES`` を手動同期している。
+``web/src/constants/errorCodes.ts:ERROR_CODES`` を手動同期している。
 片方だけ追加・削除すると FE で未知コードが ``INTERNAL_ERROR`` にサイレント fallback して
 適切なメッセージ・recovery action が出なくなるため、ズレを CI で検知する。
 """
@@ -14,7 +14,7 @@ from app.core.errors import ErrorCode
 
 # backend/tests/ から見たリポジトリルート（monorepo 前提で frontend が隣接する）
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_ERROR_CODES_TS = _REPO_ROOT / "frontend" / "src" / "constants" / "errorCodes.ts"
+_ERROR_CODES_TS = _REPO_ROOT / "web" / "src" / "constants" / "errorCodes.ts"
 
 # `export const ERROR_CODES = [ ... ] as const;` のブロックを取り出す
 _ARRAY_BLOCK = re.compile(r"ERROR_CODES\s*=\s*\[(.*?)\]\s*as\s+const", re.DOTALL)

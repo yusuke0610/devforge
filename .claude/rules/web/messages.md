@@ -1,4 +1,4 @@
-# メッセージ管理ルール (frontend)
+# メッセージ管理ルール (web)
 
 ts/tsx でユーザーに表示される文字列を**リテラルで直接書かない**。
 必ず Single Source of Truth から取得すること。
@@ -7,14 +7,14 @@ ts/tsx でユーザーに表示される文字列を**リテラルで直接書�
 
 | メッセージの種類 | 正本 | 取得経路 |
 |---|---|---|
-| **API 経由のエラー** (backend → frontend) | `backend/app/messages.json` | `AppErrorResponse.message` を `api/client.ts:buildApiError` 経由でそのまま表示 |
-| **API レスポンスに message が無い時の補完** | `frontend/src/constants/errorMessages.ts` (`ERROR_CONFIG`) | `ErrorCode` を引いて補完（既存実装） |
-| **frontend 完結のメッセージ** | `frontend/src/constants/messages.ts` | import して定数参照 |
+| **API 経由のエラー** (backend → web) | `backend/app/messages.json` | `AppErrorResponse.message` を `api/client.ts:buildApiError` 経由でそのまま表示 |
+| **API レスポンスに message が無い時の補完** | `web/src/constants/errorMessages.ts` (`ERROR_CONFIG`) | `ErrorCode` を引いて補完（既存実装） |
+| **web 完結のメッセージ** | `web/src/constants/messages.ts` | import して定数参照 |
 
-`messages.json` から frontend 用 TS 定数を build-time 生成する仕組みは**入っていない**。
+`messages.json` から web 用 TS 定数を build-time 生成する仕組みは**入っていない**。
 `ERROR_CONFIG` は `backend/app/core/errors.py:ErrorCode` enum と**手動同期**する設計（型エラーで漏れを検出）。
 
-## frontend 完結のメッセージとは
+## web 完結のメッセージとは
 
 backend を経由しない以下のような文言:
 
@@ -24,7 +24,7 @@ backend を経由しない以下のような文言:
 - **JSX 直書きの UI 文言**: `ErrorBoundary` のタイトルなど
 - **開発者向け内部エラー**: `import_id が未設定です` のような状態管理エラー
 
-これらは `frontend/src/constants/messages.ts` に集約する。カテゴリ別の定数:
+これらは `web/src/constants/messages.ts` に集約する。カテゴリ別の定数:
 
 - `VALIDATION_MESSAGES` — 入力バリデーション
 - `NETWORK_MESSAGES` — ネットワーク / API クライアント層
@@ -39,24 +39,24 @@ backend を経由しない以下のような文言:
 
 1. `backend/app/messages.json` の `error.<category>` にキー追加
 2. backend で `get_error("category.key", **kwargs)` または `raise_app_error(code=...)` で使う
-3. frontend 側はとくに変更不要（`AppErrorResponse.message` が自動的に画面に出る）
+3. web 側はとくに変更不要（`AppErrorResponse.message` が自動的に画面に出る）
 
-### frontend 完結のメッセージ
+### web 完結のメッセージ
 
-1. `frontend/src/constants/messages.ts` の適切なカテゴリに定数追加
+1. `web/src/constants/messages.ts` の適切なカテゴリに定数追加
 2. 使用箇所で import して参照
 3. リテラルを書かない
 
 ## やってはいけないこと（再発防止対象）
 
-以下は **ESLint または `make lint-frontend-messages` で自動検知され CI で fail する**:
+以下は **ESLint または `make lint-web-messages` で自動検知され CI で fail する**:
 
 ```ts
 // ✗ ESLint で error
 throw new Error("入力してください");
 throw new Error(`${field} を入力してください`);
 
-// ✗ make lint-frontend-messages で error
+// ✗ make lint-web-messages で error
 setError("失敗しました");
 setErrorMessage("不正な値です");
 setAccountError("取得に失敗");
@@ -85,17 +85,17 @@ setError(FALLBACK_MESSAGES.SAVE);
 ## 検証
 
 ```bash
-make lint-frontend                # ESLint（no-restricted-syntax 含む）
-make lint-frontend-messages       # grep ベースの追加チェック
+make lint-web                # ESLint（no-restricted-syntax 含む）
+make lint-web-messages       # grep ベースの追加チェック
 ```
 
-両方を pass させることが「テスト OK」条件の前提（`.claude/rules/frontend/test.md` 参照）。
+両方を pass させることが「テスト OK」条件の前提（`.claude/rules/web/test.md` 参照）。
 
 ## 参考
 
-- `frontend/src/constants/messages.ts` — frontend 完結メッセージの SSoT
-- `frontend/src/constants/errorCodes.ts` / `errorMessages.ts` — backend ErrorCode 連携
+- `web/src/constants/messages.ts` — web 完結メッセージの SSoT
+- `web/src/constants/errorCodes.ts` / `errorMessages.ts` — backend ErrorCode 連携
 - `backend/app/messages.json` — backend のメッセージ正本
 - `backend/app/core/errors.py` — ErrorCode enum
-- `scripts/lint-frontend-messages.sh` — grep ベースの検知スクリプト
-- `frontend/eslint.config.js` — no-restricted-syntax ルール定義
+- `scripts/lint-web-messages.sh` — grep ベースの検知スクリプト
+- `web/eslint.config.js` — no-restricted-syntax ルール定義
