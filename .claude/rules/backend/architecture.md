@@ -52,9 +52,16 @@ backend/app/
 │   ├── base.py / user.py / blog.py
 │   ├── master_data.py / notification.py / resume.py
 ├── services/
-│   ├── agent/                   # DevForge Agent（LLM チャット / ADR-0010）
+│   ├── agent/                   # DevForge Agent（LLM チャット / ADR-0010・0012・0013）
 │   │   ├── chat_service.py      # コンテキスト組み立て → LLM → operations 検証
-│   │   └── llm/                 # LLM プロバイダ抽象（anthropic / ollama、失敗は raise）
+│   │   ├── context_builder.py   # GitHub/ブログ参照コンテキスト取得（DB 読み取り専用）
+│   │   ├── model_catalog.py     # エイリアス→provider/実モデル ID/課金レート（SSoT / ADR-0012・0013）
+│   │   ├── output_schema.py     # 構造化出力スキーマ（機械制約の正本）
+│   │   └── llm/                 # LLM プロバイダ抽象（失敗は raise / ADR-0013）
+│   │       ├── base.py          # LLMClient 抽象・LLMError・共通ヘルパ
+│   │       ├── factory.py       # get_llm_client(provider) で分岐
+│   │       ├── anthropic_client.py / openai_client.py / google_client.py
+│   │       └── ollama_client.py # ローカル開発用（LLM_LOCAL_OLLAMA）
 │   ├── blog/                    # ブログ収集・技術記事判定・スコア算出
 │   │   ├── account_service.py
 │   │   ├── collector.py

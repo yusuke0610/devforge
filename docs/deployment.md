@@ -154,6 +154,16 @@ GitHub OAuth を使う場合だけ `enable_github_oauth = true` を設定し、�
 - `devforge-<env>-github-client-id`
 - `devforge-<env>-github-client-secret`
 
+DevForge Agent（LLM チャット / ADR-0010・0013）を本番で使う場合は LLM プロバイダの API キーが必要です。Anthropic（Claude）は常に注入され、Gemini / OpenAI は `enable_extra_llm_providers = true` の環境だけ注入されます（未設定なら未注入でデプロイ可能）。
+
+- `devforge-<env>-anthropic-api-key`（Claude haiku / sonnet 用。Agent を使うなら必須）
+- `devforge-<env>-google-api-key` / `devforge-<env>-openai-api-key`（`enable_extra_llm_providers = true` のときのみ）
+
+クレジット課金（ADR-0012）で Stripe Checkout を使う場合は以下の version も追加してください。
+
+- `devforge-<env>-stripe-secret-key`
+- `devforge-<env>-stripe-webhook-secret`
+
 ### 運用ルール
 
 - `dev` → `stg` → `prod` の順で `template_version` を更新
