@@ -1,0 +1,82 @@
+{
+  // Renovate 設定の正本。詳細: ADR-0014 / docs/development.md
+  // コメントを日本語で残すため JSON5 を採用している。
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+
+  extends: [
+    "config:recommended",
+    // すべての更新提案を Dependency Dashboard（Issue）に集約して一覧管理する
+    ":dependencyDashboard",
+    // docker イメージは tag だけでなく digest で固定する（再現性・サプライチェーン対策）
+    "docker:pinDigests",
+    // GitHub Actions を SHA(digest) ピン留めで維持する（既存運用に合わせる）
+    "helpers:pinGitHubActionDigests",
+  ],
+
+  timezone: "Asia/Tokyo",
+  // 起票ノイズを抑えるため、毎週月曜の朝に更新 PR をまとめて作る
+  schedule: ["before 9am on monday"],
+  labels: ["dependencies"],
+
+  // このリポジトリは == / SHA 固定でサプライチェーンに慎重な方針のため、
+  // 自動マージは行わない。全 PR を人間がレビューしてマージする。
+  automerge: false,
+
+  // 一度に出す PR 数を制限してレビュー負荷を抑える
+  prConcurrentLimit: 8,
+  prHourlyLimit: 4,
+
+  // lockfile / locked input を定期的にリフレッシュする
+  // （package-lock.json / flake.lock / .terraform.lock.hcl）
+  lockFileMaintenance: {
+    enabled: true,
+    schedule: ["before 9am on monday"],
+  },
+
+  // 脆弱性アラートは優先度を上げて即時起票（pip-audit の後追いを先回りで補強）
+  vulnerabilityAlerts: {
+    labels: ["dependencies", "security"],
+    // schedule を空にしてスケジュール制限を外し、検知次第すぐ PR を作る
+    schedule: [],
+  },
+
+  packageRules: [
+    {
+      // GitHub Actions: 既存の digest + "# v4" コメント形式を維持する
+      matchManagers: ["github-actions"],
+      pinDigests: true,
+      groupName: "github-actions",
+    },
+    {
+      // Python (backend/requirements.txt): == 完全固定を維持して版上げ PR を出す。
+      // CVE コメント付き行（anthropic / google-genai / starlette 等）も対象。
+      matchManagers: ["pip_requirements"],
+      rangeStrategy: "pin",
+    },
+    {
+      // OpenTofu/Terraform: versions.tf の ~> 制約と各 env の .terraform.lock.hcl を更新
+      matchManagers: ["terraform"],
+      groupName: "terraform providers",
+    },
+    {
+      // docker-compose の libsql-server は :latest 固定のため tag では追従できない。
+      // docker:pinDigests により digest 固定で運用する（version 概念が無い点に留意）。
+      matchManagers: ["docker-compose"],
+      matchPackageNames: ["ghcr.io/tursodatabase/libsql-server"],
+      pinDigests: true,
+    },
+    {
+      // Nix: flake.lock の locked input（nixpkgs unstable / flake-utils）を追従。
+      // Mend hosted app では nix manager が動作する。
+      matchManagers: ["nix"],
+      groupName: "nix flake.lock",
+    },
+    {
+      // web の devDependencies は minor/patch を 1 PR にまとめてレビュー負荷を下げる
+      matchManagers: ["npm"],
+      matchDepTypes: ["devDependencies"],
+      matchUpdateTypes: ["minor", "patch"],
+      groupName: "web devDependencies (non-major)",
+    },
+  ],
+}
