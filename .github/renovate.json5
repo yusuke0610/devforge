@@ -1,5 +1,5 @@
 {
-  // Renovate 設定の正本。詳細: ADR-0014 / docs/development.md
+  // Renovate 設定の正本。詳細: ADR-0014 / docs/adr/0014-renovate-dependency-automation.md
   // コメントを日本語で残すため JSON5 を採用している。
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
 
