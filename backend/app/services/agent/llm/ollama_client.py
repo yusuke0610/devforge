@@ -7,7 +7,7 @@ import time
 import httpx
 
 from ....core import settings
-from .base import LLMClient, LLMError, LLMResult
+from .base import LLMClient, LLMError, LLMResult, require_text, wrap_api_error
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +58,7 @@ class OllamaClient(LLMClient):
                 )
                 response.raise_for_status()
         except httpx.HTTPError as exc:
-            logger.warning("Ollama API 呼び出しに失敗: %s", type(exc).__name__)
-            raise LLMError(f"Ollama API error: {type(exc).__name__}") from exc
+            raise wrap_api_error("Ollama", exc) from exc
 
         elapsed = time.monotonic() - started_at
         if elapsed >= _SLOW_REQUEST_THRESHOLD_SECONDS:
@@ -80,7 +79,15 @@ class OllamaClient(LLMClient):
         if not isinstance(data, dict):
             logger.warning("Ollama 応答が想定外の型: %s", type(data).__name__)
             raise LLMError("Ollama 応答が想定外の形式です")
-        text = data.get("message", {}).get("content", "")
-        if not text:
-            raise LLMError("Ollama から空の応答が返されました")
+        # message が dict でない（エラー応答で文字列/null 等）場合も .get で
+        # AttributeError になるため、トップレベルと同様に LLMError（502）へ倒す
+        message = data.get("message")
+        if not isinstance(message, dict):
+            logger.warning("Ollama 応答の message が想定外の型: %s", type(message).__name__)
+            raise LLMError("Ollama 応答が想定外の形式です")
+        content = message.get("content")
+        if not isinstance(content, str):
+            logger.warning("Ollama 応答の content が想定外の型: %s", type(content).__name__)
+            raise LLMError("Ollama 応答が想定外の形式です")
+        text = require_text("Ollama", content)
         return LLMResult(text=text)

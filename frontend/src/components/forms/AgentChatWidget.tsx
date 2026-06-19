@@ -17,6 +17,7 @@ import { useCreditBalanceContext } from "../billing/creditBalanceContext";
 import type { CareerFormState } from "../../payloadBuilders";
 import { useMessageToast, useToast } from "../ui/toast";
 import { applyAgentOperations, type AgentScope } from "../../utils/agentOperations";
+import { getModelOption } from "../../constants/agentModels";
 import styles from "./AgentChatWidget.module.css";
 
 type Props = {
@@ -108,7 +109,9 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
   const { entries, sending, error, send, markApplied, clearError } = useAgentChat();
   // モデル・残高はともにサイドバーで表示・切り替えする（ADR-0012）。ウィジェットは
   // 有料モデル消費後にサイドバーの残高を最新化するため refresh のみ利用する
-  const isPaidModel = model === "sonnet";
+  // 有料判定の正本は agentModels.ts の isPaid（sonnet / gpt / gemini-pro）。
+  // ここでハードコードすると ADR-0013 のマルチプロバイダ追加でドリフトするため getModelOption に委ねる。
+  const isPaidModel = getModelOption(model).isPaid;
   const { refresh: refreshBalance } = useCreditBalanceContext();
   const { showSuccess } = useToast();
   useMessageToast(error, "error");

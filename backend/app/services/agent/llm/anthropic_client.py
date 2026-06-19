@@ -1,15 +1,12 @@
 """Anthropic API クライアント（本番用。モデルは model_catalog.py で解決）。"""
 
 import json
-import logging
 
 import anthropic
 
 from ....core import settings
 from ..output_schema import TOOL_NAME, build_tool_definition
-from .base import LLMClient, LLMError, LLMResult
-
-logger = logging.getLogger(__name__)
+from .base import LLMClient, LLMError, LLMResult, require_api_key, wrap_api_error
 
 # operations JSON（最大 4500 文字のテキスト置換 + 説明文）に十分な上限
 _MAX_TOKENS = 4096
@@ -23,9 +20,7 @@ class AnthropicClient(LLMClient):
 
     def __init__(self) -> None:
         """ANTHROPIC_API_KEY を検証し、非同期クライアントを初期化する。"""
-        api_key = settings.get_anthropic_api_key()
-        if not api_key:
-            raise LLMError("ANTHROPIC_API_KEY が設定されていません")
+        api_key = require_api_key(settings.get_anthropic_api_key(), "ANTHROPIC_API_KEY")
         self._client = anthropic.AsyncAnthropic(
             api_key=api_key, timeout=_TIMEOUT_SECONDS
         )
@@ -55,9 +50,7 @@ class AnthropicClient(LLMClient):
             anthropic.APIConnectionError,
             anthropic.APIStatusError,
         ) as exc:
-            # API キー等の秘密情報を含めないため例外型のみログに残す
-            logger.warning("Anthropic API 呼び出しに失敗: %s", type(exc).__name__)
-            raise LLMError(f"Anthropic API error: {type(exc).__name__}") from exc
+            raise wrap_api_error("Anthropic", exc) from exc
 
         block = next(
             (b for b in response.content if b.type == "tool_use"), None

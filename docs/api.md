@@ -70,7 +70,7 @@ REST API エンドポイント一覧と、バックエンド／フロントエ�
 - `POST /api/notifications/read-all`: 全て既読
 
 ### Agent（LLM チャット / ADR-0010）
-- `POST /api/agent/chat`: 選択スコープ（`project` / `experience` / `career_summary` / `self_pr`）の内容とプロンプトをもとに、職務経歴書への差分 operations を返す。DB は更新せず、適用はフロント側でユーザー確認後に既存保存 API を呼ぶ。rate limit 10/min。`model`（`haiku`: 無料 / `sonnet`: 有料・クレジット消費）を指定可能。sonnet で残高不足の場合は 402 `INSUFFICIENT_CREDITS`（ADR-0012）
+- `POST /api/agent/chat`: 選択スコープ（`project` / `experience` / `career_summary` / `self_pr`）の内容とプロンプトをもとに、職務経歴書への差分 operations を返す。DB は更新せず、適用はフロント側でユーザー確認後に既存保存 API を呼ぶ。rate limit 10/min。`model` はマルチプロバイダ（ADR-0013）から選択可能 — 無料: `haiku` / `gemini-flash` / `gpt-mini`、有料（クレジット消費）: `sonnet` / `gemini-pro` / `gpt`。プロバイダはモデルエイリアスに紐づいて切り替わる。有料モデルで残高不足の場合は 402 `INSUFFICIENT_CREDITS`（ADR-0012）
 
 ### 課金（プリペイドクレジット / ADR-0012）
 - `GET /api/billing/balance`: ログインユーザーのクレジット残高

@@ -28,7 +28,14 @@ export function ModelSelectModal({ onClose }: { onClose: () => void }) {
   const { balance } = useCreditBalanceContext();
   // モーダルが開いている間だけ利用実績と標準レートを取得する
   const { getUsage } = useAgentUsageSummary(true);
-  const { getBaselineRate } = useModelRates(true);
+  const { getBaselineRate, ratesByModel } = useModelRates(true);
+
+  // 有料/無料判定の runtime 正本は model_rates API（`is_free`）。取得済みならそれを使い、
+  // 未取得（初期/ローディング/エラー）の間は agentModels の静的 isPaid をフォールバックにする。
+  const isPaidModel = (option: { alias: AgentModelAlias; isPaid: boolean }): boolean => {
+    const rate = ratesByModel[option.alias];
+    return rate ? !rate.is_free : option.isPaid;
+  };
 
   const select = (alias: AgentModelAlias) => {
     dispatch(setAgentModel(alias));
@@ -76,12 +83,13 @@ export function ModelSelectModal({ onClose }: { onClose: () => void }) {
               <div className={styles.cards}>
                 {group.options.map((option) => {
                   const isCurrent = option.alias === currentModel;
+                  const paid = isPaidModel(option);
                   // 残高未取得（null: 初期/ローディング/エラー）の間は不足扱いにしない
-                  const insufficient = option.isPaid && balance !== null && balance <= 0;
+                  const insufficient = paid && balance !== null && balance <= 0;
                   const usage = getUsage(option.alias);
                   const chatCount = usage?.chat_count ?? 0;
                   const creditCost = usage?.credit_cost ?? 0;
-                  const perReference = option.isPaid
+                  const perReference = paid
                     ? estimatePerReference(option.alias, creditCost, chatCount)
                     : null;
                   return (
@@ -94,8 +102,8 @@ export function ModelSelectModal({ onClose }: { onClose: () => void }) {
                     >
                       <div className={styles.cardHead}>
                         <span className={styles.cardName}>{option.name}</span>
-                        <span className={option.isPaid ? styles.paidBadge : styles.freeBadge}>
-                          {option.isPaid
+                        <span className={paid ? styles.paidBadge : styles.freeBadge}>
+                          {paid
                             ? AGENT_MODEL_MESSAGES.PAID_BADGE
                             : AGENT_MODEL_MESSAGES.FREE_BADGE}
                         </span>

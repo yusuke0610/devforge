@@ -142,17 +142,20 @@ Cloud Run サービスを OpenTofu で初回作成する場合は、`modules/clo
 
 GitHub Actions はその後 `gcloud run deploy` で新しいリビジョンを配備します。OpenTofu では Cloud Run の `image` 差分を無視するため、後続の `apply` で CI 配備済みイメージへ巻き戻しません。
 
-Secret Manager は secret 本体だけでなく secret version が必要です。Cloud Run 起動前に最低でも以下 4 つの version を追加してください。
+Secret Manager は secret 本体だけでなく secret version が必要です。Cloud Run は以下の secret を**常に注入する**（`infra/modules/cloud_run/main.tf` の `local.required_secret_env`）ため、起動前にすべての version を追加してください。version が無いと Cloud Run が起動に失敗します。
 
-- `devforge-<env>-secret-key`
 - `devforge-<env>-field-encryption-key`
 - `devforge-<env>-admin-token`
+- `devforge-<env>-jwt-private-key` / `devforge-<env>-jwt-public-key`（`make generate-keys` で生成）
+- `devforge-<env>-internal-secret`
 - `devforge-<env>-turso-auth-token`
+- `devforge-<env>-anthropic-api-key`（DevForge Agent の Claude haiku / sonnet 用 / ADR-0010・0013）
+- `devforge-<env>-stripe-secret-key` / `devforge-<env>-stripe-webhook-secret`（クレジット課金 / ADR-0012 Phase 2）
 
-GitHub OAuth を使う場合だけ `enable_github_oauth = true` を設定し、さらに以下 2 つの version も追加してください。
+以下は条件付きで、有効化した環境だけ version を追加すれば足ります（無効なら未投入でもデプロイ・起動可能）。
 
-- `devforge-<env>-github-client-id`
-- `devforge-<env>-github-client-secret`
+- GitHub OAuth（`enable_github_oauth = true`）: `devforge-<env>-github-client-id` / `devforge-<env>-github-client-secret`
+- Gemini / OpenAI（`enable_extra_llm_providers = true` / ADR-0013）: `devforge-<env>-google-api-key` / `devforge-<env>-openai-api-key`
 
 ### 運用ルール
 

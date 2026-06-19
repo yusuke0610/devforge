@@ -289,6 +289,41 @@ def test_chat_sonnet_with_zero_balance_returns_402(client: TestClient, monkeypat
     assert fake.received_messages is None
 
 
+def test_chat_requires_auth(client: TestClient, monkeypatch) -> None:
+    """トークン無しの /api/agent/chat は 401（get_current_user ガードの回帰防止）。
+
+    認証が外れると未ログインで LLM を呼べてしまうため、ガード欠落を直接固定する。
+    """
+    fake = _FakeLLM(response=_llm_json("self_pr", "提案"))
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda provider: fake)
+
+    resp = client.post("/api/agent/chat", json=_chat_payload("haiku"))
+
+    assert resp.status_code == 401
+    # 認証で弾かれるため LLM は呼ばれない
+    assert fake.received_messages is None
+
+
+@pytest.mark.parametrize("model", ["gemini-pro", "gpt"])
+def test_chat_paid_model_with_zero_balance_returns_402(
+    client: TestClient, monkeypatch, model: str
+) -> None:
+    """有料モデル（gemini-pro / gpt）も残高 0 で 402。is_free 判定の SSoT 化を endpoint で固定。
+
+    残高ゲートが sonnet だけでなく全有料モデルに効くこと（ハードコード回帰でバイパスされない）を守る。
+    """
+    fake = _FakeLLM(response=_llm_json("self_pr", "提案"))
+    monkeypatch.setattr(chat_service, "get_llm_client", lambda provider: fake)
+    headers = auth_header(client, f"billing-empty-{model}")
+
+    resp = client.post("/api/agent/chat", json=_chat_payload(model), headers=headers)
+
+    assert resp.status_code == 402
+    assert resp.json()["code"] == "INSUFFICIENT_CREDITS"
+    # 残高不足で弾かれるため LLM は呼ばれない
+    assert fake.received_messages is None
+
+
 def test_chat_sonnet_allows_negative_balance(client: TestClient, monkeypatch) -> None:
     """事前チェック通過後の実コストが残高を超えた場合は負残高で確定する（ADR-0012）。"""
     fake = _FakeLLM(

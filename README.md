@@ -22,6 +22,13 @@ GitHub活動分析、ブログ連携による発信力を集計
 - **職務経歴書**: 職務要約、自己PR、職務経歴、技術スタックの入力とPDF/Markdown出力
 - フォーム入力状態を Redux でページ遷移間に保持（入力途中で別ページに移動しても失われない）
 
+### AIアシスタント（職務経歴書の改善提案）
+- 職務要約・自己PR・職務経歴・プロジェクトのスコープを選び、AIに文章改善を依頼（DevForge Agent / ADR-0010）
+- **マルチプロバイダ対応**: Claude（Anthropic）/ GPT（OpenAI）/ Gemini（Google）からモデルを選択（ADR-0013）。プロバイダはモデル選択に紐づいて切り替わる
+- 提案はフォームの入力状態にのみ反映し、保存はユーザーが明示的に実行（Agent 自体は DB を更新しない）
+- 有料モデルはプリペイド式クレジットで従量課金（Stripe Checkout / ADR-0012）。無料モデルも提供
+- ローカル開発では Ollama でオフライン実行可能（`LLM_LOCAL_OLLAMA`）
+
 ### GitHub連携
 - GitHub OAuthログインしたユーザーのリポジトリを取得し、使用技術を可視化
 - 言語構成・フレームワーク・DevTools・インフラツールを依存関係から検出
@@ -43,6 +50,8 @@ GitHub活動分析、ブログ連携による発信力を集計
 |---|---|
 | フロントエンド | React 18, TypeScript, Vite, Redux Toolkit, Recharts, marked |
 | バックエンドAPI | Python 3.13, FastAPI, SQLAlchemy, Pydantic |
+| AI / LLM | Anthropic Claude / OpenAI GPT / Google Gemini（ユーザー選択式・ADR-0013）、ローカルは Ollama |
+| 決済 | Stripe Checkout（クレジット購入・従量課金 / ADR-0012） |
 | データベース | Turso (libSQL / SQLite 互換、`sqlalchemy-libsql`) |
 | 認証 | JWT Cookie (python-jose), bcrypt, GitHub OAuth |
 | 暗号化 | Fernet（フィールド暗号化） |
@@ -74,6 +83,13 @@ graph TB
     subgraph "外部サービス"
         ZennAPI["Zenn API"]
         NoteRSS["note RSS"]
+        Stripe["Stripe<br/>Checkout / Webhook"]
+    end
+
+    subgraph "LLM プロバイダ（ユーザー選択式）"
+        Anthropic["Anthropic<br/>Claude"]
+        OpenAI["OpenAI<br/>GPT"]
+        Google["Google<br/>Gemini"]
     end
 
     subgraph "Cloudflare"
@@ -98,7 +114,7 @@ graph TB
         end
 
         subgraph "Secret Manager"
-            Secrets["FIELD_ENCRYPTION_KEY<br/>ADMIN_TOKEN<br/>JWT_PRIVATE_KEY / JWT_PUBLIC_KEY<br/>INTERNAL_SECRET<br/>TURSO_AUTH_TOKEN<br/>GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET"]
+            Secrets["FIELD_ENCRYPTION_KEY<br/>ADMIN_TOKEN<br/>JWT_PRIVATE_KEY / JWT_PUBLIC_KEY<br/>INTERNAL_SECRET<br/>TURSO_AUTH_TOKEN<br/>GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET<br/>ANTHROPIC_API_KEY / GOOGLE_API_KEY / OPENAI_API_KEY<br/>STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET"]
         end
 
         subgraph "IAM"
@@ -119,6 +135,10 @@ graph TB
     CloudRun -->|"リポジトリ分析"| GitHubAPI
     CloudRun -->|"記事取得"| ZennAPI
     CloudRun -->|"記事取得"| NoteRSS
+    CloudRun -->|"AI 改善提案"| Anthropic
+    CloudRun -->|"AI 改善提案"| OpenAI
+    CloudRun -->|"AI 改善提案"| Google
+    CloudRun -->|"Checkout / Webhook"| Stripe
     AR -->|"イメージ pull"| CloudRun
     SA -->|"実行権限"| CloudRun
     SA -->|"secretAccessor"| Secrets

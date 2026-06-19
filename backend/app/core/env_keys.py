@@ -94,7 +94,10 @@ LOG_LEVEL = "LOG_LEVEL"
 # ローカル Ollama に通す無料パス。本番（Cloud Run）では未設定＝無効。
 # プロバイダ選択はモデルエイリアスに紐づくため、グローバルな LLM_PROVIDER は廃止（ADR-0013）
 LLM_LOCAL_OLLAMA = "LLM_LOCAL_OLLAMA"
-# 本番（Cloud Run）では Secret Manager から注入する。ログ出力禁止
+# 本番（Cloud Run）では Secret Manager から注入する。ログ出力禁止。
+# 注: LLM API キー（ANTHROPIC/GOOGLE/OPENAI）はテストがプロバイダを _FakeLLM で
+# モックするため CI（.github/workflows/ci.yml）には注入不要。env_keys の 5 箇所同期
+# のうち ci.yml だけは意図的に対象外とする（実 API を CI から呼ばないため）。
 ANTHROPIC_API_KEY = "ANTHROPIC_API_KEY"
 # Google Gemini / OpenAI GPT の API キー（ADR-0013）。Secret Manager 注入・ログ出力禁止
 GOOGLE_API_KEY = "GOOGLE_API_KEY"
