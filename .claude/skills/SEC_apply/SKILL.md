@@ -1,6 +1,6 @@
 ---
 name: SEC_apply
-description: Use when applying the security findings produced by the SEC_review skill. Reads `report/SEC_report_<timestamp>.md` (latest by default, or a path passed as argument), confirms scope with the user, implements the fixes against backend / frontend / infra (including design-level authorization/SSRF/OAuth fixes and dependency supply-chain hardening), writes exploit-style regression unit tests for the findings, runs lint/test/audit, then writes a result report to `report/SEC_pr_<timestamp>.md`. Trigger on requests such as "SEC_apply 実行", "セキュリティ指摘を修正", "SEC レポートを適用", "脆弱性を直して", "exploit テストを追加".
+description: Use when applying the security findings produced by the SEC_review skill. Reads `report/SEC_report_<timestamp>.md` (latest by default, or a path passed as argument), confirms scope with the user, implements the fixes against backend / web / infra (including design-level authorization/SSRF/OAuth fixes and dependency supply-chain hardening), writes exploit-style regression unit tests for the findings, runs lint/test/audit, then writes a result report to `report/SEC_pr_<timestamp>.md`. Trigger on requests such as "SEC_apply 実行", "セキュリティ指摘を修正", "SEC レポートを適用", "脆弱性を直して", "exploit テストを追加".
 ---
 
 # Security Fix Apply
@@ -13,9 +13,9 @@ description: Use when applying the security findings produced by the SEC_review 
 - `.claude/skills/SEC_review/SKILL.md`（出力フォーマットの参照元）
 - `.claude/rules/security.md`
 - `.claude/rules/backend/auth-security.md`
-- 影響領域に応じて `.claude/rules/{backend,frontend,infra}/` の該当ルール
+- 影響領域に応じて `.claude/rules/{backend,web,infra}/` の該当ルール
 - `backend/app/core/env_keys.py`（env 参照の正本）
-- `.claude/rules/frontend/messages.md`（frontend メッセージの正本）
+- `.claude/rules/web/messages.md`（web メッセージの正本）
 
 ## 入力（対象レポートの選択）
 
@@ -70,7 +70,7 @@ Missing Exploit Tests: 4
 2. **小さく分ける**: 「秘密情報除去」「env_keys 化」「認証ガード追加」「XSS 修正」「依存更新」を別タスクにする。1 タスクあたりの diff は読める範囲に保つ。
 3. **DevForge コーディング規約を厳守**:
    - コメント・docstring は日本語、HTTPException の `detail` は日本語
-   - frontend のユーザー向け文言はリテラル禁止 → `frontend/src/constants/messages.ts` 経由（`.claude/rules/frontend/messages.md`）
+   - web のユーザー向け文言はリテラル禁止 → `web/src/constants/messages.ts` 経由（`.claude/rules/web/messages.md`）
    - 環境変数は `os.getenv(env_keys.XXX)` 経由。リテラル `os.getenv("XXX")` 禁止。新規 env 追加時は env_keys.py の 4 箇所同期手順を踏む
    - `except SomeException: pass` 禁止。最低限 `logger.warning`
    - 黙って return 禁止。失敗パスは適切な例外を `raise`
@@ -106,10 +106,10 @@ Missing Exploit Tests: 4
 make lint-backend
 make test-backend
 
-# frontend を触ったら
-make lint-frontend
-make lint-frontend-messages
-make test-frontend
+# web を触ったら
+make lint-web
+make lint-web-messages
+make test-web
 
 # infra を触ったら
 make infra-fmt-check
@@ -120,7 +120,7 @@ make ci
 ```
 
 - 認証 / ナビゲーション / 新規ルート / サイドバー / API フロー影響がある場合は E2E も回す:
-  `nix develop --command bash -c "cd frontend && npm run test:e2e"`
+  `nix develop --command bash -c "cd web && npm run test:e2e"`
 - **追加した exploit テストが「修正前は落ち、修正後に通る」ことを確認する**（回帰防止として機能しているかの確認。可能なら修正を一時 revert して赤を見る、難しければレビューで論理を担保）。
 - 依存更新をした場合は再度 audit を回し、CVE 解消を確認する。SHA 固定・pin 化をした場合は CI の audit ステップ（`.github/workflows/ci.yml`）が通る前提を崩していないか確認。
 - sandbox が `~/.cache/nix/fetcher-locks/*.lock` で落ちる場合は `dangerouslyDisableSandbox: true` で再実行する（CLAUDE.md の既知の例外）。
@@ -196,7 +196,7 @@ make ci
 ## Validation
 - `make lint-backend`: pass / fail（fail なら抜粋）
 - `make test-backend`: pass / fail
-- `make lint-frontend` / `lint-frontend-messages` / `test-frontend`: pass / fail
+- `make lint-web` / `lint-web-messages` / `test-web`: pass / fail
 - `make infra-validate`: pass / fail
 - 追加 exploit テスト: 件数 / pass。修正前赤・修正後緑の確認: 済 / 未
 - 依存 audit 再実行: 解消 / 残あり

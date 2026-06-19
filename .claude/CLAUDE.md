@@ -3,7 +3,7 @@
 ## このファイルの読み方
 
 - 本ファイルは全体ルールの索引。AI エージェント（Claude Code 含む）が最初に読むべき内容を集約している。
-- 領域固有ルール（backend / frontend / infra）は `.claude/rules/<scope>/*.md` に分割済み。対象パスを編集する際に自動でロードされる。重複は避け、詳細は各 rule ファイルへ寄せる。
+- 領域固有ルール（backend / web / infra）は `.claude/rules/<scope>/*.md` に分割済み。対象パスを編集する際に自動でロードされる。重複は避け、詳細は各 rule ファイルへ寄せる。
 - **DevForge Agent（`backend/app/services/agent/` / `backend/app/prompts/agent_*.md` / `backend/app/schemas/agent.py`）を変更する場合は、作業前に必ず `.claude/rules/backend/agent.md` を読むこと。** 制約の責務分離（スキーマ vs プロンプト）・エラー契約・DB 非更新原則など、意図せず壊しやすい不変条件が集約されている。
 
 ## AI エージェント実行方法
@@ -16,11 +16,11 @@ Makefile は `nix develop --command bash -c "..."` でラップ済み。AI は�
 
 | 用途 | コマンド |
 |---|---|
-| CI 相当一括 | `make ci` （= `lint + test + build-frontend`） |
+| CI 相当一括 | `make ci` （= `lint + test + build-web`） |
 | Backend lint | `make lint-backend` |
 | Backend test | `make test-backend` |
-| Frontend lint | `make lint-frontend` |
-| Frontend test | `make test-frontend` |
+| Frontend lint | `make lint-web` |
+| Frontend test | `make test-web` |
 | Lint 自動修正 | `make lint-fix` |
 | マイグレーション | `make migrate` / `make migrate-create MSG="..."` |
 | インフラ validate | `make infra-validate` |
@@ -35,7 +35,7 @@ make に無い操作（特定ファイルだけ ruff したい等）の場合の
 ```bash
 nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check app/services/tasks/handlers/blog_summarize.py"
 nix develop --command bash -c "cd backend && .venv/bin/python -m pytest tests/test_worker_extended.py -q"
-nix develop --command bash -c "cd frontend && npm run test:e2e"
+nix develop --command bash -c "cd web && npm run test:e2e"
 ```
 
 ### 禁止: 生シェルでの直接実行
@@ -56,11 +56,11 @@ error: opening lock file "~/.cache/nix/fetcher-locks/...lock": Operation not per
 
 - **コメント・ドキュメント**: コード内コメント・docstring・JSDoc はすべて**日本語**で記述する。
 - **エラーメッセージ**: HTTPException の `detail` 等、ユーザーに返すメッセージはすべて**日本語**。
-- **エラーメッセージのハードコード禁止**: ts/tsx でリテラル日本語を直接書かない（`throw new Error("...")` / `setError("...")` / `toast.error("...")` 等）。frontend 完結のメッセージは `frontend/src/constants/messages.ts` の定数を参照、API 経由のエラーは backend の `messages.json` 由来の `AppErrorResponse.message` を表示する。詳細: `.claude/rules/frontend/messages.md`
+- **エラーメッセージのハードコード禁止**: ts/tsx でリテラル日本語を直接書かない（`throw new Error("...")` / `setError("...")` / `toast.error("...")` 等）。web 完結のメッセージは `web/src/constants/messages.ts` の定数を参照、API 経由のエラーは backend の `messages.json` 由来の `AppErrorResponse.message` を表示する。詳細: `.claude/rules/web/messages.md`
 - **例外の握りつぶし禁止**: `except SomeException: pass` は禁止。最低でも `logger.debug/warning/error` でログを残す。補助処理（通知生成など）で抑制する場合も `logger.warning` でログを出すこと。
 - **過剰な抽象化を避ける**: PEP8 を守るな、PEP8 を理解した上で抽象化しろ。
 
-言語別の詳細ルールは `.claude/rules/{backend,frontend,infra}/` を参照。
+言語別の詳細ルールは `.claude/rules/{backend,web,infra}/` を参照。
 領域横断の共通ルール（DRY / 重複検知）は `.claude/rules/common/duplication.md` を参照。
 
 ## CI 確認ルール
@@ -84,7 +84,7 @@ make ci
 - バックエンド API の追加・変更で、フロントエンドの UI フローに影響するもの
 
 ```bash
-nix develop --command bash -c "cd frontend && npm run test:e2e"
+nix develop --command bash -c "cd web && npm run test:e2e"
 ```
 
 ### SSoT 生成物（codegen）のトリガー — 必須
@@ -93,10 +93,10 @@ nix develop --command bash -c "cd frontend && npm run test:e2e"
 
 | 正本（変更したら） | 再生成コマンド | コミットすべき生成物 | CI ジョブ |
 |---|---|---|---|
-| backend の OpenAPI スキーマ（`app/schemas/` の Pydantic、router のシグネチャ・query/path パラメータ・**endpoint/schema の docstring**） | `make codegen-types` | `frontend/src/api/generated.ts`（`backend/openapi.json` は gitignore で対象外） | `codegen-drift`（ADR-0007） |
+| backend の OpenAPI スキーマ（`app/schemas/` の Pydantic、router のシグネチャ・query/path パラメータ・**endpoint/schema の docstring**） | `make codegen-types` | `web/src/api/generated.ts`（`backend/openapi.json` は gitignore で対象外） | `codegen-drift`（ADR-0007） |
 
 - **判定基準**: 「OpenAPI スペックに出るものを変えたか」。エンドポイントの追加・削除、リクエスト/レスポンス型の変更、query/path パラメータの増減はもちろん、**docstring の文言変更だけでも description として spec に反映される**ため再生成が要る（今回の codegen-drift はこれで発生）。
-- backend の `app/schemas/` / `app/routers/` を触ったら、`make ci` 前に `make codegen-types` を回して `git diff frontend/src/api/generated.ts` を確認する。差分が出たら必ず同じ PR でコミットする。
+- backend の `app/schemas/` / `app/routers/` を触ったら、`make ci` 前に `make codegen-types` を回して `git diff web/src/api/generated.ts` を確認する。差分が出たら必ず同じ PR でコミットする。
 - 新しい SSoT→生成物の系統を追加した場合は、本表に行を足して再発防止の対象に含める。
 
 CI 定義: `.github/workflows/ci.yml`
@@ -166,7 +166,7 @@ Claude Code は `/model` コマンドを自分では実行できないため、�
 - **lint 失敗時は当該ファイルだけ確認**: `make lint-backend` が他ファイルの I001 等で落ちる場合、自分の変更分は `nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check <touched_file>"` で個別検証してから進める（既存違反を巻き込まない）。
 - **Router には「エンドポイント定義・依存性解決・HTTP 変換」のみ**: 外部 API 呼び出し・DB クエリ（`db.query(...)` 直書き）・ビジネスロジックを router に書かない。外部 API の例外は service 層で処理し、router では `raise_app_error` への変換のみ行う。詳細・Bad/Good 例: `.claude/rules/backend/layers.md`
 - **ORM model には「テーブル定義・リレーション」のみ**: ソート・フォーマット等の表示ロジックを `@property` として model に持たせない。`sort_utils` のような presentation 層ユーティリティを model に import しない。ソートは `relationship(order_by=...)` か service 層で行う。詳細: `.claude/rules/backend/layers.md`
-- **300 行超のコンポーネント・500 行超のサービスモジュールは分割を検討する**: 行数は目安（強制閾値ではない）だが、超過したら責務が複数混在していないかを確認する。モーダル状態や更新ハンドラ群は専用フックに切り出す。詳細・Good パターン例: `.claude/rules/frontend/component-design.md`
+- **300 行超のコンポーネント・500 行超のサービスモジュールは分割を検討する**: 行数は目安（強制閾値ではない）だが、超過したら責務が複数混在していないかを確認する。モーダル状態や更新ハンドラ群は専用フックに切り出す。詳細・Good パターン例: `.claude/rules/web/component-design.md`
 
 ## 命名規約
 

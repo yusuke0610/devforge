@@ -11,15 +11,15 @@ htmlcov/
 # Node
 node_modules/
 dist/
-frontend/.test-dist/
+web/.test-dist/
 # Playwright E2E の生成物（実行ごとに作られるローカル成果物）
-frontend/test-results/
-frontend/playwright-report/
-frontend/tsconfig.app.tsbuildinfo
-frontend/tsconfig.node.tsbuildinfo
-frontend/vite.config.js
+web/test-results/
+web/playwright-report/
+web/tsconfig.app.tsbuildinfo
+web/tsconfig.node.tsbuildinfo
+web/vite.config.js
 # Cloudflare Pages _redirects はビルド時に gen-redirects.mjs で生成する
-frontend/public/_redirects
+web/public/_redirects
 
 # OpenTofu / Terraform
 .terraform/
@@ -39,18 +39,18 @@ backend/local.sqlite
 backend/local.sqlite-shm
 backend/local.sqlite-wal
 
-# OpenAPI 型生成の中間生成物（ADR-0007）。コミット対象は frontend/src/api/generated.ts のみ。
+# OpenAPI 型生成の中間生成物（ADR-0007）。コミット対象は web/src/api/generated.ts のみ。
 backend/openapi.json
 
 # Env files
 .env
-frontend/.env.local
+web/.env.local
 backend/.env
 
 # Wrangler
 .wrangler/
 
-# AI レビュー出力（BE_refacter / FE_refacter skill が書き出す）
+# AI レビュー出力（BE_refacter / WEB_refacter skill が書き出す）
 report/
 
 # OS

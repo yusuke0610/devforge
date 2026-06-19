@@ -12,7 +12,7 @@ infra/
 ```
 
 CLI: OpenTofu (`tofu`) を使用する。Nix で管理されており `nix develop` シェル内で利用可能。`.tf` の構文は Terraform と同一。`tofu init` / `plan` / `apply` の具体的な実行手順・GCS backend 認証は `docs/deployment.md`「OpenTofu」セクションを正本として参照（ここでは再掲しない）。
-デプロイ: GitHub Actions で `dev` ブランチ push 時に frontend → Cloudflare Pages、backend → Docker → Artifact Registry → Cloud Run。
+デプロイ: GitHub Actions で `dev` ブランチ push 時に web → Cloudflare Pages、backend → Docker → Artifact Registry → Cloud Run。
 
 DB は Turso (libSQL) を使用。**DB 本体は OpenTofu の `infra/modules/turso/` で管理**（jpedroh/turso provider）。`module.turso.database_url` を cloud_run module の `turso_database_url` に渡す構成。auth token のみ state に乗せたくないため `turso CLI` で発行 → Secret Manager `<stack_name>-turso-auth-token` に手動投入する運用。詳細は `docs/data-model.md` の「Turso セットアップ」参照。
 

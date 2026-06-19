@@ -1,13 +1,13 @@
 ---
 paths:
   - backend/**
-  - frontend/**
+  - web/**
   - infra/**
 ---
 
 # セキュリティルール（全領域横断）
 
-このファイルは backend / frontend / infra すべての領域に適用される横断セキュリティルール。
+このファイルは backend / web / infra すべての領域に適用される横断セキュリティルール。
 認証・JWT・Cookie 属性・暗号化・Rate Limit の詳細は `.claude/rules/backend/auth-security.md` を参照し、ここでは重複させない。
 
 ---

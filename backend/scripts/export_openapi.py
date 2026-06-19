@@ -1,6 +1,6 @@
 """FastAPI アプリの OpenAPI スキーマを JSON にダンプするスクリプト。
 
-frontend の型生成（`openapi-typescript`）の入力となる `backend/openapi.json` を出力する。
+web の型生成（`openapi-typescript`）の入力となる `backend/openapi.json` を出力する。
 ADR-0007（OpenAPI → TypeScript 型コード生成）のパイプライン Phase 0 の一部。
 
 使用例（必ず Nix devshell 経由で実行する。WeasyPrint 等のネイティブ依存解決のため）:

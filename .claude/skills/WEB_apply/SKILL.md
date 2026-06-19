@@ -1,41 +1,41 @@
 ---
-name: FE_apply
-description: Use when applying the refactor plan produced by the FE_refacter skill. Reads `report/FE_report_<timestamp>.md` (latest by default, or a path passed as argument), confirms scope with the user, implements the changes against `frontend/`, runs lint/test/build, then writes a result report to `report/FE_pr_<timestamp>.md`. Trigger on requests such as "FE_apply 実行", "frontend のリファクタを適用", "FE レポートの内容を実装", "report の指摘を直して".
+name: WEB_apply
+description: Use when applying the refactor plan produced by the WEB_refacter skill. Reads `report/WEB_report_<timestamp>.md` (latest by default, or a path passed as argument), confirms scope with the user, implements the changes against `web/`, runs lint/test/build, then writes a result report to `report/WEB_pr_<timestamp>.md`. Trigger on requests such as "WEB_apply 実行", "web のリファクタを適用", "FE レポートの内容を実装", "report の指摘を直して".
 ---
 
 # Frontend Refactor Apply
 
-`FE_refacter` skill が生成したレビュー (`report/FE_report_*.md`) を入力にして、実際のコード修正・検証・PR 用レポート作成までを行う skill。
+`WEB_refacter` skill が生成したレビュー (`report/WEB_report_*.md`) を入力にして、実際のコード修正・検証・PR 用レポート作成までを行う skill。
 
 ## 先に読む
 
 - `.claude/CLAUDE.md`
-- `.claude/skills/FE_refacter/SKILL.md`（出力フォーマットの参照元）
-- `.claude/rules/frontend/architecture.md`
-- `.claude/rules/frontend/typescript.md`
-- `.claude/rules/frontend/test.md`
+- `.claude/skills/WEB_refacter/SKILL.md`（出力フォーマットの参照元）
+- `.claude/rules/web/architecture.md`
+- `.claude/rules/web/typescript.md`
+- `.claude/rules/web/test.md`
 
 API 契約の変更を伴う場合は backend 側 (`backend/app/routers/*`, `backend/app/schemas.py`) も確認すること。
 
 ## 入力（対象レポートの選択）
 
-引数で明示パスが渡されていればそれを使う。なければ `report/FE_report_*.md` の中で最新（mtime 降順）を採用する。
+引数で明示パスが渡されていればそれを使う。なければ `report/WEB_report_*.md` の中で最新（mtime 降順）を採用する。
 
 ```bash
 # 明示
-/FE_apply report/FE_report_20260516_1042.md
+/WEB_apply report/WEB_report_20260516_1042.md
 
 # 省略時 = 最新を自動採用
-/FE_apply
+/WEB_apply
 ```
 
 最初に必ずユーザーへ「採用したレポートのパス」を 1 行返す。
 
 ```text
-採用レポート: report/FE_report_20260516_1042.md
+採用レポート: report/WEB_report_20260516_1042.md
 ```
 
-`report/` 配下に `FE_report_*.md` が一つも無い場合はここで停止し、`/FE_refacter` の実行を促す。
+`report/` 配下に `WEB_report_*.md` が一つも無い場合はここで停止し、`/WEB_refacter` の実行を促す。
 
 ## 実装スコープの確認（必須）
 
@@ -44,7 +44,7 @@ API 契約の変更を伴う場合は backend 側 (`backend/app/routers/*`, `bac
 提示例:
 
 ```text
-採用レポート: report/FE_report_20260516_1042.md
+採用レポート: report/WEB_report_20260516_1042.md
 Findings: High 2 / Medium 4 / Low 6
 Test Review: Remove 3 / Add 5
 Structure: Oversized 2 / Directory 1
@@ -64,7 +64,7 @@ Structure: Oversized 2 / Directory 1
 
 1. **タスク化**: 採用した各項目を `TaskCreate` で 1 タスクずつ切り、`in_progress` → `completed` を必ず更新する。
 2. **小さく分ける**: 「component 分割」「hook 切り出し」「テスト追加」「テスト削除」「ファイル移動」を別タスクにする。1 タスクあたりの diff は読める範囲に保つ。
-3. **`frontend/` のコーディング規約を厳守**:
+3. **`web/` のコーディング規約を厳守**:
    - コメント・JSDoc は日本語
    - エラーメッセージ・トースト文言などユーザー向け表示は日本語
    - `any` は禁止。型を曖昧にせず適切に narrowing する
@@ -83,9 +83,9 @@ Structure: Oversized 2 / Directory 1
 実装が一通り終わったら `make ci` 相当を回す。スキップ禁止。
 
 ```bash
-make lint-frontend
-make test-frontend
-make build-frontend
+make lint-web
+make test-web
+make build-web
 ```
 
 または一括:
@@ -97,7 +97,7 @@ make ci
 新規ページ・ルート追加、認証/ナビゲーション/レイアウト変更、サイドバーコンポーネント変更、UI フローに影響する API 変更を含む場合は E2E も回す:
 
 ```bash
-nix develop --command bash -c "cd frontend && npm run test:e2e"
+nix develop --command bash -c "cd web && npm run test:e2e"
 ```
 
 sandbox が `~/.cache/nix/fetcher-locks/*.lock` で落ちる場合は `dangerouslyDisableSandbox: true` で再実行する（CLAUDE.md の既知の例外）。
@@ -105,7 +105,7 @@ sandbox が `~/.cache/nix/fetcher-locks/*.lock` で落ちる場合は `dangerous
 特定スクリプトだけ叩きたい場合のみ:
 
 ```bash
-nix develop --command bash -c "cd frontend && npm run <script>"
+nix develop --command bash -c "cd web && npm run <script>"
 ```
 
 lint / test / build に失敗したら、原因を直してから次の検証に進む。失敗を残したまま PR レポートを書かない。`--no-verify` 等で hook を skip しない。
@@ -114,11 +114,11 @@ lint / test / build に失敗したら、原因を直してから次の検証に
 
 実装と検証が完了したら、PR 用のサマリを必ずファイルへ書く。assistant メッセージに本文を貼らない。
 
-- 保存先: `report/FE_pr_<YYYYMMDD_HHMM>.md`
-  - 例: `report/FE_pr_20260516_1530.md`
+- 保存先: `report/WEB_pr_<YYYYMMDD_HHMM>.md`
+  - 例: `report/WEB_pr_20260516_1530.md`
   - `report/` が無ければ作成する (`mkdir -p report`)
   - タイムスタンプは **PR レポート書き出し時刻**（ローカル）。`date +%Y%m%d_%H%M`
-- 既存 `FE_pr_*.md` は履歴として残す。上書き禁止
+- 既存 `WEB_pr_*.md` は履歴として残す。上書き禁止
 - 採用元レポートのパスを冒頭に明記する
 
 ### ターミナルへの出力ルール
@@ -126,19 +126,19 @@ lint / test / build に失敗したら、原因を直してから次の検証に
 - 詳細はファイルにだけ書く
 - ターミナルへ返すのは以下のみ:
   1. 採用レポートのパス
-  2. PR レポートのパス（`report/FE_pr_YYYYMMDD_HHMM.md`）
+  2. PR レポートのパス（`report/WEB_pr_YYYYMMDD_HHMM.md`）
   3. `Summary` セクションの 3-5 行サマリ
   4. 検証結果（pass / fail）
   5. 残タスク（次に手をつけるべき項目があれば 1-2 行）
 
 ## PR レポートのフォーマット
 
-下記テンプレートを `report/FE_pr_<YYYYMMDD_HHMM>.md` に書き込む。
+下記テンプレートを `report/WEB_pr_<YYYYMMDD_HHMM>.md` に書き込む。
 
 ````markdown
 # Frontend Refactor PR Report
 
-- 採用レポート: report/FE_report_YYYYMMDD_HHMM.md
+- 採用レポート: report/WEB_report_YYYYMMDD_HHMM.md
 - 実装ブランチ: <git branch>
 - 適用スコープ: <High のみ / High+Medium / 全部 など>
 
@@ -170,7 +170,7 @@ lint / test / build に失敗したら、原因を直してから次の検証に
 - 変更前 / 変更後のディレクトリ構成や hook 切り出し（変更があった場合のみ）
 
 ```text
-frontend/src/
+web/src/
   pages/
   components/
   hooks/
@@ -181,9 +181,9 @@ frontend/src/
 - 採用しなかった指摘と理由（後続 PR に回す、影響範囲が大きい、など）
 
 ## Validation
-- `make lint-frontend`: pass / fail（fail なら抜粋）
-- `make test-frontend`: pass / fail（fail なら抜粋、件数）
-- `make build-frontend`: pass / fail
+- `make lint-web`: pass / fail（fail なら抜粋）
+- `make test-web`: pass / fail（fail なら抜粋、件数）
+- `make build-web`: pass / fail
 - E2E (`npm run test:e2e`): 実行有無と結果。実行しなかった場合は理由
 
 ## Follow-ups
@@ -197,8 +197,8 @@ frontend/src/
 2. Findings 集計を提示し、`AskUserQuestion` で適用スコープを選ばせる
 3. 採用項目を `TaskCreate` で 1 つずつ切る
 4. 各タスクを `in_progress` にして実装、終わったら `completed`
-5. `make lint-frontend` / `make test-frontend` / `make build-frontend`（または `make ci`）を回す
+5. `make lint-web` / `make test-web` / `make build-web`（または `make ci`）を回す
 6. UI フローに影響する変更なら E2E も回す
 7. fail があれば直す。pass まで PR レポートを書かない
-8. `report/FE_pr_<YYYYMMDD_HHMM>.md` を書く
+8. `report/WEB_pr_<YYYYMMDD_HHMM>.md` を書く
 9. ターミナルにはパスとサマリだけ返す

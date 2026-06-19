@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# frontend の ts/tsx で「ユーザー向けの関数にリテラル日本語を渡す」パターンを検知する。
+# web の ts/tsx で「ユーザー向けの関数にリテラル日本語を渡す」パターンを検知する。
 # 検知対象:
 #   - setError("...") / setErrorMessage("...") / setAccountError("...")
 #   - setSuccess("...") / setInfo("...") / setMessage("...")（成功・情報トースト）
@@ -10,10 +10,10 @@
 # ESLint の no-restricted-syntax は throw new Error の AST しか拾えないため、
 # 関数呼び出し系はこのスクリプトで補完する。
 #
-# 詳細: .claude/rules/frontend/messages.md
+# 詳細: .claude/rules/web/messages.md
 set -euo pipefail
 
-cd "$(dirname "$0")/../frontend"
+cd "$(dirname "$0")/../web"
 
 # Rust regex (ripgrep -P) で Unicode プロパティを使って ひらがな・カタカナ・漢字 を検出する。
 # ダブルクォート文字列とバッククォート文字列の両方をカバー（フロントエンドはダブルクォート慣習）。
@@ -42,7 +42,7 @@ if [ -n "$matches" ]; then
   echo "$matches"
   echo ""
   echo "ERROR: setError / setSuccess / toAppError 等に日本語リテラルを直接渡しています。"
-  echo "frontend/src/constants/messages.ts の定数を参照してください。"
-  echo "詳細: .claude/rules/frontend/messages.md"
+  echo "web/src/constants/messages.ts の定数を参照してください。"
+  echo "詳細: .claude/rules/web/messages.md"
   exit 1
 fi

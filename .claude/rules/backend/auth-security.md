@@ -13,7 +13,7 @@ paths:
   - アクセストークン: 15 分（Cookie 名 `access_token`）
   - リフレッシュトークン: 7 日（Cookie 名 `refresh_token`）
 - 起動時に `validate_jwt_key_pair()` で秘密鍵と公開鍵の整合性を検証する
-- GitHub OAuth の `state` は **backend 側 Cookie で検証**する。frontend だけで検証しないこと
+- GitHub OAuth の `state` は **backend 側 Cookie で検証**する。web だけで検証しないこと
 - 認証 Cookie 属性は `COOKIE_SECURE` / `COOKIE_SAMESITE` で制御する
 
 ## 暗号化
