@@ -397,6 +397,19 @@ def test_ollama_client_non_dict_response_raises(monkeypatch) -> None:
         )
 
 
+def test_ollama_client_non_dict_message_raises(monkeypatch) -> None:
+    """message が dict でない応答（エラー時の文字列等）は LLMError（502 へ倒す）。"""
+    from app.services.agent.llm.ollama_client import OllamaClient
+
+    fake = _FakeResponse({"message": "boom"})
+    _patch_ollama(monkeypatch, response=fake)
+    with pytest.raises(LLMError, match="想定外の形式"):
+        asyncio.run(
+            OllamaClient().generate("s", [{"role": "user", "content": "x"}],
+                                    build_output_schema("self_pr"), "ignored")
+        )
+
+
 def test_ollama_client_empty_content_raises(monkeypatch) -> None:
     """message.content が空の応答は LLMError（空応答ガード）。"""
     from app.services.agent.llm.ollama_client import OllamaClient

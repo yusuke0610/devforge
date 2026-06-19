@@ -46,7 +46,7 @@ export function CareerFormToolbar({
 }: Props) {
   return (
     <div className={shared.pageHeader}>
-      <h1>職務経歴書</h1>
+      <h1>{UI_MESSAGES.CAREER_RESUME_TITLE}</h1>
       <div className={shared.pageHeaderActions}>
         {/* ファイル取り込みは右カラムの原本ビュー（ドラッグ&ドロップ / クリック）に集約。 */}
         <button

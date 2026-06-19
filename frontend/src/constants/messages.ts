@@ -152,6 +152,8 @@ export const UI_MESSAGES = {
   REPORT_ISSUE: "GitHub Issueに報告",
   OPENS_IN_NEW_TAB: "（新しいタブで開きます）",
   COPYRIGHT: "© 2026 DevForge",
+  // 職務経歴書ページのタイトル見出し
+  CAREER_RESUME_TITLE: "職務経歴書",
   // 職務経歴書ヘッダーのアイコンボタン（aria-label / title 用）
   RESUME_PREVIEW: "プレビュー",
   RESUME_EXPORT_PDF: "PDF出力",
