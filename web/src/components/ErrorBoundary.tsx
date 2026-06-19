@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 
 import { UI_MESSAGES } from "../constants/messages";
 import { generateErrorId } from "../utils/errorId";
+import { logger } from "../utils/logger";
 import styles from "./ErrorBoundary.module.css";
 
 type Props = { children: ReactNode };
@@ -15,7 +16,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[ErrorBoundary]", error, info.componentStack);
+    logger.error("ErrorBoundary がレンダリングエラーを捕捉しました", error, info.componentStack);
   }
 
   render() {

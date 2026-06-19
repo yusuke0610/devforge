@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 
 import { getCurrentUser, logout, setOnUnauthorized } from "../api";
 import type { AuthUser } from "../router";
+import { logger } from "../utils/logger";
 
 // 認証チェック不要なパス（未認証が正常な画面）
 const PUBLIC_PATHS = new Set(["/", "/login", "/github/callback"]);
@@ -112,7 +113,7 @@ export function useAuthSession() {
     } catch (error) {
       // サーバ側ログアウトが失敗してもクライアント側のクリアは必ず実行する。
       // 未捕捉の reject を残さないようログだけ出して握る。
-      console.warn("logout API 呼び出しに失敗しました（クライアント側はクリアします）", error);
+      logger.warn("logout API 呼び出しに失敗しました（クライアント側はクリアします）", error);
     } finally {
       sessionStorage.removeItem("auth_user");
       justLoggedOut.current = true;
