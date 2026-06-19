@@ -22,6 +22,9 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      // console 直書きを禁止し、ログ出力は utils/logger.ts 経由に統一する。
+      // logger 自身は下の override で例外にしている。
+      "no-console": "error",
       // ts/tsx に日本語リテラルのエラーメッセージを直接書かない。
       // frontend/src/constants/messages.ts の定数を参照すること。
       // 詳細: .claude/rules/frontend/messages.md
@@ -42,12 +45,20 @@ export default tseslint.config(
       ],
     },
   },
+  // utils/logger.ts は console を呼ぶ唯一のモジュール（ログ出力の SSoT）なので例外にする。
+  {
+    files: ["src/utils/logger.ts"],
+    rules: {
+      "no-console": "off",
+    },
+  },
   // テストファイルはフィクスチャ用の throw でリテラルを書くケースがあるため、
-  // メッセージハードコード検知ルールを除外する。
+  // メッセージハードコード検知ルールを除外する。テスト内のデバッグ console も許容する。
   {
     files: ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.spec.ts", "src/test/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-syntax": "off",
+      "no-console": "off",
     },
   },
 );

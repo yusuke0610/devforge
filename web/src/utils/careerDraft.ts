@@ -1,4 +1,5 @@
 import type { CareerFormState } from "../payloadBuilders";
+import { logger } from "./logger";
 
 /**
  * 未ログインで入力した職務経歴書ドラフトを OAuth 往復の間だけ退避するユーティリティ。
@@ -21,7 +22,7 @@ export function saveCareerDraft(form: CareerFormState): void {
   try {
     sessionStorage.setItem(CAREER_DRAFT_KEY, JSON.stringify(form));
   } catch (error) {
-    console.warn("職務経歴書ドラフトの退避に失敗しました", error);
+    logger.warn("職務経歴書ドラフトの退避に失敗しました", error);
   }
 }
 
@@ -51,13 +52,13 @@ export function loadCareerDraft(): CareerFormState | null {
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    console.warn("職務経歴書ドラフトの読み出しに失敗しました", error);
+    logger.warn("職務経歴書ドラフトの読み出しに失敗しました", error);
     clearCareerDraft();
     return null;
   }
   // パースは成功したが想定の形でない（旧フォーマット等）場合も破棄する。
   if (!isCareerDraft(parsed)) {
-    console.warn("職務経歴書ドラフトの形式が不正なため破棄します");
+    logger.warn("職務経歴書ドラフトの形式が不正なため破棄します");
     clearCareerDraft();
     return null;
   }
