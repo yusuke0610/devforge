@@ -72,6 +72,18 @@ class AgentChatResult:
     response: AgentChatResponse
     usage: AgentUsage
 
+
+def _make_usage(
+    request: AgentChatRequest, input_tokens: int, output_tokens: int
+) -> AgentUsage:
+    """リクエストのモデルと合算トークンから AgentUsage を組み立てる。
+
+    課金漏れ防止（ADR-0012）のため成功・失敗の各パスで同じ形の使用量を作る箇所を集約する。
+    """
+    return AgentUsage(
+        model=request.model, input_tokens=input_tokens, output_tokens=output_tokens
+    )
+
 # 許可外の field 名を返された時の正規化先。スコープ選択で編集対象は確定しているため、
 # 小型 LLM が「自己PR」等の field 名を返しても既定 field の提案として救済する。
 # project / experience は複数候補だが、自由記述の実体は description なので description に倒す
@@ -284,13 +296,21 @@ async def run_agent_chat(
     messages.append({"role": "user", "content": user_prompt})
     client = get_llm_client(spec.provider)
     output_schema = _SCOPE_SCHEMAS[request.scope]
-    result = await client.generate(system_prompt, messages, output_schema, model_id)
+
     # リトライしても 1 回目の API 原価は発生しているため、使用量は全呼び出しの合算で課金する
-    input_tokens = result.input_tokens
-    output_tokens = result.output_tokens
+    input_tokens = 0
+    output_tokens = 0
+
+    # 1 回目の呼び出し。パースまで成功すればここで確定して返す。
+    result = await client.generate(system_prompt, messages, output_schema, model_id)
+    input_tokens += result.input_tokens
+    output_tokens += result.output_tokens
     logger.debug("Agent LLM 生応答（パース前）: len=%d", len(result.text))
     try:
         response = _parse_response(result.text, request.scope)
+        return AgentChatResult(
+            response=response, usage=_make_usage(request, input_tokens, output_tokens)
+        )
     except AgentResponseParseError as exc:
         # スキーマ違反応答は 1 回だけリトライする。バリデーションエラーの内容を
         # フィードバックして再生成させ、2 回目も失敗したらそのまま raise
@@ -308,36 +328,29 @@ async def run_agent_chat(
                 ),
             },
         ]
-        try:
-            result = await client.generate(
-                system_prompt, retry_messages, output_schema, model_id
-            )
-        except LLMError as retry_exc:
-            # リトライ呼び出し自体が失敗。1 回目の API 原価は発生済みのため使用量を
-            # 載せて伝播し、router 側で課金を確定させる（課金漏れを防ぐ / ADR-0012）
-            retry_exc.usage = AgentUsage(
-                model=request.model,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-            )
-            raise
-        input_tokens += result.input_tokens
-        output_tokens += result.output_tokens
-        logger.debug("Agent LLM リトライ応答（パース前）: len=%d", len(result.text))
-        try:
-            response = _parse_response(result.text, request.scope)
-        except AgentResponseParseError as retry_exc:
-            # 2 回目も失敗。1・2 回目分の API 原価は発生済みのため、合算した使用量を
-            # 載せて伝播し、router 側で課金を確定させる（課金漏れを防ぐ / ADR-0012）
-            raise AgentResponseParseError(
-                str(retry_exc),
-                usage=AgentUsage(
-                    model=request.model,
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens,
-                ),
-            ) from retry_exc
-    usage = AgentUsage(
-        model=request.model, input_tokens=input_tokens, output_tokens=output_tokens
+
+    # リトライ呼び出し（1 回のみ）。以降は失敗時も合算使用量を載せて伝播する。
+    try:
+        result = await client.generate(
+            system_prompt, retry_messages, output_schema, model_id
+        )
+    except LLMError as retry_exc:
+        # リトライ呼び出し自体が失敗。1 回目の API 原価は発生済みのため使用量を
+        # 載せて伝播し、router 側で課金を確定させる（課金漏れを防ぐ / ADR-0012）
+        retry_exc.usage = _make_usage(request, input_tokens, output_tokens)
+        raise
+    input_tokens += result.input_tokens
+    output_tokens += result.output_tokens
+    logger.debug("Agent LLM リトライ応答（パース前）: len=%d", len(result.text))
+    try:
+        response = _parse_response(result.text, request.scope)
+    except AgentResponseParseError as retry_exc:
+        # 2 回目も失敗。1・2 回目分の API 原価は発生済みのため、合算した使用量を
+        # 載せて伝播し、router 側で課金を確定させる（課金漏れを防ぐ / ADR-0012）
+        raise AgentResponseParseError(
+            str(retry_exc),
+            usage=_make_usage(request, input_tokens, output_tokens),
+        ) from retry_exc
+    return AgentChatResult(
+        response=response, usage=_make_usage(request, input_tokens, output_tokens)
     )
-    return AgentChatResult(response=response, usage=usage)

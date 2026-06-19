@@ -1,11 +1,14 @@
 """LLM クライアントの抽象基底クラスと共通例外。"""
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..chat_service import AgentUsage
+
+logger = logging.getLogger(__name__)
 
 
 class LLMError(Exception):
@@ -65,3 +68,35 @@ class LLMClient(ABC):
         Raises:
             LLMError: タイムアウト・接続失敗・API エラー時。
         """
+
+
+# 各プロバイダクライアントが共有する LLMError 契約（502 にマップされる）のヘルパ。
+# メッセージ・ログ形式を 1 箇所に集約し、クライアント間でのドリフトを防ぐ（ADR-0013）。
+
+
+def require_api_key(value: str, label: str) -> str:
+    """API キーの空判定を一元化する。空なら LLMError、非空ならそのまま返す。
+
+    label は環境変数名（例: ``ANTHROPIC_API_KEY``）。値そのものはログ・例外に含めない。
+    """
+    if not value:
+        raise LLMError(f"{label} が設定されていません")
+    return value
+
+
+def wrap_api_error(provider: str, exc: Exception) -> "LLMError":
+    """プロバイダ SDK 例外を LLMError へ変換する（ログ + 整形）。
+
+    呼び出し側の except 内で ``raise wrap_api_error("Google", exc) from exc`` の形で使う。
+    捕捉する SDK 例外型は各クライアントで異なるため try/except 自体は共通化しない。
+    API キー等の秘密情報を載せないよう、ログ・メッセージには例外型名のみを含める。
+    """
+    logger.warning("%s API 呼び出しに失敗: %s", provider, type(exc).__name__)
+    return LLMError(f"{provider} API error: {type(exc).__name__}")
+
+
+def require_text(provider: str, text: str | None) -> str:
+    """空応答ガードを一元化する。空（None / 空文字）なら LLMError、非空なら返す。"""
+    if not text:
+        raise LLMError(f"{provider} API が空の応答を返しました")
+    return text

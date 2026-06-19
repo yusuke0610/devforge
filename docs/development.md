@@ -62,7 +62,7 @@ ollama serve          # アプリ起動済みなら不要
 ollama pull llama3.2  # OLLAMA_MODEL の既定値
 ```
 
-Anthropic API で試す場合は `.env` に `LLM_PROVIDER=anthropic` と `ANTHROPIC_API_KEY` を設定して再起動する。
+ローカルの compose では `LLM_LOCAL_OLLAMA` が既定 `1`（無料パス）で、選択モデルに関わらず全リクエストがホストの Ollama に流れる。実プロバイダの API（Anthropic / OpenAI / Gemini）で試す場合は、`.env` に `LLM_LOCAL_OLLAMA=0` と対応する API キー（例: `ANTHROPIC_API_KEY`）を設定して再起動し、UI のモデル選択で該当プロバイダのモデル（Claude / GPT / Gemini）を選ぶ。プロバイダはモデルエイリアスに紐づいて切り替わるため、グローバルな `LLM_PROVIDER` は無い（ADR-0013）。
 
 #### フロントエンド単体起動（バックエンドは docker / 別途）
 

@@ -1,19 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { IMPORT_ASSIST_MESSAGES } from "../../constants/messages";
 import { renderMarkdown } from "../../utils/markdown";
+import { useSelectionFill, type DocumentViewProps } from "./documentView";
 import styles from "./ResumeSourceTracePanel.module.css";
-
-type Props = {
-  /** 描画対象の Markdown ファイル */
-  file: File;
-  /** ズーム倍率（1 = 等倍）。フォントサイズの em 倍率として適用する。 */
-  zoom?: number;
-  /** 原本上で選択された文字列を流し込むコールバック */
-  onFill: (text: string) => void;
-  /** 描画エラー・エラー解除を親へ伝えるコールバック */
-  onError: (message: string | null) => void;
-};
 
 /**
  * Markdown を整形描画し、テキスト選択を「流し込み」に変換する内側ビュー。
@@ -24,7 +14,7 @@ type Props = {
  * フォーカスした入力欄）は useResumeImportAssist 側が担うため、ここは
  * 「選択文字列を onFill に渡す」ことだけに専念する。
  */
-export default function MarkdownDocumentView({ file, zoom = 1, onFill, onError }: Props) {
+export default function MarkdownDocumentView({ file, zoom = 1, onFill, onError }: DocumentViewProps) {
   const [html, setHtml] = useState<string | null>(null);
 
   // ファイル本文をテキストとして読み込み、sanitize 済み HTML へ変換する。
@@ -50,13 +40,7 @@ export default function MarkdownDocumentView({ file, zoom = 1, onFill, onError }
     };
   }, [file, onError]);
 
-  const handleSelection = useCallback(() => {
-    const text = window.getSelection()?.toString() ?? "";
-    if (!text.trim()) return;
-    onFill(text);
-    // 流し込み後は選択を解除し、次にどこを掴んだか分かりやすくする。
-    window.getSelection()?.removeAllRanges();
-  }, [onFill]);
+  const handleSelection = useSelectionFill(onFill);
 
   if (html === null) {
     return <p className={styles.empty}>{IMPORT_ASSIST_MESSAGES.RENDERING}</p>;

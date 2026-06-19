@@ -7,7 +7,7 @@ import time
 import httpx
 
 from ....core import settings
-from .base import LLMClient, LLMError, LLMResult
+from .base import LLMClient, LLMError, LLMResult, require_text, wrap_api_error
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +58,7 @@ class OllamaClient(LLMClient):
                 )
                 response.raise_for_status()
         except httpx.HTTPError as exc:
-            logger.warning("Ollama API 呼び出しに失敗: %s", type(exc).__name__)
-            raise LLMError(f"Ollama API error: {type(exc).__name__}") from exc
+            raise wrap_api_error("Ollama", exc) from exc
 
         elapsed = time.monotonic() - started_at
         if elapsed >= _SLOW_REQUEST_THRESHOLD_SECONDS:
@@ -80,7 +79,5 @@ class OllamaClient(LLMClient):
         if not isinstance(data, dict):
             logger.warning("Ollama 応答が想定外の型: %s", type(data).__name__)
             raise LLMError("Ollama 応答が想定外の形式です")
-        text = data.get("message", {}).get("content", "")
-        if not text:
-            raise LLMError("Ollama から空の応答が返されました")
+        text = require_text("Ollama", data.get("message", {}).get("content", ""))
         return LLMResult(text=text)

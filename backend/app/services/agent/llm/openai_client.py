@@ -5,15 +5,11 @@
 応答テキストは Anthropic / Gemini と同じくスキーマに従う JSON のシリアライズ文字列で返す。
 """
 
-import logging
-
 import openai
 
 from ....core import settings
 from ..output_schema import TOOL_NAME, to_portable_schema
-from .base import LLMClient, LLMError, LLMResult
-
-logger = logging.getLogger(__name__)
+from .base import LLMClient, LLMResult, require_api_key, require_text, wrap_api_error
 
 # 職務経歴書の改善提案は事実忠実性が最優先のため低温度に固定する
 _TEMPERATURE = 0.2
@@ -25,9 +21,7 @@ class OpenAIClient(LLMClient):
 
     def __init__(self) -> None:
         """OPENAI_API_KEY を検証し、非同期クライアントを初期化する。"""
-        api_key = settings.get_openai_api_key()
-        if not api_key:
-            raise LLMError("OPENAI_API_KEY が設定されていません")
+        api_key = require_api_key(settings.get_openai_api_key(), "OPENAI_API_KEY")
         self._client = openai.AsyncOpenAI(api_key=api_key, timeout=_TIMEOUT_SECONDS)
 
     async def generate(
@@ -54,13 +48,10 @@ class OpenAIClient(LLMClient):
                 },
             )
         except openai.OpenAIError as exc:
-            # API キー等の秘密情報を含めないため例外型のみログに残す
-            logger.warning("OpenAI API 呼び出しに失敗: %s", type(exc).__name__)
-            raise LLMError(f"OpenAI API error: {type(exc).__name__}") from exc
+            raise wrap_api_error("OpenAI", exc) from exc
 
-        text = response.choices[0].message.content if response.choices else None
-        if not text:
-            raise LLMError("OpenAI API が空の応答を返しました")
+        raw_text = response.choices[0].message.content if response.choices else None
+        text = require_text("OpenAI", raw_text)
         # usage はクレジット課金（ADR-0012）の根拠となるため実測値をそのまま返す
         usage = response.usage
         return LLMResult(

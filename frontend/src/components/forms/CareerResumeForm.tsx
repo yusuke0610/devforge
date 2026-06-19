@@ -6,9 +6,6 @@ import { useCareerFormModals } from "../../hooks/career/useCareerFormModals";
 import {
   createCareerResume,
   deleteCareerResume,
-  downloadCareerResumeMarkdown,
-  downloadCareerResumePdf,
-  getCareerResumePdfBlobUrl,
   getLatestCareerResume,
   updateCareerResume,
 } from "../../api";
@@ -26,7 +23,7 @@ import type { CareerFieldLocator, CareerFormState } from "../../payloadBuilders"
 import { buildCareerChanges } from "../../utils/careerDiff";
 import type { CareerTextFieldKey } from "../../formTypes";
 import { useQualifications, useTechnologyStacks } from "../../hooks/useMasterData";
-import { usePdfActions } from "../../hooks/usePdfActions";
+import { useCareerExportActions } from "../../hooks/career/useCareerExportActions";
 import { useMessageToast } from "../ui/toast";
 import { AgentChatWidget } from "./AgentChatWidget";
 import shared from "../../styles/shared.module.css";
@@ -35,14 +32,10 @@ import { useLoginPrompt } from "../auth/loginPromptContext";
 import { CareerDiffModal } from "./CareerDiffModal";
 import { MarkdownFieldModal } from "./MarkdownFieldModal";
 import { Skeleton } from "../ui/Skeleton";
-import { SaveIcon } from "../icons/SaveIcon";
-import { EyeIcon } from "../icons/EyeIcon";
-import { TrashIcon } from "../icons/TrashIcon";
-import { PdfDownloadIcon } from "../icons/PdfDownloadIcon";
-import { MarkdownDownloadIcon } from "../icons/MarkdownDownloadIcon";
 import { PdfPreviewModal } from "./PdfPreviewModal";
 import { ResumeSourceTracePanel } from "./ResumeSourceTracePanel";
 import layout from "./CareerResumeForm.module.css";
+import { CareerFormToolbar } from "./sections/CareerFormToolbar";
 import { CareerBasicInfoSection } from "./sections/CareerBasicInfoSection";
 import { CareerExperienceSection } from "./sections/CareerExperienceSection";
 import { CareerQualificationsSection } from "./sections/CareerQualificationsSection";
@@ -163,19 +156,24 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
   /** 左右 diff モーダル用の整形 HTML プレビュー（保存済み / 編集中）。開いている間だけ取得する。 */
   const preview = useResumeDiffPreview(form, baseline, showSaveConfirm);
 
+  /** Skeleton 表示・入力ロックの統合フラグ */
+  const formLocked = loading;
+
   const {
     downloading,
     previewUrl,
     closePreview,
-    onDownloadPdf,
-    onDownloadMarkdown,
-    onPreviewPdf,
+    handlePreview,
+    handleDownloadPdf,
+    handleDownloadMarkdown,
+    exportDisabled,
     error: pdfError,
     success: pdfSuccess,
-  } = usePdfActions({
-    downloadPdf: downloadCareerResumePdf,
-    downloadMarkdown: downloadCareerResumeMarkdown,
-    getPdfBlobUrl: getCareerResumePdfBlobUrl,
+  } = useCareerExportActions({
+    isAuthenticated,
+    resumeId: resumeId ?? null,
+    formLocked,
+    requestLogin,
   });
 
   useMessageToast(formSuccess, "success");
@@ -184,9 +182,6 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
   useMessageToast(pdfError, "error");
   // ログイン後のドラフト復元（既存経歴書あり）を通知する情報トースト。
   useMessageToast(restoreMessage, "success");
-
-  /** Skeleton 表示・入力ロックの統合フラグ */
-  const formLocked = loading;
 
   /** フォームデータ・技術スタック・資格の3つが揃った時に送信可能 */
   const canSubmit = !loading && !techLoading && !qualLoading;
@@ -271,27 +266,6 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
   const focusLocator = focusTarget?.locator ?? null;
   const focusNonce = focusTarget?.nonce ?? 0;
 
-  /**
-   * 要ログイン機能（プレビュー / PDF / Markdown 出力）のハンドラ。
-   * 未ログインならログイン促進モーダルを開き、ログイン済みなら本来の処理を行う。
-   * 入力中ドラフトは effect で sessionStorage に退避済みのため、ログイン往復後も失われない。
-   */
-  const handlePreview = () => {
-    if (!isAuthenticated) return requestLogin();
-    if (resumeId) onPreviewPdf(resumeId);
-  };
-  const handleDownloadPdf = () => {
-    if (!isAuthenticated) return requestLogin();
-    if (resumeId) onDownloadPdf(resumeId, SUCCESS_MESSAGES.CAREER_PDF_DOWNLOADED);
-  };
-  const handleDownloadMarkdown = () => {
-    if (!isAuthenticated) return requestLogin();
-    if (resumeId) onDownloadMarkdown(resumeId);
-  };
-  // 未ログインでは要ログイン機能ボタンを活性にしてログイン導線にする。
-  // ログイン済みでは保存済み（resumeId あり）まで非活性。
-  const exportDisabled = formLocked || (isAuthenticated && !resumeId);
-
   return (
     <>
       {showDeleteConfirm && (
@@ -343,69 +317,18 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
           標準の required バブルが先に発火すると、該当フィールドへの独自フォーカス・赤枠・
           日本語メッセージが出せず挙動が不統一になるため抑止する。 */}
       <form onSubmit={onSubmit} noValidate>
-        <div className={shared.pageHeader}>
-          <h1>職務経歴書</h1>
-          <div className={shared.pageHeaderActions}>
-            {/* ファイル取り込みは右カラムの原本ビュー（ドラッグ&ドロップ / クリック）に集約。 */}
-            <button
-              type="submit"
-              className={`primary ${layout.iconButton}`}
-              disabled={!canSubmit || saving}
-              aria-label={saveButtonText}
-              title={saveButtonText}
-            >
-              {saving ? (
-                <span className={layout.buttonSpinner} aria-hidden="true" />
-              ) : (
-                <SaveIcon className={layout.headerIcon} />
-              )}
-            </button>
-            <button
-              type="button"
-              className={layout.iconButton}
-              onClick={handlePreview}
-              disabled={exportDisabled}
-              aria-label={UI_MESSAGES.RESUME_PREVIEW}
-              title={UI_MESSAGES.RESUME_PREVIEW}
-            >
-              <EyeIcon className={layout.headerIcon} />
-            </button>
-            <button
-              type="button"
-              className={layout.iconButton}
-              onClick={handleDownloadPdf}
-              disabled={exportDisabled || downloading}
-              aria-label={UI_MESSAGES.RESUME_EXPORT_PDF}
-              title={UI_MESSAGES.RESUME_EXPORT_PDF}
-            >
-              {downloading ? (
-                <span className={layout.buttonSpinner} aria-hidden="true" />
-              ) : (
-                <PdfDownloadIcon className={layout.headerIcon} />
-              )}
-            </button>
-            <button
-              type="button"
-              className={layout.iconButton}
-              onClick={handleDownloadMarkdown}
-              disabled={exportDisabled}
-              aria-label={UI_MESSAGES.RESUME_EXPORT_MARKDOWN}
-              title={UI_MESSAGES.RESUME_EXPORT_MARKDOWN}
-            >
-              <MarkdownDownloadIcon className={layout.headerIcon} />
-            </button>
-            <button
-              type="button"
-              className={`danger ${layout.iconButton}`}
-              onClick={() => setShowDeleteConfirm(true)}
-              disabled={!resumeId || formLocked}
-              aria-label={UI_MESSAGES.RESUME_DELETE_ALL}
-              title={UI_MESSAGES.RESUME_DELETE_ALL}
-            >
-              <TrashIcon className={layout.headerIcon} />
-            </button>
-          </div>
-        </div>
+        <CareerFormToolbar
+          saveButtonText={saveButtonText}
+          canSubmit={canSubmit}
+          saving={saving}
+          exportDisabled={exportDisabled}
+          downloading={downloading}
+          deleteDisabled={!resumeId || formLocked}
+          onPreview={handlePreview}
+          onDownloadPdf={handleDownloadPdf}
+          onDownloadMarkdown={handleDownloadMarkdown}
+          onDelete={() => setShowDeleteConfirm(true)}
+        />
 
         <div className={shared.pageBody}>
           <div className={layout.splitWrap}>

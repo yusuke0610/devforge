@@ -13,10 +13,12 @@ google-cloud-storage==2.19.0
 pytest==9.0.3
 python-jose[cryptography]==3.5.0
 httpx==0.28.1
-anthropic>=0.40,<1
-# マルチプロバイダ LLM（ADR-0013）。Gemini = google-genai、GPT = openai
-google-genai>=1.0,<3
-openai>=1.50,<2
+# マルチプロバイダ LLM（ADR-0013）。Gemini = google-genai、GPT = openai。
+# 供給網リスク（レンジ内 yank / 侵害バージョンの混入）を避けるため == で固定する。
+# CVE は CI の pip-audit が検出するので、検出時に明示バージョンを引き上げる運用とする。
+anthropic==0.109.2
+google-genai==2.8.0
+openai==1.109.1
 # Stripe Checkout / Webhook 署名検証（ADR-0012 Phase 2）。公式ライブラリを使う
 stripe>=11,<13
 PyGithub==2.5.0

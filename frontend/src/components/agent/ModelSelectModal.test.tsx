@@ -50,9 +50,10 @@ function renderModal(opts: {
   balance?: number | null;
   onClose?: () => void;
   usage?: { model: string; chat_count: number; input_tokens: number; output_tokens: number; credit_cost: number }[];
+  rates?: { model: string; is_free: boolean; baseline_credits_per_chat: number }[];
 }) {
   getAgentUsageSummaryMock.mockResolvedValue(opts.usage ?? []);
-  getModelRatesMock.mockResolvedValue(DEFAULT_RATES);
+  getModelRatesMock.mockResolvedValue(opts.rates ?? DEFAULT_RATES);
   const store = opts.store ?? makeStore();
   const balanceValue: CreditBalanceContextValue = {
     balance: opts.balance ?? null,
@@ -154,6 +155,20 @@ describe("ModelSelectModal", () => {
     });
     // 利用実績のテキストは「まだ利用していません」
     expect(within(sonnetCard).getByText(AGENT_MODEL_MESSAGES.USAGE_NONE)).toBeTruthy();
+  });
+
+  it("model_rates の is_free が静的 isPaid より優先される（rates で有料化された Haiku は有料バッジ）", async () => {
+    // runtime 正本は model_rates API。静的には無料の haiku を rates 側で有料に倒すと、
+    // カードは有料バッジ + 残高不足警告（残高 0）を出す（PR-C: 表示を rates 由来へ）。
+    renderModal({
+      balance: 0,
+      rates: [{ model: "haiku", is_free: false, baseline_credits_per_chat: 8 }],
+    });
+    const haikuCard = screen.getByRole("button", { name: haikuNamePattern });
+    await waitFor(() => {
+      expect(within(haikuCard).getByText(AGENT_MODEL_MESSAGES.PAID_BADGE)).toBeTruthy();
+    });
+    expect(within(haikuCard).getByText(AGENT_MODEL_MESSAGES.INSUFFICIENT_HINT)).toBeTruthy();
   });
 
   it("無料モデル（Haiku）には回数目安を出さない", async () => {
