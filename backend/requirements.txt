@@ -20,7 +20,7 @@ anthropic==0.111.0
 google-genai==2.8.0
 openai==1.109.1
 # Stripe Checkout / Webhook 署名検証（ADR-0012 Phase 2）。公式ライブラリを使う
-stripe==12.5.1
+stripe==15.2.1
 PyGithub==2.5.0
 pandas==2.2.3
 slowapi==0.1.10
