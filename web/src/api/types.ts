@@ -63,13 +63,13 @@ export type ResumeCreate = Schemas["ResumeCreate"];
 export type ResumePreviewResponse = Schemas["ResumePreviewResponse"];
 
 /** 職歴（1 社分）。backend `schemas/resume.py:Experience`。 */
-export type Experience = Schemas["Experience-Output"];
+export type Experience = Schemas["Experience"];
 
 /** 取引先/常駐先（休暇エントリ含む）。backend `schemas/resume.py:Client`。 */
-export type Client = Schemas["Client-Output"];
+export type Client = Schemas["Client"];
 
 /** プロジェクト（案件）。backend `schemas/resume.py:Project`。 */
-export type Project = Schemas["Project-Output"];
+export type Project = Schemas["Project"];
 
 /** プロジェクト体制。backend `schemas/resume.py:ProjectTeam`。 */
 export type ProjectTeam = Schemas["ProjectTeam"];
@@ -87,7 +87,7 @@ export type TechnologyStackItem = Schemas["TechnologyStackItem"];
 export type TechnologyStackCategory = Schemas["TechnologyStackItem"]["category"];
 
 /** 資本金の単位（Literal union）。backend `Experience.capital_unit` 由来。 */
-export type CapitalUnit = Schemas["Experience-Output"]["capital_unit"];
+export type CapitalUnit = Schemas["Experience"]["capital_unit"];
 
 /** 資格項目。backend `schemas/resume.py:ResumeQualificationItem`。 */
 export type ResumeQualificationItem = Schemas["ResumeQualificationItem"];

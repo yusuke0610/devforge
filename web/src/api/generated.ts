@@ -1279,7 +1279,7 @@ export interface components {
          *     ``is_vacation=True`` の場合は取引先ではなく在籍中の休暇（育児/介護/留学等）を表し、
          *     name / projects の代わりに ``vacation_*`` 期間と詳細を保持する。
          */
-        "Client-Input": {
+        Client: {
             /**
              * Has Client
              * @default true
@@ -1296,53 +1296,7 @@ export interface components {
              */
             name: string;
             /** Projects */
-            projects?: components["schemas"]["Project-Input"][];
-            /**
-             * Vacation Description
-             * @default
-             */
-            vacation_description: string;
-            /**
-             * Vacation End Date
-             * @default
-             */
-            vacation_end_date: string;
-            /**
-             * Vacation Is Current
-             * @default false
-             */
-            vacation_is_current: boolean;
-            /**
-             * Vacation Start Date
-             * @default
-             */
-            vacation_start_date: string;
-        };
-        /**
-         * Client
-         * @description ユーザ（常駐先/クライアント企業）。
-         *
-         *     ``is_vacation=True`` の場合は取引先ではなく在籍中の休暇（育児/介護/留学等）を表し、
-         *     name / projects の代わりに ``vacation_*`` 期間と詳細を保持する。
-         */
-        "Client-Output": {
-            /**
-             * Has Client
-             * @default true
-             */
-            has_client: boolean;
-            /**
-             * Is Vacation
-             * @default false
-             */
-            is_vacation: boolean;
-            /**
-             * Name
-             * @default
-             */
-            name: string;
-            /** Projects */
-            projects?: components["schemas"]["Project-Output"][];
+            projects?: components["schemas"]["Project"][];
             /**
              * Vacation Description
              * @default
@@ -1450,7 +1404,7 @@ export interface components {
             transaction_type: string;
         };
         /** Experience */
-        "Experience-Input": {
+        Experience: {
             /** Business Description */
             business_description: string;
             /**
@@ -1465,57 +1419,7 @@ export interface components {
              */
             capital_unit: "万円" | "百万円" | "千万円" | "億円";
             /** Clients */
-            clients?: components["schemas"]["Client-Input"][];
-            /** Company */
-            company: string;
-            /**
-             * Description
-             * @default
-             */
-            description: string;
-            /**
-             * Employee Count
-             * @default
-             */
-            employee_count: string;
-            /**
-             * End Date
-             * @default
-             */
-            end_date: string;
-            /**
-             * Is Current
-             * @default false
-             */
-            is_current: boolean;
-            /**
-             * Is It Company
-             * @default true
-             */
-            is_it_company: boolean;
-            /**
-             * Start Date
-             * @default
-             */
-            start_date: string;
-        };
-        /** Experience */
-        "Experience-Output": {
-            /** Business Description */
-            business_description: string;
-            /**
-             * Capital
-             * @default
-             */
-            capital: string;
-            /**
-             * Capital Unit
-             * @default 千万円
-             * @enum {string}
-             */
-            capital_unit: "万円" | "百万円" | "千万円" | "億円";
-            /** Clients */
-            clients?: components["schemas"]["Client-Output"][];
+            clients?: components["schemas"]["Client"][];
             /** Company */
             company: string;
             /**
@@ -1731,32 +1635,7 @@ export interface components {
             total_steps: number;
         };
         /** Project */
-        "Project-Input": {
-            /**
-             * Description
-             * @default
-             */
-            description: string;
-            /**
-             * Name
-             * @default
-             */
-            name: string;
-            /** Periods */
-            periods?: components["schemas"]["ProjectPeriod"][];
-            /** Phases */
-            phases?: string[];
-            /**
-             * Role
-             * @default
-             */
-            role: string;
-            team?: components["schemas"]["ProjectTeam"];
-            /** Technology Stacks */
-            technology_stacks?: components["schemas"]["TechnologyStackItem"][];
-        };
-        /** Project */
-        "Project-Output": {
+        Project: {
             /**
              * Description
              * @default
@@ -1833,7 +1712,7 @@ export interface components {
             /** Email */
             email: string;
             /** Experiences */
-            experiences?: components["schemas"]["Experience-Input"][];
+            experiences?: components["schemas"]["Experience"][];
             /** Full Name */
             full_name: string;
             /**
@@ -1876,7 +1755,7 @@ export interface components {
             /** Email */
             email: string;
             /** Experiences */
-            experiences?: components["schemas"]["Experience-Output"][];
+            experiences?: components["schemas"]["Experience"][];
             /** Full Name */
             full_name: string;
             /**
@@ -1903,7 +1782,7 @@ export interface components {
             /** Email */
             email: string;
             /** Experiences */
-            experiences?: components["schemas"]["Experience-Input"][];
+            experiences?: components["schemas"]["Experience"][];
             /** Full Name */
             full_name: string;
             /**
@@ -2992,7 +2871,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
