@@ -21,6 +21,13 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // eslint-plugin-react-hooks v7 で recommended に追加された React Compiler 系の新ルール。
+      // 既存の正当なパターン（マウント時の fetch によるマウント後 setState 等）を多数 error 扱いするため、
+      // toolchain メジャーアップグレード（eslint 10 / react-hooks 7.1）では一旦 off にしてスコープを保つ。
+      // 個別の解消は専用リファクタで対応する。
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/refs": "off",
+      "react-hooks/immutability": "off",
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       // console 直書きを禁止し、ログ出力は utils/logger.ts 経由に統一する。
       // logger 自身は下の override で例外にしている。
