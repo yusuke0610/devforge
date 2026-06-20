@@ -7,7 +7,7 @@
 	ci \
 	dupe-check dupe-check-html dupe-clean \
 	build-web build-backend deploy-web \
-	gen-redirects codegen-types \
+	gen-redirects codegen-types licenses \
 	migrate migrate-create \
 	infra-fmt infra-fmt-check infra-validate-dev infra-validate-stg infra-validate-prod infra-validate \
 	clean
@@ -55,6 +55,7 @@ help:
 	@echo "  deploy-web   Cloudflare Pages へビルド＆デプロイ (CLOUD_RUN_URL=... 指定可)"
 	@echo "  gen-redirects     Cloudflare Pages 用 _redirects を生成 (CLOUD_RUN_URL=... 指定可)"
 	@echo "  codegen-types     OpenAPI から web 型 (src/api/generated.ts) を再生成 (ADR-0007)"
+	@echo "  licenses          使用 OSS の一覧 (THIRD_PARTY_LICENSES.md) を再生成"
 	@echo ""
 	@echo "マイグレーション"
 	@echo "  migrate           alembic upgrade head"
@@ -196,6 +197,16 @@ gen-redirects:
 # WeasyPrint 等のネイティブ依存解決が必要なため Nix devshell 経由で実行する。
 codegen-types:
 	nix develop --command bash -c "set -e; cd backend && .venv/bin/python scripts/export_openapi.py && cd ../web && node scripts/gen-types.mjs"
+
+# ------------------------------------------------------------------ #
+# 使用 OSS ライセンス一覧
+# ------------------------------------------------------------------ #
+
+# 直接依存 OSS の一覧と各ライセンスを web/package.json・backend/requirements.txt
+# から収集し THIRD_PARTY_LICENSES.md を再生成する。importlib.metadata を使うため
+# backend の依存がインストール済みの Nix devshell 経由で実行する。
+licenses:
+	nix develop --command bash -c "backend/.venv/bin/python scripts/gen-third-party-licenses.py"
 
 # ------------------------------------------------------------------ #
 # マイグレーション
