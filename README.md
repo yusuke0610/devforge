@@ -143,3 +143,9 @@ graph TB
     SA -->|"実行権限"| CloudRun
     SA -->|"secretAccessor"| Secrets
 ```
+
+## 使用 OSS / ライセンス表記
+
+DevForge は多くのオープンソースソフトウェアに支えられています。直接依存している OSS の一覧と各ライセンス・配布元へのリンクは [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md) にまとめています（各 OSS の権利はそれぞれの著作権者に帰属します）。
+
+依存を追加・更新した際は `make licenses` で再生成してください。
