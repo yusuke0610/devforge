@@ -10,7 +10,7 @@ pydantic[email]==2.10.3
 python-dotenv==1.2.2
 reportlab==4.2.5
 google-cloud-storage==2.19.0
-pytest==9.0.3
+pytest==9.1.1
 python-jose[cryptography]==3.5.0
 httpx==0.28.1
 # マルチプロバイダ LLM（ADR-0013）。Gemini = google-genai、GPT = openai。
