@@ -22,7 +22,7 @@ openai==2.43.0
 # Stripe Checkout / Webhook 署名検証（ADR-0012 Phase 2）。公式ライブラリを使う
 stripe==15.2.1
 PyGithub==2.9.1
-pandas==2.3.3
+pandas==3.0.3
 slowapi==0.1.10
 ruff==0.15.18
 autopep8==2.3.2
