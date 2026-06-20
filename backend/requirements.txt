@@ -16,7 +16,7 @@ httpx==0.28.1
 # マルチプロバイダ LLM（ADR-0013）。Gemini = google-genai、GPT = openai。
 # 供給網リスク（レンジ内 yank / 侵害バージョンの混入）を避けるため == で固定する。
 # CVE は CI の pip-audit が検出するので、検出時に明示バージョンを引き上げる運用とする。
-anthropic==0.109.2
+anthropic==0.111.0
 google-genai==2.8.0
 openai==1.109.1
 # Stripe Checkout / Webhook 署名検証（ADR-0012 Phase 2）。公式ライブラリを使う
