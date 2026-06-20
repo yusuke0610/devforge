@@ -6,6 +6,10 @@
     "moduleResolution": "Bundler",
     "allowSyntheticDefaultImports": true,
     "strict": true,
+    // playwright-core 同梱の .d.ts が古い `module` namespace 構文を使っており、
+    // TypeScript 6 では TS1540 でエラーになる。アプリ側 (tsconfig.app.json) と同様に
+    // 依存ライブラリの型チェックはスキップする（自前コードの型検査には影響しない）。
+    "skipLibCheck": true,
     "types": [
       "node"
     ]
