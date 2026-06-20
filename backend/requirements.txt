@@ -3,7 +3,7 @@ fastapi==0.136.1
 # さらに CVE-2026-54282 / CVE-2026-54283 対策で 1.3.1 へ更新
 starlette==1.3.1
 uvicorn[standard]==0.34.0
-sqlalchemy==2.0.36
+sqlalchemy==2.0.51
 sqlalchemy-libsql==0.2.0
 alembic==1.14.1
 pydantic[email]==2.10.3
