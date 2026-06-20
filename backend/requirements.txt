@@ -27,7 +27,7 @@ slowapi==0.1.10
 ruff==0.12.11
 autopep8==2.3.2
 markdown==3.10.2
-weasyprint==68.0
+weasyprint==68.1
 pydyf==0.12.1
 redis==5.3.1
 isort==5.12.0
