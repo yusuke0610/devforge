@@ -13,7 +13,7 @@ paths:
 - **既存エンドポイントの契約変更**: ステータスコード / レスポンス body / 副作用が変わる場合、既存テストの assert を見直す（旧契約を固定化したテストが残ると意図が後退する）
 - **リポジトリ層・サービス層のロジック変更**: 該当ユニットテスト（`tests/test_<module>.py` / `tests/services/`）を更新
 - **タスクハンドラの追加・変更**: `tests/test_worker_extended.py` または `tests/test_worker_timeout.py` に状態遷移（`processing` → `completed` / `dead_letter` / `retrying`）のテストを追加
-- **マイグレーション追加**: 実 DB に対する upgrade/downgrade が通ることを `make test-backend` で確認
+- **マイグレーション追加**: upgrade/downgrade は `make test-backend`（pytest）では検証されない（後述「pytest が通らない経路」参照）。実 libSQL に対する適用は CI の `smoke-backend` で確認され、ローカルでは `database.md` の手順（offline SQL / `make dev-build`）で確認する
 - **暗号化・認証関連**: `tests/test_auth.py` / `tests/test_encryption.py` / `tests/test_oauth_flow.py` を必ず回す
 
 ## 実行コマンド
