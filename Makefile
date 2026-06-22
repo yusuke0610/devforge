@@ -1,6 +1,6 @@
 .PHONY: help \
 	setup install-hooks install-backend install-web generate-keys \
-	dev dev-build dev-down dev-web preview-web dev-proxy dev-proxy-only stripe-webhook \
+	dev dev-build dev-down dev-amd64 dev-amd64-build dev-web preview-web dev-proxy dev-proxy-only stripe-webhook \
 	test test-backend test-web \
 	lint lint-backend lint-web lint-web-messages lint-fix \
 	format format-check \
@@ -27,6 +27,8 @@ help:
 	@echo "  dev               docker-compose で API を起動"
 	@echo "  dev-build         再ビルドして起動"
 	@echo "  dev-down          docker-compose を停止"
+	@echo "  dev-amd64         本番と同じ amd64 で API を起動 (native 不具合の再現用 / Mac では低速)"
+	@echo "  dev-amd64-build   amd64 で再ビルドして起動"
 	@echo "  dev-web      Frontend 開発サーバーを起動 (Vite / localhost:5173)"
 	@echo "  preview-web  ビルド済みを wrangler でローカル提供 (HMR なし / localhost:8788)"
 	@echo "  stripe-webhook    Stripe Webhook を localhost:8000 へ転送 (要 stripe login / whsec を .env へ)"
@@ -102,6 +104,12 @@ dev-build:
 
 dev-down:
 	docker compose down
+
+dev-amd64:
+	docker compose -f docker-compose.yml -f docker-compose.amd64.yml up
+
+dev-amd64-build:
+	docker compose -f docker-compose.yml -f docker-compose.amd64.yml up --build
 
 stripe-webhook:
 	nix develop --command stripe listen --forward-to localhost:8000/api/billing/webhook
