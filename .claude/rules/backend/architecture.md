@@ -103,4 +103,5 @@ backend/app/
 
 - **routers/auth/ と routers/blog/**: いずれもパッケージ化されている。auth は `endpoints` / `github_auth` / `oauth_flow` / `token_manager`、blog は `accounts` / `score` / `sync` に責務分割
 - **services/tasks/**: Cloud Tasks（本番）と BackgroundTasks（ローカル）を共通の `execute_task` でディスパッチ。状態遷移（`processing` / `completed` / `dead_letter` / `retrying`）は worker が担う。現在登録されているタスクは `GITHUB_LINK` の 1 種類のみだが、`AsyncTaskCacheService` / `TaskHandler` は新規タスク追加の拡張ポイントとして汎用化してある（インライン化しない）
+  - **タスクハンドラの「黙って return」は禁止**: 失敗パスでは `NonRetryableError` / `RetryableError` を `raise` し、`dead_letter` / `retrying` 遷移と通知発行を worker に任せる。早期 return すると呼び出し側に completed として観測されてしまう
 - **services/intelligence/**: GitHub 連携 → スキル集計パイプライン。`github_link_service` → `pipeline` → `github_collector` → `skill_extractor` が live 経路。LLM は使わず決定論的（ルールベース）に処理する（intelligence モジュールは LLM を使わない。LLM は services/agent/ のみ / ADR-0010）

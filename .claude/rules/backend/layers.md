@@ -6,7 +6,7 @@ paths:
 # Backend 層の境界ルール
 
 `backend/architecture.md` が「何があるか」を示すのに対し、このファイルは「各層で何を書いてはいけないか」の禁止事項を補完する。
-新しい負債を発見したら本ファイルの Bad/Good 例と `CLAUDE.md`「失敗から学んだ知見」の両方を更新すること。
+層責務に関する再発防止ルールはこのファイルが正本。新しい負債を発見したら本ファイルの Bad/Good 例を更新すること（`CLAUDE.md`「失敗から学んだ知見」の索引表からはここを指している）。
 
 ## 層ごとの責務と禁止事項
 
@@ -90,7 +90,7 @@ class GitHubLinkCacheRepository:
             self.db.add(cache)
             self.db.flush()
         # IntegrityError 後の再 SELECT が None を返す場合は RuntimeError を上げる
-        # （CLAUDE.md「失敗から学んだ知見」参照）
+        # （詳細: .claude/rules/backend/database.md）
         return cache
 ```
 
