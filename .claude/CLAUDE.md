@@ -123,6 +123,7 @@ CI 定義: `.github/workflows/ci.yml`
 | **stage** | 実装 → `make ci` → `git add` まで。作業開始時にブランチを切り損ねて `main` にいた場合はここで feature ブランチを `origin/main` 起点で切る（本来は「作業開始時のブランチ運用」で切る）。会話に「サマリ＋判断が必要な事案」を提示し、ユーザーのエディタ確認を待つ |
 | **commit** | コミットメッセージ案（**日本語**）を提示 → **ユーザー承認を待ってから** commit。承認は必須ゲート |
 | **pr** | `git fetch origin main` → `git log --oneline origin/main..HEAD` / `git diff --stat origin/main...HEAD` で**最新の main との差分を確認**（ローカルの古い `origin/main` 参照で誤認しないため）→ `git push` → `gh pr create`（**日本語**タイトル/本文、base = `main`）→ PR URL を返す |
+| **pr 後の追従** | PR 作成後、`gh pr checks` / `gh pr view --comments` で **CI と指摘を確認**。こけ・指摘があれば修正 → `make ci` → 同ブランチへ push を green かつ解消まで繰り返す。CI 修正は実装フェーズなので元のモデルで（Haiku のままにしない）。**ただし意思決定を要する指摘（設計・API/型契約・挙動変更）と diff 範囲を逸脱する指摘は、勝手に直さず指摘内容・対応案・影響範囲を提示して承認を待つ**。範囲内の機械的修正（lint / typo 等）は承認不要 |
 
 修正依頼時に「PR まで」等と言われたら、コミットメッセージ承認だけ挟んで一気通貫で進めてよい。段階を飛ばす指定も尊重する。
 
@@ -156,17 +157,15 @@ Claude Code は `/model` コマンドを自分では実行できないため、�
 
 ## 失敗から学んだ知見
 
-過去の手戻り・障害から導いた再発防止ルール。
+過去の手戻り・障害から導いた再発防止ルール。**領域固有の項目は各 scoped rule に集約済み**（対象パス編集時に自動ロードされる）。ここには領域横断（常に効かせたい）ものだけを残す。
 
 - **テストで DB をモックしない**: 統合テストは実 DB（テスト用 SQLite セッション）に当てる。モック/本番乖離でマイグレーション失敗を見落とした実績がある。
 - **新規ブランチは `origin/main` 起点で切る**: リリース前は全てを `main` にマージする運用。以前は `origin/dev` 起点だったが dev 環境作業の名残で、現在は廃止。
-- **契約変更時は既存テストの assert を必ず見直す**: 戻り値・例外仕様を変える時、旧契約を固定化したテスト（例: `test_no_cache_returns_early` のような silent-return アサーション）が残ると修正の意図が後退する。テスト名と本体の両方を更新する。
-- **`IntegrityError` 後の再 SELECT は `None` を判定する**: ユニーク制約衝突後の再取得で他セッションが先に commit したケースを想定し、`None` ならば明示的に `RuntimeError` を上げる。戻り値型が non-Optional な関数で握りつぶさないこと。
-- **タスクハンドラの「黙って return」は禁止**: 失敗パスでは `NonRetryableError` / `RetryableError` を `raise` し、worker に `dead_letter` / `retrying` 遷移と通知発行を任せる。早期 return は呼び出し側に completed として観測される。
-- **lint 失敗時は当該ファイルだけ確認**: `make lint-backend` が他ファイルの I001 等で落ちる場合、自分の変更分は `nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check <touched_file>"` で個別検証してから進める（既存違反を巻き込まない）。
-- **Router には「エンドポイント定義・依存性解決・HTTP 変換」のみ**: 外部 API 呼び出し・DB クエリ（`db.query(...)` 直書き）・ビジネスロジックを router に書かない。外部 API の例外は service 層で処理し、router では `raise_app_error` への変換のみ行う。詳細・Bad/Good 例: `.claude/rules/backend/layers.md`
-- **ORM model には「テーブル定義・リレーション」のみ**: ソート・フォーマット等の表示ロジックを `@property` として model に持たせない。`sort_utils` のような presentation 層ユーティリティを model に import しない。ソートは `relationship(order_by=...)` か service 層で行う。詳細: `.claude/rules/backend/layers.md`
-- **300 行超のコンポーネント・500 行超のサービスモジュールは分割を検討する**: 行数は目安（強制閾値ではない）だが、超過したら責務が複数混在していないかを確認する。モーダル状態や更新ハンドラ群は専用フックに切り出す。詳細・Good パターン例: `.claude/rules/web/component-design.md`
+
+領域別の再発防止ルールは各 scoped rule に集約（対象パス編集時に自動ロード）:
+
+- **Backend**: 契約変更時の assert 見直し → `rules/backend/test.md` / lint の当該ファイル個別検証 → `rules/backend/python.md` / `IntegrityError` 後の再 SELECT は `None` 判定で `RuntimeError` → `rules/backend/database.md` / タスクハンドラの黙って return 禁止 → `rules/backend/architecture.md` / Router・ORM model の責務境界 → `rules/backend/layers.md`
+- **Web**: 300/500 行超コンポーネント・サービスモジュールの分割検討 → `rules/web/component-design.md`
 
 ## 命名規約
 

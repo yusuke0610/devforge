@@ -10,6 +10,7 @@ paths:
 - 日付は可能な限り DB の `DATE` / `TIMESTAMP` を使うこと
 - `blog_articles` は `account_id` 起点で管理し、`user_id` や `platform` を冗長保持しないこと
 - マイグレーション: Alembic（`backend/alembic_migrations/versions/`）。詳細は下記「マイグレーション運用」を参照
+- **`IntegrityError` 後の再 SELECT は `None` を判定する**: ユニーク制約衝突後の再取得で、他セッションが先に commit していたケースを想定する。再 SELECT が `None` を返したら明示的に `RuntimeError` を上げ、戻り値型が non-Optional な関数で握りつぶさないこと
 
 ## マイグレーション運用
 
