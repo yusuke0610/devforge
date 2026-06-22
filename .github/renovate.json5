@@ -66,6 +66,16 @@
       pinDigests: true,
     },
     {
+      // backend の Python ベースイメージは 3.14 未満に固定する。
+      // libsql-experimental（sqlalchemy-libsql 経由）が Python 3.14 未対応で、
+      // 3.14 にするとマイグレーション時にネイティブ拡張が segfault する（exit 139）。
+      // upstream 対応待ち: tursodatabase/libsql-experimental-python#106。
+      // 3.13.x の patch 追従と digest 更新は許可し、3.14 への bump のみ抑止する。
+      matchManagers: ["dockerfile"],
+      matchPackageNames: ["python"],
+      allowedVersions: "<3.14",
+    },
+    {
       // Nix: flake.lock の locked input（nixpkgs unstable / flake-utils）を追従。
       // Mend hosted app では nix manager が動作する。
       matchManagers: ["nix"],
