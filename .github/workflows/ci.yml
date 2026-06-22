@@ -285,6 +285,71 @@ jobs:
             exit 1
           fi
 
+  # コンテナ起動スモークテスト。
+  # test-backend は uv + 標準 SQLite で動くため、本番イメージ（Dockerfile）の
+  # ビルド・libsql ネイティブドライバ・alembic マイグレーション実行・uvicorn 起動という
+  # 実行パスを一度も通らない。実際にイメージを build → libsql を立てて起動し、
+  # /health（DB 接続を検証する）が 200 を返すことを確認することで、
+  # 「ビルドは通るが起動時にネイティブ拡張が segfault する」種の不具合を CI で検知する。
+  # （例: Python 3.14 への bump で libsql-experimental が segfault した事象）
+  smoke-backend:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    timeout-minutes: 20
+    if: needs.detect-changes.outputs.app == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: 起動用の一時シークレットを生成 (.env)
+        run: |
+          # 起動検証専用の使い捨て鍵。永続化せず CI 実行限りで破棄する。
+          PRIV="$(openssl genrsa 2048 2>/dev/null)"
+          PUB="$(printf '%s' "$PRIV" | openssl rsa -pubout 2>/dev/null)"
+          # docker-compose の .env は複数行値を扱えないため、PEM を \n エスケープした
+          # 1 行値にする（settings.get_jwt_private_key が \n をアンエスケープする）。
+          PRIV_ESC="$(printf '%s' "$PRIV" | awk 'BEGIN{ORS="\\n"}{print}')"
+          PUB_ESC="$(printf '%s' "$PUB" | awk 'BEGIN{ORS="\\n"}{print}')"
+          # Fernet 鍵 = 32 バイトの urlsafe base64
+          FERNET="$(openssl rand -base64 32 | tr '+/' '-_')"
+          cat > .env <<EOF
+          TURSO_DATABASE_URL=http://libsql:8080
+          TURSO_AUTH_TOKEN=
+          FIELD_ENCRYPTION_KEY=${FERNET}
+          JWT_PRIVATE_KEY=${PRIV_ESC}
+          JWT_PUBLIC_KEY=${PUB_ESC}
+          CORS_ORIGINS=http://localhost:5173
+          ENVIRONMENT=local
+          LLM_LOCAL_OLLAMA=1
+          EOF
+
+      - name: イメージを build してスタックを起動
+        run: docker compose up -d --build api
+
+      - name: /health が 200 を返すまで待機（起動成功を検証）
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8000/health; then
+              echo
+              echo "✅ backend 起動成功"
+              exit 0
+            fi
+            state="$(docker inspect -f '{{.State.Status}}' devforge-api 2>/dev/null || echo missing)"
+            if [ "$state" != "running" ]; then
+              echo "::error::api コンテナが起動状態ではありません (state=$state)。Segfault / マイグレーション失敗などの可能性。"
+              break
+            fi
+            sleep 2
+          done
+          echo "----- api logs -----"
+          docker compose logs api
+          exit 1
+
+      - name: 後片付け
+        if: always()
+        run: docker compose down -v
+
   deploy-web:
     runs-on: ubuntu-latest
     needs: [detect-changes, test-web, test-backend, codegen-drift]

@@ -27,6 +27,10 @@ make test-backend                    # 全テスト
 nix develop --command bash -c "cd backend && .venv/bin/python -m pytest tests/test_worker_extended.py -q"
 ```
 
+### pytest が通らない経路（コンテナ起動スモーク）
+
+pytest は標準 SQLite + `Base.metadata.create_all` で動くため、**本番イメージのビルド・libsql ネイティブドライバ・alembic マイグレーション・uvicorn 起動の実行パスは検証しない**。この経路は CI の `smoke-backend` ジョブ（本番イメージ build → 実 libSQL 起動 → `/health` 200）でカバーする。backend の Dockerfile・依存・起動経路（`scripts/entrypoint.sh` / `app/db/bootstrap.py`）を変えたら smoke-backend が green であることを確認すること。ローカルで本番 arch（amd64）の起動を再現したいときは `make dev-amd64-build`。
+
 ## OK 基準（達成条件）
 
 以下をすべて満たして初めて「テスト OK」と判定する:

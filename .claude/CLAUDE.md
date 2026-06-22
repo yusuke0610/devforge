@@ -160,6 +160,7 @@ Claude Code は `/model` コマンドを自分では実行できないため、�
 過去の手戻り・障害から導いた再発防止ルール。**領域固有の項目は各 scoped rule に集約済み**（対象パス編集時に自動ロードされる）。ここには領域横断（常に効かせたい）ものだけを残す。
 
 - **テストで DB をモックしない**: 統合テストは実 DB（テスト用 SQLite セッション）に当てる。モック/本番乖離でマイグレーション失敗を見落とした実績がある。
+- **ネイティブ／コンテナ起動はスモークテストで必ず検証する**: pytest（`make test-backend`）は標準 SQLite で動き、本番イメージのビルド・libsql ネイティブドライバ・alembic マイグレーション・uvicorn 起動の実行パスを通らない。この穴は CI の `smoke-backend` ジョブ（本番イメージ build → 実 libSQL 起動 → `/health` 200 を検証）で塞ぐ。backend の Dockerfile / 依存 / 起動経路を変えたら smoke-backend が green であることを確認する（Python 3.14 bump で libsql が起動時 segfault した事象の再発防止）。詳細: `.claude/rules/backend/test.md` / `database.md`
 - **新規ブランチは `origin/main` 起点で切る**: リリース前は全てを `main` にマージする運用。以前は `origin/dev` 起点だったが dev 環境作業の名残で、現在は廃止。
 
 領域別の再発防止ルールは各 scoped rule に集約（対象パス編集時に自動ロード）:
