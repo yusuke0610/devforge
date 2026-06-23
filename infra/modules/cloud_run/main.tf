@@ -9,13 +9,10 @@ locals {
     "jwt-public-key",
     "internal-secret",
     "turso-auth-token",
-    # 棚卸し TODO（ADR-0015）: Gemini / Anthropic を Vertex AI（SA→ADC）へ移行したため
-    # 以下 2 つのキーは Cloud Run へ注入しなくなった。コンテナ自体の削除は別 PR で
-    # 全環境の設定から外したことを確認してから実施する（field-encryption-key と同様）。
-    "anthropic-api-key",
-    "google-api-key",
-    # OpenAI のみ GCP に存在せず API キーを継続使用（ADR-0015）。
-    # コンテナは常に作成し、注入は enable_extra_llm_providers が true の環境のみ
+    # Gemini / Anthropic は Vertex AI（SA→ADC）へ移行済み（ADR-0015）。注入廃止に伴い
+    # anthropic-api-key / google-api-key のシークレットコンテナと secretAccessor も削除した
+    # （least privilege）。apply で当該シークレットが destroy される点に注意。
+    # OpenAI のみ GCP に存在せず API キーを継続使用（注入は enable_extra_llm_providers が true の環境のみ）
     "openai-api-key",
     # 決済（Stripe Checkout / ADR-0012 Phase 2）の API キーと Webhook 署名シークレット
     "stripe-secret-key",
