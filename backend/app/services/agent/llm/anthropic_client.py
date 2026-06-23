@@ -1,12 +1,18 @@
-"""Anthropic API クライアント（本番用。モデルは model_catalog.py で解決）。"""
+"""Anthropic API クライアント（本番用。モデルは model_catalog.py で解決）。
+
+認証は Vertex AI Model Garden（Cloud Run の SA → ADC）経由で、API キーは使わない
+（ADR-0015）。Messages API のロジック（tool use 強制 / usage 抽出）は Vertex
+クライアントでも共通のため `generate()` は据え置く。
+"""
 
 import json
 
 import anthropic
+from anthropic import AsyncAnthropicVertex
 
 from ....core import settings
 from ..output_schema import TOOL_NAME, build_tool_definition
-from .base import LLMClient, LLMError, LLMResult, require_api_key, wrap_api_error
+from .base import LLMClient, LLMError, LLMResult, require_gcp_project, wrap_api_error
 
 # operations JSON（最大 4500 文字のテキスト置換 + 説明文）に十分な上限
 _MAX_TOKENS = 4096
@@ -19,10 +25,12 @@ class AnthropicClient(LLMClient):
     """Anthropic Messages API を呼び出すクライアント。"""
 
     def __init__(self) -> None:
-        """ANTHROPIC_API_KEY を検証し、非同期クライアントを初期化する。"""
-        api_key = require_api_key(settings.get_anthropic_api_key(), "ANTHROPIC_API_KEY")
-        self._client = anthropic.AsyncAnthropic(
-            api_key=api_key, timeout=_TIMEOUT_SECONDS
+        """GCP プロジェクトを検証し、Vertex AI 経由の非同期クライアントを初期化する。"""
+        project = require_gcp_project(settings.get_gcp_project_id())
+        self._client = AsyncAnthropicVertex(
+            project_id=project,
+            region=settings.get_vertex_anthropic_location(),
+            timeout=_TIMEOUT_SECONDS,
         )
 
     async def generate(

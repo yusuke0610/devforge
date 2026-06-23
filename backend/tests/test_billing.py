@@ -84,7 +84,8 @@ def test_model_catalog_matches_schema_alias() -> None:
 
 def test_model_catalog_resolves_real_model_ids() -> None:
     """エイリアスから実モデル ID と無料/有料フラグが解決できる。"""
-    assert MODEL_CATALOG["haiku"].model_id == "claude-haiku-4-5"
+    # Vertex AI の Anthropic model id は版指定が要る（Haiku は @20251001 必須 / ADR-0015）
+    assert MODEL_CATALOG["haiku"].model_id == "claude-haiku-4-5@20251001"
     assert MODEL_CATALOG["haiku"].is_free is True
     assert MODEL_CATALOG["sonnet"].model_id == "claude-sonnet-4-6"
     assert MODEL_CATALOG["sonnet"].is_free is False
@@ -177,7 +178,7 @@ def test_chat_haiku_works_with_zero_balance(client: TestClient, monkeypatch) -> 
     resp = client.post("/api/agent/chat", json=_chat_payload(), headers=headers)
 
     assert resp.status_code == 200
-    assert fake.received_model_id == "claude-haiku-4-5"
+    assert fake.received_model_id == "claude-haiku-4-5@20251001"
     user_id = _get_user_id(client, "billing-haiku")
     repo = BillingRepository(client._db_session, user_id)
     assert repo.get_balance() == 0

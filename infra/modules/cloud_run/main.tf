@@ -9,11 +9,13 @@ locals {
     "jwt-public-key",
     "internal-secret",
     "turso-auth-token",
-    # DevForge Agent（ADR-0010）の Anthropic API キー
+    # 棚卸し TODO（ADR-0015）: Gemini / Anthropic を Vertex AI（SA→ADC）へ移行したため
+    # 以下 2 つのキーは Cloud Run へ注入しなくなった。コンテナ自体の削除は別 PR で
+    # 全環境の設定から外したことを確認してから実施する（field-encryption-key と同様）。
     "anthropic-api-key",
-    # マルチプロバイダ LLM（ADR-0013）の Gemini / OpenAI API キー。
-    # コンテナは常に作成し、注入は enable_extra_llm_providers が true の環境のみ
     "google-api-key",
+    # OpenAI のみ GCP に存在せず API キーを継続使用（ADR-0015）。
+    # コンテナは常に作成し、注入は enable_extra_llm_providers が true の環境のみ
     "openai-api-key",
     # 決済（Stripe Checkout / ADR-0012 Phase 2）の API キーと Webhook 署名シークレット
     "stripe-secret-key",
@@ -29,7 +31,6 @@ locals {
     JWT_PUBLIC_KEY        = "jwt-public-key"
     INTERNAL_SECRET       = "internal-secret"
     TURSO_AUTH_TOKEN      = "turso-auth-token"
-    ANTHROPIC_API_KEY     = "anthropic-api-key"
     STRIPE_SECRET_KEY     = "stripe-secret-key"
     STRIPE_WEBHOOK_SECRET = "stripe-webhook-secret"
   }
@@ -37,10 +38,10 @@ locals {
     GITHUB_CLIENT_ID     = "github-client-id"
     GITHUB_CLIENT_SECRET = "github-client-secret"
   } : {}
-  # マルチプロバイダ LLM（ADR-0013）。有効時のみ Gemini / OpenAI キーを注入する。
+  # マルチプロバイダ LLM。Gemini / Anthropic は Vertex AI（SA→ADC）経由のためキー注入は
+  # 不要になり（ADR-0015）、本マップは OpenAI キーのみを gate する。有効時のみ注入し、
   # 無効なら secret version 未投入でも Cloud Run が起動できる
   llm_secret_env = var.enable_extra_llm_providers ? {
-    GOOGLE_API_KEY = "google-api-key"
     OPENAI_API_KEY = "openai-api-key"
   } : {}
 
@@ -113,6 +114,16 @@ resource "google_cloud_run_v2_service" "app" {
       env {
         name  = "GCP_PROJECT_ID"
         value = var.project_id
+      }
+      # Vertex AI（SA→ADC）の provider 別ロケーション（ADR-0015）。
+      # Gemini=Tokyo、Claude は Tokyo 未提供のため Singapore。GCP_PROJECT_ID を共用。
+      env {
+        name  = "VERTEX_LOCATION"
+        value = var.vertex_location
+      }
+      env {
+        name  = "VERTEX_ANTHROPIC_LOCATION"
+        value = var.vertex_anthropic_location
       }
       env {
         name  = "CLOUD_TASKS_QUEUE"

@@ -84,6 +84,18 @@ def require_api_key(value: str, label: str) -> str:
     return value
 
 
+def require_gcp_project(value: str) -> str:
+    """Vertex AI クライアント（Gemini / Anthropic）の GCP プロジェクト ID を検証する。
+
+    Vertex 経由のプロバイダは API キーの代わりに SA(ADC) + プロジェクト ID で認証する
+    （ADR-0015）。空なら LLMError、非空ならそのまま返す。ローカルは LLM_LOCAL_OLLAMA で
+    Vertex クライアントを生成しないため、この検証は本番（Cloud Run）経路でのみ効く。
+    """
+    if not value:
+        raise LLMError("GCP_PROJECT_ID が設定されていません")
+    return value
+
+
 def wrap_api_error(provider: str, exc: Exception) -> "LLMError":
     """プロバイダ SDK 例外を LLMError へ変換する（ログ + 整形）。
 

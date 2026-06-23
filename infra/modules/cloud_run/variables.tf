@@ -64,6 +64,18 @@ variable "cloud_tasks_location" {
   default     = "asia-northeast1"
 }
 
+variable "vertex_location" {
+  description = "Gemini を叩く Vertex AI のロケーション（ADR-0015）。"
+  type        = string
+  default     = "asia-northeast1"
+}
+
+variable "vertex_anthropic_location" {
+  description = "Claude を叩く Vertex AI のロケーション。Tokyo 未提供のため Singapore（ADR-0015）。"
+  type        = string
+  default     = "asia-southeast1"
+}
+
 variable "cloud_tasks_service_account" {
   description = "Cloud Tasks OIDC 認証用サービスアカウントメール。"
   type        = string

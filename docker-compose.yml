@@ -35,10 +35,12 @@ services:
       CALLBACK_BASE_URL: ${CALLBACK_BASE_URL}
       TASK_MAX_ATTEMPTS: ${TASK_MAX_ATTEMPTS}
       # DevForge Agent（ADR-0010）。ローカルは Ollama を既定とする
-      # ローカルは Ollama 上書きで無料動作（ADR-0013）。実 API で確認したい時は 0 にしてキーを設定
+      # ローカルは Ollama 上書きで無料動作（ADR-0013）。Gemini/Anthropic は本番では
+      # Vertex AI（SA→ADC）経由（ADR-0015）でキー不要。ローカルで実 Vertex を叩く場合のみ
+      # gcloud auth application-default login で ADC を用意する（GCP_PROJECT_ID は上で設定済み）。
       LLM_LOCAL_OLLAMA: ${LLM_LOCAL_OLLAMA:-1}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      VERTEX_LOCATION: ${VERTEX_LOCATION}
+      VERTEX_ANTHROPIC_LOCATION: ${VERTEX_ANTHROPIC_LOCATION}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
       OLLAMA_MODEL: ${OLLAMA_MODEL}
