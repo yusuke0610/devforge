@@ -16,14 +16,17 @@ resource "cloudflare_pages_project" "app" {
 # app.<zone> へ CNAME レコードを作成（Cloudflare Proxy 経由）
 # use_custom_domain = false の場合はカスタムドメインを使わず、
 # Pages のデフォルト *.pages.dev サブドメインのみで運用する（ゾーン未所有でも可）。
-resource "cloudflare_record" "app" {
+# provider v5 で cloudflare_record は cloudflare_dns_record へ改名、value → content、
+# ttl が必須（proxied レコードは 1 = automatic）。
+resource "cloudflare_dns_record" "app" {
   count = var.use_custom_domain ? 1 : 0
 
   zone_id = var.cloudflare_zone_id
   name    = var.subdomain
   type    = "CNAME"
-  value   = cloudflare_pages_project.app.subdomain
+  content = cloudflare_pages_project.app.subdomain
   proxied = true
+  ttl     = 1
 
   lifecycle {
     # use_custom_domain = true なのに zone_id 未指定だと provider が不明瞭な
