@@ -68,12 +68,22 @@ variable "vertex_location" {
   description = "Gemini を叩く Vertex AI のロケーション（ADR-0015）。"
   type        = string
   default     = "asia-northeast1"
+  # 空文字は VERTEX_LOCATION="" を注入し backend のデフォルト補完を潰すため弾く
+  validation {
+    condition     = trimspace(var.vertex_location) != ""
+    error_message = "vertex_location must not be empty."
+  }
 }
 
 variable "vertex_anthropic_location" {
   description = "Claude を叩く Vertex AI のロケーション。Tokyo 未提供のため Singapore（ADR-0015）。"
   type        = string
   default     = "asia-southeast1"
+  # 空文字は VERTEX_ANTHROPIC_LOCATION="" を注入し backend のデフォルト補完を潰すため弾く
+  validation {
+    condition     = trimspace(var.vertex_anthropic_location) != ""
+    error_message = "vertex_anthropic_location must not be empty."
+  }
 }
 
 variable "cloud_tasks_service_account" {

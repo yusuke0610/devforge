@@ -37,3 +37,11 @@ resource "cloudflare_dns_record" "app" {
     }
   }
 }
+
+# provider v5 のリソース改名（cloudflare_record → cloudflare_dns_record）に伴う state 移設。
+# 全環境 use_custom_domain = false（count = 0）で現状インスタンスは無いが、カスタムドメインを
+# 有効化済みの state が存在する場合に destroy/recreate（DNS ダウンタイム）を防ぐ。
+moved {
+  from = cloudflare_record.app
+  to   = cloudflare_dns_record.app
+}

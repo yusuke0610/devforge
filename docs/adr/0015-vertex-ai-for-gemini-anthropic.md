@@ -44,7 +44,7 @@ Cloud Run の SA には `roles/aiplatform.user` が既に付与済みで、IAM �
 - **クロスリージョンのレイテンシ**: Claude のみ Singapore のため Cloud Run(Tokyo) からのレイテンシが Gemini より増える。許容範囲の想定。
 - **Anthropic on Vertex のモデル可用性**: `asia-southeast1` での Claude 提供と model id（版）は Model Garden が正本。提供が無ければ region 再検討（global 等）。
 - **無料枠の喪失**: ADR-0013 の「dev 無料確認」動機（Gemini Flash 無料枠）は Vertex では消える。dev 確認は Ollama 無料パスで吸収する。
-- **未使用シークレットの残置**: `anthropic-api-key` / `google-api-key` の Secret Manager コンテナは注入停止のみ行い、削除は別 PR で全環境の設定除外を確認後に実施（破壊的操作の分離）。
+- **未使用シークレットの削除**: `anthropic-api-key` / `google-api-key` は注入停止に加え、`secret_names` からも除外して Secret Manager コンテナと secretAccessor を削除する（least privilege）。`tofu apply` で当該シークレットが destroy される不可逆操作のため、pre-migration の Cloud Run revision へのロールバックは不可になる点に注意。
 
 ## 将来の移行条件
 
