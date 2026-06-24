@@ -81,7 +81,13 @@ def _patch_google(monkeypatch, *, response=None, error=None) -> MagicMock:
     """google.genai.Client をモックし、aio.models.generate_content を差し替える。"""
     from app.services.agent.llm import google_client
 
-    monkeypatch.setattr(google_client.settings, "get_google_api_key", lambda: "test-key")
+    # Vertex 化（ADR-0015）後はキーではなく GCP プロジェクト + ロケーションで初期化する
+    monkeypatch.setattr(
+        google_client.settings, "get_gcp_project_id", lambda: "test-project"
+    )
+    monkeypatch.setattr(
+        google_client.settings, "get_vertex_location", lambda: "asia-northeast1"
+    )
     gen = AsyncMock(side_effect=error) if error else AsyncMock(return_value=response)
     fake_client = MagicMock()
     fake_client.aio.models.generate_content = gen
@@ -112,13 +118,13 @@ def test_google_client_returns_text_and_usage(monkeypatch) -> None:
     assert "additionalProperties" not in str(config.response_schema)
 
 
-def test_google_client_missing_key_raises(monkeypatch) -> None:
-    """GOOGLE_API_KEY 未設定は LLMError。"""
+def test_google_client_missing_project_raises(monkeypatch) -> None:
+    """GCP_PROJECT_ID 未設定は LLMError（Vertex 認証の前提が無い / ADR-0015）。"""
     from app.services.agent.llm import google_client
     from app.services.agent.llm.google_client import GoogleClient
 
-    monkeypatch.setattr(google_client.settings, "get_google_api_key", lambda: "")
-    with pytest.raises(LLMError, match="GOOGLE_API_KEY"):
+    monkeypatch.setattr(google_client.settings, "get_gcp_project_id", lambda: "")
+    with pytest.raises(LLMError, match="GCP_PROJECT_ID"):
         GoogleClient()
 
 
@@ -220,17 +226,23 @@ def test_openai_client_empty_response_raises(monkeypatch) -> None:
 
 
 def _patch_anthropic(monkeypatch, *, response=None, error=None) -> MagicMock:
-    """anthropic.AsyncAnthropic をモックし、messages.create を差し替える。"""
+    """anthropic.AsyncAnthropicVertex をモックし、messages.create を差し替える。"""
     from app.services.agent.llm import anthropic_client
 
+    # Vertex 化（ADR-0015）後はキーではなく GCP プロジェクト + ロケーションで初期化する
     monkeypatch.setattr(
-        anthropic_client.settings, "get_anthropic_api_key", lambda: "test-key"
+        anthropic_client.settings, "get_gcp_project_id", lambda: "test-project"
+    )
+    monkeypatch.setattr(
+        anthropic_client.settings,
+        "get_vertex_anthropic_location",
+        lambda: "asia-southeast1",
     )
     create = AsyncMock(side_effect=error) if error else AsyncMock(return_value=response)
     fake_client = MagicMock()
     fake_client.messages.create = create
     monkeypatch.setattr(
-        anthropic_client.anthropic, "AsyncAnthropic", lambda **kwargs: fake_client
+        anthropic_client, "AsyncAnthropicVertex", lambda **kwargs: fake_client
     )
     return create
 
@@ -258,15 +270,15 @@ def test_anthropic_client_returns_text_and_usage(monkeypatch) -> None:
     assert json.loads(result.text) == block.input
 
 
-def test_anthropic_client_missing_key_raises(monkeypatch) -> None:
-    """ANTHROPIC_API_KEY 未設定は LLMError。"""
+def test_anthropic_client_missing_project_raises(monkeypatch) -> None:
+    """GCP_PROJECT_ID 未設定は LLMError（Vertex 認証の前提が無い / ADR-0015）。"""
     from app.services.agent.llm import anthropic_client
     from app.services.agent.llm.anthropic_client import AnthropicClient
 
     monkeypatch.setattr(
-        anthropic_client.settings, "get_anthropic_api_key", lambda: ""
+        anthropic_client.settings, "get_gcp_project_id", lambda: ""
     )
-    with pytest.raises(LLMError, match="ANTHROPIC_API_KEY"):
+    with pytest.raises(LLMError, match="GCP_PROJECT_ID"):
         AnthropicClient()
 
 

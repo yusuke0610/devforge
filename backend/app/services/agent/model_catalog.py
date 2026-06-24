@@ -79,7 +79,9 @@ class ModelSpec:
 MODEL_CATALOG: dict[str, ModelSpec] = {
     "haiku": ModelSpec(
         provider=PROVIDER_ANTHROPIC,
-        model_id="claude-haiku-4-5",
+        # Vertex AI の Anthropic model id は版指定が要る（@日付）。Sonnet 4.6 は版指定
+        # 不要だが Haiku 4.5 は @20251001 が必須（ADR-0015 / Vertex Model Garden 正本）
+        model_id="claude-haiku-4-5@20251001",
         is_free=True,
         input_credits_per_mtok=_credits_per_mtok(_HAIKU_INPUT_USD_PER_MTOK),
         output_credits_per_mtok=_credits_per_mtok(_HAIKU_OUTPUT_USD_PER_MTOK),

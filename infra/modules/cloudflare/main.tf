@@ -16,14 +16,17 @@ resource "cloudflare_pages_project" "app" {
 # app.<zone> へ CNAME レコードを作成（Cloudflare Proxy 経由）
 # use_custom_domain = false の場合はカスタムドメインを使わず、
 # Pages のデフォルト *.pages.dev サブドメインのみで運用する（ゾーン未所有でも可）。
-resource "cloudflare_record" "app" {
+# provider v5 で cloudflare_record は cloudflare_dns_record へ改名、value → content、
+# ttl が必須（proxied レコードは 1 = automatic）。
+resource "cloudflare_dns_record" "app" {
   count = var.use_custom_domain ? 1 : 0
 
   zone_id = var.cloudflare_zone_id
   name    = var.subdomain
   type    = "CNAME"
-  value   = cloudflare_pages_project.app.subdomain
+  content = cloudflare_pages_project.app.subdomain
   proxied = true
+  ttl     = 1
 
   lifecycle {
     # use_custom_domain = true なのに zone_id 未指定だと provider が不明瞭な
@@ -33,4 +36,12 @@ resource "cloudflare_record" "app" {
       error_message = "use_custom_domain = true の場合は cloudflare_zone_id（devforge.app のゾーン ID）を指定してください。"
     }
   }
+}
+
+# provider v5 のリソース改名（cloudflare_record → cloudflare_dns_record）に伴う state 移設。
+# 全環境 use_custom_domain = false（count = 0）で現状インスタンスは無いが、カスタムドメインを
+# 有効化済みの state が存在する場合に destroy/recreate（DNS ダウンタイム）を防ぐ。
+moved {
+  from = cloudflare_record.app
+  to   = cloudflare_dns_record.app
 }
