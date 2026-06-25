@@ -103,6 +103,20 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 - **言語の足切り**（上位 N 位 / X% 以上）: デフォルト値を設定として保持し、agent は例外提案のみ行う。
 - **原則「保持は細かく、提案は荒目」**: 検出データは全量保持し、畳み込み・絞り込みは後段のビュー変換として行う。**非可逆な切り捨てを入力時に行わない**。
 
+### D9. monorepo は recursive Trees API でサブツリー探索する（2026-06 改訂で追加）
+
+当初 v1 は直下 manifest のみとし、monorepo 対応は延期していた（後述「代替案」参照）。実装を精読した結果、延期理由とした 3 コスト（full-tree 走査コスト / vendoring 除外 / 複数 manifest の主従重み付け）のうち 2 つは解消でき、安全に前倒しできると判断したため declare の探索範囲を拡張する。`backend/requirements.txt` や `web/package.json` のようにサブツリーへ分散する構成でも依存を拾えるようにする。
+
+- **(a) 探索手段 = recursive Trees API（1 リポ 1 コール）**: `GET /repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1` を 1 回呼び、`type == "blob"` かつ basename が既知 manifest 名集合（D7 の `MANIFEST_FILENAMES`）に一致するものだけを候補にする。直下 `contents` 1 回の置換であり探索 API コストは同オーダー。`default_branch` は既存の `RepoData` が保持。
+- **(b) ノイズ除外 = パスセグメント除外リスト**: パスのいずれかのセグメントが除外集合（`node_modules` / `vendor` / `.venv` / `venv` / `site-packages` / `bower_components` / `third_party` / `testdata` / `dist` / `build` / `.git` 等）に該当したら捨てる。既知 manifest 名のみ fetch するため任意ファイルは取得せず、除外は取得済みツリーの in-memory フィルタで無コスト。将来は Linguist `vendor.yml` 流用も可。
+- **(c) コストキャップ = 深さ + 件数で打ち切り**: manifest の深さ上限（例: 4 セグメント）と 1 リポあたり fetch 件数上限（例: 20）を設定値として持ち、**浅い順にソートして打ち切る**（D6 のサンプリング思想と整合）。これが「重くなる危険」の安全弁。
+- **(d) truncated tree の扱い**: 巨大リポで `truncated: true` の場合は取得済み分（浅い側優先）を使い `logger.warning` を残す（1 リポの取りこぼしで連携全体を落とさないベストエフォート方針）。
+- **(e) 主従重み付けはしない（keep-all）**: 複数 manifest を主従判定して集約せず、全 manifest を evidence として保持する（D1/D8「非可逆な切り捨てを入力時に行わない」に従い、畳み込み・重み付けは後段ビュー変換へ）。延期理由の 3 つ目（主従判定）はこれで回避する。
+- **(f) manifest パスを証跡として永続化する**: 検出した相対パス（例: `backend/requirements.txt`）を evidence に保存する（`PackageDeclaration.source_path` → `EvidenceRecord` → `github_skill_evidence.manifest_path`）。対象は public リポ前提で相対パスは公開メタデータ（既存の `repo_url` と同等の性質）、raw code は D6 どおり破棄するため機密情報を持たない設計を崩さない。証跡性が「どのディレクトリの何で宣言したか」まで強化される。
+- **(g) 対象は manifest 限定（infra の .tf は対象外）**: Terraform/HCL は package manifest ではなく language 層（Linguist → 表示名「Terraform」/ D3）で捕捉済みのため、本探索は D7 の Tier1 5 エコシステムの manifest にのみ適用する。
+
+実装で触る想定箇所（後続 PR）: `github/api_client.py`（`fetch_root_filenames` を `fetch_manifest_paths(..., default_branch)` に拡張）/ `github_collector.py`（パス一覧反復・`source_path` 付与）/ `skills/types.py`（`PackageDeclaration.source_path` / `EvidenceRecord.manifest_path`）/ `skills/aggregator.py`（path 伝播）/ `models/skill.py` + 新規 migration（`github_skill_evidence.manifest_path` を `op.add_column`）/ `schemas/github_skill.py`（`SkillEvidence.manifest_path`、`make codegen-types` 再生成）。
+
 ### この設計で得られるもの
 
 - エビデンス系スキルに裏付けが付き、経歴書の GitHub URL との整合（証跡性）が立つ。
@@ -116,7 +130,7 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 ## 代替案
 
 - **package 正規化の自前辞書を持つ**: package ID がエコシステム内で一意のため不要。辞書メンテのコストだけが残るので却下。
-- **monorepo サブツリー（subtree）探索の v1 対応**: full tree 走査コスト / vendoring の除外 / 複数 manifest の主従重み付け、の 3 コストを生む（特に主従判定が本質的に厄介）。v1 は直下 manifest のみとし延期する。
+- **monorepo サブツリー（subtree）探索の v1 対応**: 当初は full tree 走査コスト / vendoring の除外 / 複数 manifest の主従重み付け、の 3 コスト（特に主従判定が本質的に厄介）を理由に v1 は直下 manifest のみとし延期した。→ 後に recursive Trees API（1 コール）+ パスセグメント除外 + 深さ/件数キャップ + keep-all（主従判定をしない）で解消できると判明し、2026-06 改訂で **D9 として採用**した（本ファイル「決定内容 D9」参照）。
 - **dependency graph / SBOM API を起点にする**: 宣言 only 止まりで「宣言」と「実 import」の `signal_source` を区別できず、D1/D6 の思想と不整合。import 解析（C 案、D6）を採用する。
 - **desktop 版で実装する**: desktop 固有価値（ローカルリポ直読み / PII ローカル完結 / ローカル LLM）は前提が消滅（PII はクラウドの非学習契約で吸収、LLM はクラウド上位モデルへ移行）。stack 推論は本 ADR の GitHub per-repo manifest 解析で代替する。`devforge-desktop` は塩漬けとして保持する。
 
@@ -125,11 +139,12 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 - **public 限定**: 主戦場が private なユーザーはスキルが過少評価される。v1 では受容し、将来 Layer 3（人間が深さを補完）で吸収する。
 - **import 解析（C 案）の verify コスト**: 言語別 parser が必要で高コスト。サンプリング（D6）と direct 依存への絞り込み（D7）で緩和する。
 - **Linguist の data 言語デフォルト除外**: SQL / YAML / GraphQL 等は Linguist がデフォルトで除外する。経歴書的に必要なものは補正する（D3）。
+- **monorepo 探索の除外リスト / キャップはヒューリスティック（D9）**: 取りこぼし（cap 超過の深い manifest）や誤除外の可能性を受容する。閾値・除外集合は設定値として保持し運用で調整する。`manifest_path` 永続化はスキーマ拡張（`github_skill_evidence` への ADD COLUMN migration）を後続実装 PR で要する。
 
 ## 将来の移行条件
 
 - **verify ステージの詳細設計**: import サンプリング戦略、言語別の import 検出、打ち切り条件。
-- **monorepo 対応**: Trees API + Linguist の除外定義流用、ファイル位置・規模シグナル、複数 manifest の主従重み付け。
+- **monorepo 対応**: D9 で採用済み（recursive Trees API + パスセグメント除外 + 深さ/件数キャップ + keep-all）。残課題は除外定義の高度化（Linguist `vendor.yml` 流用）・キャップ閾値の実データチューニング・規模シグナルの導入。
 - **private リポジトリの扱い**: Layer 3 経由で人間が深さを補完する。生データは持ち込まない前提を維持する。
 - **deps.dev エンリッチ**: 横断名寄せの範囲・実行タイミング。
 - **閾値・粒度のデフォルト**: 言語足切りの初期値、表示名 alias の初期セット。
@@ -140,4 +155,10 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 - 既存実装（移行対象）: `backend/app/services/intelligence/`（`pipeline.py` / `skill_extractor.py` / `skill_taxonomy/{language_map,topic_map,keyword_map}.py` / `github/api_client.py`）
 - リトライ基盤: `backend/app/services/tasks/exceptions.py`（`RetryableError` / `NonRetryableError` / `dead_letter`）
 - [GitHub Linguist `languages.yml`](https://github.com/github-linguist/linguist/blob/main/lib/linguist/languages.yml)
+- [GitHub REST API: Git Trees（`recursive`）](https://docs.github.com/en/rest/git/trees)
+- [GitHub Linguist `vendor.yml`](https://github.com/github-linguist/linguist/blob/main/lib/linguist/vendor.yml)
 - [deps.dev](https://deps.dev/)
+
+## 改訂履歴
+
+- **2026-06**: 当初「代替案」で延期していた monorepo サブツリー探索を **D9 として採用**（recursive Trees API + パスセグメント除外 + 深さ/件数キャップ + keep-all + manifest パス永続化）。3 層モデル・D1〜D8 は不変。当初は別 ADR 案だったが、0016 の核を維持する refine であり 1 箇所の追補に留まるため、本 ADR への統合とした。
