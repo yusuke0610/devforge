@@ -16,6 +16,7 @@ from ...core.encryption import decrypt_field
 from ...core.logging_utils import get_logger
 from ...core.messages import get_error
 from ...models import GitHubLinkCache
+from ...repositories.skill import GitHubSkillRepository
 from ..progress_service import set_progress
 from ..tasks.exceptions import NonRetryableError
 from ..tasks.handlers.base import SessionFactory
@@ -23,6 +24,7 @@ from .github.contributions import fetch_all_contribution_calendars
 from .github_collector import GitHubUserNotFoundError, collect_repos
 from .pipeline import aggregate_intelligence
 from .response_mapper import map_pipeline_result
+from .skills import RepoSkillInput, aggregate_skills
 
 logger = get_logger(__name__)
 
@@ -95,6 +97,7 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
             token=token,
             include_forks=payload.get("include_forks", False),
             on_repo_fetched=_on_repo_fetched,
+            collect_manifests=True,
         )
     except GitHubUserNotFoundError as exc:
         with session_factory() as db:
@@ -121,6 +124,19 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
     # ステップ 3: スキル抽出（集計関数で一括処理）
     await set_progress(task_id, 3, _TOTAL_STEPS, "スキル集計中...")
     result = aggregate_intelligence(payload["github_username"], repos)
+
+    # 3 層スキル（ADR-0016 / discover + declare）の中間表現を組み立てる（I/O 無し）。
+    detected_skills = aggregate_skills(
+        [
+            RepoSkillInput(
+                full_name=f"{repo.owner}/{repo.name}",
+                url=f"https://github.com/{repo.owner}/{repo.name}",
+                languages=repo.languages,
+                package_declarations=repo.package_declarations,
+            )
+            for repo in repos
+        ]
+    )
 
     response = map_pipeline_result(result)
     response.contribution_calendars = calendars
@@ -150,6 +166,9 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
         )
         cache.completed_at = _now()
         db.commit()
+
+        # 3 層スキルを洗い替えで永続化（ADR-0016）。同一セッションで commit する。
+        GitHubSkillRepository(db, user_id).replace_for_user(detected_skills)
 
     # ステップ 5: 完了
     await set_progress(task_id, 5, _TOTAL_STEPS, "完了")

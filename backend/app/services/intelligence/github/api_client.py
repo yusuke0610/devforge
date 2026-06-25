@@ -163,3 +163,53 @@ async def fetch_languages(
     except httpx.HTTPError:
         logger.warning("Failed to fetch languages for %s/%s", owner, repo)
         return {}
+
+
+async def fetch_root_filenames(
+    client: httpx.AsyncClient,
+    owner: str,
+    repo: str,
+) -> List[str]:
+    """リポジトリ直下のファイル名一覧を取得する（declare の manifest 探索用 / D7）。
+
+    manifest の取得はベストエフォート（1 リポの失敗で連携全体を落とさない）なので、
+    エラー時は空リストを返す。サブツリー探索は v1 では行わない（直下のみ）。
+    """
+    if not _is_valid_owner_repo(owner, repo):
+        return []
+    try:
+        resp = await client.get(f"/repos/{owner}/{repo}/contents")
+        if resp.status_code != 200:
+            return []
+        entries = resp.json()
+        if not isinstance(entries, list):
+            return []
+        return [e["name"] for e in entries if e.get("type") == "file" and e.get("name")]
+    except httpx.HTTPError:
+        logger.warning("Failed to list root contents for %s/%s", owner, repo)
+        return []
+
+
+async def fetch_repo_file(
+    client: httpx.AsyncClient,
+    owner: str,
+    repo: str,
+    path: str,
+) -> str | None:
+    """リポジトリ内のテキストファイル内容を取得する（manifest 本文 / D7）。
+
+    取得できなければ ``None``。生コードは呼び出し側で parse 後に破棄する想定（D6）。
+    """
+    if not _is_valid_owner_repo(owner, repo):
+        return None
+    try:
+        resp = await client.get(
+            f"/repos/{owner}/{repo}/contents/{path}",
+            headers={"Accept": "application/vnd.github.raw+json"},
+        )
+        if resp.status_code != 200:
+            return None
+        return resp.text
+    except httpx.HTTPError:
+        logger.warning("Failed to fetch %s for %s/%s", path, owner, repo)
+        return None

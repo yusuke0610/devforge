@@ -442,6 +442,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/github-link/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Skills
+         * @description GitHub 連携で推論した 3 層スキル（ADR-0016）を取得する。
+         *
+         *     連携がまだ実行されていない場合は空配列を返す。
+         */
+        get: operations["get_skills_api_github_link_skills_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/master-data/qualification": {
         parameters: {
             query?: never;
@@ -1516,6 +1538,48 @@ export interface components {
             /** State */
             state: string;
         };
+        /**
+         * GitHubSkillItem
+         * @description Layer 1: 正規化スキルと、その根拠・習熟度。
+         */
+        GitHubSkillItem: {
+            /**
+             * Canonical Name
+             * @description 正規名（言語=Linguist 名 / package=package ID）
+             */
+            canonical_name: string;
+            /**
+             * Display Name
+             * @description 表示名（粒度畳みの確定値。未確定は null）
+             */
+            display_name?: string | null;
+            /**
+             * Ecosystem
+             * @description package のエコシステム（npm/pypi/go/cargo）。言語では null
+             */
+            ecosystem?: string | null;
+            /** Evidence */
+            evidence?: components["schemas"]["SkillEvidence"][];
+            /**
+             * Kind
+             * @description スキル種別（language / package）
+             */
+            kind: string;
+            /**
+             * Parent
+             * @description 親（Linguist の group）
+             */
+            parent?: string | null;
+            proficiency?: components["schemas"]["SkillProficiency"] | null;
+        };
+        /**
+         * GitHubSkillsResponse
+         * @description ユーザーの GitHub 連携スキル一覧（3 層）。
+         */
+        GitHubSkillsResponse: {
+            /** Skills */
+            skills?: components["schemas"]["GitHubSkillItem"][];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1794,6 +1858,79 @@ export interface components {
             qualifications?: components["schemas"]["ResumeQualificationItem"][];
             /** Self Pr */
             self_pr: string;
+        };
+        /**
+         * SkillEvidence
+         * @description Layer 2: 技術×リポの根拠。
+         */
+        SkillEvidence: {
+            /**
+             * Confidence
+             * @description 信頼度（0.0–1.0）
+             */
+            confidence: number;
+            /**
+             * Dependency Kind
+             * @description 依存の種類（direct/dev/indirect/peer/build。言語では null）
+             */
+            dependency_kind?: string | null;
+            /**
+             * Language Bytes
+             * @description 言語シグナルのバイト数（package では null）
+             */
+            language_bytes?: number | null;
+            /**
+             * Repo Full Name
+             * @description 根拠リポジトリ（owner/name）
+             */
+            repo_full_name: string;
+            /**
+             * Repo Url
+             * @description リポジトリ URL（経歴書の証跡用）
+             */
+            repo_url: string;
+            /**
+             * Signal Source
+             * @description 根拠の出所（language_bytes / manifest_declared / actual_import）
+             */
+            signal_source: string;
+        };
+        /**
+         * SkillProficiency
+         * @description Layer 3: 習熟度・文脈（人間/agent が後追いで埋める。本フェーズは未投入）。
+         */
+        SkillProficiency: {
+            /**
+             * Duration Months
+             * @description 従事期間（月）
+             */
+            duration_months?: number | null;
+            /**
+             * Narrative
+             * @description 文脈の説明文
+             */
+            narrative?: string | null;
+            /**
+             * Reviewed
+             * @description 人間レビュー済みか
+             * @default false
+             */
+            reviewed: boolean;
+            /**
+             * Scale
+             * @description 規模
+             */
+            scale?: string | null;
+            /**
+             * Self Assessed Level
+             * @description 自己評価レベル
+             */
+            self_assessed_level?: string | null;
+            /**
+             * Source
+             * @description 出所（agent / human）
+             */
+            source?: string | null;
         };
         /**
          * SubProgress
@@ -2482,6 +2619,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_skills_api_github_link_skills_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubSkillsResponse"];
                 };
             };
         };

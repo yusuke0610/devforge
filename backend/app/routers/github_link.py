@@ -17,10 +17,17 @@ from ..core.security.auth import get_current_user
 from ..core.security.dependencies import limiter
 from ..db import get_db
 from ..models import GitHubLinkCache, User
+from ..repositories.skill import GitHubSkillRepository
 from ..schemas.github_link import (
     CachedGitHubLinkResponse,
     GitHubLinkRequest,
     ProgressResponse,
+)
+from ..schemas.github_skill import (
+    GitHubSkillItem,
+    GitHubSkillsResponse,
+    SkillEvidence,
+    SkillProficiency,
 )
 from ..schemas.shared import TaskAcceptedResponse, TaskStatusResponse
 from ..services.intelligence.github_link_service import get_or_create_github_link_cache
@@ -86,6 +93,53 @@ async def get_link_progress(
 
     data = await get_progress(user.id)
     return ProgressResponse(**data)
+
+
+def _to_skill_item(skill) -> GitHubSkillItem:
+    """ORM の GitHubSkill を API スキーマへ変換する。"""
+    proficiency = None
+    if skill.proficiency is not None:
+        proficiency = SkillProficiency(
+            self_assessed_level=skill.proficiency.self_assessed_level,
+            narrative=skill.proficiency.narrative,
+            duration_months=skill.proficiency.duration_months,
+            scale=skill.proficiency.scale,
+            source=skill.proficiency.source,
+            reviewed=skill.proficiency.reviewed,
+        )
+    return GitHubSkillItem(
+        kind=skill.kind,
+        canonical_name=skill.canonical_name,
+        # 言語は ecosystem を "" で持つので API では null に正規化する
+        ecosystem=skill.ecosystem or None,
+        parent=skill.parent,
+        display_name=skill.display_name,
+        evidence=[
+            SkillEvidence(
+                repo_full_name=ev.repo_full_name,
+                repo_url=ev.repo_url,
+                signal_source=ev.signal_source,
+                confidence=ev.confidence,
+                language_bytes=ev.language_bytes,
+                dependency_kind=ev.dependency_kind,
+            )
+            for ev in skill.evidence
+        ],
+        proficiency=proficiency,
+    )
+
+
+@router.get("/skills", response_model=GitHubSkillsResponse)
+def get_skills(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """GitHub 連携で推論した 3 層スキル（ADR-0016）を取得する。
+
+    連携がまだ実行されていない場合は空配列を返す。
+    """
+    skills = GitHubSkillRepository(db, user.id).list_for_user()
+    return GitHubSkillsResponse(skills=[_to_skill_item(s) for s in skills])
 
 
 @router.get("/cache/status", response_model=TaskStatusResponse)
