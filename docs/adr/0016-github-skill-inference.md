@@ -110,12 +110,12 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 - **(a) 探索手段 = recursive Trees API（1 リポ 1 コール）**: `GET /repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1` を 1 回呼び、`type == "blob"` かつ basename が既知 manifest 名集合（D7 の `MANIFEST_FILENAMES`）に一致するものだけを候補にする。直下 `contents` 1 回の置換であり探索 API コストは同オーダー。`default_branch` は既存の `RepoData` が保持。
 - **(b) ノイズ除外 = パスセグメント除外リスト**: パスのいずれかのセグメントが除外集合（`node_modules` / `vendor` / `.venv` / `venv` / `site-packages` / `bower_components` / `third_party` / `testdata` / `dist` / `build` / `.git` 等）に該当したら捨てる。既知 manifest 名のみ fetch するため任意ファイルは取得せず、除外は取得済みツリーの in-memory フィルタで無コスト。将来は Linguist `vendor.yml` 流用も可。
 - **(c) コストキャップ = 深さ + 件数で打ち切り**: manifest の深さ上限（例: 4 セグメント）と 1 リポあたり fetch 件数上限（例: 20）を設定値として持ち、**浅い順にソートして打ち切る**（D6 のサンプリング思想と整合）。これが「重くなる危険」の安全弁。
-- **(d) truncated tree の扱い**: 巨大リポで `truncated: true` の場合は取得済み分（浅い側優先）を使い `logger.warning` を残す（1 リポの取りこぼしで連携全体を落とさないベストエフォート方針）。
+- **(d) truncated / 打ち切りは partial としてマークする**: 巨大リポで Trees API が `truncated: true` を返した場合、または件数キャップ（c）で打ち切った場合は、取得済み分（浅い側優先）を使い `logger.warning` を残す（1 リポの取りこぼしで連携全体を落とさないベストエフォート方針）。加えて、**その走査が網羅的でない（partial）ことを当該リポの evidence にマークして永続化**し、下流が「網羅スキャン」と「ベストエフォートの部分スキャン」を区別できるようにする（保持は細かく / D8。証跡の過信を防ぐ）。
 - **(e) 主従重み付けはしない（keep-all）**: 複数 manifest を主従判定して集約せず、全 manifest を evidence として保持する（D1/D8「非可逆な切り捨てを入力時に行わない」に従い、畳み込み・重み付けは後段ビュー変換へ）。延期理由の 3 つ目（主従判定）はこれで回避する。
 - **(f) manifest パスを証跡として永続化する**: 検出した相対パス（例: `backend/requirements.txt`）を evidence に保存する（`PackageDeclaration.source_path` → `EvidenceRecord` → `github_skill_evidence.manifest_path`）。対象は public リポ前提で相対パスは公開メタデータ（既存の `repo_url` と同等の性質）、raw code は D6 どおり破棄するため機密情報を持たない設計を崩さない。証跡性が「どのディレクトリの何で宣言したか」まで強化される。
-- **(g) 対象は manifest 限定（infra の .tf は対象外）**: Terraform/HCL は package manifest ではなく language 層（Linguist → 表示名「Terraform」/ D3）で捕捉済みのため、本探索は D7 の Tier1 5 エコシステムの manifest にのみ適用する。
+- **(g) 対象は manifest 限定（infra の .tf は対象外）**: Terraform/HCL は package manifest ではなく language 層（Linguist → 表示名「Terraform」/ D3）で捕捉済みのため、本探索は D7 の Tier1 4 エコシステム（Go / Python / JS-TS / Rust。manifest ファイルは Python が 2 種のため計 5 ファイル）の manifest にのみ適用する。
 
-実装で触る想定箇所（後続 PR）: `github/api_client.py`（`fetch_root_filenames` を `fetch_manifest_paths(..., default_branch)` に拡張）/ `github_collector.py`（パス一覧反復・`source_path` 付与）/ `skills/types.py`（`PackageDeclaration.source_path` / `EvidenceRecord.manifest_path`）/ `skills/aggregator.py`（path 伝播）/ `models/skill.py` + 新規 migration（`github_skill_evidence.manifest_path` を `op.add_column`）/ `schemas/github_skill.py`（`SkillEvidence.manifest_path`、`make codegen-types` 再生成）。
+実装で触る想定箇所（後続 PR）: `github/api_client.py`（`fetch_root_filenames` を `fetch_manifest_paths(..., default_branch)` に拡張し、truncated/打ち切りの有無も返す）/ `github_collector.py`（パス一覧反復・`source_path` 付与・partial フラグ伝播）/ `skills/types.py`（`PackageDeclaration.source_path` / `EvidenceRecord.manifest_path` / partial マーカー）/ `skills/aggregator.py`（path・partial 伝播）/ `models/skill.py` + 新規 migration（`github_skill_evidence.manifest_path` と partial フラグを `op.add_column`）/ `schemas/github_skill.py`（`SkillEvidence` への追加、`make codegen-types` 再生成）。
 
 ### この設計で得られるもの
 
