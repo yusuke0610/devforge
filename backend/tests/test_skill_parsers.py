@@ -135,6 +135,17 @@ cc = "1.0"
     assert all(d.ecosystem == "cargo" for d in result.values())
 
 
+def test_requirements_txt_excludes_url_and_vcs_refs() -> None:
+    """URL / VCS 直指定は "https" / "git" として誤抽出されず除外されること。"""
+    content = (
+        "requests>=2.0\n"
+        "https://example.com/pkg.tar.gz\n"
+        "git+https://github.com/org/repo.git@main\n"
+    )
+    result = _by_name(RequirementsTxtParser().parse(content))
+    assert set(result) == {"requests"}
+
+
 def test_registry_dispatches_by_filename() -> None:
     """parse_manifest がファイル名でパーサを選び、未対応は空を返すこと。"""
     assert parse_manifest("go.mod", "require x/y v1.0.0\n")[0].ecosystem == "go"

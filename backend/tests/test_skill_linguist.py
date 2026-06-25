@@ -43,9 +43,13 @@ def test_excluded_markup_is_dropped() -> None:
 
 def test_unknown_language_falls_back_to_included() -> None:
     """マスタ未収録かつ非除外の言語は programming とみなして採用されること。"""
-    resolved = resolve_language("Brainfuck")
+    # 将来 master に収録され得る実在名ではなく、確実に未収録の合成トークンを使う。
+    unknown = "__CR_UNLISTED_LANGUAGE__"
+    resolved = resolve_language(unknown)
     assert resolved is not None
-    assert resolved.canonical == "Brainfuck"
+    assert resolved.canonical == unknown
+    assert resolved.display == unknown
+    assert resolved.parent is None
 
 
 def test_empty_name_returns_none() -> None:
