@@ -1,5 +1,6 @@
 """GitHub 連携スキル（3 層）の永続化と取得エンドポイントのテスト（ADR-0016）。"""
 
+from app.models import GitHubSkillEvidence
 from app.repositories import UserRepository
 from app.repositories.skill import GitHubSkillRepository
 from app.services.intelligence.skills import DetectedSkill, EvidenceRecord
@@ -95,6 +96,11 @@ def test_replace_is_idempotent(client) -> None:
     resp = client.get("/api/github-link/skills", headers=headers)
     names = {s["canonical_name"] for s in resp.json()["skills"]}
     assert names == {"Python"}
+
+    # 削除された react の evidence が孤児として残っていないこと（FK 非依存の ORM 削除）。
+    # SQLite テストエンジンは PRAGMA foreign_keys=ON でないため、DB の CASCADE では消えない。
+    remaining_evidence = client._db_session.query(GitHubSkillEvidence).count()
+    assert remaining_evidence == 1  # Python の 1 件のみ
 
 
 def test_skills_are_scoped_per_user(client) -> None:

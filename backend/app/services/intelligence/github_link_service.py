@@ -153,6 +153,11 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
                 extra={"user_id": user_id},
             )
             return
+        # 先に 3 層スキルを洗い替えで永続化する（ADR-0016）。
+        # ここで失敗した場合は status を completed にしないことで、
+        # 「completed なのにスキルが無い」状態を避ける（retry で再永続化される）。
+        GitHubSkillRepository(db, user_id).replace_for_user(detected_skills)
+
         cache.result = result_dict
         cache.status = "completed"
         cache.error_message = None
@@ -166,9 +171,6 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
         )
         cache.completed_at = _now()
         db.commit()
-
-        # 3 層スキルを洗い替えで永続化（ADR-0016）。同一セッションで commit する。
-        GitHubSkillRepository(db, user_id).replace_for_user(detected_skills)
 
     # ステップ 5: 完了
     await set_progress(task_id, 5, _TOTAL_STEPS, "完了")

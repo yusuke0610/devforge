@@ -34,12 +34,18 @@ class GitHubSkillRepository:
     def replace_for_user(self, detected: list[DetectedSkill]) -> None:
         """ユーザーの Layer 1-2 を洗い替える（既存削除 → 一括挿入）。
 
-        既存行の削除で CASCADE により evidence/proficiency も消える。呼び出し側で
-        外側のトランザクション境界を管理する場合に備え、ここで commit する。
+        既存行は ORM セッション経由で削除し、``cascade="all, delete-orphan"`` で
+        evidence/proficiency も確実に消す。Core 一括 DELETE は DB の
+        ``ON DELETE CASCADE`` に依存するが、SQLite/libSQL は ``PRAGMA foreign_keys``
+        が ON でないと FK を強制せず孤児行が残るため、バックエンド非依存の ORM 削除にする。
         """
-        self.db.execute(
-            GitHubSkill.__table__.delete().where(GitHubSkill.user_id == self.user_id)
-        )
+        existing = self.db.scalars(
+            select(GitHubSkill).where(GitHubSkill.user_id == self.user_id)
+        ).all()
+        for skill in existing:
+            self.db.delete(skill)
+        # 同一 identity（user_id+kind+ecosystem+canonical_name）の再挿入前に削除を確定する
+        self.db.flush()
 
         for item in detected:
             skill = GitHubSkill(
