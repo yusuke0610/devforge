@@ -1,7 +1,7 @@
 """GitHub Linguist 由来の言語正規化（ADR-0016 discover / D3・D4）。
 
 GitHub の ``/languages`` API が返す言語名は既に Linguist の正規名なので、本モジュールは
-**外部を叩かず**内部マスタ（``data/linguist_master.json``）へ resolve するだけに徹する。
+**外部を叩かず**内部マスタ（``resources/linguist_master.json``）へ resolve するだけに徹する。
 
 責務:
   - エイリアス → 正規名の名寄せ
@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-_MASTER_PATH = Path(__file__).parent / "data" / "linguist_master.json"
+_MASTER_PATH = Path(__file__).parent / "resources" / "linguist_master.json"
 
 # 既定で除外する Linguist の type（経歴書のスキルとして不適なカテゴリ）。
 _EXCLUDED_TYPES = frozenset({"data", "prose"})
