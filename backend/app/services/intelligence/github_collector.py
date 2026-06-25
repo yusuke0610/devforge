@@ -20,8 +20,12 @@ from .github.api_client import (
     GITHUB_API,
     GitHubUserNotFoundError,
     fetch_languages,
+    fetch_repo_file,
     fetch_repos_raw,
+    fetch_root_filenames,
 )
+from .skills.manifests import MANIFEST_FILENAMES, parse_manifest
+from .skills.types import PackageDeclaration
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +52,26 @@ class RepoData:
     fork: bool
     stargazers_count: int
     default_branch: str = field(default="main")
+    # declare ステージ: 直下 manifest が宣言する依存（D7）。未取得なら空。
+    package_declarations: List[PackageDeclaration] = field(default_factory=list)
+
+
+async def _collect_manifests(
+    client: httpx.AsyncClient, owner: str, repo: str
+) -> List[PackageDeclaration]:
+    """リポジトリ直下の manifest を取得・解析して依存宣言を返す（declare / D7）。
+
+    直下のファイル一覧と既知 manifest 名の積集合だけを取得する。取得・解析失敗は
+    ベストエフォートで握りつぶす（1 リポの失敗で連携全体を落とさない）。
+    """
+    filenames = await fetch_root_filenames(client, owner, repo)
+    targets = [name for name in filenames if name in MANIFEST_FILENAMES]
+    declarations: List[PackageDeclaration] = []
+    for filename in targets:
+        content = await fetch_repo_file(client, owner, repo, filename)
+        if content:
+            declarations.extend(parse_manifest(filename, content))
+    return declarations
 
 
 def _passes_filter(raw: dict, include_forks: bool, cutoff_date_str: str) -> bool:
@@ -70,6 +94,7 @@ async def collect_repos(
     include_forks: bool = False,
     max_pages: int = 5,
     on_repo_fetched: Optional[Callable[[int, int], Awaitable[None]]] = None,
+    collect_manifests: bool = False,
 ) -> List[RepoData]:
     """
     GitHub ユーザーのすべてのパブリックリポジトリを取得する。
@@ -77,6 +102,7 @@ async def collect_repos(
     言語の内訳を含む RepoData のリストを返す。
     on_repo_fetched が渡された場合、各リポジトリの詳細取得後に
     on_repo_fetched(done, total) を呼び出す（進捗通知用）。
+    collect_manifests=True のとき、直下 manifest を解析して package_declarations を埋める（declare / D7）。
     """
     headers = {
         "Accept": "application/vnd.github+json",
@@ -109,6 +135,12 @@ async def collect_repos(
 
                 languages = await fetch_languages(client, owner_login, repo_name)
 
+                declarations: List[PackageDeclaration] = []
+                if collect_manifests:
+                    declarations = await _collect_manifests(
+                        client, owner_login, repo_name
+                    )
+
                 repos.append(
                     RepoData(
                         name=repo_name,
@@ -121,6 +153,7 @@ async def collect_repos(
                         fork=raw.get("fork", False),
                         stargazers_count=raw.get("stargazers_count", 0),
                         default_branch=raw.get("default_branch", "main"),
+                        package_declarations=declarations,
                     )
                 )
 

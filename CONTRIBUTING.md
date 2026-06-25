@@ -78,5 +78,6 @@ docs/adr/XXXX-kebab-case-title.md
 | [ADR-0007](docs/adr/0007-openapi-typescript-codegen.md) | OpenAPI → TypeScript 型生成（codegen-drift CI） | Accepted |
 | [ADR-0008](docs/adr/0008-remove-llm-to-rule-based-design.md) | LLM プロバイダ抽象化の撤去とルールベース設計への統一 | Superseded by ADR-0010 |
 | [ADR-0009](docs/adr/0009-frontend-toast-notification.md) | フロントエンドのトースト通知統一 | Accepted |
-| [ADR-0011](docs/adr/0011-frontend-textlint-proofread.md) | フロントエンド完結型文章校正（textlint） | Accepted |
+| [ADR-0011](docs/adr/0011-frontend-textlint-proofread.md) | フロントエンド完結型文章校正（textlint） | Deprecated |
 | [ADR-0010](docs/adr/0010-devforge-agent.md) | DevForge Agent 機能の導入 | Accepted |
+| [ADR-0016](docs/adr/0016-github-skill-inference.md) | GitHub 連携によるスキル推論基盤（3 層モデル） | Accepted |
