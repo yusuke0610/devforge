@@ -91,5 +91,32 @@ def test_skill_deduped_across_repos_with_multiple_evidence() -> None:
     assert repos == {"u/a", "u/b"}
 
 
+def test_pypi_names_are_pep503_normalized() -> None:
+    """pypi は大小文字・区切り差を畳んで同一スキルにすること（PEP 503）。"""
+    skills = aggregate_skills(
+        [
+            _repo(
+                full_name="u/a",
+                declarations=[PackageDeclaration("pypi", "ruamel.yaml", "direct")],
+            ),
+            _repo(
+                full_name="u/b",
+                declarations=[PackageDeclaration("pypi", "ruamel-yaml", "direct")],
+            ),
+        ]
+    )
+    by_name = _by_name(skills)
+    assert set(by_name) == {"ruamel-yaml"}
+    assert len(by_name["ruamel-yaml"].evidence) == 2
+
+
+def test_non_pypi_names_not_normalized() -> None:
+    """pypi 以外（go 等）は package ID をそのまま canonical にすること。"""
+    skills = aggregate_skills(
+        [_repo(declarations=[PackageDeclaration("go", "github.com/Foo/Bar", "direct")])]
+    )
+    assert "github.com/Foo/Bar" in _by_name(skills)
+
+
 def test_empty_repo_yields_no_skills() -> None:
     assert aggregate_skills([_repo()]) == []

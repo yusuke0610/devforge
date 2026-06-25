@@ -7,6 +7,7 @@ Layer 2（技術×リポの根拠）の中間表現を組み立てる純粋関�
 足切り・粒度畳みは後段のビュー変換に委ねる（ここでは非可逆な切り捨てをしない）。
 """
 
+import re
 from dataclasses import dataclass, field
 
 from .linguist import resolve_language
@@ -26,6 +27,21 @@ _DEPENDENCY_CONFIDENCE = {
 }
 _SIGNAL_LANGUAGE_BYTES = "language_bytes"
 _SIGNAL_MANIFEST_DECLARED = "manifest_declared"
+
+# PEP 503 正規化用（連続する -_. を - に畳む）。
+_PYPI_NAME_RE = re.compile(r"[-_.]+")
+
+
+def _canonical_package_name(ecosystem: str, name: str) -> str:
+    """エコシステム内で一意な canonical 名へ正規化する。
+
+    pypi のみ PEP 503 正規化（小文字化・区切り統一）し、``Flask``/``flask`` や
+    ``ruamel.yaml``/``ruamel-yaml`` を同一視する。他エコシステムは package ID を
+    そのまま canonical とする（D3）。
+    """
+    if ecosystem == "pypi":
+        return _PYPI_NAME_RE.sub("-", name).lower()
+    return name
 
 
 @dataclass(frozen=True)
@@ -141,7 +157,9 @@ def _collect_packages(
     for decl in repo.package_declarations:
         if not decl.name:
             continue
-        key = (decl.ecosystem, decl.name)
+        # canonical 名でキーを作る（pypi は PEP 503 正規化で大小文字・区切り差を畳む）。
+        name = _canonical_package_name(decl.ecosystem, decl.name)
+        key = (decl.ecosystem, name)
         current = best.get(key)
         if current is None or _confidence(decl.dependency_kind) > _confidence(
             current.dependency_kind
