@@ -35,7 +35,7 @@ redis==8.0.1
 isort==8.0.1
 black==26.5.1
 pytest-cov==7.1.0
-google-cloud-tasks==2.22.0
+google-cloud-tasks==2.23.0
 pyasn1==0.6.3
 # CVE-2026-53538 / CVE-2026-53539 / CVE-2026-53540 対策で 0.0.31 へ更新
 python-multipart==0.0.32
