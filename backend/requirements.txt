@@ -26,7 +26,7 @@ stripe==15.2.1
 PyGithub==2.9.1
 pandas==3.0.3
 slowapi==0.1.10
-ruff==0.15.18
+ruff==0.15.20
 autopep8==2.3.2
 markdown==3.10.2
 weasyprint==69.0
