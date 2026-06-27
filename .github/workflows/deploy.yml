@@ -1,0 +1,134 @@
+name: Deploy
+
+# デプロイの再利用可能ワークフロー（ci.yml から environment ごとに workflow_call で呼ばれる）。
+# environment 差分（project_id / service / secret 名など）は呼び出し側で解決し、
+# 本ワークフローは inputs / secrets として受け取ることで env 非依存に保つ。
+on:
+  workflow_call:
+    inputs:
+      project_id:
+        description: "GCP プロジェクト ID"
+        type: string
+        required: true
+      region:
+        description: "GCP リージョン"
+        type: string
+        required: true
+      repo:
+        description: "Artifact Registry リポジトリ名"
+        type: string
+        required: true
+      service:
+        description: "Cloud Run サービス名（イメージ名にも使用）"
+        type: string
+        required: true
+      cf_project:
+        description: "Cloudflare Pages プロジェクト名"
+        type: string
+        required: true
+      cf_branch:
+        description: "Cloudflare Pages デプロイ先ブランチ"
+        type: string
+        required: true
+    secrets:
+      gcp_sa_key:
+        description: "Cloud Run デプロイ用 GCP サービスアカウント鍵 (JSON)"
+        required: true
+      cloud_run_url:
+        description: "フロントエンドが参照する Cloud Run のエンドポイント URL"
+        required: true
+      cloudflare_api_token:
+        description: "Cloudflare API トークン"
+        required: true
+      cloudflare_account_id:
+        description: "Cloudflare アカウント ID"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+          # git への push はしないため checkout の認証情報をディスクに残さない（サプライチェーン保護）。
+          persist-credentials: false
+
+      - name: バージョン取得
+        run: |
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Setup Node.js
+        # デプロイジョブは secrets にアクセスするため、汚染され得る npm キャッシュを復元しない。
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci --prefix web
+
+      - name: Build web
+        run: npm run build --prefix web
+        env:
+          VITE_APP_VERSION: ${{ env.APP_VERSION }}
+          CLOUD_RUN_URL: ${{ secrets.cloud_run_url }}
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
+        with:
+          apiToken: ${{ secrets.cloudflare_api_token }}
+          accountId: ${{ secrets.cloudflare_account_id }}
+          command: pages deploy web/dist --project-name=${{ inputs.cf_project }} --branch=${{ inputs.cf_branch }}
+
+  deploy-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PROJECT_ID: ${{ inputs.project_id }}
+      REGION: ${{ inputs.region }}
+      REPO: ${{ inputs.repo }}
+      SERVICE: ${{ inputs.service }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+          # git への push はしないため checkout の認証情報をディスクに残さない（サプライチェーン保護）。
+          persist-credentials: false
+
+      - name: バージョン取得
+        run: |
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          credentials_json: ${{ secrets.gcp_sa_key }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push image
+        run: |
+          IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}
+          docker build -t ${IMAGE}:${{ github.sha }} -t ${IMAGE}:latest --build-arg APP_VERSION=${{ env.APP_VERSION }} backend/
+          docker push ${IMAGE}:${{ github.sha }}
+          docker push ${IMAGE}:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE }} \
+            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.sha }} \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --quiet

@@ -45,6 +45,8 @@ jobs:
               - 'web/**'
               - 'backend/**'
               - '.github/workflows/ci.yml'
+              - '.github/workflows/test.yml'
+              - '.github/workflows/deploy.yml'
               - 'web/wrangler.toml'
             dupe:
               - 'web/**'
@@ -58,601 +60,81 @@ jobs:
               - 'flake.nix'
               - 'Makefile'
 
-  detect-duplication:
-    runs-on: ubuntu-latest
+  # テスト/品質ゲートは再利用可能ワークフロー（test.yml）へ委譲する。
+  tests:
     needs: detect-changes
-    timeout-minutes: 5
-    if: needs.detect-changes.outputs.dupe == 'true'
-    # Phase 3 初期は warn-only。baseline 取得後に continue-on-error: false へ切替予定。
-    continue-on-error: true
+    uses: ./.github/workflows/test.yml
+    with:
+      app: ${{ needs.detect-changes.outputs.app == 'true' }}
+      dupe: ${{ needs.detect-changes.outputs.dupe == 'true' }}
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-
-      - name: Run jscpd
-        run: npx --yes jscpd@4 --config .jscpd.json
-
-      - name: Upload duplication report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: jscpd-report
-          path: report/dupe/
-          retention-days: 14
-
-  test-web:
-    runs-on: ubuntu-latest
-    needs: detect-changes
-    timeout-minutes: 10
-    if: needs.detect-changes.outputs.app == 'true'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-
-      - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-
-      - name: バージョン確認
-        run: |
-          echo "Node.js: $(node --version)"
-          echo "npm    : $(npm --version)"
-
-      - name: Install dependencies
-        run: npm ci --prefix web
-
-      - name: 脆弱性スキャン (npm audit)
-        run: node web/scripts/audit-check.mjs
-
-      - name: Lint web
-        run: npm run lint --prefix web
-
-      - name: Run web tests
-        run: npm run test --prefix web
-
-      - name: Build web
-        run: npm run build --prefix web
-
-  test-e2e:
-    runs-on: ubuntu-latest
-    needs: detect-changes
-    timeout-minutes: 15
-    if: needs.detect-changes.outputs.app == 'true'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-
-      - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-
-      - name: バージョン確認
-        run: |
-          echo "Node.js  : $(node --version)"
-          echo "npm      : $(npm --version)"
-
-      - name: Install dependencies
-        run: npm ci --prefix web
-
-      - name: Install Playwright browsers
-        run: npx playwright install chromium --with-deps
-        working-directory: web
-
-      - name: Run E2E tests
-        run: npm run test:e2e --prefix web
-        env:
-          CI: true
-
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: failure()
-        with:
-          name: playwright-report
-          path: web/playwright-report/
-          retention-days: 7
-
-  test-backend:
-    runs-on: ubuntu-latest
-    needs: detect-changes
-    timeout-minutes: 10
-    if: needs.detect-changes.outputs.app == 'true'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
-        with:
-          version: "latest"
-          enable-cache: true
-          cache-dependency-glob: "backend/requirements.txt"
-
-      - name: Setup Python
-        run: uv python install 3.13
-
-      - name: バージョン確認
-        working-directory: backend
-        run: |
-          echo "Python : $(uv run python --version)"
-          echo "uv     : $(uv --version)"
-          echo "ruff   : $(uv run ruff --version)"
-
-      - name: WeasyPrint 用システムライブラリのインストール
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
-            libglib2.0-0 libgobject-2.0-0 libffi-dev libcairo2
-
-      - name: Install backend dependencies
-        working-directory: backend
-        run: uv pip install -r requirements.txt
-
-      - name: 脆弱性スキャン (pip-audit)
-        working-directory: backend
-        run: uv tool run pip-audit -r requirements.txt
-
-      - name: Lint backend
-        working-directory: backend
-        run: uv run ruff check app tests alembic_migrations
-
-      - name: Run backend tests
-        working-directory: backend
-        run: uv run pytest -q tests
-
-  # OpenAPI → TypeScript 型のドリフト検知 (ADR-0007)。
-  # backend schema を変更したのに web/src/api/generated.ts を再生成して
-  # いない状態をビルドで落とす。エラーコードの型縛りと同じ思想。
-  codegen-drift:
-    runs-on: ubuntu-latest
-    needs: detect-changes
-    timeout-minutes: 10
-    if: needs.detect-changes.outputs.app == 'true'
-
-    steps:
-      - name: Checkout
-        # サプライチェーン保護のためコミット SHA で pin する（ADR-0007 codegen-drift を先行対応）。
-        # 型生成のドリフト検知のみで push はしないため認証情報は保持しない。
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-        with:
-          persist-credentials: false
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
-        with:
-          version: "latest"
-          enable-cache: true
-          cache-dependency-glob: "backend/requirements.txt"
-
-      - name: Setup Python
-        run: uv python install 3.13
-
-      - name: WeasyPrint 用システムライブラリのインストール
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
-            libglib2.0-0 libgobject-2.0-0 libffi-dev libcairo2
-
-      - name: Create virtualenv
-        working-directory: backend
-        run: uv venv
-
-      - name: Install backend dependencies
-        working-directory: backend
-        run: uv pip install -r requirements.txt
-
-      - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-
-      - name: Install web dependencies
-        run: npm ci --prefix web
-
-      - name: Export OpenAPI schema
-        working-directory: backend
-        run: uv run python scripts/export_openapi.py
-
-      - name: Generate TypeScript types
-        run: node web/scripts/gen-types.mjs
-
-      - name: Check generated types drift
-        run: |
-          if ! git diff --exit-code web/src/api/generated.ts; then
-            echo "::error::web/src/api/generated.ts が最新ではありません。'make codegen-types' を実行して再生成し、コミットしてください (ADR-0007)。"
-            exit 1
-          fi
-
-  # コンテナ起動スモークテスト。
-  # test-backend は uv + 標準 SQLite で動くため、本番イメージ（Dockerfile）の
-  # ビルド・libsql ネイティブドライバ・alembic マイグレーション実行・uvicorn 起動という
-  # 実行パスを一度も通らない。実際にイメージを build → libsql を立てて起動し、
-  # /health（DB 接続を検証する）が 200 を返すことを確認することで、
-  # 「ビルドは通るが起動時にネイティブ拡張が segfault する」種の不具合を CI で検知する。
-  # （例: Python 3.14 への bump で libsql-experimental が segfault した事象）
-  smoke-backend:
-    runs-on: ubuntu-latest
-    needs: detect-changes
-    timeout-minutes: 20
-    if: needs.detect-changes.outputs.app == 'true'
-
-    steps:
-      - name: Checkout
-        # スモークテストは repo への push をしないため認証情報を保持しない（サプライチェーン保護）。
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-        with:
-          persist-credentials: false
-
-      - name: 起動用の一時シークレットを生成 (.env)
-        run: |
-          # 起動検証専用の使い捨て鍵。永続化せず CI 実行限りで破棄する。
-          PRIV="$(openssl genrsa 2048 2>/dev/null)"
-          PUB="$(printf '%s' "$PRIV" | openssl rsa -pubout 2>/dev/null)"
-          # docker-compose の .env は複数行値を扱えないため、PEM を \n エスケープした
-          # 1 行値にする（settings.get_jwt_private_key が \n をアンエスケープする）。
-          PRIV_ESC="$(printf '%s' "$PRIV" | awk 'BEGIN{ORS="\\n"}{print}')"
-          PUB_ESC="$(printf '%s' "$PUB" | awk 'BEGIN{ORS="\\n"}{print}')"
-          # Fernet 鍵 = 32 バイトの urlsafe base64
-          FERNET="$(openssl rand -base64 32 | tr '+/' '-_')"
-          cat > .env <<EOF
-          TURSO_DATABASE_URL=http://libsql:8080
-          TURSO_AUTH_TOKEN=
-          FIELD_ENCRYPTION_KEY=${FERNET}
-          JWT_PRIVATE_KEY=${PRIV_ESC}
-          JWT_PUBLIC_KEY=${PUB_ESC}
-          CORS_ORIGINS=http://localhost:5173
-          ENVIRONMENT=local
-          LLM_LOCAL_OLLAMA=1
-          EOF
-
-      - name: イメージを build してスタックを起動
-        run: docker compose up -d --build api
-
-      - name: /health が 200 を返すまで待機（起動成功を検証）
-        run: |
-          for i in $(seq 1 60); do
-            if curl -fsS http://localhost:8000/health; then
-              echo
-              echo "✅ backend 起動成功"
-              exit 0
-            fi
-            state="$(docker inspect -f '{{.State.Status}}' devforge-api 2>/dev/null || echo missing)"
-            if [ "$state" != "running" ]; then
-              echo "::error::api コンテナが起動状態ではありません (state=$state)。Segfault / マイグレーション失敗などの可能性。"
-              break
-            fi
-            sleep 2
-          done
-          echo "----- api logs -----"
-          docker compose logs api
-          exit 1
-
-      - name: 後片付け
-        if: always()
-        run: docker compose down -v
-
-  deploy-web:
-    runs-on: ubuntu-latest
-    needs: [detect-changes, test-web, test-backend, codegen-drift]
-    if: |
-      github.ref == 'refs/heads/dev' &&
-      github.event_name == 'push' &&
+  # dev デプロイ（dev ブランチ push 時）。
+  # if 先頭の always() は、tests 内のフレーキーなジョブ（e2e 等）で
+  # tests の result が success にならなくても deploy_gate 出力で判定するため。
+  deploy-dev:
+    needs: [detect-changes, tests]
+    if: >
+      always() &&
+      github.ref == 'refs/heads/dev' && github.event_name == 'push' &&
       needs.detect-changes.outputs.app == 'true' &&
-      (needs.test-web.result == 'success' || needs.test-web.result == 'skipped') &&
-      (needs.test-backend.result == 'success' || needs.test-backend.result == 'skipped') &&
-      (needs.codegen-drift.result == 'success' || needs.codegen-drift.result == 'skipped')
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-        with:
-          fetch-depth: 0
-
-      - name: バージョン取得
-        run: |
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
-          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Setup Node.js
-        # デプロイジョブは secrets にアクセスするため、汚染され得る npm キャッシュを復元しない。
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: "20"
-
-      - name: Install dependencies
-        run: npm ci --prefix web
-
-      - name: Build web
-        run: npm run build --prefix web
-        env:
-          VITE_APP_VERSION: ${{ env.APP_VERSION }}
-          CLOUD_RUN_URL: ${{ secrets.CLOUD_RUN_URL_DEV }}
-
-      - name: Deploy to Cloudflare Pages (dev)
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy web/dist --project-name=devforge-dev --branch=dev
-
-  deploy-backend:
-    runs-on: ubuntu-latest
-    needs: [detect-changes, test-web, test-backend, codegen-drift]
-    if: |
-      github.ref == 'refs/heads/dev' &&
-      github.event_name == 'push' &&
-      needs.detect-changes.outputs.app == 'true' &&
-      (needs.test-web.result == 'success' || needs.test-web.result == 'skipped') &&
-      (needs.test-backend.result == 'success' || needs.test-backend.result == 'skipped') &&
-      (needs.codegen-drift.result == 'success' || needs.codegen-drift.result == 'skipped')
-    timeout-minutes: 20
-    env:
-      # 値は GitHub Repo Variables / Secrets で上書き可能。未設定時は既存値にフォールバック。
+      needs.tests.outputs.deploy_gate == 'pass'
+    uses: ./.github/workflows/deploy.yml
+    with:
       # 正本: infra/environments/dev/terraform.tfvars の project_id / stack_name
-      PROJECT_ID: ${{ vars.GCP_PROJECT_ID_DEV || 'devforge-dev-20260311' }}
-      REGION: ${{ vars.GCP_REGION || 'asia-northeast1' }}
-      REPO: ${{ vars.GCP_ARTIFACT_REPO_DEV || 'devforge-dev' }}
-      SERVICE: ${{ vars.CLOUD_RUN_SERVICE_DEV || 'devforge-dev' }}
+      project_id: ${{ vars.GCP_PROJECT_ID_DEV || 'devforge-dev-20260311' }}
+      region: ${{ vars.GCP_REGION || 'asia-northeast1' }}
+      repo: ${{ vars.GCP_ARTIFACT_REPO_DEV || 'devforge-dev' }}
+      service: ${{ vars.CLOUD_RUN_SERVICE_DEV || 'devforge-dev' }}
+      cf_project: devforge-dev
+      cf_branch: dev
+    secrets:
+      gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
+      cloud_run_url: ${{ secrets.CLOUD_RUN_URL_DEV }}
+      cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-        with:
-          fetch-depth: 0
-
-      - name: バージョン取得
-        run: |
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
-          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
-
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
-
-      - name: Build and push image
-        run: |
-          IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}
-          docker build -t ${IMAGE}:${{ github.sha }} -t ${IMAGE}:latest --build-arg APP_VERSION=${{ env.APP_VERSION }} backend/
-          docker push ${IMAGE}:${{ github.sha }}
-          docker push ${IMAGE}:latest
-
-      - name: Deploy to Cloud Run
-        run: |
-          gcloud run deploy ${{ env.SERVICE }} \
-            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.sha }} \
-            --region=${{ env.REGION }} \
-            --project=${{ env.PROJECT_ID }} \
-            --quiet
-
-  # stg フロントエンドデプロイ（stg ブランチ push 時）
-  deploy-web-stg:
-    runs-on: ubuntu-latest
-    needs: [detect-changes, test-web, test-backend, codegen-drift]
-    if: |
-      github.ref == 'refs/heads/stg' &&
-      github.event_name == 'push' &&
+  # stg デプロイ（stg ブランチ push 時）
+  deploy-stg:
+    needs: [detect-changes, tests]
+    if: >
+      always() &&
+      github.ref == 'refs/heads/stg' && github.event_name == 'push' &&
       needs.detect-changes.outputs.app == 'true' &&
-      (needs.test-web.result == 'success' || needs.test-web.result == 'skipped') &&
-      (needs.test-backend.result == 'success' || needs.test-backend.result == 'skipped') &&
-      (needs.codegen-drift.result == 'success' || needs.codegen-drift.result == 'skipped')
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-        with:
-          fetch-depth: 0
-
-      - name: バージョン取得
-        run: |
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
-          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Setup Node.js
-        # デプロイジョブは secrets にアクセスするため、汚染され得る npm キャッシュを復元しない。
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: "20"
-
-      - name: Install dependencies
-        run: npm ci --prefix web
-
-      - name: Build web
-        run: npm run build --prefix web
-        env:
-          VITE_APP_VERSION: ${{ env.APP_VERSION }}
-          CLOUD_RUN_URL: ${{ secrets.CLOUD_RUN_URL_STG }}
-
-      - name: Deploy to Cloudflare Pages (stg)
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy web/dist --project-name=devforge-stg --branch=stg
-
-  # stg バックエンドデプロイ（stg ブランチ push 時）
-  deploy-backend-stg:
-    runs-on: ubuntu-latest
-    needs: [detect-changes, test-web, test-backend, codegen-drift]
-    if: |
-      github.ref == 'refs/heads/stg' &&
-      github.event_name == 'push' &&
-      needs.detect-changes.outputs.app == 'true' &&
-      (needs.test-web.result == 'success' || needs.test-web.result == 'skipped') &&
-      (needs.test-backend.result == 'success' || needs.test-backend.result == 'skipped') &&
-      (needs.codegen-drift.result == 'success' || needs.codegen-drift.result == 'skipped')
-    timeout-minutes: 20
-    env:
-      # 値は GitHub Repo Variables / Secrets で上書き可能。未設定時は既存値にフォールバック。
+      needs.tests.outputs.deploy_gate == 'pass'
+    uses: ./.github/workflows/deploy.yml
+    with:
       # 正本: infra/environments/stg/terraform.tfvars の project_id / stack_name
-      PROJECT_ID: ${{ vars.GCP_PROJECT_ID_STG || 'devforge-stg-20260404' }}
-      REGION: ${{ vars.GCP_REGION || 'asia-northeast1' }}
-      REPO: ${{ vars.GCP_ARTIFACT_REPO_STG || 'devforge-stg' }}
-      SERVICE: ${{ vars.CLOUD_RUN_SERVICE_STG || 'devforge-stg' }}
+      project_id: ${{ vars.GCP_PROJECT_ID_STG || 'devforge-stg-20260404' }}
+      region: ${{ vars.GCP_REGION || 'asia-northeast1' }}
+      repo: ${{ vars.GCP_ARTIFACT_REPO_STG || 'devforge-stg' }}
+      service: ${{ vars.CLOUD_RUN_SERVICE_STG || 'devforge-stg' }}
+      cf_project: devforge-stg
+      cf_branch: stg
+    secrets:
+      gcp_sa_key: ${{ secrets.GCP_SA_KEY_STG }}
+      cloud_run_url: ${{ secrets.CLOUD_RUN_URL_STG }}
+      cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-        with:
-          fetch-depth: 0
-
-      - name: バージョン取得
-        run: |
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
-          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY_STG }}
-
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
-
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
-
-      - name: Build and push image
-        run: |
-          IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}
-          docker build -t ${IMAGE}:${{ github.sha }} -t ${IMAGE}:latest --build-arg APP_VERSION=${{ env.APP_VERSION }} backend/
-          docker push ${IMAGE}:${{ github.sha }}
-          docker push ${IMAGE}:latest
-
-      - name: Deploy to Cloud Run (stg)
-        run: |
-          gcloud run deploy ${{ env.SERVICE }} \
-            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.sha }} \
-            --region=${{ env.REGION }} \
-            --project=${{ env.PROJECT_ID }} \
-            --quiet
-
-  # prod フロントエンドデプロイ（main ブランチ push 時）
-  deploy-web-prod:
-    runs-on: ubuntu-latest
-    needs: [detect-changes, test-web, test-backend, codegen-drift]
-    if: |
-      github.ref == 'refs/heads/main' &&
-      github.event_name == 'push' &&
+  # prod デプロイ（main ブランチ push 時）
+  deploy-prod:
+    needs: [detect-changes, tests]
+    if: >
+      always() &&
+      github.ref == 'refs/heads/main' && github.event_name == 'push' &&
       needs.detect-changes.outputs.app == 'true' &&
-      (needs.test-web.result == 'success' || needs.test-web.result == 'skipped') &&
-      (needs.test-backend.result == 'success' || needs.test-backend.result == 'skipped') &&
-      (needs.codegen-drift.result == 'success' || needs.codegen-drift.result == 'skipped')
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-        with:
-          fetch-depth: 0
-
-      - name: バージョン取得
-        run: |
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
-          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Setup Node.js
-        # デプロイジョブは secrets にアクセスするため、汚染され得る npm キャッシュを復元しない。
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: "20"
-
-      - name: Install dependencies
-        run: npm ci --prefix web
-
-      - name: Build web
-        run: npm run build --prefix web
-        env:
-          VITE_APP_VERSION: ${{ env.APP_VERSION }}
-          CLOUD_RUN_URL: ${{ secrets.CLOUD_RUN_URL_PROD }}
-
-      - name: Deploy to Cloudflare Pages (prod)
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy web/dist --project-name=devforge --branch=main
-
-  # prod バックエンドデプロイ（main ブランチ push 時）
-  deploy-backend-prod:
-    runs-on: ubuntu-latest
-    needs: [detect-changes, test-web, test-backend, codegen-drift]
-    if: |
-      github.ref == 'refs/heads/main' &&
-      github.event_name == 'push' &&
-      needs.detect-changes.outputs.app == 'true' &&
-      (needs.test-web.result == 'success' || needs.test-web.result == 'skipped') &&
-      (needs.test-backend.result == 'success' || needs.test-backend.result == 'skipped') &&
-      (needs.codegen-drift.result == 'success' || needs.codegen-drift.result == 'skipped')
-    timeout-minutes: 20
-    env:
-      # 値は GitHub Repo Variables / Secrets で上書き可能。未設定時は既存値にフォールバック。
+      needs.tests.outputs.deploy_gate == 'pass'
+    uses: ./.github/workflows/deploy.yml
+    with:
       # 正本: infra/environments/prod/terraform.tfvars の project_id / stack_name
-      PROJECT_ID: ${{ vars.GCP_PROJECT_ID_PROD || 'devforge-prod-20260404' }}
-      REGION: ${{ vars.GCP_REGION || 'asia-northeast1' }}
-      REPO: ${{ vars.GCP_ARTIFACT_REPO_PROD || 'devforge-prod' }}
-      SERVICE: ${{ vars.CLOUD_RUN_SERVICE_PROD || 'devforge-prod' }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-        with:
-          fetch-depth: 0
-
-      - name: バージョン取得
-        run: |
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
-          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY_PROD }}
-
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
-
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
-
-      - name: Build and push image
-        run: |
-          IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}
-          docker build -t ${IMAGE}:${{ github.sha }} -t ${IMAGE}:latest --build-arg APP_VERSION=${{ env.APP_VERSION }} backend/
-          docker push ${IMAGE}:${{ github.sha }}
-          docker push ${IMAGE}:latest
-
-      - name: Deploy to Cloud Run (prod)
-        run: |
-          gcloud run deploy ${{ env.SERVICE }} \
-            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.sha }} \
-            --region=${{ env.REGION }} \
-            --project=${{ env.PROJECT_ID }} \
-            --quiet
+      project_id: ${{ vars.GCP_PROJECT_ID_PROD || 'devforge-prod-20260404' }}
+      region: ${{ vars.GCP_REGION || 'asia-northeast1' }}
+      repo: ${{ vars.GCP_ARTIFACT_REPO_PROD || 'devforge-prod' }}
+      service: ${{ vars.CLOUD_RUN_SERVICE_PROD || 'devforge-prod' }}
+      cf_project: devforge
+      cf_branch: main
+    secrets:
+      gcp_sa_key: ${{ secrets.GCP_SA_KEY_PROD }}
+      cloud_run_url: ${{ secrets.CLOUD_RUN_URL_PROD }}
+      cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
