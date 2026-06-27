@@ -21,6 +21,14 @@ class SkillEvidence(BaseModel):
         default=None,
         description="依存の種類（direct/dev/indirect/peer/build。言語では null）",
     )
+    manifest_path: Optional[str] = Field(
+        default=None,
+        description="manifest の相対パス（package のみ。例 backend/requirements.txt。言語では null）",
+    )
+    partial_scan: bool = Field(
+        default=False,
+        description="網羅でない部分スキャン由来か（証跡の過信防止。言語では常に false）",
+    )
 
 
 class SkillProficiency(BaseModel):

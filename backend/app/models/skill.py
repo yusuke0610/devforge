@@ -122,6 +122,14 @@ class GitHubSkillEvidence(Base):
     dependency_kind: Mapped[str | None] = mapped_column(
         String(20), nullable=True, default=None
     )
+    # D9(f): manifest の相対パス（package 根拠のみ。例 backend/requirements.txt）
+    manifest_path: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, default=None
+    )
+    # D9(d): 網羅でない部分スキャン由来か（truncated / cap 打ち切り。証跡の過信防止）
+    partial_scan: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=func.now(), server_default=func.now(), nullable=False
     )

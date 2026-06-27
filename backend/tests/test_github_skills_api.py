@@ -43,6 +43,8 @@ def _sample_detected() -> list[DetectedSkill]:
                     signal_source="manifest_declared",
                     confidence=0.6,
                     dependency_kind="direct",
+                    manifest_path="web/package.json",
+                    partial_scan=True,
                 )
             ],
         ),
@@ -83,6 +85,12 @@ def test_replace_then_get_returns_layers(client) -> None:
     react = by_name["react"]
     assert react["ecosystem"] == "npm"
     assert react["evidence"][0]["dependency_kind"] == "direct"
+    # D9: manifest パスと partial フラグが往復で永続化・取得されること。
+    assert react["evidence"][0]["manifest_path"] == "web/package.json"
+    assert react["evidence"][0]["partial_scan"] is True
+    # 言語根拠には manifest_path / partial が立たないこと。
+    assert python["evidence"][0]["manifest_path"] is None
+    assert python["evidence"][0]["partial_scan"] is False
 
 
 def test_replace_is_idempotent(client) -> None:

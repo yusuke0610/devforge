@@ -122,6 +122,8 @@ def _to_skill_item(skill) -> GitHubSkillItem:
                 confidence=ev.confidence,
                 language_bytes=ev.language_bytes,
                 dependency_kind=ev.dependency_kind,
+                manifest_path=ev.manifest_path,
+                partial_scan=ev.partial_scan,
             )
             for ev in skill.evidence
         ],

@@ -165,29 +165,53 @@ async def fetch_languages(
         return {}
 
 
-async def fetch_root_filenames(
+async def fetch_manifest_paths(
     client: httpx.AsyncClient,
     owner: str,
     repo: str,
-) -> List[str]:
-    """リポジトリ直下のファイル名一覧を取得する（declare の manifest 探索用 / D7）。
+    default_branch: str,
+    manifest_filenames: frozenset[str],
+) -> tuple[List[str], bool]:
+    """recursive Trees API でサブツリーを含む manifest パス一覧を取得する（declare / D7・D9）。
 
-    manifest の取得はベストエフォート（1 リポの失敗で連携全体を落とさない）なので、
-    エラー時は空リストを返す。サブツリー探索は v1 では行わない（直下のみ）。
+    ``GET /git/trees/{default_branch}?recursive=1`` を 1 回呼び、blob のうち basename が
+    ``manifest_filenames`` に一致する相対パスだけを返す（1 リポ 1 コール / D9(a)）。
+    第 2 戻り値は GitHub が木構造を打ち切ったか（``truncated`` / D9(d)）。
+
+    除外リストや深さ・件数キャップといった探索ポリシーは呼び出し側（collector）の責務とし、
+    ここでは「API 呼び出し + basename フィルタ + truncated 返却」に留める。manifest 取得は
+    ベストエフォート（1 リポの失敗で連携全体を落とさない）。ただし tree 取得自体が失敗した場合
+    （非200 / 不正レスポンス / ``httpx.HTTPError``）は「依存ゼロ」と「走査不能」を区別するため、
+    第 2 戻り値の partial を ``True`` にして部分スキャンとして伝播する（D9(d)）。不正 owner/repo は
+    実在リポではなく走査対象ですらないため ``([], False)`` のままとする。
     """
     if not _is_valid_owner_repo(owner, repo):
-        return []
+        return [], False
+    branch = default_branch or "main"
     try:
-        resp = await client.get(f"/repos/{owner}/{repo}/contents")
+        resp = await client.get(
+            f"/repos/{owner}/{repo}/git/trees/{branch}",
+            params={"recursive": "1"},
+        )
         if resp.status_code != 200:
-            return []
-        entries = resp.json()
-        if not isinstance(entries, list):
-            return []
-        return [e["name"] for e in entries if e.get("type") == "file" and e.get("name")]
+            return [], True
+        data = resp.json()
+        if not isinstance(data, dict):
+            return [], True
+        tree = data.get("tree")
+        if not isinstance(tree, list):
+            return [], True
+        paths = [
+            entry["path"]
+            for entry in tree
+            if entry.get("type") == "blob"
+            and entry.get("path")
+            and entry["path"].rsplit("/", 1)[-1] in manifest_filenames
+        ]
+        return paths, bool(data.get("truncated"))
     except httpx.HTTPError:
-        logger.warning("Failed to list root contents for %s/%s", owner, repo)
-        return []
+        logger.warning("Failed to fetch git tree for %s/%s", owner, repo)
+        return [], True
 
 
 async def fetch_repo_file(
