@@ -1,0 +1,342 @@
+name: Test
+
+# テスト/品質ゲートの再利用可能ワークフロー（ci.yml から workflow_call で呼ばれる）。
+# detect-changes の結果を inputs で受け取り、各ジョブの実行可否を制御する。
+# deploy のゲート判定は deploy-gate ジョブが集約し、deploy_gate 出力として公開する。
+on:
+  workflow_call:
+    inputs:
+      app:
+        description: "アプリ関連ファイル（web/backend 等）に変更があるか"
+        type: boolean
+        required: true
+      dupe:
+        description: "重複検知の対象ファイルに変更があるか"
+        type: boolean
+        required: true
+    outputs:
+      deploy_gate:
+        description: "deploy 可否のゲート（pass / fail）。test-web / test-backend / codegen-drift の結果のみで判定する"
+        value: ${{ jobs.deploy-gate.outputs.status }}
+
+permissions:
+  contents: read
+
+jobs:
+  detect-duplication:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: ${{ inputs.dupe }}
+    # Phase 3 初期は warn-only。baseline 取得後に continue-on-error: false へ切替予定。
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Run jscpd
+        run: npx --yes jscpd@4 --config .jscpd.json
+
+      - name: Upload duplication report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: jscpd-report
+          path: report/dupe/
+          retention-days: 14
+
+  test-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ inputs.app }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: バージョン確認
+        run: |
+          echo "Node.js: $(node --version)"
+          echo "npm    : $(npm --version)"
+
+      - name: Install dependencies
+        run: npm ci --prefix web
+
+      - name: 脆弱性スキャン (npm audit)
+        run: node web/scripts/audit-check.mjs
+
+      - name: Lint web
+        run: npm run lint --prefix web
+
+      - name: Run web tests
+        run: npm run test --prefix web
+
+      - name: Build web
+        run: npm run build --prefix web
+
+  test-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: ${{ inputs.app }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: バージョン確認
+        run: |
+          echo "Node.js  : $(node --version)"
+          echo "npm      : $(npm --version)"
+
+      - name: Install dependencies
+        run: npm ci --prefix web
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+        working-directory: web
+
+      - name: Run E2E tests
+        run: npm run test:e2e --prefix web
+        env:
+          CI: true
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 7
+
+  test-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ inputs.app }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "backend/requirements.txt"
+
+      - name: Setup Python
+        run: uv python install 3.13
+
+      - name: バージョン確認
+        working-directory: backend
+        run: |
+          echo "Python : $(uv run python --version)"
+          echo "uv     : $(uv --version)"
+          echo "ruff   : $(uv run ruff --version)"
+
+      - name: WeasyPrint 用システムライブラリのインストール
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
+            libglib2.0-0 libgobject-2.0-0 libffi-dev libcairo2
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv pip install -r requirements.txt
+
+      - name: 脆弱性スキャン (pip-audit)
+        working-directory: backend
+        run: uv tool run pip-audit -r requirements.txt
+
+      - name: Lint backend
+        working-directory: backend
+        run: uv run ruff check app tests alembic_migrations
+
+      - name: Run backend tests
+        working-directory: backend
+        run: uv run pytest -q tests
+
+  # OpenAPI → TypeScript 型のドリフト検知 (ADR-0007)。
+  # backend schema を変更したのに web/src/api/generated.ts を再生成して
+  # いない状態をビルドで落とす。エラーコードの型縛りと同じ思想。
+  codegen-drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ inputs.app }}
+
+    steps:
+      - name: Checkout
+        # サプライチェーン保護のためコミット SHA で pin する（ADR-0007 codegen-drift を先行対応）。
+        # 型生成のドリフト検知のみで push はしないため認証情報は保持しない。
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "backend/requirements.txt"
+
+      - name: Setup Python
+        run: uv python install 3.13
+
+      - name: WeasyPrint 用システムライブラリのインストール
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
+            libglib2.0-0 libgobject-2.0-0 libffi-dev libcairo2
+
+      - name: Create virtualenv
+        working-directory: backend
+        run: uv venv
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv pip install -r requirements.txt
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        run: npm ci --prefix web
+
+      - name: Export OpenAPI schema
+        working-directory: backend
+        run: uv run python scripts/export_openapi.py
+
+      - name: Generate TypeScript types
+        run: node web/scripts/gen-types.mjs
+
+      - name: Check generated types drift
+        run: |
+          if ! git diff --exit-code web/src/api/generated.ts; then
+            echo "::error::web/src/api/generated.ts が最新ではありません。'make codegen-types' を実行して再生成し、コミットしてください (ADR-0007)。"
+            exit 1
+          fi
+
+  # コンテナ起動スモークテスト。
+  # test-backend は uv + 標準 SQLite で動くため、本番イメージ（Dockerfile）の
+  # ビルド・libsql ネイティブドライバ・alembic マイグレーション実行・uvicorn 起動という
+  # 実行パスを一度も通らない。実際にイメージを build → libsql を立てて起動し、
+  # /health（DB 接続を検証する）が 200 を返すことを確認することで、
+  # 「ビルドは通るが起動時にネイティブ拡張が segfault する」種の不具合を CI で検知する。
+  # （例: Python 3.14 への bump で libsql-experimental が segfault した事象）
+  smoke-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: ${{ inputs.app }}
+
+    steps:
+      - name: Checkout
+        # スモークテストは repo への push をしないため認証情報を保持しない（サプライチェーン保護）。
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: 起動用の一時シークレットを生成 (.env)
+        run: |
+          # 起動検証専用の使い捨て鍵。永続化せず CI 実行限りで破棄する。
+          PRIV="$(openssl genrsa 2048 2>/dev/null)"
+          PUB="$(printf '%s' "$PRIV" | openssl rsa -pubout 2>/dev/null)"
+          # docker-compose の .env は複数行値を扱えないため、PEM を \n エスケープした
+          # 1 行値にする（settings.get_jwt_private_key が \n をアンエスケープする）。
+          PRIV_ESC="$(printf '%s' "$PRIV" | awk 'BEGIN{ORS="\\n"}{print}')"
+          PUB_ESC="$(printf '%s' "$PUB" | awk 'BEGIN{ORS="\\n"}{print}')"
+          # Fernet 鍵 = 32 バイトの urlsafe base64
+          FERNET="$(openssl rand -base64 32 | tr '+/' '-_')"
+          cat > .env <<EOF
+          TURSO_DATABASE_URL=http://libsql:8080
+          TURSO_AUTH_TOKEN=
+          FIELD_ENCRYPTION_KEY=${FERNET}
+          JWT_PRIVATE_KEY=${PRIV_ESC}
+          JWT_PUBLIC_KEY=${PUB_ESC}
+          CORS_ORIGINS=http://localhost:5173
+          ENVIRONMENT=local
+          LLM_LOCAL_OLLAMA=1
+          EOF
+
+      - name: イメージを build してスタックを起動
+        run: docker compose up -d --build api
+
+      - name: /health が 200 を返すまで待機（起動成功を検証）
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8000/health; then
+              echo
+              echo "✅ backend 起動成功"
+              exit 0
+            fi
+            state="$(docker inspect -f '{{.State.Status}}' devforge-api 2>/dev/null || echo missing)"
+            if [ "$state" != "running" ]; then
+              echo "::error::api コンテナが起動状態ではありません (state=$state)。Segfault / マイグレーション失敗などの可能性。"
+              break
+            fi
+            sleep 2
+          done
+          echo "----- api logs -----"
+          docker compose logs api
+          exit 1
+
+      - name: 後片付け
+        if: always()
+        run: docker compose down -v
+
+  # deploy のゲート判定を集約する。
+  # 現行 ci.yml の deploy 条件（test-web / test-backend / codegen-drift が
+  # success または skipped）を忠実に再現する。test-e2e / smoke-backend は
+  # 意図的にゲートへ含めない（e2e はフレーキーなため deploy をブロックさせない）。
+  deploy-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [test-web, test-backend, codegen-drift]
+    if: always()
+    outputs:
+      status: ${{ steps.compute.outputs.status }}
+
+    steps:
+      - name: ゲート判定
+        id: compute
+        run: |
+          # success または skipped を pass とする（現行 deploy の if 条件と同義）
+          for r in "${{ needs.test-web.result }}" \
+                   "${{ needs.test-backend.result }}" \
+                   "${{ needs.codegen-drift.result }}"; do
+            if [ "$r" != "success" ] && [ "$r" != "skipped" ]; then
+              echo "status=fail" >> "$GITHUB_OUTPUT"
+              echo "deploy gate: fail (test-web=${{ needs.test-web.result }} / test-backend=${{ needs.test-backend.result }} / codegen-drift=${{ needs.codegen-drift.result }})"
+              exit 0
+            fi
+          done
+          echo "status=pass" >> "$GITHUB_OUTPUT"
+          echo "deploy gate: pass"
