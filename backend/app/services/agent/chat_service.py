@@ -301,11 +301,24 @@ async def run_agent_chat(
     input_tokens = 0
     output_tokens = 0
 
+    async def _generate_and_account(call_messages: list[dict], *, label: str):
+        """LLM を呼び出し、合算トークンへ加算してから生応答を返す。
+
+        課金漏れ防止（ADR-0012）のため、初回・リトライの両方でトークン加算経路を
+        この 1 箇所に集約する。``client.generate`` が失敗した場合は加算前に例外が伝播し、
+        呼び出し元で確定済みの合算使用量を載せて再 raise する（使用量の二重計上を防ぐ）。
+        """
+        nonlocal input_tokens, output_tokens
+        call_result = await client.generate(
+            system_prompt, call_messages, output_schema, model_id
+        )
+        input_tokens += call_result.input_tokens
+        output_tokens += call_result.output_tokens
+        logger.debug("Agent LLM %s応答（パース前）: len=%d", label, len(call_result.text))
+        return call_result
+
     # 1 回目の呼び出し。パースまで成功すればここで確定して返す。
-    result = await client.generate(system_prompt, messages, output_schema, model_id)
-    input_tokens += result.input_tokens
-    output_tokens += result.output_tokens
-    logger.debug("Agent LLM 生応答（パース前）: len=%d", len(result.text))
+    result = await _generate_and_account(messages, label="生")
     try:
         response = _parse_response(result.text, request.scope)
         return AgentChatResult(
@@ -331,17 +344,12 @@ async def run_agent_chat(
 
     # リトライ呼び出し（1 回のみ）。以降は失敗時も合算使用量を載せて伝播する。
     try:
-        result = await client.generate(
-            system_prompt, retry_messages, output_schema, model_id
-        )
+        result = await _generate_and_account(retry_messages, label="リトライ")
     except LLMError as retry_exc:
         # リトライ呼び出し自体が失敗。1 回目の API 原価は発生済みのため使用量を
         # 載せて伝播し、router 側で課金を確定させる（課金漏れを防ぐ / ADR-0012）
         retry_exc.usage = _make_usage(request, input_tokens, output_tokens)
         raise
-    input_tokens += result.input_tokens
-    output_tokens += result.output_tokens
-    logger.debug("Agent LLM リトライ応答（パース前）: len=%d", len(result.text))
     try:
         response = _parse_response(result.text, request.scope)
     except AgentResponseParseError as retry_exc:

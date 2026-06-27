@@ -13,8 +13,8 @@ from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
-from ...models.cache import GitHubLinkCache
 from ...repositories.blog import BlogArticleRepository
+from ...repositories.github_link import GitHubLinkCacheRepository
 from ...services.blog.scorer import blog_articles_to_score_dicts, calculate_blog_score
 
 logger = logging.getLogger(__name__)
@@ -63,7 +63,7 @@ def build_reference_context(db: Session, user_id: str, scope: str) -> dict | Non
 def _build_github_context(db: Session, user_id: str) -> dict | None:
     """GitHubLinkCache から圧縮済み GitHub コンテキストを生成する。"""
     try:
-        cache = db.query(GitHubLinkCache).filter_by(user_id=user_id).first()
+        cache = GitHubLinkCacheRepository(db).get_by_user(user_id)
         if not cache or cache.status != "completed" or not cache.result:
             return None
 
