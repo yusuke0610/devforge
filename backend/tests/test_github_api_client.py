@@ -6,6 +6,7 @@ recursive Trees API のレスポンスをモックし、実 GitHub API は叩か
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 from app.services.intelligence.github.api_client import fetch_manifest_paths
 from app.services.intelligence.skills.manifests import MANIFEST_FILENAMES
 
@@ -55,16 +56,25 @@ def test_propagates_truncated_flag():
     assert truncated is True
 
 
-def test_non_200_returns_empty_besteffort():
-    """非 200 はベストエフォートで ([], False) を返すこと。"""
+def test_non_200_returns_partial():
+    """非 200 は「走査不能」として ([], True) を返すこと（依存ゼロと区別 / D9(d)）。"""
     client = _client_with_tree([], status_code=404)
     assert _run(
         fetch_manifest_paths(client, "u", "repo", "main", MANIFEST_FILENAMES)
-    ) == ([], False)
+    ) == ([], True)
+
+
+def test_http_error_returns_partial():
+    """httpx.HTTPError も走査不能として ([], True) を返すこと。"""
+    client = MagicMock()
+    client.get = AsyncMock(side_effect=httpx.ConnectError("boom"))
+    assert _run(
+        fetch_manifest_paths(client, "u", "repo", "main", MANIFEST_FILENAMES)
+    ) == ([], True)
 
 
 def test_invalid_owner_repo_returns_empty():
-    """不正な owner/repo は API を叩かず ([], False) を返すこと。"""
+    """不正な owner/repo は走査対象ですらないため API を叩かず ([], False) を返すこと。"""
     client = _client_with_tree([{"type": "blob", "path": "go.mod"}])
     result = _run(
         fetch_manifest_paths(client, "../evil", "repo", "main", MANIFEST_FILENAMES)

@@ -180,7 +180,10 @@ async def fetch_manifest_paths(
 
     除外リストや深さ・件数キャップといった探索ポリシーは呼び出し側（collector）の責務とし、
     ここでは「API 呼び出し + basename フィルタ + truncated 返却」に留める。manifest 取得は
-    ベストエフォート（1 リポの失敗で連携全体を落とさない）なので、失敗時は ``([], False)``。
+    ベストエフォート（1 リポの失敗で連携全体を落とさない）。ただし tree 取得自体が失敗した場合
+    （非200 / 不正レスポンス / ``httpx.HTTPError``）は「依存ゼロ」と「走査不能」を区別するため、
+    第 2 戻り値の partial を ``True`` にして部分スキャンとして伝播する（D9(d)）。不正 owner/repo は
+    実在リポではなく走査対象ですらないため ``([], False)`` のままとする。
     """
     if not _is_valid_owner_repo(owner, repo):
         return [], False
@@ -191,13 +194,13 @@ async def fetch_manifest_paths(
             params={"recursive": "1"},
         )
         if resp.status_code != 200:
-            return [], False
+            return [], True
         data = resp.json()
         if not isinstance(data, dict):
-            return [], False
+            return [], True
         tree = data.get("tree")
         if not isinstance(tree, list):
-            return [], False
+            return [], True
         paths = [
             entry["path"]
             for entry in tree
@@ -208,7 +211,7 @@ async def fetch_manifest_paths(
         return paths, bool(data.get("truncated"))
     except httpx.HTTPError:
         logger.warning("Failed to fetch git tree for %s/%s", owner, repo)
-        return [], False
+        return [], True
 
 
 async def fetch_repo_file(
