@@ -3,6 +3,7 @@
 from sqlalchemy.orm import Session
 
 from ....models import GitHubLinkCache
+from ....repositories.github_link import GitHubLinkCacheRepository
 from .base import SessionFactory, TaskHandler
 
 
@@ -13,7 +14,7 @@ class GitHubLinkHandler(TaskHandler):
         user_id = payload.get("user_id")
         if not user_id:
             return None
-        return db.query(GitHubLinkCache).filter_by(user_id=user_id).first()
+        return GitHubLinkCacheRepository(db).get_by_user(user_id)
 
     async def run(self, session_factory: SessionFactory, payload: dict) -> None:
         # 循環インポート回避のため遅延 import する

@@ -16,6 +16,7 @@ from ...core.encryption import decrypt_field
 from ...core.logging_utils import get_logger
 from ...core.messages import get_error
 from ...models import GitHubLinkCache
+from ...repositories.github_link import GitHubLinkCacheRepository
 from ...repositories.skill import GitHubSkillRepository
 from ..progress_service import set_progress
 from ..tasks.exceptions import NonRetryableError
@@ -36,13 +37,12 @@ def _now() -> datetime:
 
 
 def get_or_create_github_link_cache(db: Session, user_id: str) -> GitHubLinkCache:
-    """ユーザーの GitHubLinkCache レコードを取得し、存在しなければ作成する。"""
-    cache = db.query(GitHubLinkCache).filter_by(user_id=user_id).first()
-    if not cache:
-        cache = GitHubLinkCache(user_id=user_id)
-        db.add(cache)
-        db.flush()
-    return cache
+    """ユーザーの GitHubLinkCache レコードを取得し、存在しなければ作成する。
+
+    取得・作成ロジックは GitHubLinkCacheRepository に集約済み。本関数は既存呼び出し元
+    （router）の入口を維持するための薄いラッパ。
+    """
+    return GitHubLinkCacheRepository(db).get_or_create(user_id)
 
 
 async def run_github_link(session_factory: SessionFactory, payload: dict) -> None:
@@ -64,7 +64,7 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
 
     # ── フェーズA: 検証 + processing マーク ─────────────────────────────────
     with session_factory() as db:
-        cache = db.query(GitHubLinkCache).filter_by(user_id=user_id).first()
+        cache = GitHubLinkCacheRepository(db).get_by_user(user_id)
         if not cache:
             message = "GitHub 連携キャッシュが見つかりません"
             logger.error(message, extra={"user_id": user_id})
@@ -101,7 +101,7 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
         )
     except GitHubUserNotFoundError as exc:
         with session_factory() as db:
-            cache = db.query(GitHubLinkCache).filter_by(user_id=user_id).first()
+            cache = GitHubLinkCacheRepository(db).get_by_user(user_id)
             if cache:
                 cache.status = "dead_letter"
                 cache.error_message = (
@@ -147,7 +147,7 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
     # ステップ 4: DB 保存
     await set_progress(task_id, 4, _TOTAL_STEPS, "結果を保存中...")
     with session_factory() as db:
-        cache = db.query(GitHubLinkCache).filter_by(user_id=user_id).first()
+        cache = GitHubLinkCacheRepository(db).get_by_user(user_id)
         if not cache:
             logger.warning(
                 "結果書き戻し時にキャッシュが見つかりません",
