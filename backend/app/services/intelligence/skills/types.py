@@ -30,3 +30,5 @@ class PackageDeclaration:
     name: str  # エコシステム内で一意な package ID
     dependency_kind: str  # DEPENDENCY_KINDS のいずれか
     version_spec: str | None = None  # バージョン制約（生文字列。解釈はしない）
+    # D9(f): manifest の相対パス（例: backend/requirements.txt）。証跡用。直下なら "package.json" 等。
+    source_path: str | None = None

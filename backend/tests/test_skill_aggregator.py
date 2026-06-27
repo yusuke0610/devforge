@@ -120,3 +120,37 @@ def test_non_pypi_names_not_normalized() -> None:
 
 def test_empty_repo_yields_no_skills() -> None:
     assert aggregate_skills([_repo()]) == []
+
+
+def test_manifest_path_and_partial_propagate_to_package_evidence() -> None:
+    """D9: source_path / partial が package 根拠へ伝播すること。"""
+    repo = RepoSkillInput(
+        full_name="u/mono",
+        url="https://github.com/u/mono",
+        languages={"Python": 1000},
+        package_declarations=[
+            PackageDeclaration(
+                "pypi", "fastapi", "direct", source_path="backend/requirements.txt"
+            )
+        ],
+        manifest_scan_partial=True,
+    )
+    by_name = _by_name(aggregate_skills([repo]))
+    ev = by_name["fastapi"].evidence[0]
+    assert ev.manifest_path == "backend/requirements.txt"
+    assert ev.partial_scan is True
+
+
+def test_partial_scan_not_set_on_language_evidence() -> None:
+    """D9: partial は manifest 根拠のみ。language 根拠は常に False のままにすること。"""
+    repo = RepoSkillInput(
+        full_name="u/mono",
+        url="https://github.com/u/mono",
+        languages={"Python": 1000},
+        package_declarations=[],
+        manifest_scan_partial=True,
+    )
+    by_name = _by_name(aggregate_skills([repo]))
+    lang_ev = by_name["Python"].evidence[0]
+    assert lang_ev.partial_scan is False
+    assert lang_ev.manifest_path is None

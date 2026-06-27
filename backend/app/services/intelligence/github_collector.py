@@ -7,7 +7,7 @@ GitHub REST API を介してパブリックリポジトリのデータを取得�
 
 import logging
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
@@ -20,14 +20,37 @@ from .github.api_client import (
     GITHUB_API,
     GitHubUserNotFoundError,
     fetch_languages,
+    fetch_manifest_paths,
     fetch_repo_file,
     fetch_repos_raw,
-    fetch_root_filenames,
 )
 from .skills.manifests import MANIFEST_FILENAMES, parse_manifest
 from .skills.types import PackageDeclaration
 
 logger = logging.getLogger(__name__)
+
+# monorepo manifest 探索のヒューリスティック（ADR-0016 D9）。閾値は運用で調整しうるが、
+# env_keys 同期コストに見合わないためモジュール定数として持つ（チューニングはコード変更）。
+# D9(b): パスのいずれかのセグメントがこの集合に該当したら manifest 候補から除外する。
+_MANIFEST_PATH_EXCLUDE_SEGMENTS = frozenset(
+    {
+        "node_modules",
+        "vendor",
+        ".venv",
+        "venv",
+        "site-packages",
+        "bower_components",
+        "third_party",
+        "testdata",
+        "dist",
+        "build",
+        ".git",
+    }
+)
+# D9(c): manifest パスのセグメント数上限（例: a/b/c/package.json = 4）。
+_MANIFEST_MAX_DEPTH = 4
+# D9(c): 1 リポあたり fetch する manifest 件数上限。
+_MANIFEST_MAX_COUNT = 20
 
 # このモジュールの公開 API。``GitHubUserNotFoundError`` は github_link_service が
 # ``from .github_collector import GitHubUserNotFoundError`` で参照するため再エクスポートする。
@@ -52,26 +75,59 @@ class RepoData:
     fork: bool
     stargazers_count: int
     default_branch: str = field(default="main")
-    # declare ステージ: 直下 manifest が宣言する依存（D7）。未取得なら空。
+    # declare ステージ: manifest が宣言する依存（D7・D9。サブツリー含む）。未取得なら空。
     package_declarations: List[PackageDeclaration] = field(default_factory=list)
+    # D9(d): manifest 走査が網羅的でない（truncated / cap で打ち切り）場合 True。
+    manifest_scan_partial: bool = False
+
+
+def _is_excluded_manifest_path(path: str) -> bool:
+    """パスのいずれかのセグメントが除外集合に該当するか（D9(b)）。"""
+    return any(seg in _MANIFEST_PATH_EXCLUDE_SEGMENTS for seg in path.split("/"))
 
 
 async def _collect_manifests(
-    client: httpx.AsyncClient, owner: str, repo: str
-) -> List[PackageDeclaration]:
-    """リポジトリ直下の manifest を取得・解析して依存宣言を返す（declare / D7）。
+    client: httpx.AsyncClient, owner: str, repo: str, default_branch: str
+) -> tuple[List[PackageDeclaration], bool]:
+    """サブツリーを含む manifest を取得・解析して依存宣言を返す（declare / D7・D9）。
 
-    直下のファイル一覧と既知 manifest 名の積集合だけを取得する。取得・解析失敗は
-    ベストエフォートで握りつぶす（1 リポの失敗で連携全体を落とさない）。
+    recursive Trees API で候補パスを列挙し、除外セグメント（D9(b)）・深さ/件数キャップ
+    （D9(c)）でフィルタしてから本文を取得する。取得・解析失敗はベストエフォートで握りつぶす
+    （1 リポの失敗で連携全体を落とさない）。第 2 戻り値は走査が部分的だったか（D9(d)）。
     """
-    filenames = await fetch_root_filenames(client, owner, repo)
-    targets = [name for name in filenames if name in MANIFEST_FILENAMES]
+    paths, truncated = await fetch_manifest_paths(
+        client, owner, repo, default_branch, MANIFEST_FILENAMES
+    )
+    # D9(b): 除外セグメントを含むパスを捨てる（取得済みツリーの in-memory フィルタ）。
+    candidates = [p for p in paths if not _is_excluded_manifest_path(p)]
+    # D9(c): 浅い順に並べ、深さ上限超を落とし、件数上限で打ち切る。
+    candidates.sort(key=lambda p: (p.count("/"), p))
+    within_depth = [p for p in candidates if p.count("/") + 1 <= _MANIFEST_MAX_DEPTH]
+    depth_dropped = len(within_depth) < len(candidates)
+    selected = within_depth[:_MANIFEST_MAX_COUNT]
+    count_dropped = len(within_depth) > _MANIFEST_MAX_COUNT
+    partial = bool(truncated or depth_dropped or count_dropped)
+    if partial:
+        logger.warning(
+            "manifest 探索が部分的: %s/%s (truncated=%s, depth_dropped=%s, count_dropped=%s)",
+            owner,
+            repo,
+            truncated,
+            depth_dropped,
+            count_dropped,
+        )
+
     declarations: List[PackageDeclaration] = []
-    for filename in targets:
-        content = await fetch_repo_file(client, owner, repo, filename)
-        if content:
-            declarations.extend(parse_manifest(filename, content))
-    return declarations
+    for path in selected:
+        content = await fetch_repo_file(client, owner, repo, path)
+        if not content:
+            continue
+        filename = path.rsplit("/", 1)[-1]
+        # D9(f): 検出した相対パスを証跡として各宣言に付与する。
+        declarations.extend(
+            replace(decl, source_path=path) for decl in parse_manifest(filename, content)
+        )
+    return declarations, partial
 
 
 def _passes_filter(raw: dict, include_forks: bool, cutoff_date_str: str) -> bool:
@@ -135,10 +191,12 @@ async def collect_repos(
 
                 languages = await fetch_languages(client, owner_login, repo_name)
 
+                default_branch = raw.get("default_branch", "main")
                 declarations: List[PackageDeclaration] = []
+                manifest_partial = False
                 if collect_manifests:
-                    declarations = await _collect_manifests(
-                        client, owner_login, repo_name
+                    declarations, manifest_partial = await _collect_manifests(
+                        client, owner_login, repo_name, default_branch
                     )
 
                 repos.append(
@@ -152,8 +210,9 @@ async def collect_repos(
                         pushed_at=raw.get("pushed_at", ""),
                         fork=raw.get("fork", False),
                         stargazers_count=raw.get("stargazers_count", 0),
-                        default_branch=raw.get("default_branch", "main"),
+                        default_branch=default_branch,
                         package_declarations=declarations,
+                        manifest_scan_partial=manifest_partial,
                     )
                 )
 

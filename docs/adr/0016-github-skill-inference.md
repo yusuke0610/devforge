@@ -113,7 +113,7 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 - **(d) truncated / 打ち切りは partial としてマークする**: 巨大リポで Trees API が `truncated: true` を返した場合、または件数キャップ（c）で打ち切った場合は、取得済み分（浅い側優先）を使い `logger.warning` を残す（1 リポの取りこぼしで連携全体を落とさないベストエフォート方針）。加えて、**その走査が網羅的でない（partial）ことを当該リポの evidence にマークして永続化**し、下流が「網羅スキャン」と「ベストエフォートの部分スキャン」を区別できるようにする（保持は細かく / D8。証跡の過信を防ぐ）。
 - **(e) 主従重み付けはしない（keep-all）**: 複数 manifest を主従判定して集約せず、全 manifest を evidence として保持する（D1/D8「非可逆な切り捨てを入力時に行わない」に従い、畳み込み・重み付けは後段ビュー変換へ）。延期理由の 3 つ目（主従判定）はこれで回避する。
 - **(f) manifest パスを証跡として永続化する**: 検出した相対パス（例: `backend/requirements.txt`）を evidence に保存する（`PackageDeclaration.source_path` → `EvidenceRecord` → `github_skill_evidence.manifest_path`）。対象は public リポ前提で相対パスは公開メタデータ（既存の `repo_url` と同等の性質）、raw code は D6 どおり破棄するため機密情報を持たない設計を崩さない。証跡性が「どのディレクトリの何で宣言したか」まで強化される。
-- **(g) 対象は manifest 限定（infra の .tf は対象外）**: Terraform/HCL は package manifest ではなく language 層（Linguist → 表示名「Terraform」/ D3）で捕捉済みのため、本探索は D7 の Tier1 4 エコシステム（Go / Python / JS-TS / Rust。manifest ファイルは Python が 2 種のため計 5 ファイル）の manifest にのみ適用する。
+- **(g) 対象は manifest 限定（infra の .tf は対象外）**: Terraform/HCL は package manifest ではなく language 層（Linguist → 表示名「Terraform」/ D3）で捕捉済みのため、本探索は D7 の Tier1 4 エコシステム（Go / Python / JS-TS / Rust。manifest ファイルは Python が 2 種のため計 5 ファイル）の manifest にのみ適用する。（ただし `.tf` から**インフラリソース**（プロバイダ／サービス）を抽出する検出軸は本 manifest 探索とは別物で、後述「将来課題: IaC からのインフラリソース検出」に記載する。）
 
 実装で触る想定箇所（後続 PR）: `github/api_client.py`（`fetch_root_filenames` を `fetch_manifest_paths(..., default_branch)` に拡張し、truncated/打ち切りの有無も返す）/ `github_collector.py`（パス一覧反復・`source_path` 付与・partial フラグ伝播）/ `skills/types.py`（`PackageDeclaration.source_path` / `EvidenceRecord.manifest_path` / partial マーカー）/ `skills/aggregator.py`（path・partial 伝播）/ `models/skill.py` + 新規 migration（`github_skill_evidence.manifest_path` と partial フラグを `op.add_column`）/ `schemas/github_skill.py`（`SkillEvidence` への追加、`make codegen-types` 再生成）。
 
@@ -145,9 +145,44 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 
 - **verify ステージの詳細設計**: import サンプリング戦略、言語別の import 検出、打ち切り条件。
 - **monorepo 対応**: D9 で採用済み（recursive Trees API + パスセグメント除外 + 深さ/件数キャップ + keep-all）。残課題は除外定義の高度化（Linguist `vendor.yml` 流用）・キャップ閾値の実データチューニング・規模シグナルの導入。
+- **IaC からのインフラリソース検出**: 後述「将来課題: IaC からのインフラリソース検出」を参照（Terraform/OpenTofu 先行・provider+service 粒度・kind=infra 案・D9 探索流用）。
 - **private リポジトリの扱い**: Layer 3 経由で人間が深さを補完する。生データは持ち込まない前提を維持する。
 - **deps.dev エンリッチ**: 横断名寄せの範囲・実行タイミング。
 - **閾値・粒度のデフォルト**: 言語足切りの初期値、表示名 alias の初期セット。
+
+## 将来課題: IaC からのインフラリソース検出（検討中 / 未採用）
+
+**背景**: Terraform/HCL は Linguist により*言語*スキル「Terraform」として検出済み（D3・D9(g)）。一方「どのクラウドの何のサービスを IaC で構築・運用したか」は捉えられていない。インフラが **IaC で記述されている場合に限り**、宣言から具体的なインフラリソースを抽出すれば、インフラ系スキルの幅と証跡性が上がる。本項は新しい検出軸の**課題提起**であり、採用（実装）は別途判断する。
+
+**スコープ（v1 課題時）**:
+
+- 対象 IaC: まず **Terraform / OpenTofu（HCL `.tf`）** に限定。parser は **plugin 型**（D7 の `ManifestParser` と同思想）とし、CloudFormation(yaml/json) / Pulumi / k8s manifest / Helm / Serverless Framework は後追いで差し込める設計にとどめる（v1 では実装しない）。
+- 抽出粒度: **プロバイダとサービスの両方**。
+  - `provider` / `required_providers` ブロック → クラウドプロバイダ（AWS / Google Cloud / Cloudflare 等）。
+  - `resource "<type>" "<name>"` ブロック → 具体サービス。type 接頭辞でプロバイダを判定（`aws_` → AWS）、type 自体がサービスを表す（`aws_s3_bucket` → S3）。
+
+**3 層モデルへの収め方（案）**:
+
+- Layer 1 に**新 kind `infra`**（`SKILL_KIND_INFRA`）を追加。`package` の「エコシステム内で一意」前提（D3）に乗らないため別 kind とする（D2 の「検出方法と信頼度の出方が違うなら別型」と同思想）。
+- canonical は **raw な resource type / provider 名を保持**（例 `aws_s3_bucket`）。`aws_s3_bucket` → 「Amazon S3」のような**表示名・粒度の畳み込みは文脈依存で機械検証不能**なので、D8 同様 **agent 提案 → 人間確定**の human-in-the-loop に委ねる（機械に辞書を確定させない / D3・D8）。「保持は細かく、提案は荒目」を踏襲。
+- Layer 2 Evidence に**新 signal_source `infra_declared`**を追加。量的シグナルは resource 出現回数・provider 宣言の有無。`github_skill_evidence.signal_source` は値域拡張のみ（カラム追加不要）。provider version 等の追加メタを持つ場合のみ ADD COLUMN migration を別途。
+
+**既存基盤の流用**:
+
+- **探索は D9 をそのまま流用**: `.tf` は `infra/modules/...` 等サブツリーに分散するのが常で、recursive Trees API + パスセグメント除外 + 深さ/件数キャップ + keep-all がそのまま効く。除外集合に `.terraform`（プロバイダキャッシュ）を追加する。manifest 探索とは別の対象集合（`*.tf`）として扱う。
+- **証跡**: D9(f) と同様、検出した `.tf` の相対パスを evidence に保持。raw HCL は D6 同様 parse 後に破棄。
+
+**ステージ**: declare 相当（宣言検出）に位置づく。`resource` ブロックは「宣言 ≒ 実構築」に近く、import 解析（verify / D6）のような昇格段階は基本不要。
+
+**新規値オブジェクト（案）**: `InfraResourceDeclaration(tool, provider, resource_type, source_path)` を IaC parser plugin が返し、aggregator に `_collect_infra()` を追加して `kind=infra` で集約する（`_collect_languages` / `_collect_packages` と並ぶ）。
+
+**触る想定箇所（将来実装時）**: `skills/types.py`（`SKILL_KIND_INFRA` / `InfraResourceDeclaration`）/ `skills/manifests/`（IaC parser plugin・Protocol 一般化 or `InfraParser` 別定義）/ 新規 `skills/manifests/terraform.py`（HCL の provider・resource 抽出）/ `skills/aggregator.py`（`_collect_infra`）/ `github_collector.py`（`.tf` 探索・除外集合に `.terraform` 追加）/ `models/skill.py`・`schemas/github_skill.py`（kind / signal_source の値域・docstring 更新、必要なら provider_version の ADD COLUMN migration + `make codegen-types`）。
+
+**トレードオフ・リスク**:
+
+- **IaC 限定の取りこぼし**: コンソール手動構築・他者管理基盤など IaC 化されていないインフラスキルは検出不能。public 限定（既知リスク）と同様、Layer 3 で人間が補完する。
+- **HCL の動的生成**: `module` 呼び出し・`count` / `for_each` / `dynamic` で resource が動的に増える構成は静的列挙しきれない。v1 課題は**静的 `resource` ブロックの type 抽出**に限定し、module 解決は将来課題とする。
+- **resource type → 表示名マッピングの維持コスト**: D3「辞書を持たない」思想とテンション。canonical を raw type 保持・表示名のみ human-in-the-loop 提案にすることで、機械辞書の常時メンテを避ける。横断名寄せが要る場合のみ Terraform Registry を参照し、D4 のホットパス非依存に合わせ内部マスタ化を検討する。
 
 ## 関連リンク
 
@@ -158,7 +193,10 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 - [GitHub REST API: Git Trees（`recursive`）](https://docs.github.com/en/rest/git/trees)
 - [GitHub Linguist `vendor.yml`](https://github.com/github-linguist/linguist/blob/main/lib/linguist/vendor.yml)
 - [deps.dev](https://deps.dev/)
+- [Terraform Registry](https://registry.terraform.io/)（resource type ↔ provider/service 正規化の参照元 / 将来課題「IaC リソース検出」用）
+- [OpenTofu](https://opentofu.org/)
 
 ## 改訂履歴
 
 - **2026-06**: 当初「代替案」で延期していた monorepo サブツリー探索を **D9 として採用**（recursive Trees API + パスセグメント除外 + 深さ/件数キャップ + keep-all + manifest パス永続化）。3 層モデル・D1〜D8 は不変。当初は別 ADR 案だったが、0016 の核を維持する refine であり 1 箇所の追補に留まるため、本 ADR への統合とした。
+- **2026-06**: IaC からのインフラリソース検出（provider+service 粒度・HCL 先行・kind=infra 案・D9 探索流用・D8 同様の human-in-the-loop 正規化）を**将来課題として追記**。決定（D1〜D9）・3 層モデルは不変。

@@ -54,6 +54,10 @@ class EvidenceRecord:
     confidence: float
     language_bytes: int | None = None
     dependency_kind: str | None = None
+    # D9(f): manifest の相対パス（package 根拠のみ。language では None）。
+    manifest_path: str | None = None
+    # D9(d): 部分スキャン由来か（manifest 根拠のみ True になりうる。language は常に False）。
+    partial_scan: bool = False
 
 
 @dataclass
@@ -76,6 +80,8 @@ class RepoSkillInput:
     url: str
     languages: dict[str, int]
     package_declarations: list[PackageDeclaration] = field(default_factory=list)
+    # D9(d): このリポの manifest 走査が部分的だったか。package 根拠へ伝播する。
+    manifest_scan_partial: bool = False
 
 
 def aggregate_skills(repos: list[RepoSkillInput]) -> list[DetectedSkill]:
@@ -182,6 +188,10 @@ def _collect_packages(
                 signal_source=_SIGNAL_MANIFEST_DECLARED,
                 confidence=_confidence(decl.dependency_kind),
                 dependency_kind=decl.dependency_kind,
+                # D9(f): 採用した宣言の manifest パスを証跡として残す。
+                manifest_path=decl.source_path,
+                # D9(d): partial は manifest 根拠にのみ立てる（language には立てない）。
+                partial_scan=repo.manifest_scan_partial,
             )
         )
 

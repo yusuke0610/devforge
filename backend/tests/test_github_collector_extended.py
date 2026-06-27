@@ -13,9 +13,12 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from app.services.intelligence import github_collector
 from app.services.intelligence.github.api_client import GitHubUserNotFoundError
 from app.services.intelligence.github_collector import (
     RepoData,
+    _collect_manifests,
+    _is_excluded_manifest_path,
     _passes_filter,
     collect_repos,
 )
@@ -273,3 +276,105 @@ class TestCollectRepos:
         names = {r.name for r in repos}
         assert "repo0" in names
         assert "repo4" in names
+
+
+# ── monorepo manifest 探索（ADR-0016 D9）───────────────────────────────────
+
+
+class TestIsExcludedManifestPath:
+    def test_excludes_node_modules_segment(self):
+        assert _is_excluded_manifest_path("web/node_modules/x/package.json") is True
+
+    def test_excludes_dot_venv_segment(self):
+        assert _is_excluded_manifest_path(".venv/lib/requirements.txt") is True
+
+    def test_keeps_clean_subtree_path(self):
+        assert _is_excluded_manifest_path("backend/requirements.txt") is False
+
+    def test_keeps_root_manifest(self):
+        assert _is_excluded_manifest_path("package.json") is False
+
+
+class TestCollectManifests:
+    """`_collect_manifests` の除外 / 深さ・件数キャップ / partial / source_path。"""
+
+    def _patched_collect(self, paths, truncated, *, monkeypatch=None):
+        """fetch_manifest_paths / fetch_repo_file をモックして _collect_manifests を実行。
+
+        fetch_repo_file は basename に応じた最小 manifest 内容を返す。fetch された
+        パス一覧と (declarations, partial) を返す。
+        """
+        fetched: list[str] = []
+
+        async def _fetch_repo_file(_client, _owner, _repo, path):
+            fetched.append(path)
+            name = path.rsplit("/", 1)[-1]
+            if name == "package.json":
+                return '{"dependencies": {"react": "^18.0.0"}}'
+            if name in ("requirements.txt",):
+                return "fastapi==0.110.0"
+            return None
+
+        with (
+            patch(
+                "app.services.intelligence.github_collector.fetch_manifest_paths",
+                new_callable=AsyncMock,
+                return_value=(paths, truncated),
+            ),
+            patch(
+                "app.services.intelligence.github_collector.fetch_repo_file",
+                side_effect=_fetch_repo_file,
+            ),
+        ):
+            decls, partial = _run(
+                _collect_manifests(MagicMock(), "u", "repo", "main")
+            )
+        return decls, partial, fetched
+
+    def test_detects_subtree_manifest_and_attaches_source_path(self):
+        """サブツリーの manifest を検出し source_path を付与すること（D9 a/f）。"""
+        decls, partial, fetched = self._patched_collect(
+            ["backend/requirements.txt"], False
+        )
+        assert fetched == ["backend/requirements.txt"]
+        assert partial is False
+        assert len(decls) == 1
+        assert decls[0].name == "fastapi"
+        assert decls[0].source_path == "backend/requirements.txt"
+
+    def test_excluded_segment_paths_are_dropped(self):
+        """除外セグメントを含むパスは fetch せず捨てること。partial にはしない（D9 b）。"""
+        decls, partial, fetched = self._patched_collect(
+            ["requirements.txt", "web/node_modules/x/package.json"], False
+        )
+        assert fetched == ["requirements.txt"]
+        assert partial is False
+        assert {d.source_path for d in decls} == {"requirements.txt"}
+
+    def test_truncated_marks_partial(self):
+        """Trees API の truncated を partial として伝播すること（D9 d）。"""
+        _decls, partial, _fetched = self._patched_collect(
+            ["requirements.txt"], True
+        )
+        assert partial is True
+
+    def test_depth_cap_drops_deep_paths_and_marks_partial(self, monkeypatch):
+        """深さ上限超の manifest は落とし partial=True にすること（D9 c/d）。"""
+        monkeypatch.setattr(github_collector, "_MANIFEST_MAX_DEPTH", 2)
+        decls, partial, fetched = self._patched_collect(
+            ["requirements.txt", "a/b/c/requirements.txt"], False
+        )
+        # 深さ2まで（"requirements.txt" のみ）。"a/b/c/requirements.txt" は4セグメントで除外。
+        assert fetched == ["requirements.txt"]
+        assert partial is True
+        assert {d.source_path for d in decls} == {"requirements.txt"}
+
+    def test_count_cap_truncates_shallow_first_and_marks_partial(self, monkeypatch):
+        """件数上限で浅い順に打ち切り partial=True にすること（D9 c/d）。"""
+        monkeypatch.setattr(github_collector, "_MANIFEST_MAX_COUNT", 1)
+        _decls, partial, fetched = self._patched_collect(
+            ["sub/requirements.txt", "requirements.txt"], False
+        )
+        # 浅い順ソートで root を優先し 1 件で打ち切る。
+        assert fetched == ["requirements.txt"]
+        assert partial is True

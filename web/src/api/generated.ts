@@ -1880,6 +1880,17 @@ export interface components {
              */
             language_bytes?: number | null;
             /**
+             * Manifest Path
+             * @description manifest の相対パス（package のみ。例 backend/requirements.txt。言語では null）
+             */
+            manifest_path?: string | null;
+            /**
+             * Partial Scan
+             * @description 網羅でない部分スキャン由来か（証跡の過信防止。言語では常に false）
+             * @default false
+             */
+            partial_scan: boolean;
+            /**
              * Repo Full Name
              * @description 根拠リポジトリ（owner/name）
              */
