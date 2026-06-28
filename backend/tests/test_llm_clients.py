@@ -384,6 +384,52 @@ def test_ollama_client_returns_text_with_zero_usage(monkeypatch) -> None:
     assert result.output_tokens == 0
 
 
+def test_ollama_client_sends_portable_schema(monkeypatch) -> None:
+    """format には移植スキーマを渡す（llama.cpp の文法変換が maxLength/maxItems/oneOf で
+    失敗するため）。oneOf は enum へ畳まれ、maxLength / maxItems は除去される。"""
+    import json as _json
+
+    from app.services.agent.llm import ollama_client
+    from app.services.agent.llm.ollama_client import OllamaClient
+
+    captured: dict = {}
+
+    class _CapturingClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args) -> bool:
+            return False
+
+        async def post(self, url, json=None):
+            captured["payload"] = json
+            return _FakeResponse({"message": {"content": '{"message":"ok"}'}})
+
+    monkeypatch.setattr(ollama_client.settings, "get_ollama_base_url", lambda: "http://x")
+    monkeypatch.setattr(ollama_client.settings, "get_ollama_model", lambda: "llama3.2")
+    monkeypatch.setattr(ollama_client.settings, "get_ollama_timeout_seconds", lambda: 1.0)
+    monkeypatch.setattr(
+        ollama_client.httpx, "AsyncClient", lambda **kwargs: _CapturingClient()
+    )
+
+    asyncio.run(
+        OllamaClient().generate(
+            "sys", [{"role": "user", "content": "hi"}],
+            build_output_schema("project"), "ignored"
+        )
+    )
+
+    fmt = captured["payload"]["format"]
+    serialized = _json.dumps(fmt)
+    # 数値制約と oneOf が文法変換を壊すため、いずれも format に残ってはいけない
+    assert "maxLength" not in serialized
+    assert "maxItems" not in serialized
+    assert "oneOf" not in serialized
+    # project の許可 field（description / role）は enum に畳まれている
+    item = fmt["properties"]["operations"]["items"]
+    assert item["properties"]["field"]["enum"] == ["description", "role"]
+
+
 def test_ollama_client_http_error_wrapped(monkeypatch) -> None:
     """httpx.HTTPError は LLMError にラップされる。"""
     from app.services.agent.llm.ollama_client import OllamaClient

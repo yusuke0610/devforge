@@ -7,6 +7,7 @@ import time
 import httpx
 
 from ....core import settings
+from ..output_schema import to_portable_schema
 from .base import LLMClient, LLMError, LLMResult, require_text, wrap_api_error
 
 logger = logging.getLogger(__name__)
@@ -19,8 +20,11 @@ class OllamaClient(LLMClient):
     """ローカル Ollama の /api/chat を呼び出すクライアント。
 
     ``format`` に JSON Schema を渡して構造化出力（文法制約）を強制する。
-    構造・許可 field（const）・maxItems は文法レベルで保証されるが、
-    maxLength は強制されないため上限超過は呼び出し側で破棄する。
+    ただし llama.cpp の JSON Schema → GBNF 文法変換は ``maxLength`` / ``maxItems``
+    を解釈できず ``failed to parse grammar`` で 400 を返すため、Gemini/OpenAI と同様に
+    ``to_portable_schema`` で数値制約を除去し ``oneOf`` を ``enum`` へ畳んだ移植スキーマを渡す。
+    許可 field 名（enum）と構造は文法レベルで保証されるが、文字数上限の実強制は
+    呼び出し側（``chat_service._parse_response`` の破棄ロジック）が担う（二重防衛 / ADR-0013）。
     """
 
     def __init__(self) -> None:
@@ -45,7 +49,8 @@ class OllamaClient(LLMClient):
             "model": self._model,
             "messages": [{"role": "system", "content": system_prompt}, *messages],
             "stream": False,
-            "format": output_schema,
+            # maxLength/maxItems を含む生スキーマは llama.cpp の文法変換を壊すため移植スキーマを渡す
+            "format": to_portable_schema(output_schema, drop_additional_properties=False),
             # 職務経歴書の改善提案は事実忠実性が最優先のため低温度に固定する
             # （デフォルト 0.8 では小型モデルが架空の資格・技術を捏造しやすい）
             "options": {"temperature": 0.2},
