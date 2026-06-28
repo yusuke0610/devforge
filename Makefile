@@ -2,7 +2,7 @@
 	setup install-hooks install-backend install-web generate-keys \
 	dev dev-build dev-down dev-amd64 dev-amd64-build dev-web preview-web dev-proxy dev-proxy-only stripe-webhook \
 	test test-backend test-web \
-	lint lint-backend lint-web lint-web-messages lint-fix \
+	lint lint-backend lint-web lint-web-messages lint-env-keys lint-fix \
 	format format-check \
 	ci \
 	dupe-check dupe-check-html dupe-clean \
@@ -42,6 +42,7 @@ help:
 	@echo "  lint-backend      Backend: ruff check"
 	@echo "  lint-web     Frontend: eslint"
 	@echo "  lint-web-messages  Frontend: setError等にリテラル日本語が渡っていないか検知"
+	@echo "  lint-env-keys     env名/エラーコードの SSoT drift を検知 (env_keys.py↔compose, errors.py↔errorCodes.ts)"
 	@echo "  lint-fix          リント自動修正 (ruff + eslint)"
 	@echo "  format            Prettier で整形"
 	@echo "  format-check      Prettier チェック"
@@ -140,7 +141,7 @@ test-backend:
 test-web:
 	nix develop --command bash -c "cd web && npm test"
 
-lint: lint-backend lint-web lint-web-messages
+lint: lint-backend lint-web lint-web-messages lint-env-keys
 
 lint-backend:
 	nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check app tests alembic_migrations"
@@ -152,6 +153,12 @@ lint-web:
 # ESLint は throw new Error の AST しか拾えないため、関数呼び出し系をここで補完する。
 lint-web-messages:
 	nix develop --command bash scripts/lint-web-messages.sh
+
+# env 名 / エラーコードの SSoT drift を検知。
+# env_keys.py↔docker-compose.yml、errors.py↔errorCodes.ts の集合一致を検証する。
+# grep/sed/comm のみに依存（ripgrep 不要）。他 lint と揃えて nix wrap で実行する。
+lint-env-keys:
+	nix develop --command bash scripts/lint-env-keys.sh
 
 lint-fix:
 	nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check --fix app tests alembic_migrations"
