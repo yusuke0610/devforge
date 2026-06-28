@@ -4,9 +4,11 @@
 プロンプト（app/prompts/agent_*.md）には機械検証不能な制約（品質基準・
 捏造禁止・思考ステップ）のみを書く（ADR-0010「制約の責務分離」）。
 
-注意: Anthropic の非 strict tool use / Ollama の format（文法制約）は
-maxLength を API 側で強制しない（モデルへの助言扱い）。文字数上限の
-実強制は chat_service._parse_response の破棄ロジックが担う（二重防衛）。
+注意: Anthropic の非 strict tool use は maxLength を API 側で強制しない（モデルへの
+助言扱い）。Ollama（llama.cpp の format → GBNF 文法変換）は maxLength / maxItems を
+解釈できず文法変換自体が失敗するため、to_portable_schema で数値制約を除去してから渡す
+（ADR-0013）。いずれの経路でも文字数上限の実強制は chat_service._parse_response の
+破棄ロジックが担う（二重防衛）。
 maxLength は JSON Schema 仕様どおり Unicode 文字数（日本語の len() と一致）。
 """
 
@@ -84,9 +86,9 @@ def build_tool_definition(input_schema: dict) -> dict:
 def to_portable_schema(schema: dict, *, drop_additional_properties: bool = False) -> dict:
     """build_output_schema の出力を、Gemini/OpenAI の構造化出力に通る形へ変換する（ADR-0013）。
 
-    Gemini ``response_schema`` / OpenAI strict ``response_format`` は ``oneOf`` / ``const`` /
-    ``maxLength`` / ``maxItems`` といった JSON Schema キーワードを受け付けないか挙動が
-    不安定なため、以下に正規化する:
+    Gemini ``response_schema`` / OpenAI strict ``response_format`` / Ollama ``format``
+    （llama.cpp の GBNF 文法変換）は ``oneOf`` / ``const`` / ``maxLength`` / ``maxItems``
+    といった JSON Schema キーワードを受け付けないか挙動が不安定なため、以下に正規化する:
 
     - operations.items の ``oneOf`` 分岐 → ``field`` を許可値の ``enum`` に畳んだ単一オブジェクト
     - ``maxLength`` / ``maxItems`` を除去（上限の実強制は chat_service._parse_response が担う / 二重防衛）
@@ -95,7 +97,8 @@ def to_portable_schema(schema: dict, *, drop_additional_properties: bool = False
     - OpenAI strict は ``additionalProperties: false`` が必須 → 残す（drop_additional_properties=False）
     - Gemini ``response_schema`` は ``additionalProperties`` 非対応 → 除去する（drop_additional_properties=True）
 
-    Anthropic（tool use）と Ollama（format）は元スキーマをそのまま使うため本関数は通さない。
+    Anthropic（tool use）は oneOf/const/maxLength を解釈できるため元スキーマをそのまま使い、
+    本関数は通さない。Ollama（format）は数値制約で文法変換が壊れるため本関数を通す。
     """
     strip_keys = {"maxLength", "maxItems"}
     if drop_additional_properties:
