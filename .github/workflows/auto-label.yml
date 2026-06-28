@@ -1,0 +1,153 @@
+name: Auto Label
+
+# PR / Issue 作成・編集時にラベルを自動付与する。
+# - path-label : PR の変更ファイルパスから付与（.github/labeler.yml）
+# - title-label: PR は Conventional Commits の type/scope、Issue はタイトル/本文の
+#                キーワードから付与
+# - ensure-labels: 付与対象の新規ラベルを色・説明付きで冪等に作成（upsert）
+# 公式 Action のみ・SHA pin 運用（サプライチェーン方針に準拠）。
+
+on:
+  # 同一リポジトリの feature ブランチ運用が前提。fork からの PR は read-only token に
+  # なり labeler がラベルを付与できない点に留意（必要になれば pull_request_target を検討）。
+  pull_request:
+    types: [opened, reopened, synchronize, edited] # edited = タイトル変更時の再判定
+  issues:
+    types: [opened, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: auto-label-${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  # 付与対象の管理ラベルを色・説明付きで upsert する。ラベルの SSoT（公式の
+  # label-sync Action が無いため github-script で管理する）。冪等。
+  ensure-labels:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ensure managed labels exist
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            // 管理対象ラベルの定義（color は # を付けない 6 桁 hex）。
+            const LABEL_DEFS = [
+              { name: "web", color: "1D76DB", description: "フロントエンド (web)" },
+              { name: "test", color: "BFD4F2", description: "テスト追加・修正" },
+              { name: "chore", color: "FEF2C0", description: "雑務・保守作業" },
+              { name: "security", color: "B60205", description: "セキュリティ" },
+              { name: "agent", color: "5319E7", description: "DevForge Agent" },
+              { name: "ci", color: "0E8A16", description: "CI / ワークフロー" },
+            ];
+            const { owner, repo } = context.repo;
+            for (const def of LABEL_DEFS) {
+              try {
+                await github.rest.issues.createLabel({ owner, repo, ...def });
+                core.info(`created label: ${def.name}`);
+              } catch (e) {
+                if (e.status === 422) {
+                  // 既存ラベルは色・説明を最新定義に合わせて更新する。
+                  await github.rest.issues.updateLabel({ owner, repo, ...def });
+                  core.info(`updated label: ${def.name}`);
+                } else {
+                  throw e;
+                }
+              }
+            }
+
+  # PR の変更ファイルパスからラベルを付与する。
+  path-label:
+    needs: ensure-labels
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Apply path-based labels
+        uses: actions/labeler@f27b608878404679385c85cfa523b85ccb86e213 # v6.1.0
+        with:
+          configuration-path: .github/labeler.yml
+          # パスに合致しなくなったパスラベルは除去する（labeler.yml 外の
+          # タイトル系ラベルは対象外なので消えない）。
+          sync-labels: true
+
+  # PR タイトル（Conventional Commits）/ Issue タイトル・本文からラベルを付与する。
+  # 付与のみで既存ラベルの除去はしない。
+  title-label:
+    needs: ensure-labels
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Apply title/keyword-based labels
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const isPR = !!context.payload.pull_request;
+            const target = context.payload.pull_request || context.payload.issue;
+            const labels = new Set();
+
+            if (isPR) {
+              // Conventional Commits: type(scope): subject
+              const title = target.title || "";
+              const m = title.match(/^(\w+)(?:\(([^)]+)\))?!?:/);
+              if (m) {
+                const type = m[1].toLowerCase();
+                const scope = (m[2] || "").toLowerCase();
+                const typeMap = {
+                  feat: "feature",
+                  fix: "bug",
+                  refactor: "refactor",
+                  docs: "documentation",
+                  test: "test",
+                  chore: "chore",
+                  infra: "infra",
+                  perf: "improvement",
+                };
+                const scopeMap = {
+                  backend: "backend",
+                  web: "web",
+                  frontend: "web",
+                  infra: "infra",
+                  auth: "auth",
+                  agent: "agent",
+                  ci: "ci",
+                  deps: "dependencies",
+                };
+                if (typeMap[type]) labels.add(typeMap[type]);
+                if (scopeMap[scope]) labels.add(scopeMap[scope]);
+              }
+            } else {
+              // Issue: タイトル + 本文をキーワードマッチ（大文字小文字無視）。
+              const text = `${target.title || ""}\n${target.body || ""}`.toLowerCase();
+              const keywordMap = [
+                { label: "bug", re: /バグ|不具合|エラー|error|bug/ },
+                { label: "backend", re: /バックエンド|backend|api/ },
+                { label: "web", re: /フロント|frontend|web|ui/ },
+                { label: "auth", re: /認証|ログイン|auth|login/ },
+                { label: "security", re: /脆弱性|セキュリティ|security/ },
+                { label: "agent", re: /エージェント|agent/ },
+                { label: "documentation", re: /ドキュメント|documentation|docs/ },
+                { label: "infra", re: /インフラ|infra|terraform/ },
+                { label: "feature", re: /機能|要望|feature|enhancement/ },
+              ];
+              for (const { label, re } of keywordMap) {
+                if (re.test(text)) labels.add(label);
+              }
+            }
+
+            if (labels.size === 0) {
+              core.info("付与対象のラベルなし（no-op）");
+              return;
+            }
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: target.number,
+              labels: [...labels],
+            });
+            core.info(`付与: ${[...labels].join(", ")}`);
