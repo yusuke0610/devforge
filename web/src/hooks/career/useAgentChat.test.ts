@@ -1,7 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { AgentModelAlias, ExperienceTarget, ProjectTarget } from "../../api/types";
 import type { CareerFormState } from "../../payloadBuilders";
+import type { AgentScope } from "../../utils/agentOperations";
 import { useAgentChat } from "./useAgentChat";
 
 const postAgentChatMock = vi.fn();
@@ -21,6 +23,24 @@ const form = {
   qualifications: [],
 } as unknown as CareerFormState;
 
+type ChatHook = { current: ReturnType<typeof useAgentChat> };
+
+/**
+ * 送信の共通 arrange（act + send のラップ）。各テストでスコープ・対象・プロンプトだけ差し替える。
+ * model 省略時はフックのデフォルト（haiku）に委ねる。
+ */
+async function sendChat(
+  result: ChatHook,
+  scope: AgentScope,
+  target: ProjectTarget | ExperienceTarget | null,
+  prompt: string,
+  model?: AgentModelAlias,
+) {
+  await act(async () => {
+    await result.current.send(form, scope, target, prompt, model);
+  });
+}
+
 beforeEach(() => {
   postAgentChatMock.mockReset();
 });
@@ -33,9 +53,7 @@ describe("useAgentChat", () => {
     });
     const { result } = renderHook(() => useAgentChat());
 
-    await act(async () => {
-      await result.current.send(form, "career_summary", null, "改善して");
-    });
+    await sendChat(result, "career_summary", null, "改善して");
 
     expect(result.current.entries).toHaveLength(2);
     expect(result.current.entries[0]).toMatchObject({ role: "user", text: "改善して" });
@@ -50,6 +68,16 @@ describe("useAgentChat", () => {
     );
   });
 
+  it("user / assistant エントリは描画キー用の一意な id を持つ", async () => {
+    postAgentChatMock.mockResolvedValue({ message: "提案です", operations: [] });
+    const { result } = renderHook(() => useAgentChat());
+
+    await sendChat(result, "self_pr", null, "改善して");
+
+    const ids = result.current.entries.map((e) => e.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
   it("曖昧入力応答の suggestions（依頼文候補）をエントリに保持する", async () => {
     postAgentChatMock.mockResolvedValue({
       message: "どの方向で改善しますか？",
@@ -58,9 +86,7 @@ describe("useAgentChat", () => {
     });
     const { result } = renderHook(() => useAgentChat());
 
-    await act(async () => {
-      await result.current.send(form, "self_pr", null, "いい感じにして");
-    });
+    await sendChat(result, "self_pr", null, "いい感じにして");
 
     expect(result.current.entries[1].suggestions).toEqual([
       "300字に要約して",
@@ -72,9 +98,7 @@ describe("useAgentChat", () => {
     postAgentChatMock.mockResolvedValue({ message: "提案です", operations: [] });
     const { result } = renderHook(() => useAgentChat());
 
-    await act(async () => {
-      await result.current.send(form, "self_pr", null, "改善して");
-    });
+    await sendChat(result, "self_pr", null, "改善して");
 
     expect(result.current.entries[1].suggestions).toBeNull();
   });
@@ -83,9 +107,7 @@ describe("useAgentChat", () => {
     postAgentChatMock.mockRejectedValue(new Error("AI の応答取得に失敗しました。"));
     const { result } = renderHook(() => useAgentChat());
 
-    await act(async () => {
-      await result.current.send(form, "self_pr", null, "改善して");
-    });
+    await sendChat(result, "self_pr", null, "改善して");
 
     await waitFor(() => {
       expect(result.current.error).toBe("AI の応答取得に失敗しました。");
@@ -102,9 +124,7 @@ describe("useAgentChat", () => {
     });
     const { result } = renderHook(() => useAgentChat());
 
-    await act(async () => {
-      await result.current.send(form, "self_pr", null, "改善して");
-    });
+    await sendChat(result, "self_pr", null, "改善して");
     act(() => {
       result.current.markApplied(1);
     });
@@ -116,9 +136,7 @@ describe("useAgentChat", () => {
     postAgentChatMock.mockResolvedValue({ message: "提案なし", operations: [] });
     const { result } = renderHook(() => useAgentChat());
 
-    await act(async () => {
-      await result.current.send(form, "self_pr", null, "改善して");
-    });
+    await sendChat(result, "self_pr", null, "改善して");
 
     expect(result.current.entries[1].operations).toBeNull();
   });
@@ -127,9 +145,7 @@ describe("useAgentChat", () => {
     postAgentChatMock.mockResolvedValue({ message: "提案です", operations: [] });
     const { result } = renderHook(() => useAgentChat());
 
-    await act(async () => {
-      await result.current.send(form, "self_pr", null, "改善して");
-    });
+    await sendChat(result, "self_pr", null, "改善して");
 
     expect(postAgentChatMock).toHaveBeenCalledWith(expect.objectContaining({ history: [] }));
   });
@@ -141,12 +157,8 @@ describe("useAgentChat", () => {
     });
     const { result } = renderHook(() => useAgentChat());
 
-    await act(async () => {
-      await result.current.send(form, "self_pr", null, "改善して");
-    });
-    await act(async () => {
-      await result.current.send(form, "self_pr", null, "もっと短くして");
-    });
+    await sendChat(result, "self_pr", null, "改善して");
+    await sendChat(result, "self_pr", null, "もっと短くして");
 
     expect(postAgentChatMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -177,12 +189,8 @@ describe("useAgentChat", () => {
     postAgentChatMock.mockResolvedValue({ message: "提案です", operations: [] });
     const { result } = renderHook(() => useAgentChat());
 
-    await act(async () => {
-      await result.current.send(form, "self_pr", null, "改善して");
-    });
-    await act(async () => {
-      await result.current.send(form, "self_pr", null, "300字に要約して");
-    });
+    await sendChat(result, "self_pr", null, "改善して");
+    await sendChat(result, "self_pr", null, "300字に要約して");
 
     // 選択肢を選んだ次の送信時、history の assistant エントリに suggestions が含まれ、
     // LLM が「前ターンで選択肢を提示した」文脈を受け取れる（選択肢ループ回帰防止）
@@ -209,12 +217,8 @@ describe("useAgentChat", () => {
     postAgentChatMock.mockResolvedValue({ message: "提案です", operations: [] });
     const { result } = renderHook(() => useAgentChat());
 
-    await act(async () => {
-      await result.current.send(form, "self_pr", null, "失敗する依頼");
-    });
-    await act(async () => {
-      await result.current.send(form, "self_pr", null, "再送する依頼");
-    });
+    await sendChat(result, "self_pr", null, "失敗する依頼");
+    await sendChat(result, "self_pr", null, "再送する依頼");
 
     expect(postAgentChatMock).toHaveBeenLastCalledWith(
       expect.objectContaining({ history: [] }),
@@ -227,9 +231,7 @@ describe("useAgentChat", () => {
 
     // 5 回目の送信時点で過去 4 往復（8 エントリ）が 6 件に切り詰められる
     for (let i = 1; i <= 5; i++) {
-      await act(async () => {
-        await result.current.send(form, "self_pr", null, `依頼${i}`);
-      });
+      await sendChat(result, "self_pr", null, `依頼${i}`);
     }
 
     const calls = postAgentChatMock.mock.calls;
@@ -245,9 +247,7 @@ describe("useAgentChat", () => {
     postAgentChatMock.mockResolvedValue({ message: "提案です", operations: [] });
     const { result } = renderHook(() => useAgentChat());
 
-    await act(async () => {
-      await result.current.send(form, "self_pr", null, "改善して");
-    });
+    await sendChat(result, "self_pr", null, "改善して");
 
     expect(postAgentChatMock).toHaveBeenCalledWith(expect.objectContaining({ model: "haiku" }));
   });
@@ -256,9 +256,7 @@ describe("useAgentChat", () => {
     postAgentChatMock.mockResolvedValue({ message: "提案です", operations: [] });
     const { result } = renderHook(() => useAgentChat());
 
-    await act(async () => {
-      await result.current.send(form, "self_pr", null, "改善して", "sonnet");
-    });
+    await sendChat(result, "self_pr", null, "改善して", "sonnet");
 
     expect(postAgentChatMock).toHaveBeenCalledWith(expect.objectContaining({ model: "sonnet" }));
   });
@@ -268,9 +266,7 @@ describe("useAgentChat", () => {
     const { result } = renderHook(() => useAgentChat());
     const expTarget = { experience_index: 0 };
 
-    await act(async () => {
-      await result.current.send(form, "experience", expTarget, "事業内容を改善して");
-    });
+    await sendChat(result, "experience", expTarget, "事業内容を改善して");
 
     expect(postAgentChatMock).toHaveBeenCalledWith(
       expect.objectContaining({ scope: "experience", target: expTarget }),

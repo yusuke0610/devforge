@@ -4,16 +4,18 @@
   gap: 6px;
   padding: 0.4rem 0.75rem;
   font-size: 0.78rem;
-  color: var(--text-secondary);
+  /* サイドバー背景はライト/ダーク両テーマで暗色のため、本文用の --text-* ではなく
+     サイドバー専用のテキスト変数を使う（ライトモードで暗背景に暗文字となり読めなくなるのを防ぐ）。 */
+  color: var(--sidebar-text);
 }
 
 .label {
-  color: var(--text-secondary);
+  color: var(--sidebar-text);
 }
 
 .value {
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--sidebar-title);
 }
 
 .paid {

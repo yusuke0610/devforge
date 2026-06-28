@@ -1,5 +1,4 @@
-import { CSSProperties, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Dispatch, SetStateAction } from "react";
+import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useCareerFormModals } from "../../hooks/career/useCareerFormModals";
 
@@ -18,10 +17,9 @@ import { useResumeDiffPreview } from "../../hooks/career/useResumeDiffPreview";
 import { useResumeImportAssist } from "../../hooks/career/useResumeImportAssist";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
 import { clearCareerDraft, loadCareerDraft, saveCareerDraft } from "../../utils/careerDraft";
-import { buildCareerPayload, validateCareerForm } from "../../payloadBuilders";
-import type { CareerFieldLocator, CareerFormState } from "../../payloadBuilders";
+import { buildCareerPayload } from "../../payloadBuilders";
 import { buildCareerChanges } from "../../utils/careerDiff";
-import type { CareerTextFieldKey } from "../../formTypes";
+import { useCareerFormValidationFocus } from "../../hooks/career/useCareerFormValidationFocus";
 import { useQualifications, useTechnologyStacks } from "../../hooks/useMasterData";
 import { useCareerExportActions } from "../../hooks/career/useCareerExportActions";
 import { useMessageToast } from "../ui/toast";
@@ -126,13 +124,6 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
     }
   }, [isAuthenticated, form]);
 
-  /**
-   * 保存前バリデーション（項目バリデーション）のメッセージ。
-   * 保存/削除/PDF などの非同期処理の成否はトーストで通知するが、
-   * 入力エラーは該当フィールドのフォーカス・赤枠とセットでフォーム内にインライン表示する。
-   */
-  const [validationError, setValidationError] = useState<string | null>(null);
-
   const { items: techStackOptions, loading: techLoading } = useTechnologyStacks();
   const { items: qualificationOptions, loading: qualLoading } = useQualifications();
   const qualificationNames = qualificationOptions.map((item) => item.name);
@@ -186,85 +177,26 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
   /** フォームデータ・技術スタック・資格の3つが揃った時に送信可能 */
   const canSubmit = !loading && !techLoading && !qualLoading;
 
-  /**
-   * バリデーション失敗フィールドの位置と nonce。保存時にセットし、
-   * 該当入力へのフォーカス・赤枠表示・折りたたみ自動展開に使う。
-   * nonce は「同じフィールドで再度保存した時」も折りたたみ展開 effect を再発火させるための鍵。
-   */
-  const [focusTarget, setFocusTarget] = useState<{
-    locator: CareerFieldLocator;
-    nonce: number;
-  } | null>(null);
-  const focusNonceRef = useRef(0);
-
-  /** 編集が入ったらフォーカス強調を解除する（赤枠を消す）setForm ラッパー。 */
-  const setFormAndClearFocus = useCallback<Dispatch<SetStateAction<CareerFormState>>>(
-    (action) => {
-      setFocusTarget(null);
-      setValidationError(null);
-      setForm(action);
-    },
-    [setForm],
-  );
-
-  const onChangeField = (key: CareerTextFieldKey, value: string) => {
-    setFocusTarget(null);
-    setValidationError(null);
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
-
-  /** バリデーション失敗を画面へ反映する（メッセージ・フォーカス・モーダル自動展開）。 */
-  const applyValidationError = (validation: NonNullable<ReturnType<typeof validateCareerForm>>) => {
-    setValidationError(validation.message);
-    focusNonceRef.current += 1;
-    setFocusTarget({ locator: validation.locator, nonce: focusNonceRef.current });
-    // 自己PR / 職務要約はモーダルへ逃がしているため、該当フィールドの失敗時はモーダルを自動で開く
-    // （隠れた textarea には直接フォーカスできないため）。
-    if (
-      validation.locator.kind === "career_summary" ||
-      validation.locator.kind === "self_pr"
-    ) {
-      setEditingField(validation.locator.kind);
-    }
-  };
-
-  const onSubmit = (event: FormEvent) => {
-    event.preventDefault();
-
-    // 未ログインのお試し入力: 全項目の入力完了は求めず（カジュアルな体験を優先）、
-    // 氏名だけ確認して（空の経歴書でログインさせない）ドラフトを退避し、ログインを促す。
-    // 残りの項目検証はログイン後の実保存時にサーバ側で行う。
-    if (!isAuthenticated) {
-      if (!form.full_name.trim()) {
-        const validation = validateCareerForm(form);
-        if (validation) applyValidationError(validation);
-        return;
-      }
-      setValidationError(null);
-      setFocusTarget(null);
-      // 入力内容は effect で sessionStorage に退避済み。ログインを促す。
-      requestLogin();
-      return;
-    }
-
-    // 保存前にフォーム全体を検証し、最初のエラーフィールドへフォーカスする。
-    const validation = validateCareerForm(form);
-    if (validation) {
-      applyValidationError(validation);
-      return;
-    }
-    setValidationError(null);
-    setFocusTarget(null);
-    // 変更が無ければ確認を挟まずそのまま保存。変更があれば確認ダイアログを開く。
-    if (changes.length === 0) {
-      void save();
-      return;
-    }
-    setShowSaveConfirm(true);
-  };
-
-  const focusLocator = focusTarget?.locator ?? null;
-  const focusNonce = focusTarget?.nonce ?? 0;
+  // バリデーション結果の画面反映（メッセージ・フォーカス強調・モーダル自動展開・送信分岐）。
+  const {
+    validationError,
+    focusLocator,
+    focusNonce,
+    setFormAndClearFocus,
+    onChangeField,
+    onSubmit,
+  } = useCareerFormValidationFocus({
+    form,
+    setForm,
+    isAuthenticated,
+    changeCount: changes.length,
+    save,
+    openSaveConfirm: () => setShowSaveConfirm(true),
+    requestLogin,
+    // ゲスト入力はログイン遷移の直前に同期退避する（effect の未反映で最後の入力を失わないため）。
+    persistDraft: saveCareerDraft,
+    openMarkdownField: setEditingField,
+  });
 
   return (
     <>
