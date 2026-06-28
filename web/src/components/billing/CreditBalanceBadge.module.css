@@ -5,7 +5,9 @@
   padding: 0.4rem 0.75rem;
   margin-bottom: 0.4rem;
   font-size: 0.78rem;
-  color: var(--text-secondary);
+  /* サイドバー背景は両テーマで暗色のため、本文用の --text-* ではなくサイドバー専用変数を使う
+     （ライトモードで暗背景に暗文字となり読めなくなるのを防ぐ）。 */
+  color: var(--sidebar-text);
   border-bottom: 1px solid var(--sidebar-border);
 }
 
@@ -16,18 +18,18 @@
 }
 
 .label {
-  color: var(--text-secondary);
+  color: var(--sidebar-text);
 }
 
 .value {
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--sidebar-title);
   font-variant-numeric: tabular-nums;
 }
 
 .estimate {
   font-size: 0.72rem;
-  color: var(--text-secondary);
+  color: var(--sidebar-text);
   opacity: 0.8;
 }
 
