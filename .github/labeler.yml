@@ -1,0 +1,38 @@
+# PR の変更ファイルパスからラベルを自動付与するための設定（actions/labeler v6 形式）。
+# 各エントリは「ラベル名 → マッチさせるグロブ」。タイトル由来のラベル（feature/bug 等）は
+# このファイルでは扱わず、auto-label.yml の title-label ジョブが付与する。
+# 詳細・設計判断は PR / docs を参照。
+
+backend:
+  - changed-files:
+      - any-glob-to-any-file: ['backend/**']
+
+web:
+  - changed-files:
+      - any-glob-to-any-file: ['web/**']
+
+infra:
+  - changed-files:
+      - any-glob-to-any-file: ['infra/**']
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: ['docs/**', '**/*.md']
+
+test:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'backend/tests/**'
+          - 'web/**/*.test.*'
+          - 'web/e2e/**'
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ['.github/**']
+
+agent:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'backend/app/services/agent/**'
+          - 'backend/app/prompts/agent_*.md'
+          - 'backend/app/schemas/agent.py'
