@@ -39,12 +39,26 @@ COMPOSE_ALLOWLIST=$(printf '%s\n' \
 fail=0
 
 # ── (1) env_keys.py ⊆ docker-compose.yml ──────────────────────────────────
-# 抽出は grep -E + sed -E のみで行う（PCRE / ripgrep に依存しない）。
+# 抽出は grep -E / sed -E / awk のみで行う（PCRE / ripgrep に依存しない）。
 # ripgrep は flake.nix の devshell にも GitHub ランナーにも入っていないため。
-env_names=$(grep -E '^[A-Z_]+[[:space:]]*=[[:space:]]*"' "$ENV_KEYS" \
-  | sed -E 's/^([A-Z_]+).*/\1/' | sort -u)
-compose_names=$(grep -E '^[[:space:]]+[A-Z_]+:' "$COMPOSE" \
-  | sed -E 's/^[[:space:]]+([A-Z_]+):.*/\1/' | sort -u)
+#
+# env_keys.py からは定数の「文字列値」（= 実 env 名）を取る。symbol 名ではなく値が
+# downstream の env 名になるため、`NAME = "VALUE"` の VALUE 側を比較対象にする
+# （symbol だけ rename しても誤検知せず、値だけ変えた drift も取りこぼさない）。
+env_names=$(grep -E '^[A-Z_]+[[:space:]]*=[[:space:]]*"[^"]+"' "$ENV_KEYS" \
+  | sed -E 's/^[A-Z_]+[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/' | sort -u)
+
+# docker-compose.yml からは api サービスの environment ブロック内の env 名だけを取る。
+# 全 YAML の大文字キーを拾うと、他サービス（libsql の SQLD_NODE 等）の名前で
+# 「api に無い env 名」を誤って pass させてしまう（検知したい drift を隠す）。
+compose_names=$(awk '
+  /^  [a-z_]+:[[:space:]]*$/ { in_api = ($0 ~ /^  api:[[:space:]]*$/) }
+  in_api && /^    environment:[[:space:]]*$/ { in_env = 1; next }
+  in_api && in_env && /^    [^[:space:]]/ { in_env = 0 }
+  in_api && in_env && /^      [A-Z_]+:/ {
+    name = $0; sub(/^[[:space:]]+/, "", name); sub(/:.*/, "", name); print name
+  }
+' "$COMPOSE" | sort -u)
 
 # 正本から allowlist を除いた「compose に存在すべき env 名」
 expected_in_compose=$(comm -23 <(printf '%s\n' "$env_names") <(printf '%s\n' "$COMPOSE_ALLOWLIST"))
