@@ -156,7 +156,7 @@ lint-web-messages:
 
 # env 名 / エラーコードの SSoT drift を検知。
 # env_keys.py↔docker-compose.yml、errors.py↔errorCodes.ts の集合一致を検証する。
-# ripgrep だけに依存するため nix wrap で実行する。
+# grep/sed/comm のみに依存（ripgrep 不要）。他 lint と揃えて nix wrap で実行する。
 lint-env-keys:
 	nix develop --command bash scripts/lint-env-keys.sh
 

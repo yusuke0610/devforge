@@ -39,8 +39,12 @@ COMPOSE_ALLOWLIST=$(printf '%s\n' \
 fail=0
 
 # ── (1) env_keys.py ⊆ docker-compose.yml ──────────────────────────────────
-env_names=$(rg -oP '^\K[A-Z_]+(?=\s*=\s*")' "$ENV_KEYS" | sort -u)
-compose_names=$(rg -oP '^\s+\K[A-Z_]+(?=:)' "$COMPOSE" | sort -u)
+# 抽出は grep -E + sed -E のみで行う（PCRE / ripgrep に依存しない）。
+# ripgrep は flake.nix の devshell にも GitHub ランナーにも入っていないため。
+env_names=$(grep -E '^[A-Z_]+[[:space:]]*=[[:space:]]*"' "$ENV_KEYS" \
+  | sed -E 's/^([A-Z_]+).*/\1/' | sort -u)
+compose_names=$(grep -E '^[[:space:]]+[A-Z_]+:' "$COMPOSE" \
+  | sed -E 's/^[[:space:]]+([A-Z_]+):.*/\1/' | sort -u)
 
 # 正本から allowlist を除いた「compose に存在すべき env 名」
 expected_in_compose=$(comm -23 <(printf '%s\n' "$env_names") <(printf '%s\n' "$COMPOSE_ALLOWLIST"))
@@ -57,8 +61,10 @@ if [ -n "$missing_in_compose" ]; then
 fi
 
 # ── (2) errors.py ErrorCode == errorCodes.ts ERROR_CODES ──────────────────
-be_codes=$(rg -oP '^\s+[A-Z_]+\s*=\s*"\K[A-Z_]+(?=")' "$ERRORS_PY" | sort -u)
-fe_codes=$(rg -oP '^\s+"\K[A-Z_]+(?=",)' "$ERROR_CODES_TS" | sort -u)
+be_codes=$(grep -E '^[[:space:]]+[A-Z_]+[[:space:]]*=[[:space:]]*"[A-Z_]+"' "$ERRORS_PY" \
+  | sed -E 's/.*=[[:space:]]*"([A-Z_]+)".*/\1/' | sort -u)
+fe_codes=$(grep -E '^[[:space:]]+"[A-Z_]+",' "$ERROR_CODES_TS" \
+  | sed -E 's/.*"([A-Z_]+)".*/\1/' | sort -u)
 
 be_only=$(comm -23 <(printf '%s\n' "$be_codes") <(printf '%s\n' "$fe_codes"))
 fe_only=$(comm -13 <(printf '%s\n' "$be_codes") <(printf '%s\n' "$fe_codes"))
