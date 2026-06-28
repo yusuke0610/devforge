@@ -8,6 +8,7 @@ import {
   UI_MESSAGES,
 } from "../constants/messages";
 import type { Theme } from "../hooks/useTheme";
+import { APP_VERSION } from "../utils/appVersion";
 import { GitHubMarkIcon } from "./icons/GitHubMarkIcon";
 import styles from "./UserMenu.module.css";
 
@@ -134,7 +135,9 @@ export function UserMenu({
             </svg>
             <span className={styles.srOnly}>{UI_MESSAGES.OPENS_IN_NEW_TAB}</span>
           </a>
-          <div className={styles.menuFooter}>{UI_MESSAGES.COPYRIGHT}</div>
+          <div className={styles.menuFooter}>
+            {UI_MESSAGES.COPYRIGHT} · {APP_VERSION}
+          </div>
         </div>
       )}
       {isAuthenticated ? (
