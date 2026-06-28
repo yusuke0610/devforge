@@ -1,4 +1,4 @@
-import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 
 import { useCareerFormModals } from "../../hooks/career/useCareerFormModals";
 
@@ -13,12 +13,10 @@ import { createInitialCareerForm, mapCareerResumeToForm } from "../../formMapper
 import { useCareerDirty } from "../../hooks/career/useCareerDirty";
 import { useCareerDraftRestore } from "../../hooks/career/useCareerDraftRestore";
 import { useImportPanelLayout } from "../../hooks/career/useImportPanelLayout";
-import { useResumeDiffPreview } from "../../hooks/career/useResumeDiffPreview";
 import { useResumeImportAssist } from "../../hooks/career/useResumeImportAssist";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
 import { clearCareerDraft, loadCareerDraft, saveCareerDraft } from "../../utils/careerDraft";
 import { buildCareerPayload } from "../../payloadBuilders";
-import { buildCareerChanges } from "../../utils/careerDiff";
 import { useCareerFormValidationFocus } from "../../hooks/career/useCareerFormValidationFocus";
 import { useQualifications, useTechnologyStacks } from "../../hooks/useMasterData";
 import { useCareerExportActions } from "../../hooks/career/useCareerExportActions";
@@ -27,7 +25,6 @@ import { AgentChatWidget } from "./AgentChatWidget";
 import shared from "../../styles/shared.module.css";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { useLoginPrompt } from "../auth/loginPromptContext";
-import { CareerDiffModal } from "./CareerDiffModal";
 import { MarkdownFieldModal } from "./MarkdownFieldModal";
 import { Skeleton } from "../ui/Skeleton";
 import { PdfPreviewModal } from "./PdfPreviewModal";
@@ -88,13 +85,10 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
   const {
     showDeleteConfirm,
     setShowDeleteConfirm,
-    showSaveConfirm,
-    setShowSaveConfirm,
     editingField,
     setEditingField,
     handleDelete,
-    handleConfirmSave,
-  } = useCareerFormModals({ save, deleteDoc });
+  } = useCareerFormModals({ deleteDoc });
 
   // ログイン後（往復から復帰）に退避ドラフトを復元する情報トースト用メッセージ。
   const [restoreMessage, setRestoreMessage] = useState<string | null>(null);
@@ -130,22 +124,6 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
 
   /** 未保存マーク（🔴）の表示判定に使う dirty マップ */
   const dirty = useCareerDirty(form, baseline);
-
-  /**
-   * baseline（保存済み）と form（編集中）の変更点リスト。左右 diff モーダルのサイドバーと
-   * ハイライト突合に使う。
-   *
-   * baseline が未ロード（null = 新規作成の初回保存）のときは「空フォーム」を基準にする。
-   * これにより初回保存でも全項目が「追加」として変更点に立ち、確認ダイアログが開く
-   * （= 初回も校正を見せる）。既存データで差分が無い場合は changes が空のまま直接保存される。
-   */
-  const changes = useMemo(
-    () => buildCareerChanges(form, baseline ?? createInitialCareerForm()),
-    [form, baseline],
-  );
-
-  /** 左右 diff モーダル用の整形 HTML プレビュー（保存済み / 編集中）。開いている間だけ取得する。 */
-  const preview = useResumeDiffPreview(form, baseline, showSaveConfirm);
 
   /** Skeleton 表示・入力ロックの統合フラグ */
   const formLocked = loading;
@@ -189,9 +167,7 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
     form,
     setForm,
     isAuthenticated,
-    changeCount: changes.length,
     save,
-    openSaveConfirm: () => setShowSaveConfirm(true),
     requestLogin,
     // ゲスト入力はログイン遷移の直前に同期退避する（effect の未反映で最後の入力を失わないため）。
     persistDraft: saveCareerDraft,
@@ -207,20 +183,6 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}
           confirming={deleting}
-        />
-      )}
-      {showSaveConfirm && (
-        <CareerDiffModal
-          changes={changes}
-          baselineHtml={preview.baselineHtml}
-          editedHtml={preview.editedHtml}
-          css={preview.css}
-          loading={preview.loading}
-          error={preview.error}
-          saving={saving}
-          onConfirm={handleConfirmSave}
-          onCancel={() => setShowSaveConfirm(false)}
-          onRollback={(change) => setForm((prev) => change.rollback(prev))}
         />
       )}
       {previewUrl && <PdfPreviewModal previewUrl={previewUrl} onClose={closePreview} />}

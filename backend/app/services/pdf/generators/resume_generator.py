@@ -1,4 +1,3 @@
-import re
 from datetime import datetime
 from html import escape as _html_escape
 from pathlib import Path
@@ -21,9 +20,6 @@ _CSS_PATH = Path(__file__).resolve().parent.parent / "templates" / "resume.css"
 _FONT_PATH = (
     Path(__file__).resolve().parent.parent.parent.parent / "fonts" / "NotoSansJP-Regular.ttf"
 )
-
-# 画面プレビュー（左右 diff）で除去する PDF 専用フォント定義。url 解決が画面では不要なため。
-_FONT_FACE_RE = re.compile(r"@font-face\s*\{[^}]*\}")
 
 
 def _esc(text: str) -> str:
@@ -367,26 +363,10 @@ def _build_html(resume: dict) -> str:
     return "\n".join(parts)
 
 
-def _load_css(for_screen: bool) -> str:
-    """resume.css を読み込む。
-
-    for_screen=True（左右 diff プレビュー）: PDF 用フォント(@font-face)を除去し、
-    body の font-family フォールバック（sans-serif）に任せる。
-    for_screen=False（PDF 生成）: {{ font_path }} を実フォントの URI に置換する。
-    """
+def _load_css() -> str:
+    """resume.css を読み込み、{{ font_path }} を実フォントの URI に置換する（PDF 生成用）。"""
     css_text = _CSS_PATH.read_text(encoding="utf-8")
-    if for_screen:
-        return _FONT_FACE_RE.sub("", css_text)
     return css_text.replace("{{ font_path }}", _FONT_PATH.as_uri())
-
-
-def build_resume_preview(resume: dict) -> tuple[str, str]:
-    """保存前プレビュー（左右 diff）用に (body HTML, 画面用 CSS) を返す。
-
-    HTML は data-fp 付き（`_build_html`）。CSS は PDF 専用フォントを除いた画面表示版。
-    frontend は両者を iframe srcdoc に流し込んで baseline / 編集中を並べて描画する。
-    """
-    return _build_html(resume), _load_css(for_screen=True)
 
 
 def build_resume_pdf(resume: dict) -> bytes:
@@ -394,7 +374,7 @@ def build_resume_pdf(resume: dict) -> bytes:
     html_body = _build_html(resume)
 
     # CSSテンプレートを読み込み、フォントパスを埋め込む
-    css_text = _load_css(for_screen=False)
+    css_text = _load_css()
 
     full_html = (
         "<!DOCTYPE html>"

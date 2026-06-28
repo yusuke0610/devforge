@@ -10,7 +10,6 @@ from conftest import auth_header, make_resume_payload
     "method,path",
     [
         ("post", "/api/resumes"),
-        ("post", "/api/resumes/preview"),
         ("get", "/api/resumes/latest"),
     ],
 )
@@ -347,81 +346,3 @@ def test_resume_not_found(client: TestClient) -> None:
         headers=headers,
     )
     assert resp.status_code == 404
-
-
-# ── 保存前プレビュー（左右 diff 用 HTML）────────────────────────
-
-
-def test_resume_preview_returns_annotated_html(client: TestClient) -> None:
-    """保存せずに整形 HTML（data-fp 付き）と CSS を返す。"""
-    headers = auth_header(client, "resume-preview-user")
-    resp = client.post(
-        "/api/resumes/preview",
-        json={
-            "full_name": "山田太郎",
-            "email": "yamada@example.com",
-            "career_summary": "キャリアサマリー",
-            "self_pr": "自己PR",
-            "experiences": [
-                {
-                    "company": "Example株式会社",
-                    "business_description": "SES事業",
-                    "start_date": "2020-04",
-                    "end_date": "2024-03",
-                    "is_current": False,
-                    "is_it_company": True,
-                    "clients": [
-                        {
-                            "name": "取引先A",
-                            "has_client": True,
-                            "projects": [
-                                {
-                                    "name": "案件X",
-                                    "role": "SE",
-                                    "periods": [
-                                        {
-                                            "start_date": "2020-04",
-                                            "end_date": "2021-03",
-                                            "is_current": False,
-                                        }
-                                    ],
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ],
-            "qualifications": [{"acquired_date": "2020-04", "name": "応用情報技術者"}],
-        },
-        headers=headers,
-    )
-    assert resp.status_code == 200
-    body = resp.json()
-    html = body["html"]
-    # form パス（data-fp）が careerDiff のパス文字列と一致して付与されていること
-    assert 'data-fp="full_name"' in html
-    assert 'data-fp="experiences.0.company"' in html
-    assert 'data-fp="experiences.0.clients.0.name"' in html
-    assert 'data-fp="experiences.0.clients.0.projects.0.role"' in html
-    assert 'data-fp="qualifications.0.name"' in html
-    # 画面用 CSS は PDF 専用フォント定義を含まない
-    assert "@font-face" not in body["css"]
-    assert ".project-table" in body["css"]
-
-
-def test_resume_preview_validation_error(client: TestClient) -> None:
-    """必須欠落（full_name 空）は 422 を返す。"""
-    headers = auth_header(client, "resume-preview-invalid-user")
-    resp = client.post(
-        "/api/resumes/preview",
-        json={
-            "full_name": "",
-            "email": "yamada@example.com",
-            "career_summary": "x",
-            "self_pr": "y",
-            "experiences": [],
-            "qualifications": [],
-        },
-        headers=headers,
-    )
-    assert resp.status_code == 422

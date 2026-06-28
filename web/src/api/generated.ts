@@ -663,30 +663,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/resumes/preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Preview Resume
-         * @description 保存せずに、職務経歴書を PDF と同じレイアウトに整形した HTML と画面用 CSS を返す。
-         *
-         *     左右 diff プレビュー（左=保存済み / 右=編集中）の描画に使う。HTML 内の各値ノードには
-         *     form パス（``data-fp``）が付与され、FE が変更箇所のハイライト・スクロール先特定に使う。
-         *     DB は更新しない。WeasyPrint を通さず HTML 文字列生成のみのため軽量。
-         */
-        post: operations["preview_resume_api_resumes_preview_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/resumes/{resume_id}": {
         parameters: {
             query?: never;
@@ -1788,20 +1764,6 @@ export interface components {
             qualifications?: components["schemas"]["ResumeQualificationItem"][];
             /** Self Pr */
             self_pr: string;
-        };
-        /**
-         * ResumePreviewResponse
-         * @description 保存前プレビュー（左右 diff 表示）用の整形済み HTML と画面用 CSS。
-         *
-         *     DB を更新せず、編集中 payload を PDF と同じレイアウトに整形した HTML を返す。
-         *     HTML 内の各値ノードには form パス（``data-fp``）が付与され、FE が変更箇所の
-         *     ハイライト・スクロール先特定に使う。
-         */
-        ResumePreviewResponse: {
-            /** Css */
-            css: string;
-            /** Html */
-            html: string;
         };
         /** ResumeQualificationItem */
         ResumeQualificationItem: {
@@ -3062,39 +3024,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResumeResponse"];
-                };
-            };
-        };
-    };
-    preview_resume_api_resumes_preview_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ResumeCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ResumePreviewResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

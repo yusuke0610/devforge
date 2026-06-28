@@ -1,11 +1,7 @@
 import { request } from "./client";
 import { downloadBlob, getBlobUrl } from "./download";
 import { PATHS } from "./paths";
-import type { ResumeCreate, ResumePreviewResponse, ResumeResponse } from "./types";
-
-// 保存前プレビュー（左右 diff 表示）のレスポンス型は OpenAPI 生成物（generated.ts）から
-// 取り込んだ ResumePreviewResponse を types.ts 経由で再エクスポートする。
-export type { ResumePreviewResponse };
+import type { ResumeCreate, ResumeResponse } from "./types";
 
 export function getLatestCareerResume(): Promise<ResumeResponse> {
   return request<ResumeResponse>(PATHS.resumes.latest);
@@ -42,17 +38,4 @@ export function downloadCareerResumeMarkdown(id: string): Promise<void> {
 
 export function getCareerResumePdfBlobUrl(id: string): Promise<string> {
   return getBlobUrl(PATHS.resumes.pdf(id));
-}
-
-/**
- * 保存せずに、職務経歴書を整形した HTML（data-fp 付き）と画面用 CSS を取得する。
- * 左右 diff プレビュー（左=保存済み / 右=編集中）の描画に使う。
- */
-export function getCareerResumePreview(
-  payload: ResumeCreate,
-): Promise<ResumePreviewResponse> {
-  return request<ResumePreviewResponse>(PATHS.resumes.preview, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
 }

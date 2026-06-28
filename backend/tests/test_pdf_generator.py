@@ -3,7 +3,6 @@ import base64
 from app.services.pdf.generators.resume_generator import (
     _build_html,
     build_resume_pdf,
-    build_resume_preview,
 )
 from app.services.pdf.utils.pdf_utils import (
     decode_photo as _decode_photo,
@@ -247,21 +246,6 @@ def test_build_resume_pdf_still_works_with_annotations() -> None:
     }
     pdf_bytes = build_resume_pdf(payload)
     assert pdf_bytes.startswith(b"%PDF")
-
-
-def test_build_resume_preview_returns_html_and_screen_css() -> None:
-    """プレビューは (data-fp 付き HTML, 画面用 CSS) を返し、CSS は @font-face を含まない。"""
-    payload = {
-        "full_name": "山田太郎",
-        "career_summary": "要約",
-        "self_pr": "PR",
-        "qualifications": [],
-        "experiences": [],
-    }
-    html, css = build_resume_preview(payload)
-    assert 'data-fp="full_name"' in html
-    assert "@font-face" not in css
-    assert ".company" in css
 
 
 def test_parse_date_ym() -> None:

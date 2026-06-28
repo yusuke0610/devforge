@@ -1,8 +1,8 @@
 /**
  * テスト用の標準的な職務経歴フォーム（CareerFormState）を生成するファクトリ。
  *
- * 以前は careerDiff.test / useCareerDirty.test がそれぞれ同型のサンプルを直書きしており、
- * 値が少しずつドリフトしていた（一方だけ role / technology_stacks.name を持つ等）。
+ * 以前は各テストがそれぞれ同型のサンプルを直書きしており、値が少しずつドリフトしていた
+ * （一方だけ role / technology_stacks.name を持つ等）。
  * 正本をここへ集約し、各テストは overrides で必要な差分だけ与える。
  *
  * 毎回 structuredClone するため、呼び出し側で baseline / form を直接ミューテートしても

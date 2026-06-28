@@ -17,12 +17,8 @@ type UseCareerFormValidationFocusParams = {
   form: CareerFormState;
   setForm: Dispatch<SetStateAction<CareerFormState>>;
   isAuthenticated: boolean;
-  /** 編集中フォームと保存済みの変更点件数。0 件なら確認を挟まず保存する。 */
-  changeCount: number;
-  /** 変更が無いときの直接保存（戻り値は使わず void で発火する）。 */
+  /** バリデーション成功時の保存（戻り値は使わず void で発火する）。 */
   save: () => unknown;
-  /** 変更があるときに開く保存確認モーダル。 */
-  openSaveConfirm: () => void;
   /** 未ログインで保存を試みたときのログイン導線。 */
   requestLogin: () => void;
   /**
@@ -40,9 +36,7 @@ export function useCareerFormValidationFocus({
   form,
   setForm,
   isAuthenticated,
-  changeCount,
   save,
-  openSaveConfirm,
   requestLogin,
   persistDraft,
   openMarkdownField,
@@ -131,23 +125,9 @@ export function useCareerFormValidationFocus({
       }
       setValidationError(null);
       setFocusTarget(null);
-      // 変更が無ければ確認を挟まずそのまま保存。変更があれば確認ダイアログを開く。
-      if (changeCount === 0) {
-        void save();
-        return;
-      }
-      openSaveConfirm();
+      void save();
     },
-    [
-      isAuthenticated,
-      form,
-      applyValidationError,
-      requestLogin,
-      persistDraft,
-      changeCount,
-      save,
-      openSaveConfirm,
-    ],
+    [isAuthenticated, form, applyValidationError, requestLogin, persistDraft, save],
   );
 
   return {

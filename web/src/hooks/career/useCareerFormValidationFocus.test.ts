@@ -21,9 +21,7 @@ function setup(overrides: Overrides = {}) {
     form: buildSampleCareerForm(),
     setForm: vi.fn(),
     isAuthenticated: true,
-    changeCount: 0,
     save: vi.fn(),
-    openSaveConfirm: vi.fn(),
     requestLogin: vi.fn(),
     persistDraft: vi.fn(),
     openMarkdownField: vi.fn(),
@@ -98,24 +96,13 @@ describe("useCareerFormValidationFocus", () => {
     expect(view.result.current.validationError).toBe("職務要約を入力してください");
   });
 
-  it("検証 OK かつ変更なしなら確認を挟まず直接保存する", () => {
+  it("検証 OK なら確認を挟まず直接保存する", () => {
     validateCareerFormMock.mockReturnValue(null);
-    const { view, params } = setup({ isAuthenticated: true, changeCount: 0 });
+    const { view, params } = setup({ isAuthenticated: true });
 
     act(() => view.result.current.onSubmit(submitEvent()));
 
     expect(params.save).toHaveBeenCalledTimes(1);
-    expect(params.openSaveConfirm).not.toHaveBeenCalled();
-  });
-
-  it("検証 OK かつ変更ありなら保存確認モーダルを開く", () => {
-    validateCareerFormMock.mockReturnValue(null);
-    const { view, params } = setup({ isAuthenticated: true, changeCount: 2 });
-
-    act(() => view.result.current.onSubmit(submitEvent()));
-
-    expect(params.openSaveConfirm).toHaveBeenCalledTimes(1);
-    expect(params.save).not.toHaveBeenCalled();
   });
 
   it("フィールド編集でフォーカス強調（赤枠）とエラー表示が解除される", () => {
