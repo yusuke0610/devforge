@@ -6,7 +6,7 @@
  * operations の適用は呼び出し側（ウィジェット → CareerResumeForm の setForm）が行う。
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { postAgentChat } from "../../api/agent";
 import type {
@@ -25,6 +25,8 @@ import {
 
 /** チャット 1 件分（ユーザー発話 or AI 応答）。 */
 export type AgentChatEntry = {
+  /** 描画時の安定キー。マウント内で単調増加し、末尾追加でも再利用されない。 */
+  id: number;
   role: "user" | "assistant";
   text: string;
   /** AI 応答のみ。フォームへ反映できる差分（適用済みなら null にする） */
@@ -63,6 +65,8 @@ export function useAgentChat() {
   const [entries, setEntries] = useState<AgentChatEntry[]>([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 描画キー用の単調増加カウンタ（マウント内で一意。state 更新の副作用にしないよう外で採番）。
+  const nextIdRef = useRef(0);
 
   const send = useCallback(
     async (
@@ -77,6 +81,7 @@ export function useAgentChat() {
       setEntries((prev) => [
         ...prev,
         {
+          id: nextIdRef.current++,
           role: "user",
           text: prompt,
           operations: null,
@@ -99,6 +104,7 @@ export function useAgentChat() {
         setEntries((prev) => [
           ...prev,
           {
+            id: nextIdRef.current++,
             role: "assistant",
             text: response.message,
             operations: response.operations?.length ? response.operations : null,

@@ -1,50 +1,12 @@
 import { renderHook } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 
-import {
-  blankCareerClient,
-  blankCareerExperience,
-  blankCareerProject,
-  blankCareerTechnologyStack,
-  blankResumeQualification,
-} from "../../constants";
-import type { CareerFormState } from "../../payloadBuilders";
+import { blankCareerExperience } from "../../constants";
+import { buildSampleCareerForm } from "../../test/factories/careerForm";
 import { useCareerDirty } from "./useCareerDirty";
 
 /** 標準的なフォーム初期状態を作るヘルパ */
-function buildForm(overrides: Partial<CareerFormState> = {}): CareerFormState {
-  return {
-    full_name: "山田 太郎",
-    email: "yamada@example.com",
-    github_url: "",
-    career_summary: "サマリー",
-    self_pr: "自己PR",
-    experiences: [
-      {
-        ...blankCareerExperience,
-        company: "株式会社A",
-        business_description: "受託開発",
-        start_date: "2020-04",
-        clients: [
-          {
-            ...blankCareerClient,
-            projects: [
-              {
-                ...blankCareerProject,
-                name: "プロジェクトX",
-                technology_stacks: [{ ...blankCareerTechnologyStack }],
-              },
-            ],
-          },
-        ],
-      },
-    ],
-    qualifications: [
-      { ...blankResumeQualification, name: "基本情報", acquired_date: "2021-04-01" },
-    ],
-    ...overrides,
-  };
-}
+const buildForm = buildSampleCareerForm;
 
 describe("useCareerDirty", () => {
   it("baseline が null の場合はすべて false を返す（未ロード）", () => {

@@ -295,7 +295,7 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
         {entries.length === 0 && <p className={styles.emptyState}>{AGENT_MESSAGES.EMPTY_STATE}</p>}
         {entries.map((entry, i) => (
           <div
-            key={i}
+            key={entry.id}
             className={entry.role === "user" ? styles.userMessage : styles.assistantMessage}
           >
             <p className={styles.messageText}>{entry.text}</p>
