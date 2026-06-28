@@ -50,7 +50,9 @@ export function useAsyncResource<T>(
       if (seq === requestSeqRef.current) setData(result);
     } catch (e) {
       if (seq === requestSeqRef.current) {
-        setError(e instanceof Error ? e.message : fallbackMessage);
+        // Error でも message が空文字なら fallback を使う（message が無い場合は fallback という契約どおり）。
+        const message = e instanceof Error ? e.message : "";
+        setError(message || fallbackMessage);
       }
     } finally {
       if (seq === requestSeqRef.current) setLoading(false);
@@ -58,9 +60,15 @@ export function useAsyncResource<T>(
   }, [fallbackMessage]);
 
   useEffect(() => {
-    if (enabled) {
-      void refresh();
+    // 無効化された瞬間に進行中リクエストを stale 化し（seq を進める）、後追いで解決した応答が
+    // state を上書きしないようにする。これで「enabled=false の間は取得しない」契約を
+    // true→false 遷移でも守る。
+    if (!enabled) {
+      requestSeqRef.current += 1;
+      setLoading(false);
+      return;
     }
+    void refresh();
   }, [enabled, refresh]);
 
   return { data, loading, error, refresh };

@@ -83,6 +83,47 @@ describe("useAsyncResource", () => {
     expect(result.current.data).toBe(730);
   });
 
+  it("Error でも message が空文字なら fallback を使う", async () => {
+    const fetcher = vi.fn().mockRejectedValue(new Error(""));
+    const { result } = renderHook(() =>
+      useAsyncResource(fetcher, { enabled: true, initialData: 0, fallbackMessage: FALLBACK }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.error).toBe(FALLBACK);
+    });
+  });
+
+  it("enabled が true→false に変わると進行中の応答は反映されない", async () => {
+    let resolvePending: (v: number) => void = () => {};
+    const pending = new Promise<number>((resolve) => {
+      resolvePending = resolve;
+    });
+    const fetcher = vi.fn().mockReturnValue(pending);
+    const { result, rerender } = renderHook(
+      (props: { enabled: boolean }) =>
+        useAsyncResource(fetcher, {
+          enabled: props.enabled,
+          initialData: 0,
+          fallbackMessage: FALLBACK,
+        }),
+      { initialProps: { enabled: true } },
+    );
+    // enabled=true で取得が走り pending（loading=true）
+    expect(result.current.loading).toBe(true);
+
+    // 無効化で進行中リクエストを stale 化し loading も解除する
+    rerender({ enabled: false });
+    expect(result.current.loading).toBe(false);
+
+    // 後から解決しても data は initialData のまま（契約: 無効中は state を更新しない）
+    await act(async () => {
+      resolvePending(999);
+      await pending;
+    });
+    expect(result.current.data).toBe(0);
+  });
+
   it("enabled が false→true に変わると取得が走る", async () => {
     const fetcher = vi.fn().mockResolvedValue(7);
     const { result, rerender } = renderHook(

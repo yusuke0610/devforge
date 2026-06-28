@@ -193,6 +193,8 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
     save,
     openSaveConfirm: () => setShowSaveConfirm(true),
     requestLogin,
+    // ゲスト入力はログイン遷移の直前に同期退避する（effect の未反映で最後の入力を失わないため）。
+    persistDraft: saveCareerDraft,
     openMarkdownField: setEditingField,
   });
 

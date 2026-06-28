@@ -25,6 +25,7 @@ function setup(overrides: Overrides = {}) {
     save: vi.fn(),
     openSaveConfirm: vi.fn(),
     requestLogin: vi.fn(),
+    persistDraft: vi.fn(),
     openMarkdownField: vi.fn(),
     ...overrides,
   };
@@ -66,6 +67,21 @@ describe("useCareerFormValidationFocus", () => {
     expect(params.requestLogin).toHaveBeenCalledTimes(1);
     expect(params.save).not.toHaveBeenCalled();
     expect(view.result.current.validationError).toBeNull();
+  });
+
+  it("未ログインのログイン遷移前に、現在のフォームを同期退避してから requestLogin する", () => {
+    const form = buildSampleCareerForm({ full_name: "山田 太郎" });
+    const { view, params } = setup({ isAuthenticated: false, form });
+
+    act(() => view.result.current.onSubmit(submitEvent()));
+
+    // 最新フォームを退避してからログイン導線へ（取りこぼし防止）
+    expect(params.persistDraft).toHaveBeenCalledWith(form);
+    const persistOrder = (params.persistDraft as ReturnType<typeof vi.fn>).mock
+      .invocationCallOrder[0];
+    const loginOrder = (params.requestLogin as ReturnType<typeof vi.fn>).mock
+      .invocationCallOrder[0];
+    expect(persistOrder).toBeLessThan(loginOrder);
   });
 
   it("自己PR / 職務要約の失敗時は該当 Markdown モーダルを自動で開く", () => {

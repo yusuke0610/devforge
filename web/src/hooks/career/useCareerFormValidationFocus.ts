@@ -25,6 +25,13 @@ type UseCareerFormValidationFocusParams = {
   openSaveConfirm: () => void;
   /** 未ログインで保存を試みたときのログイン導線。 */
   requestLogin: () => void;
+  /**
+   * ログイン往復の直前に現在のフォームを同期的に退避する。
+   * 通常は CareerResumeForm の effect が入力のたびに退避するが、最後の入力直後に
+   * 送信されると effect が未反映のままログイン遷移して入力を失う恐れがあるため、
+   * ここで同期保存して取りこぼしを防ぐ。
+   */
+  persistDraft?: (form: CareerFormState) => void;
   /** career_summary / self_pr の失敗時に該当 Markdown モーダルを自動で開く。 */
   openMarkdownField: (field: "career_summary" | "self_pr") => void;
 };
@@ -37,6 +44,7 @@ export function useCareerFormValidationFocus({
   save,
   openSaveConfirm,
   requestLogin,
+  persistDraft,
   openMarkdownField,
 }: UseCareerFormValidationFocusParams) {
   /**
@@ -109,7 +117,8 @@ export function useCareerFormValidationFocus({
         }
         setValidationError(null);
         setFocusTarget(null);
-        // 入力内容は effect で sessionStorage に退避済み。ログインを促す。
+        // ログイン遷移の直前に最新フォームを同期退避してから促す（effect 任せにせず取りこぼし防止）。
+        persistDraft?.(form);
         requestLogin();
         return;
       }
@@ -129,7 +138,16 @@ export function useCareerFormValidationFocus({
       }
       openSaveConfirm();
     },
-    [isAuthenticated, form, applyValidationError, requestLogin, changeCount, save, openSaveConfirm],
+    [
+      isAuthenticated,
+      form,
+      applyValidationError,
+      requestLogin,
+      persistDraft,
+      changeCount,
+      save,
+      openSaveConfirm,
+    ],
   );
 
   return {
