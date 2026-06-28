@@ -109,7 +109,11 @@ describe("useAsyncResource", () => {
         }),
       { initialProps: { enabled: true } },
     );
-    // enabled=true で取得が走り pending（loading=true）
+    // enabled=true で実際に取得が走ったことを確認（loading 初期値だけでは自動 fetch の退行を拾えない）
+    await waitFor(() => {
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    });
+    // pending 中なので loading=true
     expect(result.current.loading).toBe(true);
 
     // 無効化で進行中リクエストを stale 化し loading も解除する
