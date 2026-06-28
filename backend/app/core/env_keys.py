@@ -24,6 +24,13 @@
   4. `docker-compose.yml` の environment ブロックを追従
   5. `docs/api.md` の環境変数表を更新
 
+## drift 検知（自動）
+
+本モジュールの定数値が `docker-compose.yml` の environment にすべて存在するかは
+`scripts/lint-env-keys.sh`（`make lint-env-keys` / CI の test-backend ジョブ）で機械検証する。
+rename / 追加で compose 追従を忘れると lint が落ちる。ローカル開発で意図的に注入しない
+定数（起動時内部フラグ等）は同スクリプトの `COMPOSE_ALLOWLIST` に明示的に追記する。
+
 ## 関連ドキュメント
 
 - 環境変数一覧と用途: `docs/api.md`「環境変数」セクション

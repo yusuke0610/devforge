@@ -18,6 +18,10 @@ class ErrorCode(str, Enum):
       1. 本 enum に値を追加
       2. ``web/src/constants/errorCodes.ts:ERROR_CODES`` に文字列を追加
       3. ``web/src/constants/errorMessages.ts:ERROR_CONFIG`` にメッセージと recovery を追加
+
+    本 enum と ``ERROR_CODES`` の集合一致は ``scripts/lint-env-keys.sh``
+    （``make lint-env-keys`` / CI の test-backend ジョブ）で機械検証する。
+    FE 側の型縛りは FE 内で完結し BE 起点の追加漏れを拾えないため、それを補う。
     """
 
     # 認証

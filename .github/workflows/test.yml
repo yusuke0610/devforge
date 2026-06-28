@@ -151,6 +151,12 @@ jobs:
           # 読み取り専用ジョブのため checkout の認証情報をディスクに残さない（サプライチェーン保護）。
           persist-credentials: false
 
+      # 領域跨ぎの SSoT drift 検知（env_keys.py↔docker-compose / errors.py↔errorCodes.ts）。
+      # rg/comm のみに依存し ubuntu-latest にプリインストール済みのため nix 非経由で直接実行する。
+      # 重い依存インストール前に置いて fail-fast にする。
+      - name: Lint SSoT (env names / error codes)
+        run: bash scripts/lint-env-keys.sh
+
       - name: Install uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
