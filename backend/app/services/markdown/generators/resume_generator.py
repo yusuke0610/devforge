@@ -123,9 +123,6 @@ def build_resume_markdown(payload: dict[str, Any]) -> str:
                     role = _a(proj, "role")
                     if role:
                         lines.append(field_line("担当", role))
-                    description = _a(proj, "description")
-                    if description:
-                        lines.append(field_line("詳細", description))
                     # 体制（後方互換: 旧 scale → team の正規化は shared に集約）
                     team = normalize_team(proj)
                     if team:
@@ -146,6 +143,11 @@ def build_resume_markdown(payload: dict[str, Any]) -> str:
                     phases = _a(proj, "phases", [])
                     if phases:
                         lines.append(field_line("工程", ", ".join(phases)))
+                    # 詳細（自由記述）は構造化情報（期間/担当/体制/工程）の後に出す。
+                    # PDF 側で構造化情報を見出しに集約し description を本文に置いた構成と揃える。
+                    description = _a(proj, "description")
+                    if description:
+                        lines.append(field_line("詳細", description))
                     stacks = _a(proj, "technology_stacks", [])
                     if stacks:
                         grouped = group_stacks_by_category(stacks)

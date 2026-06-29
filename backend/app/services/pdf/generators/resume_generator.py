@@ -112,7 +112,9 @@ def _format_team(project) -> str:
 
 def _build_project_html(project, fp: str) -> str:
     """プロジェクト1件分のHTMLを組み立てる（fp = このプロジェクトの data-fp プレフィックス）"""
-    # ヘッダー（3行構成: 期間/プロジェクト名、役割、工程）
+    # 左列の見出し（3行構成: 期間/プロジェクト名、役割/体制、工程）。
+    # 旧実装はテーブル上に独立ヘッダーを置きつつ左列見出しを「業務内容」としていたが、
+    # 同じ情報が上下に重複していたため、構造化情報を左列見出しセルへ集約する。
     name = _a(project, "name")
     periods = _a(project, "periods", [])
     role = _a(project, "role")
@@ -139,12 +141,12 @@ def _build_project_html(project, fp: str) -> str:
         joined = "／".join(_esc(p) for p in phases)
         line3 = f'工程：<span data-fp="{fp}.phases">{joined}</span>'
 
-    header_lines = [ln for ln in [line1, line2, line3] if ln]
-    header_html = ""
-    if header_lines:
-        header_html = '<div class="project-header">' + "<br/>".join(header_lines) + "</div>"
+    # 左列の見出しセルの内容。構造化情報が1つも無い疎データのプロジェクトでは、
+    # 見出しが空の灰色ボックスにならないよう従来通り「業務内容」の文字を出す。
+    info_lines = [ln for ln in [line1, line2, line3] if ln]
+    info_header = "<br/>".join(info_lines) if info_lines else "業務内容"
 
-    # 左カラム: 業務内容
+    # 左カラム本文: 業務内容（自由記述）
     left_parts: list[str] = []
     description = _a(project, "description")
     if description:
@@ -163,10 +165,12 @@ def _build_project_html(project, fp: str) -> str:
     right_content = "<br/>".join(right_parts) if right_parts else "-"
 
     # 体制は表のカラムではなく役割行に併記する（line2 で処理済み）。
+    # 左列見出しに構造化情報（info_header）を入れ、独立ヘッダーは廃止した。
     return (
-        f'<div class="project" data-unit="{fp}">{header_html}'
+        f'<div class="project" data-unit="{fp}">'
         f'<table class="project-table">'
-        f"<thead><tr><th>業務内容</th><th>スキルセット</th></tr></thead>"
+        f'<thead><tr><th class="proj-info">{info_header}</th>'
+        f"<th>スキルセット</th></tr></thead>"
         f'<tbody><tr><td class="desc" data-fp="{fp}.description">{left_content}</td>'
         f'<td class="env" data-fp="{fp}.technology_stacks">{right_content}</td></tr></tbody>'
         f"</table></div>"
