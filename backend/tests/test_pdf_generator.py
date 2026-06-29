@@ -180,6 +180,9 @@ def test_project_structured_info_in_header_cell() -> None:
 
     # 構造化情報は左列見出しセル（th.proj-info）に入る
     assert 'class="proj-info"' in html
+    # 見出し行は thead に置かない（thead だと WeasyPrint がページ跨ぎ時に
+    # 各ページ先頭で見出しを繰り返すため）。tbody の通常行に置く。
+    assert "<thead>" not in html
     # 旧来の独立ヘッダーと「業務内容」ラベルは廃止
     assert "project-header" not in html
     assert "<th>業務内容</th>" not in html
