@@ -166,12 +166,15 @@ def _build_project_html(project, fp: str) -> str:
 
     # 体制は表のカラムではなく役割行に併記する（line2 で処理済み）。
     # 左列見出しに構造化情報（info_header）を入れ、独立ヘッダーは廃止した。
+    # 見出し行は thead ではなく tbody の先頭行に置く。thead だと WeasyPrint が
+    # ページ跨ぎ時に各ページ先頭で見出しを繰り返してしまうため、tbody 内の通常行に
+    # することで見出しは 1 回だけ表示し、長い詳細はページ境界で見切れる挙動にする。
     return (
         f'<div class="project" data-unit="{fp}">'
         f'<table class="project-table">'
-        f'<thead><tr><th class="proj-info">{info_header}</th>'
-        f"<th>スキルセット</th></tr></thead>"
-        f'<tbody><tr><td class="desc" data-fp="{fp}.description">{left_content}</td>'
+        f'<tbody><tr><th class="proj-info">{info_header}</th>'
+        f"<th>スキルセット</th></tr>"
+        f'<tr><td class="desc" data-fp="{fp}.description">{left_content}</td>'
         f'<td class="env" data-fp="{fp}.technology_stacks">{right_content}</td></tr></tbody>'
         f"</table></div>"
     )
