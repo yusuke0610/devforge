@@ -126,12 +126,70 @@ def test_build_html_annotates_data_fp() -> None:
     assert 'data-fp="experiences.0.end_date"' in html
     assert 'data-fp="experiences.0.clients.0.name"' in html
     assert 'data-fp="experiences.0.clients.0.projects.0.role"' in html
+    assert 'data-fp="experiences.0.clients.0.projects.0.periods"' in html
     assert 'data-fp="experiences.0.clients.0.projects.0.technology_stacks"' in html
     assert 'data-fp="qualifications.0.name"' in html
     # 折りたたみ用の項目コンテナ（data-unit）も付与される
     assert 'data-unit="experiences.0"' in html
     assert 'data-unit="experiences.0.clients.0.projects.0"' in html
     assert 'data-unit="qualifications.0"' in html
+
+
+def test_project_structured_info_in_header_cell() -> None:
+    """プロジェクトの構造化情報（期間/名前・役割/体制・工程）は左列見出しセルに集約され、
+    独立ヘッダー（project-header）や「業務内容」ラベルは出力されない。description 本文は残る。"""
+    payload = {
+        "full_name": "山田太郎",
+        "career_summary": "要約",
+        "self_pr": "PR",
+        "qualifications": [],
+        "experiences": [
+            {
+                "company": "Example株式会社",
+                "business_description": "SES事業",
+                "start_date": "2020-04",
+                "end_date": "2024-03",
+                "is_current": False,
+                "is_it_company": True,
+                "clients": [
+                    {
+                        "name": "取引先A",
+                        "has_client": True,
+                        "projects": [
+                            {
+                                "name": "案件X",
+                                "role": "メンバ",
+                                "periods": [
+                                    {"start_date": "2025-09", "end_date": "2026-12"}
+                                ],
+                                "team": {
+                                    "total": "13",
+                                    "members": [{"role": "PM", "count": 1}],
+                                },
+                                "phases": ["開発", "単体テスト", "総合テスト"],
+                                "description": "サービス概要の説明文",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+
+    html = _build_html(payload)
+
+    # 構造化情報は左列見出しセル（th.proj-info）に入る
+    assert 'class="proj-info"' in html
+    # 旧来の独立ヘッダーと「業務内容」ラベルは廃止
+    assert "project-header" not in html
+    assert "<th>業務内容</th>" not in html
+    # 役割・体制・工程・期間が見出しに含まれる
+    assert "工程：" in html
+    assert "体制：" in html
+    assert "役割：" in html
+    # description 本文は左列の本文セルに残る
+    assert "サービス概要の説明文" in html
+    assert 'data-fp="experiences.0.clients.0.projects.0.description"' in html
 
 
 def test_build_html_renders_contact_fields() -> None:
