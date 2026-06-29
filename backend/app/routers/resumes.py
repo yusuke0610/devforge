@@ -11,7 +11,6 @@ from ..models import Resume, User
 from ..repositories import ResumeRepository
 from ..schemas import (
     ResumeCreate,
-    ResumePreviewResponse,
     ResumeResponse,
     ResumeUpdate,
 )
@@ -20,7 +19,6 @@ from ..services.markdown.generators.resume_generator import (
 )
 from ..services.pdf.generators.resume_generator import (
     build_resume_pdf,
-    build_resume_preview,
 )
 from .download_utils import stream_markdown, stream_pdf
 
@@ -68,21 +66,6 @@ def create_resume(
             status_code=409,
             detail=get_error(str(exc), document="職務経歴書"),
         ) from exc
-
-
-@router.post("/preview", response_model=ResumePreviewResponse)
-def preview_resume(
-    payload: ResumeCreate,
-    current_user: User = Depends(get_current_user),
-) -> ResumePreviewResponse:
-    """保存せずに、職務経歴書を PDF と同じレイアウトに整形した HTML と画面用 CSS を返す。
-
-    左右 diff プレビュー（左=保存済み / 右=編集中）の描画に使う。HTML 内の各値ノードには
-    form パス（``data-fp``）が付与され、FE が変更箇所のハイライト・スクロール先特定に使う。
-    DB は更新しない。WeasyPrint を通さず HTML 文字列生成のみのため軽量。
-    """
-    html, css = build_resume_preview(payload.model_dump())
-    return ResumePreviewResponse(html=html, css=css)
 
 
 @router.get("/latest", response_model=ResumeResponse)

@@ -59,9 +59,6 @@ export type ResumeResponse = Schemas["ResumeResponse"];
 /** 職務経歴の作成/更新ペイロード。backend `schemas/resume.py:ResumeCreate`（ResumeBase 同形）。 */
 export type ResumeCreate = Schemas["ResumeCreate"];
 
-/** 保存前プレビュー（左右 diff 表示）のレスポンス。backend `schemas/resume.py:ResumePreviewResponse`。 */
-export type ResumePreviewResponse = Schemas["ResumePreviewResponse"];
-
 /** 職歴（1 社分）。backend `schemas/resume.py:Experience`。 */
 export type Experience = Schemas["Experience"];
 

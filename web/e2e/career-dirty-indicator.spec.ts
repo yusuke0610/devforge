@@ -43,18 +43,6 @@ async function setupResumeApi(page: Page) {
     route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
   );
 
-  // 保存前プレビュー（左右 diff モーダル）。整形 HTML と CSS を返す。
-  await page.route("**/api/resumes/preview", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        html: '<div class="meta">氏名　<span data-fp="full_name">山田 太郎</span></div>',
-        css: "",
-      }),
-    }),
-  );
-
   // 最新取得
   await page.route("**/api/resumes/latest", (route) =>
     route.fulfill({
@@ -247,9 +235,8 @@ test.describe("職務経歴書 未保存マーク", () => {
     const dirtyCountAfterReturn = await page.getByTestId("dirty-dot").count();
     expect(dirtyCountAfterReturn).toBeGreaterThanOrEqual(1);
 
-    // 4. 保存ボタン → 変更点 diff モーダルが開く → 「この内容で保存」で確定 → 🔴 が全消失
+    // 4. 保存ボタン → そのまま保存され 🔴 が全消失
     await page.getByRole("button", { name: /更新する|保存する/ }).click();
-    await page.getByRole("button", { name: "この内容で保存" }).click();
     await expect(page.getByTestId("dirty-dot")).toHaveCount(0);
   });
 });
