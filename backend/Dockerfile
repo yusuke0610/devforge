@@ -1,7 +1,7 @@
 # ============================================================================
 # Build stage: libsql-experimental など Rust ビルドが必要な wheel を作成する
 # ============================================================================
-FROM python:3.13-slim@sha256:2b7445fb71ca9cb15e9aab053fe8cb3162796f8e1d92ada12a49c766a811bc1e AS builder
+FROM python:3.13-slim@sha256:eb43ff125d8d58d7449dcba7d336c23bcac412f526d861db493b9994d8010280 AS builder
 
 WORKDIR /build
 
@@ -27,7 +27,7 @@ RUN pip wheel --no-cache-dir --wheel-dir=/build/wheels -r requirements.txt
 # ============================================================================
 # Final stage: 実行に必要なシステムライブラリと wheel のみを含む軽量イメージ
 # ============================================================================
-FROM python:3.13-slim@sha256:2b7445fb71ca9cb15e9aab053fe8cb3162796f8e1d92ada12a49c766a811bc1e
+FROM python:3.13-slim@sha256:eb43ff125d8d58d7449dcba7d336c23bcac412f526d861db493b9994d8010280
 
 ARG APP_VERSION=dev
 ENV APP_VERSION=$APP_VERSION
