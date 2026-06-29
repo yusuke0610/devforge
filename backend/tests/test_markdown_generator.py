@@ -169,3 +169,23 @@ def test_it_experience_renders_projects_unchanged() -> None:
     assert "#### 顧客A" in md
     assert "##### API開発" in md
     assert "性能改善を担当" in md
+
+
+def test_project_description_rendered_after_structured_fields() -> None:
+    """詳細（description）は構造化情報（担当/体制/工程）の後に出力される
+    （PDF 側で構造化情報を見出しへ集約し description を本文に置いた構成と揃える）。"""
+    exp = _it_experience()
+    exp["clients"][0]["projects"][0]["phases"] = ["開発", "総合テスト"]
+    payload = {
+        "full_name": "山田 太郎",
+        "career_summary": "要約",
+        "self_pr": "自己PR",
+        "qualifications": [],
+        "experiences": [exp],
+    }
+
+    md = build_resume_markdown(payload)
+
+    # 工程・担当（構造化情報）の後に詳細（description）が来る
+    assert md.index("担当") < md.index("性能改善を担当")
+    assert md.index("工程") < md.index("性能改善を担当")
