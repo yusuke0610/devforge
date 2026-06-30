@@ -35,9 +35,10 @@ def aggregate_intelligence(
     repos: List[RepoData],
     detected_skills: List[DetectedSkill],
 ) -> IntelligenceResult:
-    """リポジトリ集合と検出スキルから ``IntelligenceResult`` を構築する純粋関数。
+    """リポジトリ集合と検出スキルから ``IntelligenceResult`` を構築する集計関数。
 
-    I/O を行わない。``unique_skills`` は ADR-0016 のスキル推論基盤が検出した
+    外部 I/O（GitHub API / DB）は行わない（``analyzed_at`` のみ実行時刻を用いるため、
+    厳密には時刻依存。純粋関数ではない）。``unique_skills`` は ADR-0016 のスキル推論基盤が検出した
     Layer 1 スキルのうち **言語スキル（kind=language）の件数**を表す
     （dashboard 表示用。package は件数に含めない）。旧辞書ベース抽出は撤去済み。
     ``languages`` は Linguist のバイト数をリポジトリ横断で合算する。
