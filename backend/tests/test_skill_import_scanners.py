@@ -87,6 +87,21 @@ class TestJsTsScanner:
         assert self.scanner.matches("@scope/pkg", {"@scope/pkg"})
         assert self.scanner.matches("react", {"preact"}) is False
 
+    def test_ignores_imports_in_comments(self):
+        """コメント内の import/require は誤検出しないこと（CodeRabbit 指摘）。"""
+        src = (
+            '// require("commented-out")\n'
+            "/* import x from 'block-commented' */\n"
+            'import real from "real-pkg";\n'
+        )
+        assert self.scanner.scan(src) == {"real-pkg"}
+
+    def test_line_comment_strip_preserves_url_imports(self):
+        """行コメント除去が URL（http://）入り specifier を壊さないこと。"""
+        src = 'import a from "https://esm.sh/preact";\n'
+        # specifier は相対でないため preserve され、package 名として URL 先頭が拾われる
+        assert self.scanner.scan(src) != set()
+
 
 # ── Go ──────────────────────────────────────────────────────────────────
 
@@ -130,3 +145,10 @@ class TestRustScanner:
     def test_matches_with_dash_to_underscore(self):
         assert self.scanner.matches("serde-json", {"serde_json"})
         assert self.scanner.matches("serde-json", {"serde"}) is False
+
+    def test_extracts_pub_use_reexports(self):
+        """pub use / pub(crate) use の re-export も外部クレート使用として拾うこと（指摘）。"""
+        src = "pub use serde::Serialize;\npub(crate) use tokio::task;\n"
+        got = self.scanner.scan(src)
+        assert "serde" in got
+        assert "tokio" in got

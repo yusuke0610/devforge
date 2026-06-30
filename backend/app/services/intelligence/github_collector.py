@@ -147,18 +147,17 @@ async def _collect_repo_signals(
     imported_symbols: Dict[str, set] = {}
     source_dropped = False
     if direct_ecosystems:
-        source_candidates = []
+        # path → scanner を一度だけ引き、後段の取得ループで再計算しない。
+        path_scanners = {}
         for path in tree_paths:
             scanner = scanner_for_extension(path)
             if scanner is not None and scanner.ecosystem in direct_ecosystems:
-                source_candidates.append(path)
+                path_scanners[path] = scanner
         selected_sources, source_dropped = _select_shallow(
-            source_candidates, _SOURCE_MAX_DEPTH, _SOURCE_MAX_COUNT
+            list(path_scanners), _SOURCE_MAX_DEPTH, _SOURCE_MAX_COUNT
         )
         for path in selected_sources:
-            scanner = scanner_for_extension(path)
-            if scanner is None:
-                continue
+            scanner = path_scanners[path]
             content = await fetch_repo_file(client, owner, repo, path)
             if not content:
                 continue

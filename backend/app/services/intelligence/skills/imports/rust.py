@@ -8,7 +8,11 @@ Cargo の crate 名は ``-`` を含みうるが、ソースでは ``_`` に変�
 
 import re
 
-_USE_RE = re.compile(r"^[ \t]*use[ \t]+([A-Za-z_]\w*)", re.MULTILINE)
+# 先頭の可視性修飾子（pub / pub(crate) / pub(in path) 等）を任意で許容し、
+# `pub use serde::...` のような re-export も外部クレート使用として拾う。
+_USE_RE = re.compile(
+    r"^[ \t]*(?:pub(?:\([^)]*\))?[ \t]+)?use[ \t]+([A-Za-z_]\w*)", re.MULTILINE
+)
 _EXTERN_RE = re.compile(r"^[ \t]*extern[ \t]+crate[ \t]+([A-Za-z_]\w*)", re.MULTILINE)
 
 # 外部クレートでない予約パスセグメント。
