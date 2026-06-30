@@ -1,6 +1,9 @@
 """通知リポジトリ。"""
 
+from typing import Any, cast
+
 from sqlalchemy import select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
 from ..models.notification import Notification
@@ -41,7 +44,7 @@ class NotificationRepository:
             .where(Notification.id == notification_id, Notification.user_id == self.user_id)
             .values(is_read=True)
         )
-        result = self.db.execute(stmt)
+        result = cast("CursorResult[Any]", self.db.execute(stmt))
         self.db.commit()
         return result.rowcount > 0
 
@@ -52,7 +55,7 @@ class NotificationRepository:
             .where(Notification.user_id == self.user_id, Notification.is_read.is_(False))
             .values(is_read=True)
         )
-        result = self.db.execute(stmt)
+        result = cast("CursorResult[Any]", self.db.execute(stmt))
         self.db.commit()
         return result.rowcount
 

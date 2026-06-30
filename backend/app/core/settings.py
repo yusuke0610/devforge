@@ -1,4 +1,5 @@
 import os
+from typing import Literal, cast
 from urllib.parse import urlparse
 
 from . import env_keys
@@ -93,7 +94,7 @@ def get_cookie_secure() -> bool:
     return True
 
 
-def get_cookie_samesite() -> str:
+def get_cookie_samesite() -> Literal["lax", "strict", "none"]:
     default = "lax"
     origins = get_cors_origins()
     if origins and not all(_is_loopback_origin(origin) for origin in origins):
@@ -102,7 +103,8 @@ def get_cookie_samesite() -> str:
     value = os.getenv(env_keys.COOKIE_SAMESITE, default).strip().lower()
     if value not in {"lax", "strict", "none"}:
         raise RuntimeError("COOKIE_SAMESITE must be one of: lax, strict, none")
-    return value
+    # 上の検証で値域は保証済み。set_cookie の samesite 引数が要求する Literal へ絞る。
+    return cast(Literal["lax", "strict", "none"], value)
 
 
 def get_admin_token() -> str:

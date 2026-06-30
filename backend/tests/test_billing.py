@@ -4,9 +4,10 @@ LLM（外部 API）のみモックし、残高チェック・消費・台帳記�
 実 DB（テスト用 SQLite セッション）を通す。
 """
 
-from typing import get_args
+from typing import cast, get_args
 
 import pytest
+import stripe
 from app.core import settings
 from app.models import AgentUsageLog
 from app.repositories import BillingRepository, UserRepository
@@ -759,13 +760,14 @@ def test_record_stripe_purchase_grants_once(client: TestClient) -> None:
 def test_extract_completed_purchase_skips_unpaid() -> None:
     """未払い（payment_status != paid）のイベントは付与対象にしない。"""
     event = _completed_event("u1", 1_000, payment_status="unpaid")
-    assert stripe_service.extract_completed_purchase(event) is None
+    # stripe.Event は dict ライクに振る舞う（helper は同等 dict を返す）。境界で型を合わせる。
+    assert stripe_service.extract_completed_purchase(cast(stripe.Event, event)) is None
 
 
 def test_extract_completed_purchase_skips_other_event_types() -> None:
     """checkout.session.completed 以外のイベントは付与対象にしない。"""
     event = _completed_event("u1", 1_000, event_type="payment_intent.created")
-    assert stripe_service.extract_completed_purchase(event) is None
+    assert stripe_service.extract_completed_purchase(cast(stripe.Event, event)) is None
 
 
 # --- 統合テスト（Checkout セッション作成） ---

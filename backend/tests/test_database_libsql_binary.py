@@ -42,4 +42,6 @@ def test_standard_sqlite_dialect_unaffected():
     engine = create_engine("sqlite:///:memory:", poolclass=NullPool)
     assert engine.dialect.driver == "pysqlite"
     # pysqlite は標準で Binary を提供する
-    assert callable(engine.dialect.dbapi.Binary)
+    dbapi = engine.dialect.dbapi
+    assert dbapi is not None
+    assert callable(dbapi.Binary)

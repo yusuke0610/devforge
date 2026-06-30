@@ -22,6 +22,7 @@ from ...repositories.skill import GitHubSkillRepository
 from ...schemas.github_link import (
     CachedGitHubLinkResponse,
     GitHubLinkRequest,
+    GitHubLinkResponse,
     ProgressResponse,
 )
 from ...schemas.github_skill import GitHubSkillsResponse
@@ -69,8 +70,13 @@ def get_cache(
     cache = GitHubLinkCacheRepository(db).get_by_user(user.id)
     if not cache:
         return CachedGitHubLinkResponse()
+    # cache.result は GitHubLinkResponse(...).model_dump() を保存した JSON（dict | None）。
+    # Pydantic v2 は dict を受け取ると検証済みモデルへコアース可能なので validate で型を絞る。
+    result = (
+        GitHubLinkResponse.model_validate(cache.result) if cache.result is not None else None
+    )
     return CachedGitHubLinkResponse(
-        result=cache.result,
+        result=result,
         status=cache.status,
         error_message=cache.error_message,
         error_code=resolve_async_error_code(cache.error_message),

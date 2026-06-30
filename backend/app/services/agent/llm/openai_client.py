@@ -5,6 +5,8 @@
 応答テキストは Anthropic / Gemini と同じくスキーマに従う JSON のシリアライズ文字列で返す。
 """
 
+from typing import Any, cast
+
 import openai
 
 from ....core import settings
@@ -37,7 +39,8 @@ class OpenAIClient(LLMClient):
             response = await self._client.chat.completions.create(
                 model=model_id,
                 temperature=_TEMPERATURE,
-                messages=full_messages,
+                # role/content の dict 形は SDK の ChatCompletionMessageParam と互換だが静的には別型。
+                messages=cast(Any, full_messages),
                 response_format={
                     "type": "json_schema",
                     "json_schema": {

@@ -20,8 +20,8 @@ def _top_level(module: str) -> str:
 
 
 class PythonImportScanner:
-    extensions = (".py", ".pyi")
-    ecosystem = "pypi"
+    extensions: tuple[str, ...] = (".py", ".pyi")
+    ecosystem: str = "pypi"
 
     def scan(self, content: str) -> set[str]:
         return {_top_level(m) for m in _IMPORT_RE.findall(content)}

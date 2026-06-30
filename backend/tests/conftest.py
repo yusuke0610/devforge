@@ -150,7 +150,7 @@ def client(db_session):
         module: module.execute_task for module in (_worker, _internal_router, _tasks_local)
     }
     for module in originals:
-        module.execute_task = mock_execute_task
+        setattr(module, "execute_task", mock_execute_task)
 
     limiter.reset()
     with TestClient(app) as c:
@@ -158,7 +158,7 @@ def client(db_session):
         yield c
     app.dependency_overrides.clear()
     for module, original in originals.items():
-        module.execute_task = original
+        setattr(module, "execute_task", original)
 
 
 def make_resume_payload(**overrides) -> dict:

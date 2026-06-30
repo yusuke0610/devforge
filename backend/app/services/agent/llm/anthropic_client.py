@@ -6,9 +6,10 @@
 """
 
 import json
+from typing import Any, cast
 
 import anthropic
-from anthropic import AsyncAnthropicVertex
+from anthropic import AsyncAnthropicVertex  # pyright: ignore[reportPrivateImportUsage]
 
 from ....core import settings
 from ..output_schema import TOOL_NAME, build_tool_definition
@@ -47,10 +48,11 @@ class AnthropicClient(LLMClient):
                 max_tokens=_MAX_TOKENS,
                 temperature=_TEMPERATURE,
                 system=system_prompt,
-                messages=messages,
+                # 履歴契約の dict 形は SDK の MessageParam と互換だが静的には別型のため境界で cast。
+                messages=cast(Any, messages),
                 # tool use 強制で出力構造をスキーマに従わせる（JSON mode は使わない）。
                 # maxLength は API では強制されないため、上限超過は呼び出し側で破棄する
-                tools=[build_tool_definition(output_schema)],
+                tools=[cast(Any, build_tool_definition(output_schema))],
                 tool_choice={"type": "tool", "name": TOOL_NAME},
             )
         except (

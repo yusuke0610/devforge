@@ -7,6 +7,8 @@ generation）で強制する。Anthropic の tool use とは機構が異なる�
 スキーマに従う JSON のシリアライズ文字列として返す。
 """
 
+from typing import Any, cast
+
 from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types as genai_types
@@ -59,7 +61,8 @@ class GoogleClient(LLMClient):
         )
         try:
             response = await self._client.aio.models.generate_content(
-                model=model_id, contents=contents, config=config
+                # list[Content] は ContentListUnion に含まれるが静的には別型のため境界で cast。
+                model=model_id, contents=cast(Any, contents), config=config
             )
         except genai_errors.APIError as exc:
             raise wrap_api_error("Google", exc) from exc

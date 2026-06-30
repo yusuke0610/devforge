@@ -25,10 +25,15 @@ def test_source_extensions_cover_all_ecosystems():
 
 
 def test_scanner_for_extension_dispatches_by_suffix():
-    assert scanner_for_extension("a/b/main.py").ecosystem == "pypi"
-    assert scanner_for_extension("src/index.tsx").ecosystem == "npm"
-    assert scanner_for_extension("cmd/main.go").ecosystem == "go"
-    assert scanner_for_extension("src/lib.rs").ecosystem == "cargo"
+    for path, ecosystem in (
+        ("a/b/main.py", "pypi"),
+        ("src/index.tsx", "npm"),
+        ("cmd/main.go", "go"),
+        ("src/lib.rs", "cargo"),
+    ):
+        scanner = scanner_for_extension(path)
+        assert scanner is not None
+        assert scanner.ecosystem == ecosystem
     assert scanner_for_extension("README.md") is None
     assert scanner_for_extension("no_extension") is None
 
