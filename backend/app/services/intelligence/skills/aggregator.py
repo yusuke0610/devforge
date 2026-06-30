@@ -10,6 +10,7 @@ Layer 2（技術×リポの根拠）の中間表現を組み立てる純粋関�
 import re
 from dataclasses import dataclass, field
 
+from .imports import scanner_for_ecosystem
 from .linguist import resolve_language
 from .types import (
     SKILL_KIND_LANGUAGE,
@@ -25,8 +26,11 @@ _DEPENDENCY_CONFIDENCE = {
     "dev": 0.3,
     "indirect": 0.1,
 }
+# verify（D6）: direct 宣言が実際に import されていたときの昇格後 confidence。
+_ACTUAL_IMPORT_CONFIDENCE = 0.85
 _SIGNAL_LANGUAGE_BYTES = "language_bytes"
 _SIGNAL_MANIFEST_DECLARED = "manifest_declared"
+_SIGNAL_ACTUAL_IMPORT = "actual_import"
 
 # PEP 503 正規化用（連続する -_. を - に畳む）。
 _PYPI_NAME_RE = re.compile(r"[-_.]+")
@@ -80,7 +84,9 @@ class RepoSkillInput:
     url: str
     languages: dict[str, int]
     package_declarations: list[PackageDeclaration] = field(default_factory=list)
-    # D9(d): このリポの manifest 走査が部分的だったか。package 根拠へ伝播する。
+    # verify（D6）: import 解析で実使用が確認された名前の集合（ecosystem → import 名）。
+    imported_symbols: dict[str, set[str]] = field(default_factory=dict)
+    # D9(d): このリポのツリー走査が部分的だったか。package 根拠へ伝播する。
     manifest_scan_partial: bool = False
 
 
@@ -194,7 +200,37 @@ def _collect_packages(
                 partial_scan=repo.manifest_scan_partial,
             )
         )
+        # verify（D6）: direct 宣言が実際に import されていたら actual_import 証跡を **追加**する。
+        # declare 証跡は残したまま昇格証跡を足す（昇格のみ・降格なし / 保持は細かく / D8）。
+        if decl.dependency_kind == "direct" and _is_imported(
+            ecosystem, name, repo.imported_symbols
+        ):
+            skill.evidence.append(
+                EvidenceRecord(
+                    repo_full_name=repo.full_name,
+                    repo_url=repo.url,
+                    signal_source=_SIGNAL_ACTUAL_IMPORT,
+                    confidence=_ACTUAL_IMPORT_CONFIDENCE,
+                    dependency_kind=decl.dependency_kind,
+                    manifest_path=decl.source_path,
+                    partial_scan=repo.manifest_scan_partial,
+                )
+            )
 
 
 def _confidence(dependency_kind: str | None) -> float:
     return _DEPENDENCY_CONFIDENCE.get(dependency_kind or "", 0.2)
+
+
+def _is_imported(
+    ecosystem: str, canonical_name: str, imported_symbols: dict[str, set[str]]
+) -> bool:
+    """canonical 名がこのリポの import 解析結果（verify / D6）で実使用されていたか。
+
+    照合規則（``-``→``_`` 変換・接頭辞一致など）はエコシステム別スキャナに委譲する。
+    未対応エコシステム・スキャン結果なしは False（昇格しないだけで declare 証跡は残る）。
+    """
+    scanner = scanner_for_ecosystem(ecosystem)
+    if scanner is None:
+        return False
+    return scanner.matches(canonical_name, imported_symbols.get(ecosystem, set()))
