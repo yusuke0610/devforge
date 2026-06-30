@@ -76,8 +76,10 @@ backend/app/
 │   │   │   ├── api_client.py
 │   │   │   └── repo_analyzer.py
 │   │   ├── response_mapper.py
-│   │   ├── skill_extractor.py
-│   │   └── skill_taxonomy/      # スキル分類（言語・トピック・キーワードマップ）
+│   │   └── skills/               # スキル推論基盤（ADR-0016 / 3層モデル）
+│   │       ├── aggregator.py    # discover+declare 合流 → DetectedSkill
+│   │       ├── linguist.py      # 言語正規化（Linguist languages.yml）
+│   │       └── manifests/       # エコシステム別 manifest パーサ（plugin 型）
 │   ├── tasks/                   # 非同期タスク基盤（Cloud Tasks / ローカル）
 │   │   ├── base.py              # TaskType 定義（現状 GITHUB_LINK のみ）
 │   │   ├── exceptions.py        # RetryableError / NonRetryableError
@@ -104,4 +106,4 @@ backend/app/
 - **routers/auth/ と routers/blog/**: いずれもパッケージ化されている。auth は `endpoints` / `github_auth` / `oauth_flow` / `token_manager`、blog は `accounts` / `score` / `sync` に責務分割
 - **services/tasks/**: Cloud Tasks（本番）と BackgroundTasks（ローカル）を共通の `execute_task` でディスパッチ。状態遷移（`processing` / `completed` / `dead_letter` / `retrying`）は worker が担う。現在登録されているタスクは `GITHUB_LINK` の 1 種類のみだが、`AsyncTaskCacheService` / `TaskHandler` は新規タスク追加の拡張ポイントとして汎用化してある（インライン化しない）
   - **タスクハンドラの「黙って return」は禁止**: 失敗パスでは `NonRetryableError` / `RetryableError` を `raise` し、`dead_letter` / `retrying` 遷移と通知発行を worker に任せる。早期 return すると呼び出し側に completed として観測されてしまう
-- **services/intelligence/**: GitHub 連携 → スキル集計パイプライン。`github_link_service` → `pipeline` → `github_collector` → `skill_extractor` が live 経路。LLM は使わず決定論的（ルールベース）に処理する（intelligence モジュールは LLM を使わない。LLM は services/agent/ のみ / ADR-0010）
+- **services/intelligence/**: GitHub 連携 → スキル推論パイプライン。`github_link_service` → `github_collector`（収集）→ `skills/aggregate_skills`（ADR-0016 の 3 層スキル検出）→ `pipeline.aggregate_intelligence`（dashboard 表示用サマリ）が live 経路。旧 `skill_extractor` / `skill_taxonomy`（自前辞書）は ADR-0016 基盤へ移行完了済みで撤去。LLM は使わず決定論的（ルールベース）に処理する（intelligence モジュールは LLM を使わない。LLM は services/agent/ のみ / ADR-0010）

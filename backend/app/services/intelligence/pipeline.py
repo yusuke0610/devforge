@@ -1,23 +1,22 @@
 """
-キャリアインテリジェンスパイプラインのオーケストレーター。
+キャリアインテリジェンスパイプラインの集計関数。
 
-GitHub のデータから以下の分析を順次実行します：
-  GitHub → リポジトリ → 集計 → スキル抽出
+GitHub から収集したリポジトリ集合（``RepoData``）と、スキル推論基盤
+（ADR-0016 / ``skills.aggregate_skills``）が組み立てた ``DetectedSkill`` 列から、
+dashboard 表示用の集計結果（``IntelligenceResult``）を構築する。
 
-各ステージは決定論的（LLM は呼ばない）。
+集計は決定論的（LLM は呼ばない）。スキルの正規化・検出は ``skills/`` 配下が担い、
+本モジュールは「件数・言語バイト数」の表示用サマリ算出に責務を限定する。
 """
 
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List
 
-from ...core.logging_utils import get_logger
-from ...core.metrics import measure_time_async
-from .github_collector import RepoData, collect_repos
-from .skill_extractor import extract_skills
-
-logger = get_logger(__name__)
+from .github_collector import RepoData
+from .skills import DetectedSkill
+from .skills.types import SKILL_KIND_LANGUAGE
 
 
 @dataclass
@@ -31,54 +30,31 @@ class IntelligenceResult:
     languages: Dict[str, int] = field(default_factory=dict)
 
 
-def aggregate_intelligence(username: str, repos: List[RepoData]) -> IntelligenceResult:
-    """リポジトリ集合から ``IntelligenceResult`` を構築する純粋関数。
+def aggregate_intelligence(
+    username: str,
+    repos: List[RepoData],
+    detected_skills: List[DetectedSkill],
+) -> IntelligenceResult:
+    """リポジトリ集合と検出スキルから ``IntelligenceResult`` を構築する純粋関数。
 
-    I/O を行わないため、CLI/テスト向けの ``run_pipeline`` と
-    進捗通知付きのバックグラウンドワーカーの双方から再利用できる。
+    I/O を行わない。``unique_skills`` は ADR-0016 のスキル推論基盤が検出した
+    Layer 1 スキルのうち **言語スキル（kind=language）の件数**を表す
+    （dashboard 表示用。package は件数に含めない）。旧辞書ベース抽出は撤去済み。
+    ``languages`` は Linguist のバイト数をリポジトリ横断で合算する。
     """
     lang_totals: Dict[str, int] = defaultdict(int)
     for repo in repos:
         for lang, byte_count in repo.languages.items():
             lang_totals[lang] += byte_count
 
-    extraction = extract_skills(repos)
+    unique_language_skills = sum(
+        1 for skill in detected_skills if skill.kind == SKILL_KIND_LANGUAGE
+    )
 
     return IntelligenceResult(
         username=username,
-        repos_analyzed=extraction.repos_analyzed,
-        unique_skills=len(extraction.unique_skills),
+        repos_analyzed=len(repos),
+        unique_skills=unique_language_skills,
         analyzed_at=datetime.now().isoformat(),
         languages=dict(lang_totals),
     )
-
-
-@measure_time_async("intelligence.pipeline")
-async def run_pipeline(
-    username: str,
-    token: Optional[str] = None,
-    include_forks: bool = False,
-) -> IntelligenceResult:
-    """GitHub ユーザーに対してキャリアインテリジェンスパイプラインを実行する。
-
-    1. GitHub API からリポジトリ収集
-    2. ``aggregate_intelligence`` で集計・スキル抽出
-    """
-    logger.info("%s のインテリジェンスパイプラインを開始します", username)
-
-    repos: List[RepoData] = await collect_repos(
-        username,
-        token=token,
-        include_forks=include_forks,
-    )
-
-    result = aggregate_intelligence(username, repos)
-
-    logger.info(
-        "パイプライン完了 (%s): 分析リポジトリ数=%d, ユニークスキル数=%d",
-        username,
-        result.repos_analyzed,
-        result.unique_skills,
-    )
-
-    return result

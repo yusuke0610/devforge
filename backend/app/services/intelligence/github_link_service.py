@@ -121,9 +121,8 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
         # 取得失敗のときだけ警告対象にする（貢献年が無いだけなら警告しない）
         contribution_fetch_failed = not ok
 
-    # ステップ 3: スキル抽出（集計関数で一括処理）
+    # ステップ 3: スキル集計
     await set_progress(task_id, 3, _TOTAL_STEPS, "スキル集計中...")
-    result = aggregate_intelligence(payload["github_username"], repos)
 
     # 3 層スキル（ADR-0016 / discover + declare）の中間表現を組み立てる（I/O 無し）。
     detected_skills = aggregate_skills(
@@ -138,6 +137,9 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
             for repo in repos
         ]
     )
+
+    # dashboard 表示用サマリ（件数・言語バイト数）を検出スキルから組む。
+    result = aggregate_intelligence(payload["github_username"], repos, detected_skills)
 
     response = map_pipeline_result(result)
     response.contribution_calendars = calendars
