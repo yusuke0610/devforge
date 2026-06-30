@@ -182,33 +182,39 @@ def test_project_requires_start_date() -> None:
     旧実装ではここを素通りし、repositories 層の parse_year_month("") で 500 になっていた。
     """
     with pytest.raises(ValidationError, match="開始年月を入力してください"):
-        Project(
-            name="API開発",
-            start_date="",
-            end_date="2024-03",
-            is_current=False,
-            technology_stacks=[],
+        Project.model_validate(
+            {
+                "name": "API開発",
+                "start_date": "",
+                "end_date": "2024-03",
+                "is_current": False,
+                "technology_stacks": [],
+            }
         )
 
 
 def test_project_requires_end_date_when_not_current() -> None:
     """プロジェクト: 参画中でなければ終了年月が必須。"""
     with pytest.raises(ValidationError, match="終了年月"):
-        Project(
-            name="API開発",
-            start_date="2021-04",
-            end_date="",
-            is_current=False,
-            technology_stacks=[],
+        Project.model_validate(
+            {
+                "name": "API開発",
+                "start_date": "2021-04",
+                "end_date": "",
+                "is_current": False,
+                "technology_stacks": [],
+            }
         )
 
 
 def test_project_current_without_end_date_is_accepted() -> None:
     """プロジェクト: 参画中（is_current=True）なら終了年月が空でも OK。"""
-    proj = Project(
-        name="API開発",
-        periods=[{"start_date": "2021-04", "end_date": "", "is_current": True}],
-        technology_stacks=[],
+    proj = Project.model_validate(
+        {
+            "name": "API開発",
+            "periods": [{"start_date": "2021-04", "end_date": "", "is_current": True}],
+            "technology_stacks": [],
+        }
     )
     assert proj.periods[0].start_date == "2021-04"
     assert proj.periods[0].end_date == ""
@@ -295,31 +301,37 @@ def test_experience_end_date_none_is_rejected() -> None:
 def test_project_end_date_before_start_date_is_rejected() -> None:
     """プロジェクト: 終了日が開始日より前の場合はエラーとなること。"""
     with pytest.raises(ValidationError, match="開始日は終了日より前"):
-        Project(
-            name="テスト",
-            start_date="2024-04",
-            end_date="2021-03",
-            is_current=False,
-            technology_stacks=[],
+        Project.model_validate(
+            {
+                "name": "テスト",
+                "start_date": "2024-04",
+                "end_date": "2021-03",
+                "is_current": False,
+                "technology_stacks": [],
+            }
         )
 
 
 def test_project_end_date_equals_start_date_is_accepted() -> None:
     """プロジェクト: 終了日 = 開始日は正常に保存されること。"""
-    proj = Project(
-        name="テスト",
-        periods=[{"start_date": "2024-04", "end_date": "2024-04", "is_current": False}],
-        technology_stacks=[],
+    proj = Project.model_validate(
+        {
+            "name": "テスト",
+            "periods": [{"start_date": "2024-04", "end_date": "2024-04", "is_current": False}],
+            "technology_stacks": [],
+        }
     )
     assert proj.periods[0].end_date == "2024-04"
 
 
 def test_project_end_date_after_start_date_is_accepted() -> None:
     """プロジェクト: 終了日 > 開始日は正常に保存されること。"""
-    proj = Project(
-        name="テスト",
-        periods=[{"start_date": "2021-04", "end_date": "2024-03", "is_current": False}],
-        technology_stacks=[],
+    proj = Project.model_validate(
+        {
+            "name": "テスト",
+            "periods": [{"start_date": "2021-04", "end_date": "2024-03", "is_current": False}],
+            "technology_stacks": [],
+        }
     )
     assert proj.periods[0].end_date == "2024-03"
 
@@ -327,18 +339,22 @@ def test_project_end_date_after_start_date_is_accepted() -> None:
 def test_project_in_progress_end_date_is_normalized_to_empty() -> None:
     """プロジェクト: 参画中（is_current=True）の期間は end_date が "" に正規化されること。"""
     # 値が入っていても is_current=True なら "" に正規化される
-    proj = Project(
-        name="テスト",
-        periods=[{"start_date": "2021-04", "end_date": "2024-03", "is_current": True}],
-        technology_stacks=[],
+    proj = Project.model_validate(
+        {
+            "name": "テスト",
+            "periods": [{"start_date": "2021-04", "end_date": "2024-03", "is_current": True}],
+            "technology_stacks": [],
+        }
     )
     assert proj.periods[0].end_date == ""
 
     # 空文字列も当然 OK
-    proj_empty = Project(
-        name="テスト",
-        periods=[{"start_date": "2021-04", "end_date": "", "is_current": True}],
-        technology_stacks=[],
+    proj_empty = Project.model_validate(
+        {
+            "name": "テスト",
+            "periods": [{"start_date": "2021-04", "end_date": "", "is_current": True}],
+            "technology_stacks": [],
+        }
     )
     assert proj_empty.periods[0].end_date == ""
 
@@ -346,12 +362,14 @@ def test_project_in_progress_end_date_is_normalized_to_empty() -> None:
 def test_project_end_date_none_is_rejected() -> None:
     """プロジェクト: end_date に None を渡すと ValidationError になる。"""
     with pytest.raises(ValidationError):
-        Project(
-            name="テスト",
-            start_date="2021-04",
-            end_date=None,
-            is_current=True,
-            technology_stacks=[],
+        Project.model_validate(
+            {
+                "name": "テスト",
+                "start_date": "2021-04",
+                "end_date": None,
+                "is_current": True,
+                "technology_stacks": [],
+            }
         )
 
 

@@ -18,8 +18,8 @@ _DEV_GROUP_NAMES = frozenset({"dev", "test", "tests", "lint", "docs", "typing", 
 
 
 class PyprojectParser:
-    filenames = ("pyproject.toml",)
-    ecosystem = "pypi"
+    filenames: tuple[str, ...] = ("pyproject.toml",)
+    ecosystem: str = "pypi"
 
     def parse(self, content: str) -> list[PackageDeclaration]:
         try:

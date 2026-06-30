@@ -20,9 +20,11 @@ def test_resume_create_does_not_transfer_ownership(client: TestClient) -> None:
     db = client._db_session
     UserRepository(db).create("victim-a", email="victim-a@example.com")
     victim = UserRepository(db).get_by_username("victim-a")
+    assert victim is not None
 
     headers = auth_header(client, "attacker-a")
     attacker = UserRepository(db).get_by_username("attacker-a")
+    assert attacker is not None
 
     payload = make_resume_payload(user_id=victim.id)
     resp = client.post("/api/resumes", json=payload, headers=headers)
@@ -41,9 +43,11 @@ def test_resume_update_does_not_transfer_ownership(client: TestClient) -> None:
     db = client._db_session
     UserRepository(db).create("victim-b", email="victim-b@example.com")
     victim = UserRepository(db).get_by_username("victim-b")
+    assert victim is not None
 
     headers = auth_header(client, "attacker-b")
     attacker = UserRepository(db).get_by_username("attacker-b")
+    assert attacker is not None
 
     created = client.post("/api/resumes", json=make_resume_payload(), headers=headers)
     assert created.status_code == 201
@@ -67,9 +71,11 @@ def test_blog_account_create_does_not_transfer_ownership(client: TestClient) -> 
     db = client._db_session
     UserRepository(db).create("victim-blog-a", email="victim-blog-a@example.com")
     victim = UserRepository(db).get_by_username("victim-blog-a")
+    assert victim is not None
 
     headers = auth_header(client, "attacker-blog-a")
     attacker = UserRepository(db).get_by_username("attacker-blog-a")
+    assert attacker is not None
 
     with patch(_ACCOUNT_VERIFY_PATCH, new_callable=AsyncMock, return_value=True):
         resp = client.post(
@@ -91,9 +97,11 @@ def test_blog_account_update_does_not_transfer_ownership(client: TestClient) -> 
     db = client._db_session
     UserRepository(db).create("victim-blog-b", email="victim-blog-b@example.com")
     victim = UserRepository(db).get_by_username("victim-blog-b")
+    assert victim is not None
 
     headers = auth_header(client, "attacker-blog-b")
     attacker = UserRepository(db).get_by_username("attacker-blog-b")
+    assert attacker is not None
 
     with patch(_ACCOUNT_VERIFY_PATCH, new_callable=AsyncMock, return_value=True), patch(
         _SERVICE_VERIFY_PATCH,

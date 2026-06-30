@@ -327,6 +327,7 @@ class TestRetryEndpoints:
         headers = auth_header(client, "retry-intel-user", github_id=999)
         db = client._db_session
         user = UserRepository(db).get_by_username("retry-intel-user")
+        assert user is not None
 
         cache = GitHubLinkCache(
             user_id=user.id,
@@ -359,6 +360,7 @@ class TestRetryEndpoints:
         headers = auth_header(client, username, github_id=999)
         db = client._db_session
         user = UserRepository(db).get_by_username(username)
+        assert user is not None
 
         cache = GitHubLinkCache(user_id=user.id, status=status)
         db.add(cache)
@@ -377,6 +379,7 @@ class TestRetryEndpoints:
         headers = auth_header(client, "retry-race-user", github_id=999)
         db = client._db_session
         user = UserRepository(db).get_by_username("retry-race-user")
+        assert user is not None
 
         cache = GitHubLinkCache(user_id=user.id, status="dead_letter", retry_count=2)
         db.add(cache)

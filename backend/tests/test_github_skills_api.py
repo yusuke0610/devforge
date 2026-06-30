@@ -9,7 +9,9 @@ from conftest import auth_header
 
 
 def _user_id(client, username: str) -> str:
-    return UserRepository(client._db_session).get_by_username(username).id
+    user = UserRepository(client._db_session).get_by_username(username)
+    assert user is not None
+    return user.id
 
 
 def _sample_detected() -> list[DetectedSkill]:

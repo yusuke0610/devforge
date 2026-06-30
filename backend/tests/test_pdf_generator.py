@@ -16,7 +16,8 @@ from app.services.pdf.utils.pdf_utils import (
 
 
 def test_format_period_for_current() -> None:
-    period = _format_period("2022-04", None, True)
+    # 在籍中は end_date を "" で受ける契約（format_period の docstring 準拠）。
+    period = _format_period("2022-04", "", True)
     assert "現在" in period
 
 

@@ -2,7 +2,7 @@
 	setup install-hooks install-backend install-web generate-keys \
 	dev dev-build dev-down dev-amd64 dev-amd64-build dev-web preview-web dev-proxy dev-proxy-only stripe-webhook \
 	test test-backend test-web \
-	lint lint-backend lint-web lint-web-messages lint-env-keys lint-fix \
+	lint lint-backend typecheck-backend lint-web lint-web-messages lint-env-keys lint-fix \
 	format format-check \
 	ci \
 	dupe-check dupe-check-html dupe-clean \
@@ -40,6 +40,7 @@ help:
 	@echo "  test-web     Frontend: vitest"
 	@echo "  lint              全リント (backend + web)"
 	@echo "  lint-backend      Backend: ruff check"
+	@echo "  typecheck-backend Backend: pyright 型チェック"
 	@echo "  lint-web     Frontend: eslint"
 	@echo "  lint-web-messages  Frontend: setError等にリテラル日本語が渡っていないか検知"
 	@echo "  lint-env-keys     env名/エラーコードの SSoT drift を検知 (env_keys.py↔compose, errors.py↔errorCodes.ts)"
@@ -141,10 +142,16 @@ test-backend:
 test-web:
 	nix develop --command bash -c "cd web && npm test"
 
-lint: lint-backend lint-web lint-web-messages lint-env-keys
+lint: lint-backend typecheck-backend lint-web lint-web-messages lint-env-keys
 
 lint-backend:
 	nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check app tests alembic_migrations"
+
+# Backend 型チェック（pyright）。pyproject [tool.pyright] の venv=".venv" を参照するため
+# 事前に make install-backend で backend/.venv に依存を入れておくこと。
+# バージョンは CI（.github/workflows/test.yml）と揃えてピン留めする（drift 防止）。
+typecheck-backend:
+	nix develop --command bash -c "cd backend && uvx pyright@1.1.411 app tests alembic_migrations"
 
 lint-web:
 	nix develop --command bash -c "cd web && npm run lint"

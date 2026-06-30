@@ -1,3 +1,5 @@
+from typing import Any
+
 from sqlalchemy.orm import selectinload
 
 from ..core.date_utils import parse_year_month
@@ -39,7 +41,7 @@ class ResumeRepository(SingleUserDocumentRepository):
         selectinload(Resume.qualification_rows),
     )
 
-    def _apply_payload(self, entity: Resume, payload: dict[str, object]) -> None:
+    def _apply_payload(self, entity: Resume, payload: dict[str, Any]) -> None:
         entity.full_name = payload["full_name"]
         entity.email = payload["email"]
         entity.github_url = payload.get("github_url", "")
@@ -67,7 +69,7 @@ class ResumeRepository(SingleUserDocumentRepository):
             for index, item in enumerate(sorted_qualifications)
         ]
 
-    def _build_experience_row(self, index: int, payload: dict[str, object]) -> ResumeExperience:
+    def _build_experience_row(self, index: int, payload: dict[str, Any]) -> ResumeExperience:
         return ResumeExperience(
             sort_order=index,
             company=payload["company"],
@@ -88,7 +90,7 @@ class ResumeRepository(SingleUserDocumentRepository):
             ],
         )
 
-    def _build_client_row(self, index: int, payload: dict[str, object]) -> ResumeClient:
+    def _build_client_row(self, index: int, payload: dict[str, Any]) -> ResumeClient:
         projects = list(payload.get("projects", []))
         sorted_projects = sorted(projects, key=self._project_sort_key)
         vacation_start = payload.get("vacation_start_date") or ""
@@ -109,7 +111,7 @@ class ResumeRepository(SingleUserDocumentRepository):
         )
 
     @staticmethod
-    def _project_sort_key(proj: dict[str, object]) -> tuple:
+    def _project_sort_key(proj: dict[str, Any]) -> tuple:
         """複数期間を持つプロジェクトを sort_by_period_desc と同じ降順ロジックでソートする。"""
         from datetime import date as _date
 
@@ -131,10 +133,10 @@ class ResumeRepository(SingleUserDocumentRepository):
         if is_any_current:
             return (0, _date.max - effective_start)
         ends = [_parse(p.get("end_date")) for p in periods if p.get("end_date")]
-        effective_end = max(ends, default=_date.min)
+        effective_end = max((e for e in ends if e), default=_date.min)
         return (1, _date.max - effective_end, _date.max - effective_start)
 
-    def _build_project_row(self, index: int, payload: dict[str, object]) -> ResumeProject:
+    def _build_project_row(self, index: int, payload: dict[str, Any]) -> ResumeProject:
         team = payload.get("team", {})
         periods = list(payload.get("periods", []))
         return ResumeProject(

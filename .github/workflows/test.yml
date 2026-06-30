@@ -193,6 +193,13 @@ jobs:
         working-directory: backend
         run: uv run ruff check app tests alembic_migrations
 
+      # 型チェック（pyright）。pyright は pyproject [tool.pyright] の venv=".venv" を参照するため、
+      # 直前の uv pip install で .venv に依存が入っている必要がある（このジョブで担保済み）。
+      # バージョンは Makefile の typecheck-backend と揃えてピン留めする（ローカル/CI の drift 防止）。
+      - name: Type check backend (pyright)
+        working-directory: backend
+        run: uvx pyright@1.1.411 app tests alembic_migrations
+
       - name: Run backend tests
         working-directory: backend
         run: uv run pytest -q tests
