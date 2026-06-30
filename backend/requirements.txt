@@ -18,7 +18,7 @@ httpx==0.28.1
 # extra が ADC 用の google-auth を引き込む。google-genai は vertexai=True で Vertex 対応。
 # 供給網リスク（レンジ内 yank / 侵害バージョンの混入）を避けるため == で固定する。
 # CVE は CI の pip-audit が検出するので、検出時に明示バージョンを引き上げる運用とする。
-anthropic[vertex]==0.112.0
+anthropic[vertex]==0.115.0
 google-genai==2.10.0
 openai==2.44.0
 # Stripe Checkout / Webhook 署名検証（ADR-0012 Phase 2）。公式ライブラリを使う
