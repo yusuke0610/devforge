@@ -200,3 +200,4 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 
 - **2026-06**: 当初「代替案」で延期していた monorepo サブツリー探索を **D9 として採用**（recursive Trees API + パスセグメント除外 + 深さ/件数キャップ + keep-all + manifest パス永続化）。3 層モデル・D1〜D8 は不変。当初は別 ADR 案だったが、0016 の核を維持する refine であり 1 箇所の追補に留まるため、本 ADR への統合とした。
 - **2026-06**: IaC からのインフラリソース検出（provider+service 粒度・HCL 先行・kind=infra 案・D9 探索流用・D8 同様の human-in-the-loop 正規化）を**将来課題として追記**。決定（D1〜D9）・3 層モデルは不変。
+- **2026-06**: ステータス冒頭の「段階移行」を完了。旧決定論パイプライン（`skill_extractor.py` + `skill_taxonomy/` の自前辞書）を撤去し、live 経路を本基盤（`skills/aggregate_skills`）へ一本化。dashboard の `unique_skills` は検出 Layer 1 のうち**言語スキル（kind=language）の件数**から算出する（package は件数に含めない。API 契約 `GitHubLinkResponse` は不変）。

@@ -148,7 +148,7 @@ export function GitHubLinkDashboard() {
                 </div>
                 <div className={styles.statCard}>
                   <div className={styles.statValue}>{result.unique_skills}</div>
-                  <div className={styles.statLabel}>スキル</div>
+                  <div className={styles.statLabel}>言語</div>
                 </div>
               </div>
             </div>

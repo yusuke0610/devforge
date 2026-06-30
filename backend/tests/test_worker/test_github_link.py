@@ -40,6 +40,68 @@ class TestRunGithubAnalysis:
             )
         ]
 
+    def test_detected_skills_passed_to_aggregate_intelligence(
+        self, db_session: Session, session_factory
+    ):
+        """配線検証: aggregate_skills の出力が aggregate_intelligence へそのまま渡ること。
+
+        ADR-0016 の新基盤一本化で、検出スキル（aggregate_skills）→ サマリ集計
+        （aggregate_intelligence）の受け渡し順序を変更したため、その配線を固定する。
+        """
+        user, _cache = self._make_user_and_cache(db_session, "wiring-user")
+        repos = self._sample_repos()
+        sentinel_skills = ["SENTINEL_DETECTED_SKILL"]
+        # cache.result への書き戻しが JSON シリアライズ可能になるよう dict を返させる
+        mapped = MagicMock()
+        mapped.model_dump.return_value = {}
+
+        with (
+            patch(
+                "app.services.intelligence.github_link_service.collect_repos",
+                new_callable=AsyncMock,
+                return_value=repos,
+            ),
+            patch(
+                "app.services.intelligence.github_link_service.fetch_all_contribution_calendars",
+                new_callable=AsyncMock,
+                return_value=(True, []),
+            ),
+            patch("app.services.progress_service.set_progress", new_callable=AsyncMock),
+            patch(
+                "app.services.intelligence.github_link_service.decrypt_field",
+                return_value="token123",
+            ),
+            patch(
+                "app.services.intelligence.github_link_service.aggregate_skills",
+                return_value=sentinel_skills,
+            ),
+            patch(
+                "app.services.intelligence.github_link_service.aggregate_intelligence",
+                return_value=MagicMock(),
+            ) as mock_aggregate,
+            # 永続化はセンチネル（非 DetectedSkill）なので no-op 化して配線だけ検証する
+            patch("app.services.intelligence.github_link_service.GitHubSkillRepository"),
+            patch(
+                "app.services.intelligence.github_link_service.map_pipeline_result",
+                return_value=mapped,
+            ),
+        ):
+            _run(
+                _run_github_link(
+                    session_factory,
+                    {
+                        "user_id": user.id,
+                        "github_username": "gh-user",
+                        "github_token": "encrypted_token",
+                        "include_forks": False,
+                    },
+                )
+            )
+
+        mock_aggregate.assert_called_once()
+        # 第3引数（detected_skills）に aggregate_skills の戻り値がそのまま渡ること
+        assert mock_aggregate.call_args.args[2] is sentinel_skills
+
     def test_status_transitions_to_completed(self, db_session: Session, session_factory):
         """正常系: status が completed に遷移すること。"""
         user, cache = self._make_user_and_cache(db_session)
