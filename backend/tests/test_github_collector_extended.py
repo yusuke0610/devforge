@@ -17,8 +17,8 @@ from app.services.intelligence import github_collector
 from app.services.intelligence.github.api_client import GitHubUserNotFoundError
 from app.services.intelligence.github_collector import (
     RepoData,
-    _collect_manifests,
-    _is_excluded_manifest_path,
+    _collect_repo_signals,
+    _is_excluded_path,
     _passes_filter,
     collect_repos,
 )
@@ -278,62 +278,65 @@ class TestCollectRepos:
         assert "repo4" in names
 
 
-# ── monorepo manifest 探索（ADR-0016 D9）───────────────────────────────────
+# ── monorepo 探索（ADR-0016 D9）+ import 解析（D6）──────────────────────────
 
 
-class TestIsExcludedManifestPath:
+class TestIsExcludedPath:
     def test_excludes_node_modules_segment(self):
-        assert _is_excluded_manifest_path("web/node_modules/x/package.json") is True
+        assert _is_excluded_path("web/node_modules/x/package.json") is True
 
     def test_excludes_dot_venv_segment(self):
-        assert _is_excluded_manifest_path(".venv/lib/requirements.txt") is True
+        assert _is_excluded_path(".venv/lib/requirements.txt") is True
 
     def test_keeps_clean_subtree_path(self):
-        assert _is_excluded_manifest_path("backend/requirements.txt") is False
+        assert _is_excluded_path("backend/requirements.txt") is False
 
     def test_keeps_root_manifest(self):
-        assert _is_excluded_manifest_path("package.json") is False
+        assert _is_excluded_path("package.json") is False
 
 
-class TestCollectManifests:
-    """`_collect_manifests` の除外 / 深さ・件数キャップ / partial / source_path。"""
+class TestCollectRepoSignals:
+    """`_collect_repo_signals` の manifest 探索（除外/キャップ/partial/source_path）と verify。"""
 
-    def _patched_collect(self, paths, truncated, *, monkeypatch=None):
-        """fetch_manifest_paths / fetch_repo_file をモックして _collect_manifests を実行。
+    def _patched_collect(self, tree_paths, truncated, *, file_contents=None):
+        """fetch_repo_tree / fetch_repo_file をモックして _collect_repo_signals を実行。
 
-        fetch_repo_file は basename に応じた最小 manifest 内容を返す。fetch された
-        パス一覧と (declarations, partial) を返す。
+        ``tree_paths`` は recursive Trees API が返す全 blob パス（manifest + source）。
+        fetch された全パスと (declarations, imported_symbols, partial) を返す。
         """
         fetched: list[str] = []
+        contents = file_contents or {}
 
         async def _fetch_repo_file(_client, _owner, _repo, path):
             fetched.append(path)
+            if path in contents:
+                return contents[path]
             name = path.rsplit("/", 1)[-1]
             if name == "package.json":
                 return '{"dependencies": {"react": "^18.0.0"}}'
-            if name in ("requirements.txt",):
+            if name == "requirements.txt":
                 return "fastapi==0.110.0"
             return None
 
         with (
             patch(
-                "app.services.intelligence.github_collector.fetch_manifest_paths",
+                "app.services.intelligence.github_collector.fetch_repo_tree",
                 new_callable=AsyncMock,
-                return_value=(paths, truncated),
+                return_value=(tree_paths, truncated),
             ),
             patch(
                 "app.services.intelligence.github_collector.fetch_repo_file",
                 side_effect=_fetch_repo_file,
             ),
         ):
-            decls, partial = _run(
-                _collect_manifests(MagicMock(), "u", "repo", "main")
+            decls, imported, partial = _run(
+                _collect_repo_signals(MagicMock(), "u", "repo", "main")
             )
-        return decls, partial, fetched
+        return decls, imported, partial, fetched
 
     def test_detects_subtree_manifest_and_attaches_source_path(self):
         """サブツリーの manifest を検出し source_path を付与すること（D9 a/f）。"""
-        decls, partial, fetched = self._patched_collect(
+        decls, _imported, partial, fetched = self._patched_collect(
             ["backend/requirements.txt"], False
         )
         assert fetched == ["backend/requirements.txt"]
@@ -344,7 +347,7 @@ class TestCollectManifests:
 
     def test_excluded_segment_paths_are_dropped(self):
         """除外セグメントを含むパスは fetch せず捨てること。partial にはしない（D9 b）。"""
-        decls, partial, fetched = self._patched_collect(
+        decls, _imported, partial, fetched = self._patched_collect(
             ["requirements.txt", "web/node_modules/x/package.json"], False
         )
         assert fetched == ["requirements.txt"]
@@ -353,7 +356,7 @@ class TestCollectManifests:
 
     def test_truncated_marks_partial(self):
         """Trees API の truncated を partial として伝播すること（D9 d）。"""
-        _decls, partial, _fetched = self._patched_collect(
+        _decls, _imported, partial, _fetched = self._patched_collect(
             ["requirements.txt"], True
         )
         assert partial is True
@@ -361,7 +364,7 @@ class TestCollectManifests:
     def test_depth_cap_drops_deep_paths_and_marks_partial(self, monkeypatch):
         """深さ上限超の manifest は落とし partial=True にすること（D9 c/d）。"""
         monkeypatch.setattr(github_collector, "_MANIFEST_MAX_DEPTH", 2)
-        decls, partial, fetched = self._patched_collect(
+        decls, _imported, partial, fetched = self._patched_collect(
             ["requirements.txt", "a/b/c/requirements.txt"], False
         )
         # 深さ2まで（"requirements.txt" のみ）。"a/b/c/requirements.txt" は4セグメントで除外。
@@ -372,9 +375,35 @@ class TestCollectManifests:
     def test_count_cap_truncates_shallow_first_and_marks_partial(self, monkeypatch):
         """件数上限で浅い順に打ち切り partial=True にすること（D9 c/d）。"""
         monkeypatch.setattr(github_collector, "_MANIFEST_MAX_COUNT", 1)
-        _decls, partial, fetched = self._patched_collect(
+        _decls, _imported, partial, fetched = self._patched_collect(
             ["sub/requirements.txt", "requirements.txt"], False
         )
         # 浅い順ソートで root を優先し 1 件で打ち切る。
         assert fetched == ["requirements.txt"]
         assert partial is True
+
+    def test_verify_scans_source_of_direct_ecosystems(self):
+        """direct 宣言のあるエコシステムの source を import 解析すること（D6）。"""
+        decls, imported, partial, fetched = self._patched_collect(
+            ["requirements.txt", "app/main.py"],
+            False,
+            file_contents={"app/main.py": "import fastapi\nfrom os import path\n"},
+        )
+        assert partial is False
+        # manifest と source の両方が同一ツリーから fetch される
+        assert "requirements.txt" in fetched
+        assert "app/main.py" in fetched
+        # pypi の import 名が抽出されている
+        assert "fastapi" in imported["pypi"]
+        assert {d.name for d in decls} == {"fastapi"}
+
+    def test_verify_skips_source_without_direct_deps(self):
+        """direct 宣言が無いエコシステムの source はスキャンしないこと（D6 コスト抑制）。"""
+        # go.mod を返さず、direct 宣言は pypi のみ。.go ソースは走査対象外。
+        _decls, imported, _partial, fetched = self._patched_collect(
+            ["requirements.txt", "main.go"],
+            False,
+            file_contents={"main.go": 'import "github.com/foo/bar"'},
+        )
+        assert "main.go" not in fetched
+        assert "go" not in imported

@@ -132,6 +132,7 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
                 url=f"https://github.com/{repo.owner}/{repo.name}",
                 languages=repo.languages,
                 package_declarations=repo.package_declarations,
+                imported_symbols=repo.imported_symbols,
                 manifest_scan_partial=repo.manifest_scan_partial,
             )
             for repo in repos

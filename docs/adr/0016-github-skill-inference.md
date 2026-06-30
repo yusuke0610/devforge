@@ -143,7 +143,7 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 
 ## 将来の移行条件
 
-- **verify ステージの詳細設計**: import サンプリング戦略、言語別の import 検出、打ち切り条件。
+- **verify ステージ**: D6 として実装済み（2026-06）。recursive Trees API の 1 コールを manifest 探索と共有し、direct 宣言のエコシステムの source だけを浅い順・件数キャップでサンプリング → import 解析。辞書レスの保守的照合（`-`→`_` 変換・go 接頭辞一致・npm 完全一致）で direct 宣言を `actual_import` へ**昇格のみ**（降格なし）。残課題は import 名乖離（PyYAML→yaml 等）の取りこぼし低減・サンプリング閾値の実データチューニング。
 - **monorepo 対応**: D9 で採用済み（recursive Trees API + パスセグメント除外 + 深さ/件数キャップ + keep-all）。残課題は除外定義の高度化（Linguist `vendor.yml` 流用）・キャップ閾値の実データチューニング・規模シグナルの導入。
 - **IaC からのインフラリソース検出**: 後述「将来課題: IaC からのインフラリソース検出」を参照（Terraform/OpenTofu 先行・provider+service 粒度・kind=infra 案・D9 探索流用）。
 - **private リポジトリの扱い**: Layer 3 経由で人間が深さを補完する。生データは持ち込まない前提を維持する。
@@ -201,3 +201,4 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 - **2026-06**: 当初「代替案」で延期していた monorepo サブツリー探索を **D9 として採用**（recursive Trees API + パスセグメント除外 + 深さ/件数キャップ + keep-all + manifest パス永続化）。3 層モデル・D1〜D8 は不変。当初は別 ADR 案だったが、0016 の核を維持する refine であり 1 箇所の追補に留まるため、本 ADR への統合とした。
 - **2026-06**: IaC からのインフラリソース検出（provider+service 粒度・HCL 先行・kind=infra 案・D9 探索流用・D8 同様の human-in-the-loop 正規化）を**将来課題として追記**。決定（D1〜D9）・3 層モデルは不変。
 - **2026-06**: ステータス冒頭の「段階移行」を完了。旧決定論パイプライン（`skill_extractor.py` + `skill_taxonomy/` の自前辞書）を撤去し、live 経路を本基盤（`skills/aggregate_skills`）へ一本化。dashboard の `unique_skills` は検出 Layer 1 のうち**言語スキル（kind=language）の件数**から算出する（package は件数に含めない。API 契約 `GitHubLinkResponse` は不変）。
+- **2026-06**: **verify ステージ（D6）を実装**。`api_client.fetch_repo_tree`（recursive Trees 1 コール）を manifest 探索と共有し、`skills/imports/`（go / python / js_ts / rust の plugin スキャナ）で direct 宣言の実 import を解析、`actual_import` 証跡を**追加**（昇格のみ・降格なし / declare 証跡は保持）。生コードは scan 後に破棄（永続化なし）。決定（D1〜D9）・3 層モデル・スキーマは不変（`signal_source` 値域内のため migration 不要）。

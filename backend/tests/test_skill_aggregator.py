@@ -11,13 +11,20 @@ from app.services.intelligence.skills.types import (
 )
 
 
-def _repo(full_name="testuser/repo", languages=None, declarations=None) -> RepoSkillInput:
+def _repo(
+    full_name="testuser/repo", languages=None, declarations=None, imported=None
+) -> RepoSkillInput:
     return RepoSkillInput(
         full_name=full_name,
         url=f"https://github.com/{full_name}",
         languages=languages or {},
         package_declarations=declarations or [],
+        imported_symbols=imported or {},
     )
+
+
+def _signals(evidence) -> set:
+    return {e.signal_source for e in evidence}
 
 
 def _by_name(skills) -> dict:
@@ -154,3 +161,68 @@ def test_partial_scan_not_set_on_language_evidence() -> None:
     lang_ev = by_name["Python"].evidence[0]
     assert lang_ev.partial_scan is False
     assert lang_ev.manifest_path is None
+
+
+# ── verify（import 解析で actual_import へ昇格 / D6）──────────────────────────
+
+
+def test_direct_dep_imported_adds_actual_import_evidence() -> None:
+    """direct 宣言が実 import されていたら actual_import 証跡を追加し、declare も残すこと。"""
+    skills = aggregate_skills(
+        [
+            _repo(
+                declarations=[PackageDeclaration("npm", "react", "direct")],
+                imported={"npm": {"react"}},
+            )
+        ]
+    )
+    react = _by_name(skills)["react"]
+    # declare（manifest_declared）+ verify（actual_import）の 2 証跡が共存する（保持は細かく / D8）
+    assert _signals(react.evidence) == {"manifest_declared", "actual_import"}
+    actual = next(e for e in react.evidence if e.signal_source == "actual_import")
+    assert actual.confidence == 0.85
+    assert actual.dependency_kind == "direct"
+
+
+def test_direct_dep_not_imported_keeps_only_declared() -> None:
+    """direct でも import されていなければ昇格しない（declare 証跡は残す / 降格なし）。"""
+    skills = aggregate_skills(
+        [
+            _repo(
+                declarations=[PackageDeclaration("npm", "react", "direct")],
+                imported={"npm": {"lodash"}},
+            )
+        ]
+    )
+    react = _by_name(skills)["react"]
+    assert _signals(react.evidence) == {"manifest_declared"}
+
+
+def test_dev_dep_not_verified_even_if_imported() -> None:
+    """verify 対象は direct のみ。dev は import されていても昇格しないこと（D7）。"""
+    skills = aggregate_skills(
+        [
+            _repo(
+                declarations=[PackageDeclaration("npm", "jest", "dev")],
+                imported={"npm": {"jest"}},
+            )
+        ]
+    )
+    jest = _by_name(skills)["jest"]
+    assert _signals(jest.evidence) == {"manifest_declared"}
+
+
+def test_verify_uses_ecosystem_matching_rules() -> None:
+    """照合はエコシステム別規則: go はサブパッケージ接頭辞一致で昇格すること。"""
+    skills = aggregate_skills(
+        [
+            _repo(
+                declarations=[
+                    PackageDeclaration("go", "github.com/gin-gonic/gin", "direct")
+                ],
+                imported={"go": {"github.com/gin-gonic/gin/render"}},
+            )
+        ]
+    )
+    gin = _by_name(skills)["github.com/gin-gonic/gin"]
+    assert "actual_import" in _signals(gin.evidence)

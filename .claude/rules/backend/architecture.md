@@ -77,9 +77,10 @@ backend/app/
 │   │   │   └── repo_analyzer.py
 │   │   ├── response_mapper.py
 │   │   └── skills/               # スキル推論基盤（ADR-0016 / 3層モデル）
-│   │       ├── aggregator.py    # discover+declare 合流 → DetectedSkill
+│   │       ├── aggregator.py    # discover+declare+verify 合流 → DetectedSkill
 │   │       ├── linguist.py      # 言語正規化（Linguist languages.yml）
-│   │       └── manifests/       # エコシステム別 manifest パーサ（plugin 型）
+│   │       ├── manifests/       # エコシステム別 manifest パーサ（declare / plugin 型）
+│   │       └── imports/         # エコシステム別 import スキャナ（verify / plugin 型）
 │   ├── tasks/                   # 非同期タスク基盤（Cloud Tasks / ローカル）
 │   │   ├── base.py              # TaskType 定義（現状 GITHUB_LINK のみ）
 │   │   ├── exceptions.py        # RetryableError / NonRetryableError
