@@ -451,6 +451,24 @@ class TestCollectRepoSignals:
         assert infra_partial is False
         assert {d.provider for d in infra} == {"google"}
 
+    def test_infra_depth_cap_drops_deep_paths_and_marks_infra_partial(self, monkeypatch):
+        """深さ上限超の .tf は落とし infra_partial=True にすること（D10 / D9 c/d）。"""
+        monkeypatch.setattr(github_collector, "_INFRA_MAX_DEPTH", 2)
+        _decls, _imported, _partial, infra, infra_partial, fetched = (
+            self._patched_collect_full(
+                ["main.tf", "a/b/c/main.tf"],
+                False,
+                file_contents={
+                    "main.tf": 'provider "aws" {}\n',
+                    "a/b/c/main.tf": 'provider "google" {}\n',
+                },
+            )
+        )
+        # 深さ2まで（"main.tf" のみ）。"a/b/c/main.tf" は4セグメントで除外。
+        assert fetched == ["main.tf"]
+        assert infra_partial is True
+        assert {d.provider for d in infra} == {"aws"}
+
     def test_infra_count_cap_marks_infra_partial(self, monkeypatch):
         """IaC 件数上限で打ち切ると infra_partial=True になること（D10 / D9 c/d）。"""
         monkeypatch.setattr(github_collector, "_INFRA_MAX_COUNT", 1)
