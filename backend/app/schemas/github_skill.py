@@ -11,7 +11,9 @@ class SkillEvidence(BaseModel):
     repo_full_name: str = Field(description="根拠リポジトリ（owner/name）")
     repo_url: str = Field(description="リポジトリ URL（経歴書の証跡用）")
     signal_source: str = Field(
-        description="根拠の出所（language_bytes / manifest_declared / actual_import）"
+        description=(
+            "根拠の出所（language_bytes / manifest_declared / actual_import / infra_declared）"
+        )
     )
     confidence: float = Field(description="信頼度（0.0–1.0）")
     language_bytes: Optional[int] = Field(
@@ -23,7 +25,10 @@ class SkillEvidence(BaseModel):
     )
     manifest_path: Optional[str] = Field(
         default=None,
-        description="manifest の相対パス（package のみ。例 backend/requirements.txt。言語では null）",
+        description=(
+            "根拠ファイルの相対パス（package の manifest / infra の .tf。"
+            "例 backend/requirements.txt・infra/main.tf。言語では null）"
+        ),
     )
     partial_scan: bool = Field(
         default=False,
@@ -45,10 +50,18 @@ class SkillProficiency(BaseModel):
 class GitHubSkillItem(BaseModel):
     """Layer 1: 正規化スキルと、その根拠・習熟度。"""
 
-    kind: str = Field(description="スキル種別（language / package）")
-    canonical_name: str = Field(description="正規名（言語=Linguist 名 / package=package ID）")
+    kind: str = Field(description="スキル種別（language / package / infra）")
+    canonical_name: str = Field(
+        description=(
+            "正規名（言語=Linguist 名 / package=package ID / "
+            "infra=provider 名または raw resource type）"
+        )
+    )
     ecosystem: Optional[str] = Field(
-        default=None, description="package のエコシステム（npm/pypi/go/cargo）。言語では null"
+        default=None,
+        description=(
+            "エコシステム（package は npm/pypi/go/cargo、infra は terraform 等）。言語では null"
+        ),
     )
     parent: Optional[str] = Field(default=None, description="親（Linguist の group）")
     display_name: Optional[str] = Field(

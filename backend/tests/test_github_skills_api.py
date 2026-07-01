@@ -53,6 +53,44 @@ def _sample_detected() -> list[DetectedSkill]:
     ]
 
 
+def _sample_infra_detected() -> list[DetectedSkill]:
+    """kind=infra の provider / resource スキル（D10）。"""
+    return [
+        DetectedSkill(
+            kind="infra",
+            canonical_name="aws",
+            ecosystem="terraform",
+            parent=None,
+            display_name=None,
+            evidence=[
+                EvidenceRecord(
+                    repo_full_name="u/a",
+                    repo_url="https://github.com/u/a",
+                    signal_source="infra_declared",
+                    confidence=0.5,
+                    manifest_path="infra/main.tf",
+                )
+            ],
+        ),
+        DetectedSkill(
+            kind="infra",
+            canonical_name="aws_s3_bucket",
+            ecosystem="terraform",
+            parent=None,
+            display_name=None,
+            evidence=[
+                EvidenceRecord(
+                    repo_full_name="u/a",
+                    repo_url="https://github.com/u/a",
+                    signal_source="infra_declared",
+                    confidence=0.6,
+                    manifest_path="infra/main.tf",
+                )
+            ],
+        ),
+    ]
+
+
 def test_skills_requires_auth(client) -> None:
     """未認証では 401 になること。"""
     resp = client.get("/api/github-link/skills")
@@ -93,6 +131,29 @@ def test_replace_then_get_returns_layers(client) -> None:
     # 言語根拠には manifest_path / partial が立たないこと。
     assert python["evidence"][0]["manifest_path"] is None
     assert python["evidence"][0]["partial_scan"] is False
+
+
+def test_infra_skills_persist_and_return(client) -> None:
+    """kind=infra の provider / resource が往復で永続化・取得できること（D10）。"""
+    headers = auth_header(client, "skilluser_infra")
+    uid = _user_id(client, "skilluser_infra")
+    GitHubSkillRepository(client._db_session, uid).replace_for_user(
+        _sample_infra_detected()
+    )
+
+    resp = client.get("/api/github-link/skills", headers=headers)
+    assert resp.status_code == 200
+    by_name = {s["canonical_name"]: s for s in resp.json()["skills"]}
+
+    provider = by_name["aws"]
+    assert provider["kind"] == "infra"
+    assert provider["ecosystem"] == "terraform"
+    assert provider["evidence"][0]["signal_source"] == "infra_declared"
+    assert provider["evidence"][0]["manifest_path"] == "infra/main.tf"
+
+    resource = by_name["aws_s3_bucket"]
+    assert resource["kind"] == "infra"
+    assert resource["evidence"][0]["confidence"] == 0.6
 
 
 def test_replace_is_idempotent(client) -> None:

@@ -17,6 +17,9 @@ DEPENDENCY_KINDS = ("direct", "dev", "indirect", "peer", "build")
 # Layer 1 スキルの種別（D2）。
 SKILL_KIND_LANGUAGE = "language"
 SKILL_KIND_PACKAGE = "package"
+# IaC（Terraform 等）から検出するインフラリソースのスキル種別（D10）。
+# language（幅）/ package（依存）とは検出方法が異なるため別 kind とする。
+SKILL_KIND_INFRA = "infra"
 
 
 @dataclass(frozen=True)
@@ -31,4 +34,21 @@ class PackageDeclaration:
     dependency_kind: str  # DEPENDENCY_KINDS のいずれか
     version_spec: str | None = None  # バージョン制約（生文字列。解釈はしない）
     # D9(f): manifest の相対パス（例: backend/requirements.txt）。証跡用。直下なら "package.json" 等。
+    source_path: str | None = None
+
+
+@dataclass(frozen=True)
+class InfraResourceDeclaration:
+    """IaC が宣言する 1 インフラリソース（declare 相当の出力 / D10）。
+
+    Terraform 等の HCL から抽出する。provider（クラウド事業者）と resource_type
+    （具体サービス。例 ``aws_s3_bucket``）を保持する。canonical は raw type をそのまま
+    使い（辞書を持たない / D3）、表示名への畳み込みは後段の human-in-the-loop に委ねる（D8）。
+    """
+
+    tool: str  # IaC ツール（"terraform"）。将来の Pulumi / CloudFormation と区別する
+    provider: str  # クラウドプロバイダ（"aws" / "google" / "cloudflare" 等）
+    # 具体サービスの raw な resource type（"aws_s3_bucket"）。provider 宣言のみなら None
+    resource_type: str | None = None
+    # D9(f): 検出した .tf の相対パス（例: infra/modules/vpc/main.tf）。証跡用
     source_path: str | None = None
