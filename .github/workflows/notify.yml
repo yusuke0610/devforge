@@ -121,11 +121,13 @@ jobs:
             lines="⚠️ deploy ジョブ結果の取得に失敗しました"
           fi
           count=$(printf '%s' "$lines" | grep -c . || true)
+          # ジョブ名等が GITHUB_OUTPUT のデリミタ行と衝突しないよう run 毎にランダム生成する（他の出力と統一）
+          delim="GHOUT_$(openssl rand -hex 8)"
           {
             echo "count=$count"
-            echo "lines<<DEPLOY_EOF"
+            echo "lines<<$delim"
             echo "$lines"
-            echo "DEPLOY_EOF"
+            echo "$delim"
           } >> "$GITHUB_OUTPUT"
 
       - name: 通知メッセージを組み立て
