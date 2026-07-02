@@ -202,7 +202,8 @@ jobs:
 
       - name: Run backend tests
         working-directory: backend
-        run: uv run pytest -q tests
+        # --cov は pyproject の addopts ではなくここで付与する（mutmut 干渉回避 / ADR-0017）
+        run: uv run pytest -q --cov=app --cov-report=term-missing tests
 
   # OpenAPI → TypeScript 型のドリフト検知 (ADR-0007)。
   # backend schema を変更したのに web/src/api/generated.ts を再生成して

@@ -1,7 +1,28 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
-addopts = "--cov=app --cov-report=term-missing -p no:cacheprovider"
+# --cov は Makefile / CI 側の pytest 呼び出しで付与する。addopts に置くと mutmut が
+# mutants/ 内で pytest を内部実行する際にも全ミュータントへ coverage 計測が載り干渉するため（ADR-0017）
+addopts = "-p no:cacheprovider"
 testpaths = ["tests"]
+
+# ミューテーションテスト（週次 CI: .github/workflows/mutation.yml / ADR-0017）
+# 対象は高価値な決定論的ビジネスロジックに限定する。source_paths の app 全体は
+# mutants/ へコピーされる（import・JSON リソース解決のため）が、変異を加えるのは
+# only_mutate のグロブ（fnmatch。"*" は "/" にもマッチ）に一致するファイルのみ。
+# schemas / models / routers / alembic_migrations / prompts / LLM クライアント等の
+# I/O 層・宣言層は対象外（テストで殺せないミュータントがノイズになるため）
+[tool.mutmut]
+source_paths = ["app"]
+only_mutate = [
+    "app/services/blog/scorer.py",                        # ブログ技術記事スコアリング
+    "app/services/billing/pricing.py",                    # 課金レート表
+    "app/services/billing/credit_service.py",             # クレジット計算・残高
+    "app/services/intelligence/skills/*",                 # スキル推論（aggregator/linguist/パーサ群）
+    "app/services/intelligence/github/repo_analyzer.py",  # リポジトリ解析
+    "app/services/intelligence/github/contributions.py",  # コントリビューション集計
+    "app/services/shared/*",                              # sort_utils / resume_format
+    "app/services/tasks/worker.py",                       # タスク状態遷移
+]
 
 [tool.ruff]
 line-length = 100

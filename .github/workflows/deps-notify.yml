@@ -1,0 +1,67 @@
+# Renovate / Dependabot が依存更新 PR を起票したら SLACK_WEBHOOK_URL_DEPS へ通知する（ADR-0017）。
+#
+# pull_request_target を使う理由: Dependabot が actor の pull_request イベントは
+# Actions secrets ではなく Dependabot secrets しか参照できず Webhook が空になる。
+# pull_request_target は base ブランチのコンテキストで実行され通常の secrets を参照できる。
+# PR のコードは一切 checkout / 実行せず（イベントペイロードの文字列のみ扱う）、
+# actor をボットに限定しているため pull_request_target でも安全。
+# PR タイトル等の外部入力は run 内に直接式展開せず env 経由で渡す（インジェクション対策）。
+name: Deps Notify
+
+on:
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  contents: read
+
+jobs:
+  notify-deps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.actor == 'renovate[bot]' || github.actor == 'dependabot[bot]'
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_DEPS }}
+
+    steps:
+      - name: 通知メッセージを組み立て
+        id: compose
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          WF_NAME: ${{ github.workflow }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_ACTOR: ${{ github.actor }}
+        run: |
+          body=$(printf '%s\n' \
+            "📦 *${WF_NAME}*: ${PR_ACTOR} が依存更新 PR を起票しました" \
+            "> #${PR_NUMBER} ${PR_TITLE} (branch: \`${PR_BRANCH}\`)" \
+            "<${PR_URL}|→ PR を開く>")
+          {
+            echo "summary=📦 依存更新 PR: #${PR_NUMBER} ${PR_TITLE}"
+            echo "body<<DEPS_EOF"
+            echo "$body"
+            echo "DEPS_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Slack 通知 (依存更新 PR)
+        if: env.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.0
+        with:
+          webhook: ${{ env.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ${{ toJSON(steps.compose.outputs.summary) }},
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ${{ toJSON(steps.compose.outputs.body) }}
+                  }
+                }
+              ]
+            }

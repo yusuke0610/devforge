@@ -1,0 +1,272 @@
+# 週次ミューテーションテスト（ADR-0017）。
+# テストスイートの検出力（弱い assertion / 実装なぞりテスト）を可視化する。
+# フル実行が長時間かかるため通常 CI（ci.yml）には組み込まず、週次 schedule と
+# 手動実行（workflow_dispatch）のみとする。結果は warn-only（fail させない）で、
+# SLACK_WEBHOOK_URL_QUALITY へ killed / survived / score を通知する。
+name: Mutation
+
+on:
+  schedule:
+    # 毎週月曜 3:00 JST（= 日曜 18:00 UTC）
+    - cron: "0 18 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # mutation score（%）がこの値未満のとき Slack 通知を ⚠️ で強調する
+  MUTATION_SCORE_THRESHOLD: "80"
+
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Backend: mutmut（対象: backend/pyproject.toml の [tool.mutmut] を参照）
+  mutation-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    outputs:
+      killed: ${{ steps.stats.outputs.killed }}
+      survived: ${{ steps.stats.outputs.survived }}
+      score: ${{ steps.stats.outputs.score }}
+      stats_ok: ${{ steps.stats.outputs.stats_ok }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          # 読み取り専用ジョブのため checkout の認証情報をディスクに残さない（サプライチェーン保護）。
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "backend/requirements.txt"
+
+      - name: Setup Python
+        run: uv python install 3.13
+
+      - name: WeasyPrint 用システムライブラリのインストール
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
+            libglib2.0-0 libgobject-2.0-0 libffi-dev libcairo2
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv pip install -r requirements.txt
+
+      # 生存ミュータントがあっても集計と通知は行うため continue-on-error にする
+      - name: Run mutmut
+        id: run
+        working-directory: backend
+        continue-on-error: true
+        run: uv run mutmut run 2>&1 | tee mutmut-run.log
+
+      # 生存ミュータントの一覧（調査用）。run が途中で落ちても best-effort で出力する
+      - name: 生存ミュータント一覧を出力
+        working-directory: backend
+        continue-on-error: true
+        run: uv run mutmut results > mutmut-results.txt
+
+      - name: 結果集計
+        id: stats
+        working-directory: backend
+        run: |
+          # export-cicd-stats が mutants/mutmut-cicd-stats.json に統計を書き出す。
+          # score の定義（ADR-0017 / Stryker と同基準）:
+          #   killed   = killed + timeout（無限ループ化もテストによる検出とみなす）
+          #   survived = survived + no_tests（どのテストにも触れられない = 検出不能）
+          #   score    = killed * 100 / (killed + survived + suspicious + segfault)
+          uv run mutmut export-cicd-stats || true
+          STATS=mutants/mutmut-cicd-stats.json
+          if [ -f "$STATS" ]; then
+            killed=$(jq '.killed + .timeout' "$STATS")
+            survived=$(jq '.survived + .no_tests' "$STATS")
+            denom=$(jq '.killed + .timeout + .survived + .no_tests + .suspicious + .segfault' "$STATS")
+            if [ "$denom" -gt 0 ]; then
+              score=$(( killed * 100 / denom ))
+            else
+              score=0
+            fi
+            {
+              echo "killed=$killed"
+              echo "survived=$survived"
+              echo "score=$score"
+              echo "stats_ok=true"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::mutmut の統計ファイルが見つかりません（run が途中で失敗した可能性）"
+            {
+              echo "killed=0"
+              echo "survived=0"
+              echo "score=0"
+              echo "stats_ok=false"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: レポートを artifact 化
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: mutmut-report
+          path: |
+            backend/mutmut-run.log
+            backend/mutmut-results.txt
+            backend/mutants/mutmut-cicd-stats.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  # Frontend: Stryker（対象: web/stryker.conf.json を参照）
+  mutation-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      killed: ${{ steps.stats.outputs.killed }}
+      survived: ${{ steps.stats.outputs.survived }}
+      score: ${{ steps.stats.outputs.score }}
+      stats_ok: ${{ steps.stats.outputs.stats_ok }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefix web
+
+      # 生存ミュータントがあっても集計と通知は行うため continue-on-error にする
+      - name: Run Stryker
+        id: run
+        continue-on-error: true
+        run: npm run test:mutation --prefix web
+
+      - name: 結果集計
+        id: stats
+        run: |
+          # score の定義（ADR-0017 / mutmut 側と同基準）:
+          #   killed   = Killed + Timeout
+          #   survived = Survived + NoCoverage
+          #   score    = killed * 100 / (killed + survived)
+          REPORT=web/reports/mutation/mutation.json
+          if [ -f "$REPORT" ]; then
+            killed=$(jq '[.files[].mutants[].status | select(. == "Killed" or . == "Timeout")] | length' "$REPORT")
+            survived=$(jq '[.files[].mutants[].status | select(. == "Survived" or . == "NoCoverage")] | length' "$REPORT")
+            if [ $(( killed + survived )) -gt 0 ]; then
+              score=$(( killed * 100 / (killed + survived) ))
+            else
+              score=0
+            fi
+            {
+              echo "killed=$killed"
+              echo "survived=$survived"
+              echo "score=$score"
+              echo "stats_ok=true"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Stryker のレポートが見つかりません（run が途中で失敗した可能性）"
+            {
+              echo "killed=0"
+              echo "survived=0"
+              echo "score=0"
+              echo "stats_ok=false"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: レポートを artifact 化
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: stryker-report
+          path: web/reports/mutation/
+          if-no-files-found: warn
+          retention-days: 14
+
+  # 結果を SLACK_WEBHOOK_URL_QUALITY へ 1 メッセージで通知する。
+  # secrets はジョブ/ステップの if で直接参照できないため、env 経由で空判定する
+  # （Secret 未登録の間は静かに skip され、workflow は green のまま）。
+  notify-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [mutation-backend, mutation-web]
+    if: always()
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_QUALITY }}
+
+    steps:
+      - name: 通知メッセージを組み立て
+        id: compose
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          BE_RESULT: ${{ needs.mutation-backend.result }}
+          BE_STATS_OK: ${{ needs.mutation-backend.outputs.stats_ok }}
+          BE_KILLED: ${{ needs.mutation-backend.outputs.killed }}
+          BE_SURVIVED: ${{ needs.mutation-backend.outputs.survived }}
+          BE_SCORE: ${{ needs.mutation-backend.outputs.score }}
+          WEB_RESULT: ${{ needs.mutation-web.result }}
+          WEB_STATS_OK: ${{ needs.mutation-web.outputs.stats_ok }}
+          WEB_KILLED: ${{ needs.mutation-web.outputs.killed }}
+          WEB_SURVIVED: ${{ needs.mutation-web.outputs.survived }}
+          WEB_SCORE: ${{ needs.mutation-web.outputs.score }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW: ${{ github.workflow }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          threshold="$MUTATION_SCORE_THRESHOLD"
+          # 全体ステータス: ジョブ失敗/統計欠落 → ❌、いずれかの score が閾値未満 → ⚠️、それ以外 → ✅
+          if [ "$BE_RESULT" != "success" ] || [ "$WEB_RESULT" != "success" ] || \
+             [ "$BE_STATS_OK" != "true" ] || [ "$WEB_STATS_OK" != "true" ]; then
+            emoji="❌"
+            headline="Mutation testing がエラーで完走しませんでした"
+          elif [ "$BE_SCORE" -lt "$threshold" ] || [ "$WEB_SCORE" -lt "$threshold" ]; then
+            emoji="⚠️"
+            headline="*mutation score が閾値（${threshold}%）を下回っています*"
+          else
+            emoji="✅"
+            headline="mutation score は閾値（${threshold}%）以上です"
+          fi
+          body=$(printf '%s\n' \
+            "${emoji} *${WORKFLOW}* (branch: \`${BRANCH}\`)" \
+            "${headline}" \
+            "• *Backend (mutmut)* — killed: ${BE_KILLED} / survived: ${BE_SURVIVED} / score: *${BE_SCORE}%*" \
+            "• *Web (Stryker)* — killed: ${WEB_KILLED} / survived: ${WEB_SURVIVED} / score: *${WEB_SCORE}%*" \
+            "<${RUN_URL}|→ 実行結果とレポート artifact を開く>")
+          {
+            echo "summary=${emoji} Mutation weekly report (${BRANCH})"
+            echo "body<<MUTATION_EOF"
+            echo "$body"
+            echo "MUTATION_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Slack 通知 (QUALITY)
+        if: env.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.0
+        with:
+          webhook: ${{ env.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ${{ toJSON(steps.compose.outputs.summary) }},
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ${{ toJSON(steps.compose.outputs.body) }}
+                  }
+                }
+              ]
+            }

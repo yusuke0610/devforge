@@ -1,0 +1,34 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "ミューテーションテスト設定（ADR-0017）。対象は純ロジック層（utils / hooks / store slice / フォーム変換）に限定し、自動生成コード（src/api/generated.ts）・定数カタログ（constants/messages 等）・UI シェル（main.tsx / App.tsx / components）・型定義のみのファイルは対象外。週次 CI（.github/workflows/mutation.yml）で実行され、Phase 1 は warn-only（break: null）。TS checker は project-references + noEmit 構成のため使用しない",
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "vite.config.ts"
+  },
+  "mutate": [
+    "src/utils/**/*.ts",
+    "src/formMappers.ts",
+    "src/payloadBuilders.ts",
+    "src/hooks/**/*.ts",
+    "src/store/*Slice.ts",
+    "src/constants/agentModels.ts",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "!src/**/*.d.ts",
+    "!src/utils/pdfjs.ts"
+  ],
+  "checkers": [],
+  "reporters": ["progress", "clear-text", "html", "json"],
+  "htmlReporter": {
+    "fileName": "reports/mutation/mutation.html"
+  },
+  "jsonReporter": {
+    "fileName": "reports/mutation/mutation.json"
+  },
+  "thresholds": {
+    "high": 90,
+    "low": 80,
+    "break": null
+  },
+  "tempDirName": ".stryker-tmp"
+}

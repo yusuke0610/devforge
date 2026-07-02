@@ -26,6 +26,7 @@ Makefile は `nix develop --command bash -c "..."` でラップ済み。AI は�
 | マイグレーション | `make migrate` / `make migrate-create MSG="..."` |
 | インフラ validate | `make infra-validate` |
 | コード重複検知 | `make dupe-check` （結果: `report/dupe/jscpd-report.json`） |
+| ミューテーションテスト | `make mutation-backend` / `make mutation-web` （**長時間**。通常 CI には含まれない週次実行。詳細: 下記「ミューテーションテスト・Slack 通知」） |
 
 セットアップ詳細・各コマンドの目的は `docs/development.md` を参照。
 
@@ -101,6 +102,24 @@ nix develop --command bash -c "cd web && npm run test:e2e"
 - 新しい SSoT→生成物の系統を追加した場合は、本表に行を足して再発防止の対象に含める。
 
 CI 定義: `.github/workflows/ci.yml`
+
+## ミューテーションテスト・Slack 通知（ADR-0017）
+
+テストの検出力（弱い assertion / 実装なぞり）を週次のミューテーションテストで可視化し、CI 結果は用途別 Slack チャンネルへ通知する。詳細（ローカル実行・レポート確認・Secrets 登録手順）は `docs/development.md`「ミューテーションテスト」「Slack 通知」節が正本。
+
+- **ローカル実行**: `make mutation-backend`（mutmut）/ `make mutation-web`（Stryker）。**フル実行は長時間**のため、対象を絞る場合は `nix develop --command bash -c "cd backend && .venv/bin/python -m mutmut run 'app.services.shared.sort_utils*'"` / `nix develop --command bash -c "cd web && npx stryker run --mutate 'src/utils/text.ts'"`
+- **対象スコープの正本**: backend = `backend/pyproject.toml` の `[tool.mutmut]`、web = `web/stryker.conf.json`。決定論的ビジネスロジックに限定（schemas / models / routers / 自動生成コード等は対象外）
+- **CI**: `.github/workflows/mutation.yml`（週次 月曜 3:00 JST + workflow_dispatch。**PR/push では動かない・fail しない warn-only**）
+- **pytest の `--cov` は addopts に戻さない**: mutmut 干渉回避のため Makefile / test.yml の呼び出し側で付与している（ADR-0017）
+
+| Slack Secret | 用途 | 送信元 workflow |
+|---|---|---|
+| `SLACK_WEBHOOK_URL_CI` | 通常 CI の失敗のみ | `notify.yml`（workflow_run） |
+| `SLACK_WEBHOOK_URL_DEPLOY` | Cloud Run / Cloudflare Pages デプロイ結果（成功・失敗とも） | `notify.yml`（workflow_run） |
+| `SLACK_WEBHOOK_URL_QUALITY` | ミューテーションテスト結果（score が閾値未満で ⚠️ 強調） | `mutation.yml` |
+| `SLACK_WEBHOOK_URL_DEPS` | Renovate / Dependabot の PR 起票 | `deps-notify.yml`（pull_request_target） |
+
+Secrets は未登録の間は通知が静かに skip される（CI は green のまま）。チャンネル作成後の登録は `gh secret set SLACK_WEBHOOK_URL_CI --body "https://hooks.slack.com/services/..."`（4 つとも。手順詳細: `docs/development.md`）。
 
 ## 作業開始時のブランチ運用（デフォルト）
 

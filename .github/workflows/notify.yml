@@ -1,0 +1,167 @@
+# CI ワークフローの完了を workflow_run で受けて Slack 通知する（ADR-0017）。
+# - notify-ci:     CI 失敗時のみ SLACK_WEBHOOK_URL_CI へ通知（cancelled は
+#                  concurrency の cancel-in-progress によるノイズのため通知しない）
+# - notify-deploy: main/stg/dev への push で deploy ジョブが実行された場合に
+#                  SLACK_WEBHOOK_URL_DEPLOY へ環境別の成功/失敗を通知（成功も通知する）
+# workflow_run の payload にはジョブ単位の結果が含まれないため、jobs API
+# （permissions: actions: read + runner 標準搭載の gh CLI）で補完する。
+# secrets はジョブ/ステップの if で直接参照できないため、env 経由で空判定する
+# （Secret 未登録の間は静かに skip され、workflow は green のまま）。
+name: Notify
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  notify-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event.workflow_run.conclusion == 'failure'
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_CI }}
+
+    steps:
+      - name: 失敗ジョブ名を収集
+        id: failed
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          REPO: ${{ github.repository }}
+        run: |
+          names=$(gh api "repos/${REPO}/actions/runs/${RUN_ID}/jobs?per_page=100" --paginate \
+            --jq '[.jobs[] | select(.conclusion == "failure") | .name] | join(", ")')
+          echo "names=${names:-（ジョブ単位の失敗なし）}" >> "$GITHUB_OUTPUT"
+
+      - name: 通知メッセージを組み立て
+        id: compose
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          # PR タイトル等の外部入力を含みうる値は run 内に直接式展開せず env 経由で渡す（インジェクション対策）
+          WF_NAME: ${{ github.event.workflow_run.name }}
+          TITLE: ${{ github.event.workflow_run.display_title }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          EVENT: ${{ github.event.workflow_run.event }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          FAILED_JOBS: ${{ steps.failed.outputs.names }}
+        run: |
+          body=$(printf '%s\n' \
+            "❌ *${WF_NAME}* failed (branch: \`${BRANCH}\` / event: ${EVENT})" \
+            "> ${TITLE}" \
+            "失敗ジョブ: ${FAILED_JOBS}" \
+            "<${RUN_URL}|→ 失敗した Run を開く>")
+          {
+            echo "summary=❌ ${WF_NAME} failed (${BRANCH})"
+            echo "body<<NOTIFY_EOF"
+            echo "$body"
+            echo "NOTIFY_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Slack 通知 (CI 失敗)
+        if: env.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.0
+        with:
+          webhook: ${{ env.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ${{ toJSON(steps.compose.outputs.summary) }},
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ${{ toJSON(steps.compose.outputs.body) }}
+                  }
+                }
+              ]
+            }
+
+  notify-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # deploy ジョブ（ci.yml の deploy-dev / deploy-stg / deploy-prod）は
+    # main/stg/dev への push でのみ実行される。PR の run はここで除外する
+    if: >
+      github.event.workflow_run.event == 'push' &&
+      contains(fromJSON('["main", "stg", "dev"]'), github.event.workflow_run.head_branch)
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_DEPLOY }}
+
+    steps:
+      - name: デプロイジョブの結果を収集
+        id: deploys
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          REPO: ${{ github.repository }}
+        run: |
+          # 再利用ワークフロー（deploy.yml）内のジョブは "deploy-dev / deploy-web" の
+          # 形式で列挙される。"tests / deploy-gate" は startswith にマッチしない。
+          # skipped（deploy_gate 不通過・変更なし等）は通知対象にしない。
+          lines=$(gh api "repos/${REPO}/actions/runs/${RUN_ID}/jobs?per_page=100" --paginate \
+            --jq '[.jobs[] | select(.name | startswith("deploy-"))
+                          | select(.conclusion == "success" or .conclusion == "failure")
+                          | "\(if .conclusion == "success" then "✅" else "❌" end) \(.name)"] | join("\n")')
+          count=$(printf '%s' "$lines" | grep -c . || true)
+          {
+            echo "count=$count"
+            echo "lines<<DEPLOY_EOF"
+            echo "$lines"
+            echo "DEPLOY_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: 通知メッセージを組み立て
+        id: compose
+        if: env.SLACK_WEBHOOK_URL != '' && steps.deploys.outputs.count != '0'
+        env:
+          WF_NAME: ${{ github.event.workflow_run.name }}
+          TITLE: ${{ github.event.workflow_run.display_title }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          DEPLOY_LINES: ${{ steps.deploys.outputs.lines }}
+        run: |
+          if printf '%s' "$DEPLOY_LINES" | grep -q '❌'; then
+            emoji="❌"
+          else
+            emoji="✅"
+          fi
+          body=$(printf '%s\n' \
+            "${emoji} *${WF_NAME}* deploy result (branch: \`${BRANCH}\`)" \
+            "> ${TITLE}" \
+            "$DEPLOY_LINES" \
+            "<${RUN_URL}|→ Run を開く>")
+          {
+            echo "summary=${emoji} Deploy (${BRANCH})"
+            echo "body<<NOTIFY_EOF"
+            echo "$body"
+            echo "NOTIFY_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # count=0（deploy ジョブが 1 つも実行されなかった run）は通知しない
+      - name: Slack 通知 (デプロイ結果)
+        if: env.SLACK_WEBHOOK_URL != '' && steps.deploys.outputs.count != '0'
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.0
+        with:
+          webhook: ${{ env.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ${{ toJSON(steps.compose.outputs.summary) }},
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ${{ toJSON(steps.compose.outputs.body) }}
+                  }
+                }
+              ]
+            }

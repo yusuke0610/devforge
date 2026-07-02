@@ -53,6 +53,11 @@ backend/.env
 # AI レビュー出力（BE_refacter / WEB_refacter skill が書き出す）
 report/
 
+# Mutation testing の生成物（ADR-0017）
+backend/mutants/
+web/reports/
+web/.stryker-tmp/
+
 # OS
 .DS_Store
 .direnv/

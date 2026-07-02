@@ -12,9 +12,25 @@ from pathlib import Path
 
 from app.core.errors import ErrorCode
 
-# backend/tests/ から見たリポジトリルート（monorepo 前提で frontend が隣接する）
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_ERROR_CODES_TS = _REPO_ROOT / "web" / "src" / "constants" / "errorCodes.ts"
+# errorCodes.ts のリポジトリルートからの相対パス（monorepo 前提で frontend が隣接する）
+_ERROR_CODES_TS_RELATIVE = Path("web") / "src" / "constants" / "errorCodes.ts"
+
+
+def _locate_error_codes_ts() -> Path:
+    """祖先ディレクトリを遡って FE の ``errorCodes.ts`` を探す。
+
+    mutmut がテストを ``backend/mutants/tests/`` へコピーして実行する際は
+    本ファイルの深さが 1 段増えるため、固定段数の ``parents[N]`` では
+    リポジトリルートを特定できない（ADR-0017）。
+    """
+    here = Path(__file__).resolve()
+    for candidate in here.parents:
+        target = candidate / _ERROR_CODES_TS_RELATIVE
+        if target.exists():
+            return target
+    raise FileNotFoundError(
+        f"FE のエラーコード定義が祖先ディレクトリに見つからない: {_ERROR_CODES_TS_RELATIVE}"
+    )
 
 # `export const ERROR_CODES = [ ... ] as const;` のブロックを取り出す
 _ARRAY_BLOCK = re.compile(r"ERROR_CODES\s*=\s*\[(.*?)\]\s*as\s+const", re.DOTALL)
@@ -24,10 +40,7 @@ _CODE_LITERAL = re.compile(r'"([A-Z_]+)"')
 
 def _parse_frontend_error_codes() -> set[str]:
     """FE の ``errorCodes.ts`` から ``ERROR_CODES`` の値集合を抽出する。"""
-    assert _ERROR_CODES_TS.exists(), (
-        f"FE のエラーコード定義が見つからない: {_ERROR_CODES_TS}"
-    )
-    source = _ERROR_CODES_TS.read_text(encoding="utf-8")
+    source = _locate_error_codes_ts().read_text(encoding="utf-8")
     match = _ARRAY_BLOCK.search(source)
     assert match is not None, (
         "errorCodes.ts に `ERROR_CODES = [...] as const` ブロックが見つからない"
