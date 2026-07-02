@@ -14,6 +14,7 @@ GitHub活動分析、ブログ連携による発信力を集計
 | [docs/data-model.md](./docs/data-model.md) | Turso (libSQL) 運用・Alembic マイグレーション・データ設計 |
 | [docs/adr/](./docs/adr/) | アーキテクチャ判断記録（ADR） |
 | [docs/runbooks/](./docs/runbooks/) | 運用 Runbook |
+| [docs/metrics/ai-friendliness.md](./docs/metrics/ai-friendliness.md) | AI フレンドリーさ指標の月次ダッシュボード（`make metrics-ai-friendliness` で再生成） |
 
 ## 主な機能
 

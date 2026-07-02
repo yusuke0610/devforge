@@ -8,6 +8,7 @@
 	dupe-check dupe-check-html dupe-clean \
 	build-web build-backend deploy-web \
 	gen-redirects codegen-types licenses \
+	metrics-ai-friendliness \
 	migrate migrate-create \
 	infra-fmt infra-fmt-check infra-validate-dev infra-validate-stg infra-validate-prod infra-validate \
 	clean
@@ -45,7 +46,7 @@ help:
 	@echo "  typecheck-backend Backend: pyright 型チェック"
 	@echo "  lint-web     Frontend: eslint"
 	@echo "  lint-web-messages  Frontend: setError等にリテラル日本語が渡っていないか検知"
-	@echo "  lint-env-keys     env名/エラーコードの SSoT drift を検知 (env_keys.py↔compose, errors.py↔errorCodes.ts)"
+	@echo "  lint-env-keys     env名/エラーコードの SSoT drift を検知 (env_keys.py↔compose/cloud_run 双方向, リテラル参照禁止, errors.py↔errorCodes.ts)"
 	@echo "  lint-fix          リント自動修正 (ruff + eslint)"
 	@echo "  format            Prettier で整形"
 	@echo "  format-check      Prettier チェック"
@@ -54,6 +55,9 @@ help:
 	@echo "  dupe-check        重複検知を実行し report/dupe/ に JSON/HTML/Markdown を出力"
 	@echo "  dupe-check-html   同上 (HTML レポート出力後にパスを表示)"
 	@echo "  dupe-clean        report/dupe/ を削除"
+	@echo ""
+	@echo "計測"
+	@echo "  metrics-ai-friendliness  AI フレンドリーさ指標を GitHub 履歴から集計し docs/metrics/ を再生成"
 	@echo ""
 	@echo "ビルド"
 	@echo "  build-web    Vite ビルド"
@@ -174,7 +178,8 @@ lint-web-messages:
 	nix develop --command bash scripts/lint-web-messages.sh
 
 # env 名 / エラーコードの SSoT drift を検知。
-# env_keys.py↔docker-compose.yml、errors.py↔errorCodes.ts の集合一致を検証する。
+# env_keys.py↔docker-compose.yml（双方向）/ cloud_run main.tf（逆方向）、
+# backend のリテラル env 参照禁止、errors.py↔errorCodes.ts の集合一致を検証する。
 # grep/sed/comm のみに依存（ripgrep 不要）。他 lint と揃えて nix wrap で実行する。
 lint-env-keys:
 	nix develop --command bash scripts/lint-env-keys.sh
@@ -231,6 +236,16 @@ gen-redirects:
 # WeasyPrint 等のネイティブ依存解決が必要なため Nix devshell 経由で実行する。
 codegen-types:
 	nix develop --command bash -c "set -e; cd backend && .venv/bin/python scripts/export_openapi.py && cd ../web && node scripts/gen-types.mjs"
+
+# ------------------------------------------------------------------ #
+# 計測（AI フレンドリーさダッシュボード）
+# ------------------------------------------------------------------ #
+
+# 手戻りコミット率・CodeRabbit 指摘密度等を GitHub 履歴から月次集計し、
+# docs/metrics/ai-friendliness.md（ダッシュボード）を再生成する。
+# gh の認証（ホスト側 keyring）を使うため nix wrap しない（依存: gh / jq / git のみ）。
+metrics-ai-friendliness:
+	bash scripts/metrics-ai-friendliness.sh
 
 # ------------------------------------------------------------------ #
 # 使用 OSS ライセンス一覧
