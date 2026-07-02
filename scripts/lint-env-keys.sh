@@ -7,13 +7,26 @@
 #   複製を消せないため、複製を消す代わりに「複製が正本と一致しているか」を機械検証する。
 #
 # 検証内容:
-#   (1) env 名: backend/app/core/env_keys.py の定数値（= 実 env 名）が
+#   (1) env 名（正方向）: backend/app/core/env_keys.py の定数値（= 実 env 名）が
 #       docker-compose.yml の environment ブロックにすべて存在するか
 #       （ALLOWLIST で起動時内部フラグ等を除外）。rename / 削除時の同期忘れを CI で止める。
-#   (2) エラーコード: backend/app/core/errors.py の ErrorCode 値集合と
+#   (2) env 名（逆方向）: docker-compose.yml / infra/modules/cloud_run/main.tf に
+#       書かれた env 名がすべて env_keys.py に存在するか。rename / 削除時に downstream へ
+#       旧名が残留する drift と typo を検知する。本番注入経路（cloud_run）は環境変数ごとに
+#       注入要否が異なる（ローカル専用の OLLAMA_* 等がある）ため、正方向（すべて注入
+#       されているか）は検証できず逆方向のみ検証する。
+#   (3) リテラル参照禁止: backend/app が os.getenv("XXX") / os.environ["XXX"] /
+#       os.environ.get("XXX") の文字列リテラルで env を参照していないか
+#       （env_keys 定数経由を機械強制する。従来は規律のみだった）。
+#   (4) エラーコード: backend/app/core/errors.py の ErrorCode 値集合と
 #       web/src/constants/errorCodes.ts の ERROR_CODES が完全一致するか。
 #       FE 側の型検査（Record<ErrorCodeKey,...>）は FE 内で完結するため、
 #       BE が新コードを追加して FE 未反映の drift は型エラーにならない。それを補う。
+#
+# 対象外（意図的）:
+#   - .github/workflows/ci.yml: 実 API を CI から呼ばないため（env_keys.py の
+#     OPENAI_API_KEY コメント参照）
+#   - docs/api.md の環境変数表: 手動同期のまま（doc drift は実害が小さい）
 #
 # 正本:
 #   - env 名:        backend/app/core/env_keys.py
@@ -26,6 +39,7 @@ cd "$(dirname "$0")/.."
 
 ENV_KEYS="backend/app/core/env_keys.py"
 COMPOSE="docker-compose.yml"
+CLOUD_RUN_TF="infra/modules/cloud_run/main.tf"
 ERRORS_PY="backend/app/core/errors.py"
 ERROR_CODES_TS="web/src/constants/errorCodes.ts"
 
@@ -74,7 +88,53 @@ if [ -n "$missing_in_compose" ]; then
   fail=1
 fi
 
-# ── (2) errors.py ErrorCode == errorCodes.ts ERROR_CODES ──────────────────
+# ── (2) 逆方向: downstream の env 名 ⊆ env_keys.py ─────────────────────────
+# rename / 削除時に compose / cloud_run へ旧名が残留する drift と typo を検知する。
+#
+# cloud_run の env 名は 2 形式から取る:
+#   - 静的 env block:        name  = "XXX"
+#   - secret env の locals:  XXX = "secret-name"（dynamic env の name は locals キーが正本）
+cloud_run_names=$({
+  grep -E 'name[[:space:]]+=[[:space:]]+"[A-Z_]+"' "$CLOUD_RUN_TF" \
+    | sed -E 's/.*"([A-Z_]+)".*/\1/'
+  grep -E '^[[:space:]]*[A-Z_]+[[:space:]]*=[[:space:]]*"' "$CLOUD_RUN_TF" \
+    | sed -E 's/^[[:space:]]*([A-Z_]+).*/\1/'
+} | sort -u)
+
+unknown_in_compose=$(comm -23 <(printf '%s\n' "$compose_names") <(printf '%s\n' "$env_names"))
+unknown_in_cloud_run=$(comm -23 <(printf '%s\n' "$cloud_run_names") <(printf '%s\n' "$env_names"))
+
+if [ -n "$unknown_in_compose" ] || [ -n "$unknown_in_cloud_run" ]; then
+  echo "ERROR: $ENV_KEYS に存在しない env 名が downstream に残っています:" >&2
+  if [ -n "$unknown_in_compose" ]; then
+    echo "  $COMPOSE:" >&2
+    printf '    - %s\n' $unknown_in_compose >&2
+  fi
+  if [ -n "$unknown_in_cloud_run" ]; then
+    echo "  $CLOUD_RUN_TF:" >&2
+    printf '    - %s\n' $unknown_in_cloud_run >&2
+  fi
+  echo "" >&2
+  echo "rename / 削除した env 名の旧名残留か typo です。downstream 側を追従してください。" >&2
+  echo "" >&2
+  fail=1
+fi
+
+# ── (3) backend のリテラル env 参照禁止（env_keys 定数経由を強制） ──────────
+# env_keys.py 自身は docstring にリテラル例を含むため除外する。
+literal_refs=$(grep -rnE 'os\.(getenv|environ\.get)\([[:space:]]*"|os\.environ\[[[:space:]]*"' \
+  backend/app --include='*.py' | grep -v 'app/core/env_keys\.py' || true)
+
+if [ -n "$literal_refs" ]; then
+  echo "ERROR: backend/app に文字列リテラルでの env 参照があります:" >&2
+  printf '%s\n' "$literal_refs" | sed 's/^/  /' >&2
+  echo "" >&2
+  echo "from app.core import env_keys した上で os.getenv(env_keys.XXX) を使ってください。" >&2
+  echo "" >&2
+  fail=1
+fi
+
+# ── (4) errors.py ErrorCode == errorCodes.ts ERROR_CODES ──────────────────
 be_codes=$(grep -E '^[[:space:]]+[A-Z_]+[[:space:]]*=[[:space:]]*"[A-Z_]+"' "$ERRORS_PY" \
   | sed -E 's/.*=[[:space:]]*"([A-Z_]+)".*/\1/' | sort -u)
 fe_codes=$(grep -E '^[[:space:]]+"[A-Z_]+",' "$ERROR_CODES_TS" \
@@ -103,4 +163,4 @@ if [ "$fail" -ne 0 ]; then
   exit 1
 fi
 
-echo "lint-env-keys: OK（env 名 / ErrorCode の SSoT drift なし）"
+echo "lint-env-keys: OK（env 名 compose/cloud_run・リテラル参照・ErrorCode の SSoT drift なし）"

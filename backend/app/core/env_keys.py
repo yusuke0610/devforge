@@ -26,10 +26,19 @@
 
 ## drift 検知（自動）
 
-本モジュールの定数値が `docker-compose.yml` の environment にすべて存在するかは
-`scripts/lint-env-keys.sh`（`make lint-env-keys` / CI の test-backend ジョブ）で機械検証する。
-rename / 追加で compose 追従を忘れると lint が落ちる。ローカル開発で意図的に注入しない
-定数（起動時内部フラグ等）は同スクリプトの `COMPOSE_ALLOWLIST` に明示的に追記する。
+`scripts/lint-env-keys.sh`（`make lint-env-keys` / CI）が以下を機械検証する:
+
+- 本モジュールの定数値が `docker-compose.yml` の environment にすべて存在するか。
+  ローカル開発で意図的に注入しない定数（起動時内部フラグ等）は同スクリプトの
+  `COMPOSE_ALLOWLIST` に明示的に追記する。
+- `docker-compose.yml` / `infra/modules/cloud_run/main.tf` に書かれた env 名が
+  すべて本モジュールに存在するか（rename / 削除時の旧名残留・typo を検知）。
+  cloud_run は環境変数ごとに注入要否が異なるため逆方向のみ検証する。
+- backend/app が `os.getenv("XXX")` 等の文字列リテラルで env を参照していないか
+  （本モジュールの定数経由を機械強制する）。
+
+`.github/workflows/ci.yml` は検証対象外（実 API を CI から呼ばないため。
+OPENAI_API_KEY のコメント参照）。`docs/api.md` の環境変数表は手動同期のまま。
 
 ## 関連ドキュメント
 
