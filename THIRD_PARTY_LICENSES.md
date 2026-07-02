@@ -32,6 +32,8 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 |---|---|---|
 | [@eslint/js](https://eslint.org) | 10.0.1 | MIT |
 | [@playwright/test](https://playwright.dev) | 1.61.0 | Apache-2.0 |
+| [@stryker-mutator/core](https://www.npmjs.com/package/@stryker-mutator/core) | — | 要確認 (未インストール) |
+| [@stryker-mutator/vitest-runner](https://www.npmjs.com/package/@stryker-mutator/vitest-runner) | — | 要確認 (未インストール) |
 | [@testing-library/jest-dom](https://github.com/testing-library/jest-dom#readme) | 6.9.1 | MIT |
 | [@testing-library/react](https://github.com/testing-library/react-testing-library#readme) | 16.3.2 | MIT |
 | [@testing-library/user-event](https://github.com/testing-library/user-event#readme) | 14.6.1 | MIT |
@@ -62,16 +64,16 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 
 | ライブラリ | バージョン | ライセンス |
 |---|---|---|
-| [alembic](https://alembic.sqlalchemy.org) | 1.18.4 | MIT |
-| [anthropic](https://github.com/anthropics/anthropic-sdk-python) | 0.111.0 | MIT License |
-| [fastapi](https://github.com/fastapi/fastapi) | 0.138.0 | MIT |
+| [alembic](https://alembic.sqlalchemy.org) | 1.18.5 | MIT |
+| [anthropic](https://github.com/anthropics/anthropic-sdk-python) | 0.115.0 | MIT License |
+| [fastapi](https://github.com/fastapi/fastapi) | 0.138.2 | MIT |
 | [google-cloud-storage](https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-storage) | 3.12.0 | Apache Software License |
-| [google-cloud-tasks](https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-tasks) | 2.22.0 | Apache Software License |
-| [google-genai](https://github.com/googleapis/python-genai) | 2.9.0 | Apache-2.0 |
+| [google-cloud-tasks](https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-tasks) | 2.23.0 | Apache Software License |
+| [google-genai](https://github.com/googleapis/python-genai) | 2.10.0 | Apache-2.0 |
 | [httpx](https://github.com/encode/httpx) | 0.28.1 | BSD License |
 | [markdown](https://Python-Markdown.github.io/) | 3.10.2 | BSD-3-Clause |
-| [openai](https://github.com/openai/openai-python) | 2.43.0 | Apache Software License |
-| [pandas](https://pandas.pydata.org) | 3.0.3 | BSD License |
+| [mutmut](https://github.com/boxed/mutmut) | 3.6.0 | BSD-3-Clause |
+| [openai](https://github.com/openai/openai-python) | 2.44.0 | Apache Software License |
 | [pyasn1](https://github.com/pyasn1/pyasn1) | 0.6.3 | BSD-2-Clause |
 | [pydantic](https://github.com/pydantic/pydantic) | 2.13.4 | MIT |
 | [pydyf](https://www.courtbouillon.org/pydyf) | 0.12.1 | BSD License |
@@ -79,13 +81,13 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 | [python-dotenv](https://github.com/theskumar/python-dotenv) | 1.2.2 | BSD-3-Clause |
 | [python-jose](http://github.com/mpdavis/python-jose) | 3.5.0 | MIT License |
 | [python-multipart](https://github.com/Kludex/python-multipart) | 0.0.32 | Apache-2.0 |
-| [redis](https://github.com/redis/redis-py) | 8.0.0 | MIT |
+| [redis](https://github.com/redis/redis-py) | 8.0.1 | MIT |
 | [reportlab](https://www.reportlab.com/) | 5.0.0 | BSD License |
 | [slowapi](https://github.com/laurents/slowapi) | 0.1.10 | MIT License |
 | [sqlalchemy](https://www.sqlalchemy.org) | 2.0.51 | MIT |
 | [sqlalchemy-libsql](https://github.com/tursodatabase/libsql-sqlalchemy) | 0.2.0 | MIT License |
 | [starlette](https://github.com/Kludex/starlette) | 1.3.1 | BSD-3-Clause |
-| [stripe](https://stripe.com/) | 15.2.1 | MIT License |
+| [stripe](https://stripe.com/) | 15.3.0 | MIT License |
 | [uvicorn](https://uvicorn.dev/) | 0.49.0 | BSD-3-Clause |
 | [weasyprint](https://weasyprint.org/) | 69.0 | BSD License |
 
@@ -98,4 +100,4 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 | [isort](https://pycqa.github.io/isort/index.html) | 8.0.1 | MIT |
 | [pytest](https://docs.pytest.org/en/latest/) | 9.1.1 | MIT |
 | [pytest-cov](https://pypi.org/project/pytest-cov/) | 7.1.0 | MIT |
-| [ruff](https://docs.astral.sh/ruff) | 0.15.18 | MIT |
+| [ruff](https://docs.astral.sh/ruff) | 0.15.20 | MIT |
