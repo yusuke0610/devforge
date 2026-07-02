@@ -1,7 +1,7 @@
 .PHONY: help \
 	setup install-hooks install-backend install-web generate-keys \
 	dev dev-build dev-down dev-amd64 dev-amd64-build dev-web preview-web dev-proxy dev-proxy-only stripe-webhook \
-	test test-backend test-web \
+	test test-backend test-web mutation-backend mutation-web \
 	lint lint-backend typecheck-backend lint-web lint-web-messages lint-env-keys lint-fix \
 	format format-check \
 	ci \
@@ -38,6 +38,8 @@ help:
 	@echo "  test              全テスト (backend + web)"
 	@echo "  test-backend      Backend: pytest"
 	@echo "  test-web     Frontend: vitest"
+	@echo "  mutation-backend  Backend: mutmut (長時間。結果閲覧: cd backend && .venv/bin/python -m mutmut browse)"
+	@echo "  mutation-web      Frontend: Stryker (長時間。レポート: web/reports/mutation/)"
 	@echo "  lint              全リント (backend + web)"
 	@echo "  lint-backend      Backend: ruff check"
 	@echo "  typecheck-backend Backend: pyright 型チェック"
@@ -136,11 +138,21 @@ ci: lint test build-web
 
 test: test-backend test-web
 
+# --cov は pyproject の addopts ではなくここで付与する（mutmut 干渉回避 / ADR-0017）
 test-backend:
-	nix develop --command bash -c "cd backend && .venv/bin/python -m pytest -q tests"
+	nix develop --command bash -c "cd backend && .venv/bin/python -m pytest -q --cov=app --cov-report=term-missing tests"
 
 test-web:
 	nix develop --command bash -c "cd web && npm test"
+
+# ミューテーションテスト（ADR-0017）。フル実行は長時間かかるため通常 CI には含めず、
+# 週次の .github/workflows/mutation.yml で実行する。対象は pyproject [tool.mutmut] /
+# web/stryker.conf.json を参照。
+mutation-backend:
+	nix develop --command bash -c "cd backend && .venv/bin/python -m mutmut run"
+
+mutation-web:
+	nix develop --command bash -c "cd web && npm run test:mutation"
 
 lint: lint-backend typecheck-backend lint-web lint-web-messages lint-env-keys
 

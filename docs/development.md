@@ -159,3 +159,62 @@ make infra-validate         # dev / stg / prod を順に validate
 ```
 
 詳細は [deployment.md](./deployment.md) の「インフラ構成（OpenTofu）」を参照。
+
+### ミューテーションテスト（mutmut / Stryker）— 週次
+
+テストスイートの検出力（弱い assertion / 実装なぞりテスト）を測る（設計判断: [ADR-0017](./adr/0017-mutation-testing-and-slack-notifications.md)）。
+**フル実行は長時間かかるため通常 CI には含まれない。** 週次（毎週月曜 3:00 JST）の `.github/workflows/mutation.yml` が実行し、結果を Slack（`SLACK_WEBHOOK_URL_QUALITY`）へ通知する。手動実行は GitHub Actions の workflow_dispatch（`gh workflow run mutation.yml`）。
+
+```bash
+make mutation-backend   # mutmut（対象: backend/pyproject.toml の [tool.mutmut]）
+make mutation-web       # Stryker（対象: web/stryker.conf.json）
+```
+
+ローカルで短時間だけ試す場合（対象を絞る）:
+
+```bash
+# backend: ミュータント名のグロブで絞る（モジュールパス + '*'）
+nix develop --command bash -c "cd backend && .venv/bin/python -m mutmut run 'app.services.shared.sort_utils*'"
+# web: --mutate でファイルを絞る
+nix develop --command bash -c "cd web && npx stryker run --mutate 'src/utils/text.ts'"
+```
+
+結果の確認:
+
+```bash
+# backend: 生存ミュータント一覧 / TUI ブラウズ / CI 用 JSON（mutants/mutmut-cicd-stats.json）
+nix develop --command bash -c "cd backend && .venv/bin/python -m mutmut results"
+nix develop --command bash -c "cd backend && .venv/bin/python -m mutmut browse"
+# web: HTML レポート
+open web/reports/mutation/mutation.html
+```
+
+- 生成物（`backend/mutants/` / `web/reports/` / `web/.stryker-tmp/`）は gitignore 済み。
+- score が `MUTATION_SCORE_THRESHOLD`（初期値 80%。`mutation.yml` の env）未満だと Slack 通知が ⚠️ で強調される。Phase 1 は warn-only（fail しない）。
+
+## Slack 通知（CI / デプロイ / 品質 / 依存更新）
+
+GitHub Actions の結果を用途別の Slack チャンネルへ Incoming Webhook で通知する（[ADR-0017](./adr/0017-mutation-testing-and-slack-notifications.md)）。
+
+| GitHub Secret | 用途 | 送信元 workflow |
+|---|---|---|
+| `SLACK_WEBHOOK_URL_CI` | 通常 CI の失敗のみ | `notify.yml` |
+| `SLACK_WEBHOOK_URL_DEPLOY` | Cloud Run / Cloudflare Pages デプロイ結果（成功・失敗とも） | `notify.yml` |
+| `SLACK_WEBHOOK_URL_QUALITY` | 週次ミューテーションテスト結果（killed / survived / score） | `mutation.yml` |
+| `SLACK_WEBHOOK_URL_DEPS` | Renovate / Dependabot の依存更新 PR 起票 | `deps-notify.yml` |
+
+### Secrets の登録手順（チャンネル作成後）
+
+1. Slack で通知先チャンネルを作成し、各チャンネルに [Incoming Webhook](https://api.slack.com/messaging/webhooks) を発行する（チャンネルごとに 1 つ）
+2. 発行された Webhook URL を GitHub Secrets に登録する:
+
+   ```bash
+   gh secret set SLACK_WEBHOOK_URL_CI      --body "https://hooks.slack.com/services/..."
+   gh secret set SLACK_WEBHOOK_URL_DEPLOY  --body "https://hooks.slack.com/services/..."
+   gh secret set SLACK_WEBHOOK_URL_QUALITY --body "https://hooks.slack.com/services/..."
+   gh secret set SLACK_WEBHOOK_URL_DEPS    --body "https://hooks.slack.com/services/..."
+   ```
+
+3. 動作確認: `gh workflow run mutation.yml` を手動実行し QUALITY チャンネルへの通知を確認する
+
+> **Secret 未登録の間の挙動**: 各通知ステップは Webhook が空だと静かに skip される（ワークフローは green のまま）。チャンネル作成前に導入しても CI は壊れない。
