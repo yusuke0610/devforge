@@ -117,6 +117,22 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 
 実装で触る想定箇所（後続 PR）: `github/api_client.py`（`fetch_root_filenames` を `fetch_manifest_paths(..., default_branch)` に拡張し、truncated/打ち切りの有無も返す）/ `github_collector.py`（パス一覧反復・`source_path` 付与・partial フラグ伝播）/ `skills/types.py`（`PackageDeclaration.source_path` / `EvidenceRecord.manifest_path` / partial マーカー）/ `skills/aggregator.py`（path・partial 伝播）/ `models/skill.py` + 新規 migration（`github_skill_evidence.manifest_path` と partial フラグを `op.add_column`）/ `schemas/github_skill.py`（`SkillEvidence` への追加、`make codegen-types` 再生成）。
 
+### D10. IaC（Terraform）からインフラリソースを検出する（2026-07 改訂で追加）
+
+当初「将来課題」としていた IaC からのインフラリソース検出を、**機械検出（幅）に限定して採用**する。Terraform/HCL は Linguist の*言語*スキル「Terraform」（kind=language）としては捕捉済みだが、「どのクラウドの何のサービスを IaC で構築したか」（provider / service 粒度）が取れていない。この検出軸を Layer 1-2 に足す。表示名の畳み込み（`aws_s3_bucket` → 「Amazon S3」）を伴う human-in-the-loop（D8）は package 層含め未実装のため、本 D10 のスコープからは外し別途とする（canonical は raw type を保持するだけ）。
+
+- **(a) 対象 = Terraform / OpenTofu（`.tf`）**: parser は plugin 型（`InfraParser`）とし、CloudFormation / Pulumi / k8s manifest 等は後追いで差し込める設計にとどめる（v1 は Terraform のみ実装）。
+- **(b) 抽出粒度 = provider + service 両方**: `provider "<name>"` / `required_providers` → クラウドプロバイダ、`resource "<type>" "<name>"` → 具体サービス（type 接頭辞で provider を導出。`aws_s3_bucket` → provider `aws`）。**static な `resource` ブロックの type 抽出に限定**し、`module` / `count` / `for_each` / `dynamic` による動的生成は静的列挙できないため対象外（将来課題）。
+- **(c) 新 kind `infra`（`SKILL_KIND_INFRA`）**: `package` の「エコシステム内で一意」前提（D3）に乗らないため別 kind とする（D2 の思想）。provider（`aws`）と resource type（`aws_s3_bucket`）を**別スキルとして keep-all**（D8「保持は細かく」。畳み込みは後段ビュー変換 / HITL へ）。canonical は raw な resource type / provider 名を保持（辞書を持たない / D3）。`ecosystem` は IaC ツール名（`terraform`）を入れ、将来の Pulumi / CloudFormation と区別する。
+- **(d) 新 signal_source `infra_declared`**: Layer 2 の値域拡張のみ（`github_skill_evidence.signal_source` は `String(30)`・CHECK なしのため **migration 不要**。同様に kind=`infra` / ecosystem=`terraform` も既存カラムに収まる）。`resource` ブロックは「宣言 ≒ 実構築」に近く、import 解析（verify / D6）のような昇格段階は設けない。
+- **(e) 探索は D9 を流用**: `.tf` は `infra/modules/...` 等サブツリーに分散するため、recursive Trees API の 1 コール（manifest 探索と共有）+ パスセグメント除外（`.terraform` を追加）+ 深さ/件数キャップ + keep-all がそのまま効く。生 HCL は parse 後に破棄（D6 と同じく永続化しない）。
+- **(f) 証跡 = `.tf` の相対パス**: D9(f) と同様、検出した `.tf` の相対パスを evidence（`manifest_path`）に保持する。public リポ前提で相対パスは公開メタデータ。
+- **(g) parser は依存を持たない**: HCL ライブラリを導入せず正規表現ベースで実装する（既存 manifest パーサと同方針。static ブロックは正規表現で十分）。
+
+新規値オブジェクト: `InfraResourceDeclaration(tool, provider, resource_type, source_path)` を IaC parser plugin が返し、aggregator の `_collect_infra()` が `kind=infra` で集約する（`_collect_languages` / `_collect_packages` と並ぶ）。
+
+実装で触った箇所: `skills/types.py`（`SKILL_KIND_INFRA` / `InfraResourceDeclaration`）/ 新規 `skills/infra/`（`InfraParser` Protocol・`terraform.py`・registry）/ `github_collector.py`（`.tf` 探索・`.terraform` 除外・partial 伝播）/ `skills/aggregator.py`（`_collect_infra`・`infra_declared`）/ `github_link_service.py`（`RepoSkillInput` へ伝播）/ `schemas/github_skill.py`（docstring 拡張 + `make codegen-types`）。migration・新規依存はなし。
+
 ### この設計で得られるもの
 
 - エビデンス系スキルに裏付けが付き、経歴書の GitHub URL との整合（証跡性）が立つ。
@@ -145,14 +161,16 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 
 - **verify ステージ**: D6 として実装済み（2026-06）。recursive Trees API の 1 コールを manifest 探索と共有し、direct 宣言のエコシステムの source だけを浅い順・件数キャップでサンプリング → import 解析。辞書レスの保守的照合（`-`→`_` 変換・go 接頭辞一致・npm 完全一致）で direct 宣言を `actual_import` へ**昇格のみ**（降格なし）。残課題は import 名乖離（PyYAML→yaml 等）の取りこぼし低減・サンプリング閾値の実データチューニング。
 - **monorepo 対応**: D9 で採用済み（recursive Trees API + パスセグメント除外 + 深さ/件数キャップ + keep-all）。残課題は除外定義の高度化（Linguist `vendor.yml` 流用）・キャップ閾値の実データチューニング・規模シグナルの導入。
-- **IaC からのインフラリソース検出**: 後述「将来課題: IaC からのインフラリソース検出」を参照（Terraform/OpenTofu 先行・provider+service 粒度・kind=infra 案・D9 探索流用）。
+- **IaC からのインフラリソース検出**: 機械検出は **D10 で採用・実装済み**（2026-07。Terraform/OpenTofu・provider+service 粒度・kind=infra・signal_source=infra_declared・D9 探索流用・正規表現 parser）。残課題は表示名の HITL 畳み込み・動的 module 解決・Tier2 IaC・resource 出現回数の量的シグナル。
 - **private リポジトリの扱い**: Layer 3 経由で人間が深さを補完する。生データは持ち込まない前提を維持する。
 - **deps.dev エンリッチ**: 横断名寄せの範囲・実行タイミング。
 - **閾値・粒度のデフォルト**: 言語足切りの初期値、表示名 alias の初期セット。
 
-## 将来課題: IaC からのインフラリソース検出（検討中 / 未採用）
+## 将来課題: IaC からのインフラリソース検出（機械検出は D10 で採用済み / 2026-07）
 
-**背景**: Terraform/HCL は Linguist により*言語*スキル「Terraform」として検出済み（D3・D9(g)）。一方「どのクラウドの何のサービスを IaC で構築・運用したか」は捉えられていない。インフラが **IaC で記述されている場合に限り**、宣言から具体的なインフラリソースを抽出すれば、インフラ系スキルの幅と証跡性が上がる。本項は新しい検出軸の**課題提起**であり、採用（実装）は別途判断する。
+> **更新（2026-07）**: 本項の「機械検出（provider+service・static resource・kind=infra）」は **D10 として採用・実装済み**。以下は当初の課題提起の記録であり、**残る未採用部分**は「表示名の human-in-the-loop 畳み込み」「動的 module 解決」「Tier2 IaC（CloudFormation / Pulumi / k8s / Helm）」「resource 出現回数の量的シグナル（ADD COLUMN 案）」。実装済みの決定は D10 を正とする。
+
+**背景**: Terraform/HCL は Linguist により*言語*スキル「Terraform」として検出済み（D3・D9(g)）。一方「どのクラウドの何のサービスを IaC で構築・運用したか」は捉えられていない。インフラが **IaC で記述されている場合に限り**、宣言から具体的なインフラリソースを抽出すれば、インフラ系スキルの幅と証跡性が上がる。
 
 **スコープ（v1 課題時）**:
 
@@ -198,6 +216,7 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 
 ## 改訂履歴
 
+- **2026-07**: 「将来課題」だった IaC からのインフラリソース検出を **D10 として採用・実装**（Terraform/OpenTofu の `.tf` を対象に provider+service を抽出、kind=`infra` / signal_source=`infra_declared`、static resource ブロック限定、正規表現 parser で依存なし、D9 探索流用で `.terraform` 除外を追加、canonical=raw type で keep-all）。表示名の human-in-the-loop 畳み込み・動的 module 解決・Tier2 IaC・出現回数の量的シグナルは残課題。kind / signal_source / ecosystem は既存カラムの値域内のため migration 不要。3 層モデル・D1〜D9 は不変。
 - **2026-06**: 当初「代替案」で延期していた monorepo サブツリー探索を **D9 として採用**（recursive Trees API + パスセグメント除外 + 深さ/件数キャップ + keep-all + manifest パス永続化）。3 層モデル・D1〜D8 は不変。当初は別 ADR 案だったが、0016 の核を維持する refine であり 1 箇所の追補に留まるため、本 ADR への統合とした。
 - **2026-06**: IaC からのインフラリソース検出（provider+service 粒度・HCL 先行・kind=infra 案・D9 探索流用・D8 同様の human-in-the-loop 正規化）を**将来課題として追記**。決定（D1〜D9）・3 層モデルは不変。
 - **2026-06**: ステータス冒頭の「段階移行」を完了。旧決定論パイプライン（`skill_extractor.py` + `skill_taxonomy/` の自前辞書）を撤去し、live 経路を本基盤（`skills/aggregate_skills`）へ一本化。dashboard の `unique_skills` は検出 Layer 1 のうち**言語スキル（kind=language）の件数**から算出する（package は件数に含めない。API 契約 `GitHubLinkResponse` は不変）。

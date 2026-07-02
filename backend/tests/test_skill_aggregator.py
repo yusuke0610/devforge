@@ -1,11 +1,13 @@
 """スキル集計のテスト（ADR-0016 D1・D8）。"""
 
 from app.services.intelligence.skills import (
+    InfraResourceDeclaration,
     PackageDeclaration,
     RepoSkillInput,
     aggregate_skills,
 )
 from app.services.intelligence.skills.types import (
+    SKILL_KIND_INFRA,
     SKILL_KIND_LANGUAGE,
     SKILL_KIND_PACKAGE,
 )
@@ -226,3 +228,96 @@ def test_verify_uses_ecosystem_matching_rules() -> None:
     )
     gin = _by_name(skills)["github.com/gin-gonic/gin"]
     assert "actual_import" in _signals(gin.evidence)
+
+
+# ── IaC 検出（kind=infra / D10）──────────────────────────────────────────────
+
+
+def _infra_repo(full_name="u/infra", infra=None, partial=False) -> RepoSkillInput:
+    return RepoSkillInput(
+        full_name=full_name,
+        url=f"https://github.com/{full_name}",
+        languages={},
+        infra_declarations=infra or [],
+        infra_scan_partial=partial,
+    )
+
+
+def test_infra_provider_and_resource_become_separate_skills() -> None:
+    """provider と resource が別々の kind=infra スキルになること（keep-all / D8）。"""
+    skills = aggregate_skills(
+        [
+            _infra_repo(
+                infra=[
+                    InfraResourceDeclaration("terraform", "aws", None, "infra/main.tf"),
+                    InfraResourceDeclaration(
+                        "terraform", "aws", "aws_s3_bucket", "infra/main.tf"
+                    ),
+                ]
+            )
+        ]
+    )
+    by_name = _by_name(skills)
+    assert set(by_name) == {"aws", "aws_s3_bucket"}
+    for skill in by_name.values():
+        assert skill.kind == SKILL_KIND_INFRA
+        assert skill.ecosystem == "terraform"
+        assert skill.display_name is None  # 表示名 HITL は別 PR
+    provider_ev = by_name["aws"].evidence[0]
+    resource_ev = by_name["aws_s3_bucket"].evidence[0]
+    assert provider_ev.signal_source == "infra_declared"
+    assert provider_ev.confidence == 0.5
+    assert resource_ev.confidence == 0.6
+    assert resource_ev.manifest_path == "infra/main.tf"
+
+
+def test_infra_deduped_per_repo_to_single_evidence() -> None:
+    """同一 provider を複数 .tf が宣言してもリポあたり 1 evidence に畳むこと（一意制約対策）。"""
+    skills = aggregate_skills(
+        [
+            _infra_repo(
+                infra=[
+                    InfraResourceDeclaration("terraform", "aws", None, "a/main.tf"),
+                    InfraResourceDeclaration("terraform", "aws", None, "b/main.tf"),
+                ]
+            )
+        ]
+    )
+    aws = _by_name(skills)["aws"]
+    assert len(aws.evidence) == 1
+    # 最初に見た source_path を証跡に採る。
+    assert aws.evidence[0].manifest_path == "a/main.tf"
+
+
+def test_infra_partial_scan_propagates() -> None:
+    """infra_scan_partial が infra 根拠へ伝播すること（D10 / D9(d)）。"""
+    skills = aggregate_skills(
+        [
+            _infra_repo(
+                infra=[
+                    InfraResourceDeclaration("terraform", "google", None, "main.tf")
+                ],
+                partial=True,
+            )
+        ]
+    )
+    google = _by_name(skills)["google"]
+    assert google.evidence[0].partial_scan is True
+
+
+def test_infra_skill_deduped_across_repos() -> None:
+    """複数リポの同一 provider は 1 スキルに畳み、evidence が積み上がること（D8）。"""
+    skills = aggregate_skills(
+        [
+            _infra_repo(
+                full_name="u/a",
+                infra=[InfraResourceDeclaration("terraform", "aws", None, "main.tf")],
+            ),
+            _infra_repo(
+                full_name="u/b",
+                infra=[InfraResourceDeclaration("terraform", "aws", None, "main.tf")],
+            ),
+        ]
+    )
+    aws = _by_name(skills)["aws"]
+    assert {e.repo_full_name for e in aws.evidence} == {"u/a", "u/b"}

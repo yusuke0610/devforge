@@ -13,8 +13,10 @@ from dataclasses import dataclass, field
 from .imports import scanner_for_ecosystem
 from .linguist import resolve_language
 from .types import (
+    SKILL_KIND_INFRA,
     SKILL_KIND_LANGUAGE,
     SKILL_KIND_PACKAGE,
+    InfraResourceDeclaration,
     PackageDeclaration,
 )
 
@@ -31,6 +33,11 @@ _ACTUAL_IMPORT_CONFIDENCE = 0.85
 _SIGNAL_LANGUAGE_BYTES = "language_bytes"
 _SIGNAL_MANIFEST_DECLARED = "manifest_declared"
 _SIGNAL_ACTUAL_IMPORT = "actual_import"
+# D10: IaC の宣言（provider / resource）。宣言 ≒ 実構築に近く verify 昇格は行わない。
+_SIGNAL_INFRA_DECLARED = "infra_declared"
+# D10: infra 宣言の信頼度。resource（具体サービス）は provider より使用実績が明確なので高め。
+_INFRA_PROVIDER_CONFIDENCE = 0.5
+_INFRA_RESOURCE_CONFIDENCE = 0.6
 
 # PEP 503 正規化用（連続する -_. を - に畳む）。
 _PYPI_NAME_RE = re.compile(r"[-_.]+")
@@ -88,6 +95,10 @@ class RepoSkillInput:
     imported_symbols: dict[str, set[str]] = field(default_factory=dict)
     # D9(d): このリポのツリー走査が部分的だったか。package 根拠へ伝播する。
     manifest_scan_partial: bool = False
+    # D10: IaC（.tf）が宣言する provider / resource。
+    infra_declarations: list[InfraResourceDeclaration] = field(default_factory=list)
+    # D10: IaC 走査が部分的だったか。infra 根拠へ伝播する。
+    infra_scan_partial: bool = False
 
 
 def aggregate_skills(repos: list[RepoSkillInput]) -> list[DetectedSkill]:
@@ -101,6 +112,7 @@ def aggregate_skills(repos: list[RepoSkillInput]) -> list[DetectedSkill]:
     for repo in repos:
         _collect_languages(skills, repo)
         _collect_packages(skills, repo)
+        _collect_infra(skills, repo)
 
     return list(skills.values())
 
@@ -216,6 +228,65 @@ def _collect_packages(
                     partial_scan=repo.manifest_scan_partial,
                 )
             )
+
+
+def _collect_infra(
+    skills: dict[tuple[str, str, str], DetectedSkill], repo: RepoSkillInput
+) -> None:
+    """IaC 宣言（provider / resource）を kind=infra スキルへ集約する（declare 相当 / D10）。
+
+    provider（``aws``）と resource type（``aws_s3_bucket``）を別スキルとして keep-all する
+    （畳み込みは後段 HITL に委ねる / D8）。同一リポ内で同じ provider / resource が複数の .tf に
+    現れても、``github_skill_evidence`` の一意制約 (skill_id, repo, signal_source) に合わせて
+    **リポあたり 1 根拠**にデデュープする（最初に見た source_path を証跡に採る）。
+    """
+    # canonical → 最初に採用する宣言（source_path 付き）。リポ内で 1 evidence に畳む。
+    provider_seen: dict[str, InfraResourceDeclaration] = {}
+    resource_seen: dict[str, InfraResourceDeclaration] = {}
+    for decl in repo.infra_declarations:
+        if decl.provider and decl.provider not in provider_seen:
+            provider_seen[decl.provider] = decl
+        if decl.resource_type and decl.resource_type not in resource_seen:
+            resource_seen[decl.resource_type] = decl
+
+    for provider, decl in provider_seen.items():
+        _append_infra_skill(
+            skills, repo, decl, provider, _INFRA_PROVIDER_CONFIDENCE
+        )
+    for resource_type, decl in resource_seen.items():
+        _append_infra_skill(
+            skills, repo, decl, resource_type, _INFRA_RESOURCE_CONFIDENCE
+        )
+
+
+def _append_infra_skill(
+    skills: dict[tuple[str, str, str], DetectedSkill],
+    repo: RepoSkillInput,
+    decl: InfraResourceDeclaration,
+    canonical_name: str,
+    confidence: float,
+) -> None:
+    """1 つの infra スキル（provider or resource）を upsert し根拠を積む。"""
+    # ecosystem は IaC ツール名（"terraform"）。将来の Pulumi / CloudFormation と区別する。
+    skill = _upsert(
+        skills,
+        kind=SKILL_KIND_INFRA,
+        canonical_name=canonical_name,
+        ecosystem=decl.tool,
+        parent=None,
+        display_name=None,
+    )
+    skill.evidence.append(
+        EvidenceRecord(
+            repo_full_name=repo.full_name,
+            repo_url=repo.url,
+            signal_source=_SIGNAL_INFRA_DECLARED,
+            confidence=confidence,
+            # D9(f): 検出した .tf の相対パスを証跡として残す。
+            manifest_path=decl.source_path,
+            partial_scan=repo.infra_scan_partial,
+        )
+    )
 
 
 def _confidence(dependency_kind: str | None) -> float:

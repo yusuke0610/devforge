@@ -10,11 +10,12 @@ from .aggregator import (
     RepoSkillInput,
     aggregate_skills,
 )
-from .types import PackageDeclaration
+from .types import InfraResourceDeclaration, PackageDeclaration
 
 __all__ = [
     "DetectedSkill",
     "EvidenceRecord",
+    "InfraResourceDeclaration",
     "PackageDeclaration",
     "RepoSkillInput",
     "aggregate_skills",

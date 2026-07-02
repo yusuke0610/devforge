@@ -1521,7 +1521,7 @@ export interface components {
         GitHubSkillItem: {
             /**
              * Canonical Name
-             * @description 正規名（言語=Linguist 名 / package=package ID）
+             * @description 正規名（言語=Linguist 名 / package=package ID / infra=provider 名または raw resource type）
              */
             canonical_name: string;
             /**
@@ -1531,14 +1531,14 @@ export interface components {
             display_name?: string | null;
             /**
              * Ecosystem
-             * @description package のエコシステム（npm/pypi/go/cargo）。言語では null
+             * @description エコシステム（package は npm/pypi/go/cargo、infra は terraform 等）。言語では null
              */
             ecosystem?: string | null;
             /** Evidence */
             evidence?: components["schemas"]["SkillEvidence"][];
             /**
              * Kind
-             * @description スキル種別（language / package）
+             * @description スキル種別（language / package / infra）
              */
             kind: string;
             /**
@@ -1843,7 +1843,7 @@ export interface components {
             language_bytes?: number | null;
             /**
              * Manifest Path
-             * @description manifest の相対パス（package のみ。例 backend/requirements.txt。言語では null）
+             * @description 根拠ファイルの相対パス（package の manifest / infra の .tf。例 backend/requirements.txt・infra/main.tf。言語では null）
              */
             manifest_path?: string | null;
             /**
@@ -1864,7 +1864,7 @@ export interface components {
             repo_url: string;
             /**
              * Signal Source
-             * @description 根拠の出所（language_bytes / manifest_declared / actual_import）
+             * @description 根拠の出所（language_bytes / manifest_declared / actual_import / infra_declared）
              */
             signal_source: string;
         };

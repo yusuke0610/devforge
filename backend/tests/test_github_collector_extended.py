@@ -301,9 +301,19 @@ class TestCollectRepoSignals:
     def _patched_collect(self, tree_paths, truncated, *, file_contents=None):
         """fetch_repo_tree / fetch_repo_file をモックして _collect_repo_signals を実行。
 
-        ``tree_paths`` は recursive Trees API が返す全 blob パス（manifest + source）。
-        fetch された全パスと (declarations, imported_symbols, partial) を返す。
+        ``tree_paths`` は recursive Trees API が返す全 blob パス（manifest + source + .tf）。
+        fetch された全パスと (declarations, imported_symbols, partial) を返す
+        （infra 系は ``_patched_collect_full`` で参照する）。
         """
+        decls, imported, partial, _infra, _infra_partial, fetched = (
+            self._patched_collect_full(
+                tree_paths, truncated, file_contents=file_contents
+            )
+        )
+        return decls, imported, partial, fetched
+
+    def _patched_collect_full(self, tree_paths, truncated, *, file_contents=None):
+        """`_collect_repo_signals` の全戻り値（infra 含む）と fetch されたパスを返す。"""
         fetched: list[str] = []
         contents = file_contents or {}
 
@@ -329,10 +339,10 @@ class TestCollectRepoSignals:
                 side_effect=_fetch_repo_file,
             ),
         ):
-            decls, imported, partial = _run(
+            decls, imported, partial, infra, infra_partial = _run(
                 _collect_repo_signals(MagicMock(), "u", "repo", "main")
             )
-        return decls, imported, partial, fetched
+        return decls, imported, partial, infra, infra_partial, fetched
 
     def test_detects_subtree_manifest_and_attaches_source_path(self):
         """サブツリーの manifest を検出し source_path を付与すること（D9 a/f）。"""
@@ -407,3 +417,77 @@ class TestCollectRepoSignals:
         )
         assert "main.go" not in fetched
         assert "go" not in imported
+
+    # ── IaC（.tf）探索（D10）────────────────────────────────────────────────
+
+    def test_detects_tf_and_attaches_source_path(self):
+        """サブツリーの .tf を検出し provider / resource と source_path を付与すること。"""
+        tf = 'provider "aws" {}\nresource "aws_s3_bucket" "b" {}\n'
+        _decls, _imported, _partial, infra, infra_partial, fetched = (
+            self._patched_collect_full(
+                ["infra/modules/s3/main.tf"],
+                False,
+                file_contents={"infra/modules/s3/main.tf": tf},
+            )
+        )
+        assert "infra/modules/s3/main.tf" in fetched
+        assert infra_partial is False
+        providers = {d.provider for d in infra if d.resource_type is None}
+        resources = {d.resource_type for d in infra if d.resource_type}
+        assert providers == {"aws"}
+        assert resources == {"aws_s3_bucket"}
+        assert all(d.source_path == "infra/modules/s3/main.tf" for d in infra)
+
+    def test_dot_terraform_cache_is_excluded(self):
+        """.terraform（provider キャッシュ）配下の .tf は fetch せず捨てること（D10）。"""
+        _decls, _imported, _partial, infra, infra_partial, fetched = (
+            self._patched_collect_full(
+                [".terraform/modules/x/main.tf", "main.tf"],
+                False,
+                file_contents={"main.tf": 'provider "google" {}\n'},
+            )
+        )
+        assert ".terraform/modules/x/main.tf" not in fetched
+        assert infra_partial is False
+        assert {d.provider for d in infra} == {"google"}
+
+    def test_infra_depth_cap_drops_deep_paths_and_marks_infra_partial(self, monkeypatch):
+        """深さ上限超の .tf は落とし infra_partial=True にすること（D10 / D9 c/d）。"""
+        monkeypatch.setattr(github_collector, "_INFRA_MAX_DEPTH", 2)
+        _decls, _imported, _partial, infra, infra_partial, fetched = (
+            self._patched_collect_full(
+                ["main.tf", "a/b/c/main.tf"],
+                False,
+                file_contents={
+                    "main.tf": 'provider "aws" {}\n',
+                    "a/b/c/main.tf": 'provider "google" {}\n',
+                },
+            )
+        )
+        # 深さ2まで（"main.tf" のみ）。"a/b/c/main.tf" は4セグメントで除外。
+        assert fetched == ["main.tf"]
+        assert infra_partial is True
+        assert {d.provider for d in infra} == {"aws"}
+
+    def test_infra_count_cap_marks_infra_partial(self, monkeypatch):
+        """IaC 件数上限で打ち切ると infra_partial=True になること（D10 / D9 c/d）。"""
+        monkeypatch.setattr(github_collector, "_INFRA_MAX_COUNT", 1)
+        _decls, _imported, _partial, _infra, infra_partial, fetched = (
+            self._patched_collect_full(
+                ["sub/a.tf", "b.tf"],
+                False,
+                file_contents={"b.tf": 'provider "aws" {}\n', "sub/a.tf": ""},
+            )
+        )
+        # 浅い順で root の b.tf を優先し 1 件で打ち切る。
+        assert fetched == ["b.tf"]
+        assert infra_partial is True
+
+    def test_truncated_marks_infra_partial(self):
+        """Trees API の truncated は infra_partial にも伝播すること（D10 / D9 d）。"""
+        _decls, _imported, _partial, _infra, infra_partial, _fetched = (
+            self._patched_collect_full(
+                ["main.tf"], True, file_contents={"main.tf": 'provider "aws" {}\n'}
+            )
+        )
+        assert infra_partial is True
