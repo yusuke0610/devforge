@@ -244,11 +244,12 @@ jobs:
             "• *Backend (mutmut)* — killed: ${BE_KILLED} / survived: ${BE_SURVIVED} / score: *${BE_SCORE}%*" \
             "• *Web (Stryker)* — killed: ${WEB_KILLED} / survived: ${WEB_SURVIVED} / score: *${WEB_SCORE}%*" \
             "<${RUN_URL}|→ 実行結果とレポート artifact を開く>")
+          summary="${emoji} Mutation weekly report (${BRANCH})"
+          # GITHUB_OUTPUT のデリミタ行と本文が衝突しないよう run 毎にランダム生成する（他通知 workflow と統一）
+          delim="GHOUT_$(openssl rand -hex 8)"
           {
-            echo "summary=${emoji} Mutation weekly report (${BRANCH})"
-            echo "body<<MUTATION_EOF"
-            echo "$body"
-            echo "MUTATION_EOF"
+            echo "summary<<$delim"; echo "$summary"; echo "$delim"
+            echo "body<<$delim";    echo "$body";    echo "$delim"
           } >> "$GITHUB_OUTPUT"
 
       - name: Slack 通知 (QUALITY)

@@ -19,7 +19,9 @@ jobs:
   notify-deps:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: github.actor == 'renovate[bot]' || github.actor == 'dependabot[bot]'
+    # github.actor は「最後にイベントを起こした actor」でスプーフ可能なため、
+    # PR 作成者（pull_request.user.login）で判定する（zizmor bot-conditions）
+    if: github.event.pull_request.user.login == 'renovate[bot]' || github.event.pull_request.user.login == 'dependabot[bot]'
     env:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_DEPS }}
 
@@ -33,17 +35,18 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_BRANCH: ${{ github.event.pull_request.head.ref }}
-          PR_ACTOR: ${{ github.actor }}
+          PR_ACTOR: ${{ github.event.pull_request.user.login }}
         run: |
+          summary="📦 依存更新 PR: #${PR_NUMBER} ${PR_TITLE}"
           body=$(printf '%s\n' \
             "📦 *${WF_NAME}*: ${PR_ACTOR} が依存更新 PR を起票しました" \
             "> #${PR_NUMBER} ${PR_TITLE} (branch: \`${PR_BRANCH}\`)" \
             "<${PR_URL}|→ PR を開く>")
+          # untrusted 値（PR タイトル）が GITHUB_OUTPUT のデリミタ行と衝突しないよう run 毎にランダム生成する
+          delim="GHOUT_$(openssl rand -hex 8)"
           {
-            echo "summary=📦 依存更新 PR: #${PR_NUMBER} ${PR_TITLE}"
-            echo "body<<DEPS_EOF"
-            echo "$body"
-            echo "DEPS_EOF"
+            echo "summary<<$delim"; echo "$summary"; echo "$delim"
+            echo "body<<$delim";    echo "$body";    echo "$delim"
           } >> "$GITHUB_OUTPUT"
 
       - name: Slack 通知 (依存更新 PR)

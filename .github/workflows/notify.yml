@@ -22,7 +22,8 @@ jobs:
   notify-ci:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: github.event.workflow_run.conclusion == 'failure'
+    # timeout-minutes 到達時の conclusion は failure ではなく timed_out になるため両方拾う
+    if: contains(fromJSON('["failure", "timed_out"]'), github.event.workflow_run.conclusion)
     env:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_CI }}
 
@@ -35,8 +36,12 @@ jobs:
           RUN_ID: ${{ github.event.workflow_run.id }}
           REPO: ${{ github.repository }}
         run: |
-          names=$(gh api "repos/${REPO}/actions/runs/${RUN_ID}/jobs?per_page=100" --paginate \
-            --jq '[.jobs[] | select(.conclusion == "failure") | .name] | join(", ")')
+          # gh api の失敗（rate limit / 一時障害）で通知が黙って欠落しないよう明示チェックする
+          if ! names=$(gh api "repos/${REPO}/actions/runs/${RUN_ID}/jobs?per_page=100" --paginate \
+            --jq '[.jobs[] | select(.conclusion == "failure") | .name] | join(", ")'); then
+            echo "::warning::jobs API の取得に失敗しました（失敗ジョブ名なしで通知します）"
+            names="⚠️ 失敗ジョブ名の取得に失敗しました"
+          fi
           echo "names=${names:-（ジョブ単位の失敗なし）}" >> "$GITHUB_OUTPUT"
 
       - name: 通知メッセージを組み立て
@@ -51,16 +56,17 @@ jobs:
           RUN_URL: ${{ github.event.workflow_run.html_url }}
           FAILED_JOBS: ${{ steps.failed.outputs.names }}
         run: |
+          summary="❌ ${WF_NAME} failed (${BRANCH})"
           body=$(printf '%s\n' \
             "❌ *${WF_NAME}* failed (branch: \`${BRANCH}\` / event: ${EVENT})" \
             "> ${TITLE}" \
             "失敗ジョブ: ${FAILED_JOBS}" \
             "<${RUN_URL}|→ 失敗した Run を開く>")
+          # untrusted 値（display_title 等）が GITHUB_OUTPUT のデリミタ行と衝突しないよう run 毎にランダム生成する
+          delim="GHOUT_$(openssl rand -hex 8)"
           {
-            echo "summary=❌ ${WF_NAME} failed (${BRANCH})"
-            echo "body<<NOTIFY_EOF"
-            echo "$body"
-            echo "NOTIFY_EOF"
+            echo "summary<<$delim"; echo "$summary"; echo "$delim"
+            echo "body<<$delim";    echo "$body";    echo "$delim"
           } >> "$GITHUB_OUTPUT"
 
       - name: Slack 通知 (CI 失敗)
@@ -106,10 +112,14 @@ jobs:
           # 再利用ワークフロー（deploy.yml）内のジョブは "deploy-dev / deploy-web" の
           # 形式で列挙される。"tests / deploy-gate" は startswith にマッチしない。
           # skipped（deploy_gate 不通過・変更なし等）は通知対象にしない。
-          lines=$(gh api "repos/${REPO}/actions/runs/${RUN_ID}/jobs?per_page=100" --paginate \
+          # gh api の失敗でデプロイ結果通知が黙ってスキップ（count=0）されないよう明示チェックする
+          if ! lines=$(gh api "repos/${REPO}/actions/runs/${RUN_ID}/jobs?per_page=100" --paginate \
             --jq '[.jobs[] | select(.name | startswith("deploy-"))
                           | select(.conclusion == "success" or .conclusion == "failure")
-                          | "\(if .conclusion == "success" then "✅" else "❌" end) \(.name)"] | join("\n")')
+                          | "\(if .conclusion == "success" then "✅" else "❌" end) \(.name)"] | join("\n")'); then
+            echo "::warning::jobs API の取得に失敗しました（デプロイ結果を取得できず通知します）"
+            lines="⚠️ deploy ジョブ結果の取得に失敗しました"
+          fi
           count=$(printf '%s' "$lines" | grep -c . || true)
           {
             echo "count=$count"
@@ -130,19 +140,22 @@ jobs:
         run: |
           if printf '%s' "$DEPLOY_LINES" | grep -q '❌'; then
             emoji="❌"
+          elif printf '%s' "$DEPLOY_LINES" | grep -q '⚠️'; then
+            emoji="⚠️"
           else
             emoji="✅"
           fi
+          summary="${emoji} Deploy (${BRANCH})"
           body=$(printf '%s\n' \
             "${emoji} *${WF_NAME}* deploy result (branch: \`${BRANCH}\`)" \
             "> ${TITLE}" \
             "$DEPLOY_LINES" \
             "<${RUN_URL}|→ Run を開く>")
+          # untrusted 値（display_title 等）が GITHUB_OUTPUT のデリミタ行と衝突しないよう run 毎にランダム生成する
+          delim="GHOUT_$(openssl rand -hex 8)"
           {
-            echo "summary=${emoji} Deploy (${BRANCH})"
-            echo "body<<NOTIFY_EOF"
-            echo "$body"
-            echo "NOTIFY_EOF"
+            echo "summary<<$delim"; echo "$summary"; echo "$delim"
+            echo "body<<$delim";    echo "$body";    echo "$delim"
           } >> "$GITHUB_OUTPUT"
 
       # count=0（deploy ジョブが 1 つも実行されなかった run）は通知しない
