@@ -25,8 +25,9 @@ from .github.api_client import (
     fetch_repos_raw,
 )
 from .skills.imports import scanner_for_extension
+from .skills.infra import INFRA_EXTENSIONS, parse_infra
 from .skills.manifests import MANIFEST_FILENAMES, parse_manifest
-from .skills.types import PackageDeclaration
+from .skills.types import InfraResourceDeclaration, PackageDeclaration
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,8 @@ _PATH_EXCLUDE_SEGMENTS = frozenset(
         "dist",
         "build",
         ".git",
+        # D10: Terraform の provider キャッシュ。IaC 探索のノイズになるため除外する。
+        ".terraform",
     }
 )
 # D9(c): manifest パスのセグメント数上限（例: a/b/c/package.json = 4）。
@@ -56,6 +59,10 @@ _MANIFEST_MAX_COUNT = 20
 _SOURCE_MAX_COUNT = 30
 # D6: verify 対象ソースのセグメント数上限（浅い側を優先サンプリング）。
 _SOURCE_MAX_DEPTH = 6
+# D10: IaC（.tf）探索のセグメント数上限。infra/modules/... へ分散するため manifest より深め。
+_INFRA_MAX_DEPTH = 6
+# D10: 1 リポあたり fetch する IaC ファイル件数上限（浅い側を優先サンプリング）。
+_INFRA_MAX_COUNT = 30
 
 # このモジュールの公開 API。``GitHubUserNotFoundError`` は github_link_service が
 # ``from .github_collector import GitHubUserNotFoundError`` で参照するため再エクスポートする。
@@ -87,6 +94,10 @@ class RepoData:
     imported_symbols: Dict[str, set] = field(default_factory=dict)
     # D9(d): ツリー走査（manifest / source）が網羅的でない（truncated / cap で打ち切り）場合 True。
     manifest_scan_partial: bool = False
+    # D10: IaC（.tf）が宣言する provider / resource。未取得なら空。
+    infra_declarations: List[InfraResourceDeclaration] = field(default_factory=list)
+    # D10: IaC 走査が網羅的でない（truncated / cap で打ち切り）場合 True。infra 根拠へ伝播する。
+    infra_scan_partial: bool = False
 
 
 def _is_excluded_path(path: str) -> bool:
@@ -110,15 +121,17 @@ def _select_shallow(paths: List[str], max_depth: int, max_count: int) -> tuple[L
 
 async def _collect_repo_signals(
     client: httpx.AsyncClient, owner: str, repo: str, default_branch: str
-) -> tuple[List[PackageDeclaration], Dict[str, set], bool]:
-    """1 回のツリー取得から declare（manifest）と verify（import 解析）の両シグナルを集める。
+) -> tuple[List[PackageDeclaration], Dict[str, set], bool, List[InfraResourceDeclaration], bool]:
+    """1 回のツリー取得から declare（manifest）・verify（import 解析）・IaC の各シグナルを集める。
 
-    recursive Trees API を **1 回だけ**呼び（D9(a)）、その結果を manifest 探索と source 探索で
-    共有する。manifest は宣言依存（D7・D9）、source は実 import（D6）を抽出する。いずれも
-    除外セグメント（D9(b)）・深さ/件数キャップ（D9(c) / D6 サンプリング）で絞る。取得・解析
-    失敗はベストエフォートで握りつぶす（1 リポの失敗で連携全体を落とさない）。
+    recursive Trees API を **1 回だけ**呼び（D9(a)）、その結果を manifest 探索 / source 探索 /
+    IaC 探索で共有する。manifest は宣言依存（D7・D9）、source は実 import（D6）、IaC は
+    provider / resource（D10）を抽出する。いずれも除外セグメント（D9(b)）・深さ/件数キャップ
+    （D9(c) / D6 サンプリング / D10）で絞る。取得・解析失敗はベストエフォートで握りつぶす
+    （1 リポの失敗で連携全体を落とさない）。
 
-    戻り値は (依存宣言, ecosystem→import名集合, 走査が部分的だったか / D9(d))。
+    戻り値は (依存宣言, ecosystem→import名集合, manifest 走査が部分的か / D9(d),
+    IaC 宣言 / D10, IaC 走査が部分的か / D10)。
     """
     tree_paths, truncated = await fetch_repo_tree(client, owner, repo, default_branch)
 
@@ -166,17 +179,37 @@ async def _collect_repo_signals(
                 scanner.scan(content)
             )
 
+    # ── IaC: .tf を拡張子で抽出して provider / resource を解析する（D10）──────────
+    infra_paths = [
+        p for p in tree_paths if any(p.endswith(ext) for ext in INFRA_EXTENSIONS)
+    ]
+    selected_infra, infra_dropped = _select_shallow(
+        infra_paths, _INFRA_MAX_DEPTH, _INFRA_MAX_COUNT
+    )
+    infra_declarations: List[InfraResourceDeclaration] = []
+    for path in selected_infra:
+        content = await fetch_repo_file(client, owner, repo, path)
+        if not content:
+            continue
+        # D9(f): 検出した相対パスを証跡として各宣言に付与する。生 HCL は解析後に破棄。
+        infra_declarations.extend(
+            replace(decl, source_path=path) for decl in parse_infra(path, content)
+        )
+
     partial = bool(truncated or manifest_dropped or source_dropped)
-    if partial:
+    infra_partial = bool(truncated or infra_dropped)
+    if partial or infra_partial:
         logger.warning(
-            "ツリー走査が部分的: %s/%s (truncated=%s, manifest_dropped=%s, source_dropped=%s)",
+            "ツリー走査が部分的: %s/%s (truncated=%s, manifest_dropped=%s, "
+            "source_dropped=%s, infra_dropped=%s)",
             owner,
             repo,
             truncated,
             manifest_dropped,
             source_dropped,
+            infra_dropped,
         )
-    return declarations, imported_symbols, partial
+    return declarations, imported_symbols, partial, infra_declarations, infra_partial
 
 
 def _passes_filter(raw: dict, include_forks: bool, cutoff_date_str: str) -> bool:
@@ -245,11 +278,17 @@ async def collect_repos(
                 declarations: List[PackageDeclaration] = []
                 imported_symbols: Dict[str, set] = {}
                 scan_partial = False
+                infra_declarations: List[InfraResourceDeclaration] = []
+                infra_scan_partial = False
                 if collect_manifests:
-                    declarations, imported_symbols, scan_partial = (
-                        await _collect_repo_signals(
-                            client, owner_login, repo_name, default_branch
-                        )
+                    (
+                        declarations,
+                        imported_symbols,
+                        scan_partial,
+                        infra_declarations,
+                        infra_scan_partial,
+                    ) = await _collect_repo_signals(
+                        client, owner_login, repo_name, default_branch
                     )
 
                 repos.append(
@@ -267,6 +306,8 @@ async def collect_repos(
                         package_declarations=declarations,
                         imported_symbols=imported_symbols,
                         manifest_scan_partial=scan_partial,
+                        infra_declarations=infra_declarations,
+                        infra_scan_partial=infra_scan_partial,
                     )
                 )
 

@@ -54,6 +54,7 @@ def test_sync_account_normalizes_saved_username_and_removes_stale_articles(
     from app.repositories import BlogArticleRepository, UserRepository
 
     user = UserRepository(db_session).get_by_username("testuser")
+    assert user is not None
     account = BlogAccount(
         user_id=user.id,
         platform="zenn",
@@ -125,6 +126,7 @@ def test_upsert_articles_no_duplicates(client: TestClient, db_session: Session) 
     from app.repositories import BlogArticleRepository, UserRepository
 
     user = UserRepository(db_session).get_by_username("testuser")
+    assert user is not None
     repo = BlogArticleRepository(db_session, user.id)
 
     articles = [

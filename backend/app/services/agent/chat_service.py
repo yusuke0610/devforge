@@ -21,6 +21,7 @@ from ...schemas.agent import (
     AgentOperation,
     AgentProjectContext,
     ExperienceTarget,
+    ProjectTarget,
 )
 from .llm.base import LLMError
 from .llm.factory import get_llm_client
@@ -193,8 +194,8 @@ def _resolve_target_experience(request: AgentChatRequest) -> AgentExperienceCont
 def _resolve_target_project(request: AgentChatRequest) -> AgentProjectContext:
     """target のインデックスから対象プロジェクトを取り出す。範囲外は専用例外。"""
     target = request.target
-    # scope=project のとき target は schema で必須検証済み
-    assert target is not None
+    # scope=project のとき target は schema で ProjectTarget（client_index/project_index 必須）に検証済み
+    assert isinstance(target, ProjectTarget)
     try:
         return (
             request.resume.experiences[target.experience_index]

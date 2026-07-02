@@ -18,6 +18,7 @@ Makefile は `nix develop --command bash -c "..."` でラップ済み。AI は�
 |---|---|
 | CI 相当一括 | `make ci` （= `lint + test + build-web`） |
 | Backend lint | `make lint-backend` |
+| Backend 型チェック | `make typecheck-backend` （pyright。`make lint` に含まれる） |
 | Backend test | `make test-backend` |
 | Frontend lint | `make lint-web` |
 | Frontend test | `make test-web` |

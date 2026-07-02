@@ -12,6 +12,8 @@
 maxLength は JSON Schema 仕様どおり Unicode 文字数（日本語の len() と一致）。
 """
 
+from typing import cast
+
 TOOL_NAME = "propose_revision"
 TOOL_DESCRIPTION = "職務経歴書フィールドの改善案・説明・次の依頼候補を返す"
 
@@ -103,7 +105,8 @@ def to_portable_schema(schema: dict, *, drop_additional_properties: bool = False
     strip_keys = {"maxLength", "maxItems"}
     if drop_additional_properties:
         strip_keys = strip_keys | {"additionalProperties"}
-    portable = _strip_constraints(schema, strip_keys)
+    # _strip_constraints は object を返すが、dict 入力に対しては dict を返す（下で .get / 返却に使う）。
+    portable = cast(dict, _strip_constraints(schema, strip_keys))
     operations = portable.get("properties", {}).get("operations", {})
     items = operations.get("items", {})
     branches = items.get("oneOf")

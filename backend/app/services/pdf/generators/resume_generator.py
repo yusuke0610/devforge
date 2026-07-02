@@ -391,5 +391,8 @@ def build_resume_pdf(resume: dict) -> bytes:
         f"</head><body>{html_body}</body></html>"
     )
 
+    # target 未指定の write_pdf は bytes を返す（None は出力先を渡したときのみ）。
     pdf_bytes = weasyprint.HTML(string=full_html).write_pdf()
+    if pdf_bytes is None:
+        raise RuntimeError("PDF の生成に失敗しました")
     return pdf_bytes

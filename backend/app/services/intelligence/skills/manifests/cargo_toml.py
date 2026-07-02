@@ -16,8 +16,8 @@ _SECTION_KINDS = {
 
 
 class CargoTomlParser:
-    filenames = ("Cargo.toml",)
-    ecosystem = "cargo"
+    filenames: tuple[str, ...] = ("Cargo.toml",)
+    ecosystem: str = "cargo"
 
     def parse(self, content: str) -> list[PackageDeclaration]:
         try:

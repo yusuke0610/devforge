@@ -42,8 +42,17 @@ def _package_of(spec: str) -> str | None:
 
 
 class JsTsImportScanner:
-    extensions = (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".mts", ".cts")
-    ecosystem = "npm"
+    extensions: tuple[str, ...] = (
+        ".js",
+        ".jsx",
+        ".ts",
+        ".tsx",
+        ".mjs",
+        ".cjs",
+        ".mts",
+        ".cts",
+    )
+    ecosystem: str = "npm"
 
     def scan(self, content: str) -> set[str]:
         names: set[str] = set()

@@ -134,6 +134,8 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
                 package_declarations=repo.package_declarations,
                 imported_symbols=repo.imported_symbols,
                 manifest_scan_partial=repo.manifest_scan_partial,
+                infra_declarations=repo.infra_declarations,
+                infra_scan_partial=repo.infra_scan_partial,
             )
             for repo in repos
         ]

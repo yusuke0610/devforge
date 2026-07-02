@@ -17,8 +17,8 @@ _IMPORT_SINGLE_RE = re.compile(r'^[ \t]*import[ \t]+(?:[\w.]+[ \t]+)?"([^"]+)"',
 
 
 class GoImportScanner:
-    extensions = (".go",)
-    ecosystem = "go"
+    extensions: tuple[str, ...] = (".go",)
+    ecosystem: str = "go"
 
     def scan(self, content: str) -> set[str]:
         paths: set[str] = set()

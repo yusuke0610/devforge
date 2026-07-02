@@ -75,11 +75,6 @@ async def add_account(
             status_code=502,
             detail=get_error("blog.account_check_failed"),
         ) from exc
-    except BlogAccountNotFoundError as exc:
-        raise HTTPException(
-            status_code=404,
-            detail=get_error("blog.account_not_found"),
-        ) from exc
 
 
 @router.patch("/accounts/{platform}", response_model=BlogAccountResponse)

@@ -9,8 +9,8 @@ from ._pep508 import extract_package_name
 
 
 class RequirementsTxtParser:
-    filenames = ("requirements.txt",)
-    ecosystem = "pypi"
+    filenames: tuple[str, ...] = ("requirements.txt",)
+    ecosystem: str = "pypi"
 
     def parse(self, content: str) -> list[PackageDeclaration]:
         declarations: list[PackageDeclaration] = []

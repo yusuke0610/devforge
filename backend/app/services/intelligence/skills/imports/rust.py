@@ -20,8 +20,8 @@ _NON_CRATE = frozenset({"crate", "self", "super", "std", "core", "alloc"})
 
 
 class RustImportScanner:
-    extensions = (".rs",)
-    ecosystem = "cargo"
+    extensions: tuple[str, ...] = (".rs",)
+    ecosystem: str = "cargo"
 
     def scan(self, content: str) -> set[str]:
         names = set(_USE_RE.findall(content)) | set(_EXTERN_RE.findall(content))

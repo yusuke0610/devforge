@@ -1,7 +1,7 @@
 """GitHub 連携スキル推論基盤（ADR-0016）。
 
-discover（言語 / Linguist）+ declare（manifest 宣言）を合流し、3 層モデルへ投入する
-中間表現を組み立てる。verify（import 解析）は後続フェーズ。
+discover（言語 / Linguist）+ declare（manifest 宣言）+ verify（import 解析）を合流し、
+3 層モデルへ投入する中間表現を組み立てる。
 """
 
 from .aggregator import (
@@ -10,11 +10,12 @@ from .aggregator import (
     RepoSkillInput,
     aggregate_skills,
 )
-from .types import PackageDeclaration
+from .types import InfraResourceDeclaration, PackageDeclaration
 
 __all__ = [
     "DetectedSkill",
     "EvidenceRecord",
+    "InfraResourceDeclaration",
     "PackageDeclaration",
     "RepoSkillInput",
     "aggregate_skills",

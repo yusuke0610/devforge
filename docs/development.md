@@ -120,9 +120,10 @@ make ci          # lint + test + build-web
 ### バックエンド
 
 ```bash
-make lint-backend    # ruff check（app / tests / alembic_migrations）
-make test-backend    # pytest -q tests
-make lint-fix        # ruff --fix（自動修正）
+make lint-backend       # ruff check（app / tests / alembic_migrations）
+make typecheck-backend  # pyright 型チェック（make lint に含まれる）
+make test-backend       # pytest -q tests
+make lint-fix           # ruff --fix（自動修正）
 ```
 
 特定ファイルだけ ruff したい場合:
@@ -130,6 +131,8 @@ make lint-fix        # ruff --fix（自動修正）
 ```bash
 nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check <path>"
 ```
+
+> **pyright の前提**: 型チェックは `backend/pyproject.toml` の `[tool.pyright]`（`venv=".venv"`）を参照するため、事前に `make install-backend` で `backend/.venv` へ依存を入れておくこと。バージョンは CI（`.github/workflows/test.yml`）と Makefile でピン留めを揃えている。
 
 ### フロントエンド（ユニット・ビルド）
 

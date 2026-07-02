@@ -167,6 +167,7 @@ def test_update_blog_account_resets_articles_and_sync_state(
     from app.repositories import BlogArticleRepository, UserRepository
 
     user = UserRepository(db_session).get_by_username("testuser")
+    assert user is not None
     account_repo = BlogAccountRepository(db_session, user.id)
     account = account_repo.get_by_id(account_id)
     assert account is not None
@@ -249,6 +250,7 @@ def test_list_blog_articles_returns_platform_and_tags(
     from app.repositories import BlogArticleRepository, UserRepository
 
     user = UserRepository(db_session).get_by_username("testuser")
+    assert user is not None
     repo = BlogArticleRepository(db_session, user.id)
     repo.upsert_many(
         [

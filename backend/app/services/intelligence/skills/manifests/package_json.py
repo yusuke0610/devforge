@@ -19,8 +19,8 @@ _BLOCK_KINDS = {
 
 
 class PackageJsonParser:
-    filenames = ("package.json",)
-    ecosystem = "npm"
+    filenames: tuple[str, ...] = ("package.json",)
+    ecosystem: str = "npm"
 
     def parse(self, content: str) -> list[PackageDeclaration]:
         try:

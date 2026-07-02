@@ -15,8 +15,8 @@ _REQUIRE_LINE = re.compile(
 
 
 class GoModParser:
-    filenames = ("go.mod",)
-    ecosystem = "go"
+    filenames: tuple[str, ...] = ("go.mod",)
+    ecosystem: str = "go"
 
     def parse(self, content: str) -> list[PackageDeclaration]:
         declarations: list[PackageDeclaration] = []
