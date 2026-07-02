@@ -32,16 +32,18 @@ _MALICIOUS_OWNERS = [
 
 
 def _run(coro):
-    """既存テストの event loop 前提を壊さず非同期関数を実行する。"""
-    original = asyncio.get_event_loop_policy().get_event_loop()
+    """async 関数を専用 event loop で同期実行する（グローバル loop を触らない）。
+
+    mutmut 3.x は同一プロセスで pytest スイートを複数回実行するため、
+    ``asyncio.set_event_loop`` / ``get_event_loop`` でグローバル loop 状態に
+    触れると実行間に汚染が漏れて clean test が落ちる。ローカル loop を作って
+    閉じるだけの分離パターンにして反復実行に対して冪等にする。
+    """
     loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
     try:
         return loop.run_until_complete(coro)
     finally:
         loop.close()
-        # 一時 loop を閉じたら元の loop へ戻す（新規 loop を作って放置すると leak する）。
-        asyncio.set_event_loop(original)
 
 
 @pytest.mark.parametrize("bad", _MALICIOUS_OWNERS)

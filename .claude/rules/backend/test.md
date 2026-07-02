@@ -50,3 +50,4 @@ pytest は標準 SQLite + `Base.metadata.create_all` で動くため、**本番�
 - `try / except Exception: pass` をテストコード内で使う（失敗を隠す）
 - `time.sleep` での同期待ち（フレーキーになる。`AsyncMock` / `monkeypatch` を使う）
 - 過剰モック: SQLAlchemy セッション全体をモックする等。実 DB セッションを使うこと
+- **テストで `asyncio.set_event_loop` / `get_event_loop`（グローバル event loop）を触る**: mutmut 3.x は同一プロセスでスイートを複数回実行するため、グローバル loop 状態が実行間に漏れて clean test が `RuntimeError: There is no current event loop` で落ちる（`make mutation-backend` が `Failed to run clean test` で停止した実績）。async は `loop = asyncio.new_event_loop(); try: loop.run_until_complete(...); finally: loop.close()` の分離パターンで実行する（グローバル loop を設定・復元しない）
