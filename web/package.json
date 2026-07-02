@@ -11,6 +11,7 @@
     "test:unit": "tsc --target ES2020 --module CommonJS --moduleResolution Node --strict --skipLibCheck --outDir .test-dist --rootDir src src/payloadBuilders.ts && node -e \"require('node:fs').writeFileSync('.test-dist/package.json', '{\\\"type\\\":\\\"commonjs\\\"}')\" && node --test tests/payloadBuilders.test.cjs",
     "test:vitest": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:mutation": "stryker run",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "lint": "eslint src/",
@@ -34,6 +35,8 @@
   "devDependencies": {
     "@eslint/js": "^10.0.0",
     "@playwright/test": "^1.56.0",
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/vitest-runner": "^9.6.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
