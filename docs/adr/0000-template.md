@@ -4,6 +4,14 @@
 
 [Proposed / Accepted / Deprecated / Superseded by ADR-XXXX]
 
+## 関連 ADR
+
+[無ければ「なし」。索引（README.md）の「置き換え・関連」列と整合させる]
+
+- Supersedes: [この ADR が置き換える旧 ADR。無ければ省略]
+- Superseded by: [この ADR を置き換えた新 ADR。無ければ省略]
+- 関連: [前提・踏襲・強結合の関係にある ADR と、その関係の一言説明]
+
 ## コンテキスト
 
 [意思決定が必要になった背景・制約・課題]

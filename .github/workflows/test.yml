@@ -157,6 +157,11 @@ jobs:
       - name: Lint SSoT (env names / error codes)
         run: bash scripts/lint-env-keys.sh
 
+      # ADR 索引（docs/adr/README.md）↔ ADR ファイルの drift 検知。
+      # 一覧の複製（旧 CONTRIBUTING の表）が陳腐化した再発防止。bash/grep/comm のみ。
+      - name: Lint SSoT (ADR index)
+        run: bash scripts/lint-adr-index.sh
+
       - name: Install uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:

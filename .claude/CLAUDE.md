@@ -206,10 +206,10 @@ backend 内で `os.getenv("XXX")` のように文字列リテラル直接参照�
 
 ## ADR（Architecture Decision Record）
 
-技術選定・アーキテクチャ判断を行う際は必ず `docs/adr/` を確認し、既存の判断と矛盾しない実装を行うこと。
+技術選定・アーキテクチャ判断を行う際は必ず ADR 索引（`docs/adr/README.md`）から関連 ADR を辿り、既存の判断と矛盾しない実装を行うこと。索引にはテーマ別の決定系統（どの判断がどれを置き換え・前提にしているか）がまとまっている。
 
-新たに重要な技術判断を行う場合は `CONTRIBUTING.md` の ADR 運用ルールに従い、ADR を作成してから実装を開始する。
+新たに重要な技術判断を行う場合は `CONTRIBUTING.md` の ADR 運用ルールに従い、ADR を作成してから実装を開始する。**ADR の新規作成・ステータス変更をしたら、同じ PR で索引も更新する**（存在・ステータス・見出し番号の整合は `make lint-adr-index` が CI で検証する）。
 
-- ADR 一覧: `docs/adr/`
+- ADR 索引（一覧・テーマ・決定系統の正本）: `docs/adr/README.md`
 - テンプレート: `docs/adr/0000-template.md`
 - 運用ルール: `CONTRIBUTING.md`
