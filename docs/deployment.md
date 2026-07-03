@@ -149,13 +149,14 @@ Secret Manager は secret 本体だけでなく secret version が必要です�
 - `devforge-<env>-jwt-private-key` / `devforge-<env>-jwt-public-key`（`make generate-keys` で生成）
 - `devforge-<env>-internal-secret`
 - `devforge-<env>-turso-auth-token`
-- `devforge-<env>-anthropic-api-key`（DevForge Agent の Claude haiku / sonnet 用 / ADR-0010・0013）
 - `devforge-<env>-stripe-secret-key` / `devforge-<env>-stripe-webhook-secret`（クレジット課金 / ADR-0012 Phase 2）
 
 以下は条件付きで、有効化した環境だけ version を追加すれば足ります（無効なら未投入でもデプロイ・起動可能）。
 
 - GitHub OAuth（`enable_github_oauth = true`）: `devforge-<env>-github-client-id` / `devforge-<env>-github-client-secret`
-- Gemini / OpenAI（`enable_extra_llm_providers = true` / ADR-0013）: `devforge-<env>-google-api-key` / `devforge-<env>-openai-api-key`
+- OpenAI（`enable_extra_llm_providers = true` / ADR-0013）: `devforge-<env>-openai-api-key`
+
+Anthropic（Claude）と Gemini は Vertex AI（サービスアカウント → ADC 認証）経由のため API キーの secret は不要です（ADR-0015 で `anthropic-api-key` / `google-api-key` の注入を廃止済み）。
 
 ### 運用ルール
 

@@ -113,7 +113,10 @@ description: Use when running a security review / vulnerability check against th
 
 ### 5. LLM プロンプトのサニタイズ
 
-- 本プロジェクトは LLM 連携を廃止済み（ADR-0008）。現状この観点は該当なし。将来 LLM 連携を再導入する場合のみ、ユーザー由来文字列をプロンプトに埋め込む際のサニタイズ要否を検討する
+- DevForge Agent（ADR-0010 で LLM を対話型機能として再導入。マルチプロバイダ = ADR-0013、Vertex AI 経由 = ADR-0015）がユーザー由来文字列（経歴書フィールド・チャット入力）をプロンプトへ埋め込む
+- `backend/app/services/agent/context_builder.py` でのユーザー入力の埋め込み方（区切り・エスケープ・指示との分離）を確認する
+- プロンプト正本 `backend/app/prompts/agent_*.md` は静的維持が原則（`.claude/rules/backend/agent.md`）。動的にユーザー文字列を連結する変更が入っていないか確認する
+- LLM 出力の取り扱い: 構造化出力（`output_schema.py`）を素通しで DB へ書き込んでいないか（Agent は DB 非更新原則）
 
 ### 6. Frontend XSS
 
