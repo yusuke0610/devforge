@@ -17,6 +17,8 @@
 #   (4) ステータス突合: 各 ADR の「## ステータス」直後の値と索引のステータス列が
 #       一致するか。加えて「現在有効な決定」表の集合が Accepted の集合と一致するか
 #       （supersede / deprecate 時の索引更新忘れを止める）。
+#   (5) タイトル整合: 「全 ADR 一覧」表と「現在有効な決定」表の両方に載っている ADR で、
+#       タイトル列が一致するか（片方だけリネームして更新し忘れる drift を検知する）。
 #
 # 対象外（意図的）:
 #   - テーマ・「置き換え・関連」列・決定系統図（Mermaid）: 人間の編集価値が本体で、
@@ -57,8 +59,9 @@ done
 # セクション見出しで表を区別する（両表とも行は `| [ADR-NNNN](./file.md) | ...`）。
 index_all_rows=$(awk '/^## 全 ADR 一覧/{flag=1; next} /^## /{flag=0} flag' "$INDEX" \
   | grep -E '^\| \[ADR-[0-9]{4}\]' || true)
-index_accepted_nums=$(awk '/^## 現在有効な決定/{flag=1; next} /^## /{flag=0} flag' "$INDEX" \
-  | grep -E '^\| \[ADR-[0-9]{4}\]' | sed -E 's/^\| \[ADR-([0-9]{4})\].*/\1/' | sort -u || true)
+index_accepted_rows=$(awk '/^## 現在有効な決定/{flag=1; next} /^## /{flag=0} flag' "$INDEX" \
+  | grep -E '^\| \[ADR-[0-9]{4}\]' || true)
+index_accepted_nums=$(printf '%s\n' "$index_accepted_rows" | sed -E 's/^\| \[ADR-([0-9]{4})\].*/\1/' | sort -u)
 
 index_all_nums=$(printf '%s\n' "$index_all_rows" | sed -E 's/^\| \[ADR-([0-9]{4})\].*/\1/' | sort -u)
 file_nums=$(ls "$ADR_DIR" | sed -nE 's/^([0-9]{4})-.*\.md$/\1/p' | grep -v '^0000$' | sort -u)
@@ -105,6 +108,17 @@ for num in $file_nums; do
     echo "ERROR: ADR-$num のステータスが索引と一致しません（ファイル: '$file_status' / 索引: '$index_status'）。" >&2
     fail=1
   fi
+
+  # (5) タイトル整合: 両表に載っている場合のみ比較（片方のみの場合は (2)(3)(4) が既に検知）
+  index_all_title=$(printf '%s\n' "$index_all_rows" \
+    | grep -E "^\| \[ADR-$num\]" | awk -F'|' '{gsub(/^ +| +$/, "", $3); print $3}' || true)
+  index_accepted_title=$(printf '%s\n' "$index_accepted_rows" \
+    | grep -E "^\| \[ADR-$num\]" | awk -F'|' '{gsub(/^ +| +$/, "", $3); print $3}' || true)
+  if [ -n "$index_all_title" ] && [ -n "$index_accepted_title" ] && [ "$index_all_title" != "$index_accepted_title" ]; then
+    echo "ERROR: ADR-$num のタイトルが索引の表間で一致しません（全 ADR 一覧: '$index_all_title' / 現在有効な決定: '$index_accepted_title'）。" >&2
+    fail=1
+  fi
+
   if [ "$file_status" = "Accepted" ]; then
     accepted_file_nums="$accepted_file_nums$num"$'\n'
   fi
