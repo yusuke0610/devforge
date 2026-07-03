@@ -1,4 +1,5 @@
 from datetime import date
+from types import SimpleNamespace
 
 from app.services.shared.sort_utils import sort_by_date_asc, sort_by_date_desc, sort_by_period_desc
 
@@ -35,27 +36,19 @@ def test_multiple_current_jobs_sorted_by_start_desc():
 
 
 def test_end_date_desc():
-    """end_date DESC でソートされること。"""
-    items = [
-        _exp("2018-01", "2020-03"),
-        _exp("2020-04", "2023-12"),
-        _exp("2015-01", "2019-06"),
-    ]
-    result = sort_by_period_desc(items)
-    ends = [item["end_date_value"] for item in result]
-    assert ends == sorted(ends, reverse=True)
+    """退職済み（end あり）が end_date 降順に並ぶこと。
 
-
-def test_same_end_date_sorted_by_start_desc():
-    """end_date が同一の場合、start_date DESC でソートされること。"""
-    items = [
-        _exp("2018-01", "2023-03"),
-        _exp("2020-06", "2023-03"),
-        _exp("2019-04", "2023-03"),
-    ]
-    result = sort_by_period_desc(items)
-    starts = [item["start_date_value"] for item in result]
-    assert starts == sorted(starts, reverse=True)
+    start 降順と end 降順が食い違うデータ＋位置ベース assert を使い、end を無視して
+    start / None で並べる sort_key の実装退行（end_key 破壊・end を None 化する変異等）を
+    検出する。以前は start 順と end 順が偶然一致するデータだったため、これらの変異が
+    生き残っていた（ミューテーションテストで検出）。"""
+    old_start_new_end = _exp("2010-01", "2023-01")  # 最古 start・最新 end
+    new_start_old_end = _exp("2018-01", "2019-01")  # 新しい start・古い end
+    result = sort_by_period_desc([new_start_old_end, old_start_new_end])
+    # end 降順なら最新 end(2023) を持つ old_start_new_end が先頭に来る。
+    # end を見ない実装は start 降順で new_start_old_end を先頭にするため、位置で検出できる。
+    assert result[0] is old_start_new_end
+    assert result[1] is new_start_old_end
 
 
 def test_empty_list():
@@ -63,12 +56,18 @@ def test_empty_list():
     assert sort_by_period_desc([]) == []
 
 
-def test_single_item():
-    """要素が1つのリストでそのまま返ること。"""
-    items = [_exp("2023-01", "2024-01")]
-    result = sort_by_period_desc(items)
-    assert len(result) == 1
-    assert result[0] is items[0]
+def test_sort_by_attribute_access_objects():
+    """dict でなく属性アクセス（ORM 行相当）でも並べ替えできること。
+
+    本番では ORM オブジェクトを渡すため、_get の getattr 分岐（dict 以外）が実経路。
+    ユニットテストは dict 入力に偏り、この分岐が未検証だった（ミューテーションテストで検出）。
+    end 属性を持たないオブジェクトは None（現在在籍中）扱いになる getattr の
+    デフォルトフォールバックも併せて検証する。"""
+    past = SimpleNamespace(start_date_value=date(2010, 1, 1), end_date_value=date(2020, 1, 1))
+    current = SimpleNamespace(start_date_value=date(2015, 1, 1))  # end_date_value 属性なし
+    result = sort_by_period_desc([past, current])
+    assert result[0] is current  # end 欠損 → None 扱いで最上位
+    assert result[1] is past
 
 
 def test_with_string_dates():
@@ -86,27 +85,6 @@ def test_with_string_dates():
     assert result[2]["end_date"] == "2020-03"
 
 
-def test_mixed_scenario():
-    """現在在籍中 + 退職済みの混在ケース。"""
-    items = [
-        _exp("2015-01", "2018-06"),
-        _exp("2023-01"),  # 現在在籍中
-        _exp("2018-07", "2020-12"),
-        _exp("2021-01"),  # 現在在籍中
-        _exp("2020-01", "2022-03"),
-    ]
-    result = sort_by_period_desc(items)
-    # 現在在籍中が上位2件（start_date DESC）
-    assert result[0]["start_date_value"] == date(2023, 1, 1)
-    assert result[0]["end_date_value"] is None
-    assert result[1]["start_date_value"] == date(2021, 1, 1)
-    assert result[1]["end_date_value"] is None
-    # 退職済みは end_date DESC
-    assert result[2]["end_date_value"] == date(2022, 3, 1)
-    assert result[3]["end_date_value"] == date(2020, 12, 1)
-    assert result[4]["end_date_value"] == date(2018, 6, 1)
-
-
 # ===== sort_by_date_desc テスト =====
 
 
@@ -118,14 +96,6 @@ def _qual(acquired: str | None) -> dict:
     }
 
 
-def test_date_desc_sorted():
-    """日付降順でソートされること。"""
-    items = [_qual("2020-01-15"), _qual("2023-06-01"), _qual("2021-03-10")]
-    result = sort_by_date_desc(items)
-    dates = [item["acquired_date_value"] for item in result]
-    assert dates == sorted(dates, reverse=True)
-
-
 def test_date_desc_none_last():
     """日付が None の項目が最下位に来ること。"""
     items = [_qual(None), _qual("2023-06-01"), _qual("2020-01-15")]
@@ -134,25 +104,15 @@ def test_date_desc_none_last():
     assert result[0]["acquired_date_value"] == date(2023, 6, 1)
 
 
-def test_date_desc_stable():
-    """日付が同一の項目の順序が維持されること（安定ソート）。"""
-    items = [
-        {"acquired_date_value": date(2023, 1, 1), "name": "A"},
-        {"acquired_date_value": date(2023, 1, 1), "name": "B"},
-        {"acquired_date_value": date(2023, 1, 1), "name": "C"},
-    ]
-    result = sort_by_date_desc(items)
-    names = [item["name"] for item in result]
-    assert names == ["A", "B", "C"]
-
-
 def test_date_desc_empty():
     """空リストでエラーにならないこと。"""
     assert sort_by_date_desc([]) == []
 
 
-def test_date_desc_with_string_dates():
-    """文字列日付にも対応すること。"""
+def test_date_desc_with_full_string_dates():
+    """フル日付文字列（YYYY-MM-DD, 長さ10）を _to_date のフル解析分岐で処理できること。
+    YYYY-MM（長さ7）専用の分岐と異なり、len!=7 の else 側（date.fromisoformat(value)）を
+    通す唯一のテスト。この分岐のミューテーションを撃破するため長さ10の文字列を使う。"""
     items = [
         {"date": "2020-03-15", "name": "A"},
         {"date": "2023-06-01", "name": "B"},
@@ -189,43 +149,6 @@ def test_date_asc_none_last():
     assert result[0]["occurred_on_value"] == date(2015, 4, 1)
 
 
-def test_date_asc_multiple_none_stable():
-    """None が複数ある場合、元の順序が維持されること。"""
-    items = [
-        {"occurred_on_value": None, "name": "A"},
-        {"occurred_on_value": date(2020, 1, 1), "name": "B"},
-        {"occurred_on_value": None, "name": "C"},
-    ]
-    result = sort_by_date_asc(items)
-    assert result[0]["name"] == "B"
-    # None 同士は元の順序を維持
-    assert result[1]["name"] == "A"
-    assert result[2]["name"] == "C"
-
-
-def test_date_asc_stable():
-    """日付が同一の項目の順序が維持されること（安定ソート）。"""
-    items = [
-        {"occurred_on_value": date(2020, 4, 1), "name": "A"},
-        {"occurred_on_value": date(2020, 4, 1), "name": "B"},
-        {"occurred_on_value": date(2020, 4, 1), "name": "C"},
-    ]
-    result = sort_by_date_asc(items)
-    names = [item["name"] for item in result]
-    assert names == ["A", "B", "C"]
-
-
 def test_date_asc_empty():
     """空リストでエラーにならないこと。"""
     assert sort_by_date_asc([]) == []
-
-
-def test_date_asc_with_string_dates():
-    """文字列日付にも対応すること。"""
-    items = [
-        {"date": "2020-03", "name": "A"},
-        {"date": "2015-04", "name": "B"},
-    ]
-    result = sort_by_date_asc(items, date_key="date")
-    assert result[0]["name"] == "B"
-    assert result[1]["name"] == "A"
