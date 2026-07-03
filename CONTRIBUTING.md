@@ -38,6 +38,9 @@
 
 迷ったら書く。小さすぎる判断に ADR は不要ですが、書きすぎて困ることはありません。
 
+新しい ADR を書くときは [`docs/design-principles.md`](docs/design-principles.md)（既存 ADR から抽出した設計原則）を確認し、
+テンプレートの「設計原則との関係」欄でどの原則に沿う/反する判断かを明記してください。原則自体を変える判断も ADR 経由で行います。
+
 ### ファイル命名規則
 
 ```
@@ -64,20 +67,9 @@ docs/adr/XXXX-kebab-case-title.md
 1. 新しい ADR を作成し、ステータスを `Accepted` にする
 2. 古い ADR のステータスを `Superseded by ADR-XXXX` に変更する
 3. 古い ADR の本文末尾に変更の経緯を一行追記する
+4. [`docs/adr/README.md`](docs/adr/README.md) の索引（ステータス列・「置き換え・関連」列・決定系統図）を更新する
 
-### 既存の ADR 一覧
+### ADR 一覧（索引）
 
-| No. | タイトル | ステータス |
-|---|---|---|
-| [ADR-0001](docs/adr/0001-sqlite-gcs-backup.md) | SQLite + GCS バックアップ方式の採用 | Accepted |
-| [ADR-0002](docs/adr/0002-jwt-cookie-auth.md) | JWT + Cookie 認証方式の採用 | Accepted |
-| [ADR-0003](docs/adr/0003-redux-toolkit-persist.md) | Redux Toolkit + redux-persist の採用 | Accepted |
-| [ADR-0004](docs/adr/0004-llm-provider-abstraction.md) | LLM プロバイダ抽象化（Ollama/Vertex AI） | Superseded by ADR-0008 |
-| [ADR-0005](docs/adr/0005-cloudrun-single-instance.md) | Cloud Run single instance 構成の採用 | Accepted |
-| [ADR-0006](docs/adr/0006-tanstack-query.md) | TanStack Query 導入検討 | Proposed |
-| [ADR-0007](docs/adr/0007-openapi-typescript-codegen.md) | OpenAPI → TypeScript 型生成（codegen-drift CI） | Accepted |
-| [ADR-0008](docs/adr/0008-remove-llm-to-rule-based-design.md) | LLM プロバイダ抽象化の撤去とルールベース設計への統一 | Superseded by ADR-0010 |
-| [ADR-0009](docs/adr/0009-frontend-toast-notification.md) | フロントエンドのトースト通知統一 | Accepted |
-| [ADR-0011](docs/adr/0011-frontend-textlint-proofread.md) | フロントエンド完結型文章校正（textlint） | Deprecated |
-| [ADR-0010](docs/adr/0010-devforge-agent.md) | DevForge Agent 機能の導入 | Accepted |
-| [ADR-0016](docs/adr/0016-github-skill-inference.md) | GitHub 連携によるスキル推論基盤（3 層モデル） | Accepted |
+ADR の一覧・テーマ・置き換え/関連の正本は [`docs/adr/README.md`](docs/adr/README.md) です（ここには複製しない）。
+新規作成・ステータス変更時は同じ PR で索引を更新してください。索引とファイルの整合は CI（`make lint-adr-index`）で検証されます。
