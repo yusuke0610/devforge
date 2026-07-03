@@ -26,26 +26,27 @@
 ## 全 ADR 一覧
 
 ステータスの定義と変更手順は [CONTRIBUTING.md](../../CONTRIBUTING.md) を参照。
+「原則」列（P1〜P7）はその ADR の中心的な判断軸で、定義と対応マトリクスは [docs/design-principles.md](../design-principles.md) を参照。
 
-| No. | タイトル | ステータス | テーマ | 置き換え・関連 |
-|---|---|---|---|---|
-| [ADR-0001](./0001-sqlite-gcs-backup.md) | SQLite + GCS バックアップ方式の採用 | Deprecated | 基盤 | Turso (libSQL) 移行で廃止。関連: 0005（同時移行前提の強結合） |
-| [ADR-0002](./0002-jwt-cookie-auth.md) | JWT + Cookie 認証方式の採用 | Accepted | 基盤 | — |
-| [ADR-0003](./0003-redux-toolkit-persist.md) | Redux Toolkit + redux-persist の採用 | Accepted | フロントエンド | 関連: 0006（責務境界・PII 方針を踏襲） |
-| [ADR-0004](./0004-llm-provider-abstraction.md) | LLM プロバイダ抽象化（Ollama/Vertex AI）の設計判断 | Superseded by ADR-0008 | LLM / Agent | 0008 が撤去。dev/prod 分離思想は 0010 が再利用 |
-| [ADR-0005](./0005-cloudrun-single-instance.md) | Cloud Run single instance 構成の採用 | Accepted | 基盤 | 関連: 0001（制約の起点）、0012（単一インスタンス前提の原子的 UPDATE） |
-| [ADR-0006](./0006-tanstack-query.md) | TanStack Query 導入検討 | Deprecated | フロントエンド | パイロット未実施で見送り。関連: 0003 |
-| [ADR-0007](./0007-openapi-typescript-codegen.md) | OpenAPI → TypeScript 型コード生成の導入（完全移行） | Accepted | 開発プロセス / 品質 | 関連: 0010（Agent の型契約も codegen 経由） |
-| [ADR-0008](./0008-remove-llm-to-rule-based-design.md) | LLM プロバイダ抽象化の撤去とルールベース設計への統一 | Superseded by ADR-0010 | LLM / Agent | Supersedes: 0004。0010 が「将来の移行条件」の手続きに従い再導入 |
-| [ADR-0009](./0009-frontend-toast-notification.md) | フロントエンドの一時通知をトースト方式に統一する | Accepted | フロントエンド | — |
-| [ADR-0010](./0010-devforge-agent.md) | DevForge Agent 機能の導入 | Accepted | LLM / Agent | Supersedes: 0008。関連: 0004（積み残しリスクを設計段階で解消）、0007 |
-| [ADR-0011](./0011-frontend-textlint-proofread.md) | 職務経歴書のフロントエンド完結型 文章校正（textlint + kuromoji） | Deprecated | フロントエンド | 実装後に運用不要と判断し撤去。関連: 0008（PII 非送信・ルールベース志向） |
-| [ADR-0012](./0012-agent-model-switching-and-prepaid-billing.md) | Agent モデル切り替えとプリペイドクレジット課金 | Accepted | LLM / Agent | 関連: 0010（チャット契約）、0005（原子的 UPDATE の前提） |
-| [ADR-0013](./0013-multi-provider-llm-selection.md) | マルチプロバイダ LLM（ユーザー選択式） | Accepted | LLM / Agent | 関連: 0010（切替 1 箇所の原則を維持）、0012（課金・model_catalog） |
-| [ADR-0014](./0014-renovate-dependency-automation.md) | Renovate による依存更新の自動化 | Accepted | 開発プロセス / 品質 | 関連: 0017（Actions の SHA ピン運用） |
-| [ADR-0015](./0015-vertex-ai-for-gemini-anthropic.md) | Gemini / Anthropic を Vertex AI（SA→ADC）経由にする | Accepted | LLM / Agent | 0013 の認証部分を更新。関連: 0010、0012 |
-| [ADR-0016](./0016-github-skill-inference.md) | GitHub 連携によるスキル推論基盤 | Accepted | LLM / Agent | 関連: 0010（責務分離の元思想）、0013、0015 |
-| [ADR-0017](./0017-mutation-testing-and-slack-notifications.md) | ミューテーションテスト週次実行と Slack 通知チャンネル分割 | Accepted | 開発プロセス / 品質 | 関連: 0014 |
+| No. | タイトル | ステータス | テーマ | 置き換え・関連 | 原則 |
+|---|---|---|---|---|---|
+| [ADR-0001](./0001-sqlite-gcs-backup.md) | SQLite + GCS バックアップ方式の採用 | Deprecated | 基盤 | Turso (libSQL) 移行で廃止。関連: 0005（同時移行前提の強結合） | P1 |
+| [ADR-0002](./0002-jwt-cookie-auth.md) | JWT + Cookie 認証方式の採用 | Accepted | 基盤 | — | P2 |
+| [ADR-0003](./0003-redux-toolkit-persist.md) | Redux Toolkit + redux-persist の採用 | Accepted | フロントエンド | 関連: 0006（責務境界・PII 方針を踏襲） | P2 |
+| [ADR-0004](./0004-llm-provider-abstraction.md) | LLM プロバイダ抽象化（Ollama/Vertex AI）の設計判断 | Superseded by ADR-0008 | LLM / Agent | 0008 が撤去。dev/prod 分離思想は 0010 が再利用 | P6 |
+| [ADR-0005](./0005-cloudrun-single-instance.md) | Cloud Run single instance 構成の採用 | Accepted | 基盤 | 関連: 0001（制約の起点）、0012（単一インスタンス前提の原子的 UPDATE） | P1 |
+| [ADR-0006](./0006-tanstack-query.md) | TanStack Query 導入検討 | Deprecated | フロントエンド | パイロット未実施で見送り。関連: 0003 | P6 |
+| [ADR-0007](./0007-openapi-typescript-codegen.md) | OpenAPI → TypeScript 型コード生成の導入（完全移行） | Accepted | 開発プロセス / 品質 | 関連: 0010（Agent の型契約も codegen 経由） | P3 |
+| [ADR-0008](./0008-remove-llm-to-rule-based-design.md) | LLM プロバイダ抽象化の撤去とルールベース設計への統一 | Superseded by ADR-0010 | LLM / Agent | Supersedes: 0004。0010 が「将来の移行条件」の手続きに従い再導入 | P5・P6 |
+| [ADR-0009](./0009-frontend-toast-notification.md) | フロントエンドの一時通知をトースト方式に統一する | Accepted | フロントエンド | — | P6 |
+| [ADR-0010](./0010-devforge-agent.md) | DevForge Agent 機能の導入 | Accepted | LLM / Agent | Supersedes: 0008。関連: 0004（積み残しリスクを設計段階で解消）、0007 | P4・P5 |
+| [ADR-0011](./0011-frontend-textlint-proofread.md) | 職務経歴書のフロントエンド完結型 文章校正（textlint + kuromoji） | Deprecated | フロントエンド | 実装後に運用不要と判断し撤去。関連: 0008（PII 非送信・ルールベース志向） | P2 |
+| [ADR-0012](./0012-agent-model-switching-and-prepaid-billing.md) | Agent モデル切り替えとプリペイドクレジット課金 | Accepted | LLM / Agent | 関連: 0010（チャット契約）、0005（原子的 UPDATE の前提） | P1 |
+| [ADR-0013](./0013-multi-provider-llm-selection.md) | マルチプロバイダ LLM（ユーザー選択式） | Accepted | LLM / Agent | 関連: 0010（切替 1 箇所の原則を維持）、0012（課金・model_catalog） | P3 |
+| [ADR-0014](./0014-renovate-dependency-automation.md) | Renovate による依存更新の自動化 | Accepted | 開発プロセス / 品質 | 関連: 0017（Actions の SHA ピン運用） | P7 |
+| [ADR-0015](./0015-vertex-ai-for-gemini-anthropic.md) | Gemini / Anthropic を Vertex AI（SA→ADC）経由にする | Accepted | LLM / Agent | 0013 の認証部分を更新。関連: 0010、0012 | P2 |
+| [ADR-0016](./0016-github-skill-inference.md) | GitHub 連携によるスキル推論基盤 | Accepted | LLM / Agent | 関連: 0010（責務分離の元思想）、0013、0015 | P4 |
+| [ADR-0017](./0017-mutation-testing-and-slack-notifications.md) | ミューテーションテスト週次実行と Slack 通知チャンネル分割 | Accepted | 開発プロセス / 品質 | 関連: 0014 | P3 |
 
 ## テーマ別の決定系統
 
