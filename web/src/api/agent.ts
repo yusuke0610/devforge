@@ -1,3 +1,4 @@
+import { FALLBACK_MESSAGES } from "../constants/messages";
 import { request } from "./client";
 import { getBlobUrl } from "./download";
 import { PATHS } from "./paths";
@@ -20,9 +21,13 @@ export function postAgentChat(payload: AgentChatRequest): Promise<AgentChatRespo
  * 失敗時は ApiError（409 = 連携データ不足 / 402 = 残高不足 / 502 = 生成失敗）を送出する。
  */
 export function generateResumeDraftPdfBlobUrl(model: AgentModelAlias): Promise<string> {
-  return getBlobUrl(PATHS.agent.resumeDraftPdf, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model }),
-  });
+  return getBlobUrl(
+    PATHS.agent.resumeDraftPdf,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model }),
+    },
+    FALLBACK_MESSAGES.RESUME_DRAFT,
+  );
 }

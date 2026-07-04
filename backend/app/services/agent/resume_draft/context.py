@@ -48,6 +48,15 @@ class ResumeDraftSourceUnavailableError(Exception):
     """
 
 
+class ResumeDraftNoRepositoriesError(ResumeDraftSourceUnavailableError):
+    """連携は完了しているが分析対象リポジトリが 0 件（再連携では回復しない）。
+
+    旧形式キャッシュ（再連携で回復する）とは区別し、router で「公開リポジトリを追加して
+    再連携」という別の導線を案内する。``ResumeDraftSourceUnavailableError`` のサブクラス
+    なので、router では本クラスを先に catch すること。
+    """
+
+
 @dataclass(frozen=True)
 class RepoTechnology:
     """リポジトリ 1 件に紐づく技術 1 件（スキル証跡の反転結果）。"""
@@ -82,6 +91,13 @@ def build_draft_source(db: Session, user: User) -> DraftSource:
         raise ResumeDraftSourceUnavailableError(
             f"GitHub 連携が完了していません (status={cache.status if cache else None})"
         )
+    # ADR-0018 より前の旧形式は result に "repos" キー自体が無い（再連携で回復する）。
+    # 一方 ADR-0018 以降は分析対象が 0 件でも "repos": [] が保存されるため、生 JSON の
+    # キー有無で両者を区別する（Pydantic 検証後は default_factory=[] のため区別できない）。
+    if "repos" not in cache.result:
+        raise ResumeDraftSourceUnavailableError(
+            "連携キャッシュにリポジトリサマリがありません（旧形式）"
+        )
     try:
         result = GitHubLinkResponse.model_validate(cache.result)
     except ValidationError:
@@ -89,10 +105,8 @@ def build_draft_source(db: Session, user: User) -> DraftSource:
         logger.warning("連携キャッシュの検証に失敗（再連携が必要）", exc_info=True)
         raise ResumeDraftSourceUnavailableError("連携キャッシュを解釈できません") from None
     if not result.repos:
-        # ADR-0018 より前に保存された旧形式。再連携でサマリが埋まる
-        raise ResumeDraftSourceUnavailableError(
-            "連携キャッシュにリポジトリサマリがありません（旧形式）"
-        )
+        # 新形式だが分析対象リポジトリが 0 件。再連携では回復しないため別導線を案内する
+        raise ResumeDraftNoRepositoriesError("分析対象のリポジトリがありません")
 
     return DraftSource(
         username=user.username,

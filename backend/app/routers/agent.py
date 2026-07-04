@@ -27,6 +27,7 @@ from ..services.agent.chat_service import (
 from ..services.agent.context_builder import build_reference_context
 from ..services.agent.llm.base import LLMError
 from ..services.agent.resume_draft.context import (
+    ResumeDraftNoRepositoriesError,
     ResumeDraftSourceUnavailableError,
     build_draft_source,
 )
@@ -149,9 +150,18 @@ async def generate_resume_draft_pdf(
             code=ErrorCode.INSUFFICIENT_CREDITS,
             message=get_error("billing.insufficient_credits"),
         )
-    # 連携キャッシュ + スキル証跡の読み取り（SELECT のみ）。未連携・旧形式は 409
+    # 連携キャッシュ + スキル証跡の読み取り（SELECT のみ）。未連携・旧形式・0 件は 409。
+    # 0 件（NoRepositories）は再連携で回復しないため別導線を案内する（サブクラスを先に catch）
     try:
         source = build_draft_source(db, user)
+    except ResumeDraftNoRepositoriesError as exc:
+        logger.info("経歴書ドラフト生成: 分析対象リポジトリなし: %s", exc)
+        raise_app_error(
+            status_code=409,
+            code=ErrorCode.VALIDATION_ERROR,
+            message=get_error("agent.draft_no_repositories"),
+            action="公開リポジトリを追加してから GitHub 連携を再実行してください",
+        )
     except ResumeDraftSourceUnavailableError as exc:
         logger.info("経歴書ドラフト生成の入力が未整備: %s", exc)
         raise_app_error(
@@ -185,7 +195,11 @@ async def generate_resume_draft_pdf(
             code=ErrorCode.AGENT_PARSE_ERROR,
             message=get_error("agent.parse_failed"),
         )
-    # 課金記録を確定してから PDF を生成する（記録失敗は 500 / ADR-0012）
-    _record_usage_after_llm(db, user.id, result.usage, description=usage_description)
+    # 先に PDF を生成し、成功した場合のみ課金を確定する。build_resume_pdf は DB 非依存の
+    # 同期処理なので _record_usage_after_llm（db.close を伴う）より前に実行してよい。
+    # PDF 生成失敗（稀な実装/環境エラー）でユーザーに課金しないため、この順序にする。
+    # LLM 呼び出し自体の失敗（上の except）はコストが発生済みなので従来どおり課金する（ADR-0012）
     pdf_bytes = build_resume_pdf(result.payload)
+    # 実トークン量に基づくクレジット消費 + 使用ログ記録（記録失敗は 500 / ADR-0012）
+    _record_usage_after_llm(db, user.id, result.usage, description=usage_description)
     return stream_pdf(pdf_bytes, "career-resume-draft.pdf")

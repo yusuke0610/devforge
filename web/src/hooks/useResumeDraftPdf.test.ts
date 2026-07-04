@@ -91,4 +91,39 @@ describe("useResumeDraftPdf", () => {
     expect(result.current.previewUrl).toBeNull();
     revokeSpy.mockRestore();
   });
+
+  /** 再生成: 旧 previewUrl が revoke されてから新 URL に差し替わること（Blob リーク防止） */
+  it("generate を再実行すると旧 Blob URL が revoke される", async () => {
+    const revokeSpy = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    mockGenerate
+      .mockResolvedValueOnce("blob:http://localhost/first")
+      .mockResolvedValueOnce("blob:http://localhost/second");
+
+    const { result } = renderHook(() => useResumeDraftPdf("haiku"));
+    await act(async () => {
+      await result.current.generate();
+    });
+    await act(async () => {
+      await result.current.generate();
+    });
+
+    expect(revokeSpy).toHaveBeenCalledWith("blob:http://localhost/first");
+    expect(result.current.previewUrl).toBe("blob:http://localhost/second");
+    revokeSpy.mockRestore();
+  });
+
+  /** アンマウント: プレビュー表示中に画面離脱しても Blob URL が解放されること */
+  it("アンマウント時に残っている Blob URL が revoke される", async () => {
+    const revokeSpy = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    mockGenerate.mockResolvedValueOnce("blob:http://localhost/on-unmount");
+
+    const { result, unmount } = renderHook(() => useResumeDraftPdf("haiku"));
+    await act(async () => {
+      await result.current.generate();
+    });
+    unmount();
+
+    expect(revokeSpy).toHaveBeenCalledWith("blob:http://localhost/on-unmount");
+    revokeSpy.mockRestore();
+  });
 });

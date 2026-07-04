@@ -42,7 +42,7 @@ ADR-0010 の「LLM は `services/agent/` のみ」という機械 grep 可能な
 
 ### 4. 連携パイプラインの保存内容を拡張する（API 再取得はしない）
 
-`GitHubLinkResponse` に `repos: list[AnalyzedRepoSummary]`（full_name / description / created_at / pushed_at）を追加し、連携実行時に `RepoData` から詰めて `github_link_cache.result`（JSON カラム）へ保存する。マイグレーション不要・旧 JSON との後方互換（Optional）。ドラフト生成エンドポイントの失敗モードが「LLM だけ」に閉じ、スキル証跡と同一連携時点のスナップショットでリポジトリ集合が必ず一致する。旧形式キャッシュ（`repos` 空）のユーザーには 409 を返し、再連携を促す。README・コミット履歴の追加取得はしない（トークンコストと連携時間の増加に見合わない。repo description で足りない分は空のまま人間が埋める）。
+`GitHubLinkResponse` に `repos: list[AnalyzedRepoSummary]`（full_name / description / created_at / pushed_at）を追加し、連携実行時に `RepoData` から詰めて `github_link_cache.result`（JSON カラム）へ保存する。マイグレーション不要・旧 JSON との後方互換（Optional）。ドラフト生成エンドポイントの失敗モードが「LLM だけ」に閉じ、スキル証跡と同一連携時点のスナップショットでリポジトリ集合が必ず一致する。旧形式キャッシュ（保存 JSON に `repos` キー自体が無い）のユーザーには 409 を返し、再連携を促す。旧形式判定は保存 JSON のキー有無で行う（ADR-0018 以降は分析対象が 0 件でも `"repos": []` が保存されるため、Pydantic 検証後の空リストでは旧形式と 0 件を区別できない）。分析対象リポジトリが 0 件のユーザーには、再連携では回復しないため別メッセージ（公開リポジトリの追加を促す）で 409 を返す。README・コミット履歴の追加取得はしない（トークンコストと連携時間の増加に見合わない。repo description で足りない分は空のまま人間が埋める）。
 
 ### 5. 同期エンドポイント（LLM 1 コール）
 

@@ -126,11 +126,37 @@ def test_resume_draft_pdf_conflict_without_link_cache(client: TestClient) -> Non
 
 
 def test_resume_draft_pdf_conflict_with_legacy_cache(client: TestClient) -> None:
-    """repos を持たない旧形式キャッシュ（ADR-0018 以前の連携結果）は 409（再連携を促す）。"""
+    """repos キーを持たない旧形式キャッシュ（ADR-0018 以前の連携結果）は 409（再連携を促す）。"""
     headers = auth_header(client, github_id=1)
     _seed_link_data(client._db_session, legacy=True)
     res = client.post("/api/agent/resume-draft/pdf", json={"model": "haiku"}, headers=headers)
     assert res.status_code == 409
+
+
+def test_resume_draft_pdf_conflict_with_zero_repositories(client: TestClient) -> None:
+    """新形式で分析対象リポジトリが 0 件（repos: []）は 409（旧形式とは別メッセージ）。"""
+    headers = auth_header(client, github_id=1)
+    user = client._db_session.query(User).filter_by(username="testuser").one()
+    client._db_session.add(
+        GitHubLinkCache(
+            user_id=user.id,
+            status="completed",
+            result={
+                "username": "testuser",
+                "repos_analyzed": 0,
+                "unique_skills": 0,
+                "analyzed_at": "2026-06-01T00:00:00",
+                "languages": {},
+                "repos": [],
+            },
+        )
+    )
+    client._db_session.commit()
+
+    res = client.post("/api/agent/resume-draft/pdf", json={"model": "haiku"}, headers=headers)
+    assert res.status_code == 409
+    # 旧形式（draft_link_required）ではなく 0 件専用メッセージが返る
+    assert "公開リポジトリ" in res.json()["message"]
 
 
 def test_resume_draft_pdf_parse_failure_returns_502(client: TestClient, monkeypatch) -> None:
@@ -148,6 +174,30 @@ def test_resume_draft_pdf_parse_failure_returns_502(client: TestClient, monkeypa
     (log,) = client._db_session.query(AgentUsageLog).all()
     assert log.input_tokens == 200
     assert log.output_tokens == 400
+
+
+def test_resume_draft_pdf_generation_failure_not_charged(
+    client: TestClient, monkeypatch
+) -> None:
+    """PDF 生成が失敗した場合はユーザーに課金しない（使用ログも残さない / CodeRabbit 指摘）。"""
+    from app.routers import agent as agent_router
+
+    headers = auth_header(client, github_id=1)
+    _seed_link_data(client._db_session)
+    monkeypatch.setattr(
+        draft_service, "get_llm_client", lambda provider: _FakeLLM(_draft_response())
+    )
+
+    def _fail_pdf(_payload):
+        raise RuntimeError("PDF 生成失敗")
+
+    monkeypatch.setattr(agent_router, "build_resume_pdf", _fail_pdf)
+
+    res = client.post("/api/agent/resume-draft/pdf", json={"model": "haiku"}, headers=headers)
+
+    assert res.status_code == 500
+    # 課金は PDF 生成成功後にのみ行うため、使用ログは記録されない
+    assert client._db_session.query(AgentUsageLog).count() == 0
 
 
 def test_resume_draft_pdf_invalid_model_rejected(client: TestClient) -> None:

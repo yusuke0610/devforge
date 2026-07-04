@@ -15,6 +15,7 @@ from app.schemas.resume import TechnologyStackItem
 from app.services.agent.resume_draft.context import (
     DraftSource,
     RepoTechnology,
+    ResumeDraftNoRepositoriesError,
     ResumeDraftSourceUnavailableError,
     build_draft_source,
 )
@@ -233,13 +234,25 @@ def test_build_draft_source_requires_completed_cache(db_session) -> None:
 
 
 def test_build_draft_source_rejects_legacy_cache_without_repos(db_session) -> None:
-    """ADR-0018 以前の旧形式キャッシュ（repos 無し）は再連携が必要。"""
+    """ADR-0018 以前の旧形式キャッシュ（repos キー無し）は再連携が必要。"""
     user = _create_user(db_session)
     db_session.add(
         GitHubLinkCache(user_id=user.id, status="completed", result=_cache_result(repos=None))
     )
     db_session.commit()
     with pytest.raises(ResumeDraftSourceUnavailableError):
+        build_draft_source(db_session, user)
+
+
+def test_build_draft_source_rejects_empty_repos_as_no_repositories(db_session) -> None:
+    """新形式で repos が空リスト（分析対象 0 件）は旧形式と区別され、専用例外になる。"""
+    user = _create_user(db_session)
+    db_session.add(
+        GitHubLinkCache(user_id=user.id, status="completed", result=_cache_result(repos=[]))
+    )
+    db_session.commit()
+    # 0 件は旧形式（再連携で回復）ではなく NoRepositories（リポジトリ追加が必要）
+    with pytest.raises(ResumeDraftNoRepositoriesError):
         build_draft_source(db_session, user)
 
 

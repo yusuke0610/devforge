@@ -12,10 +12,20 @@ export function setOnUnauthorized(callback: () => void): void {
   _onUnauthorized = callback;
 }
 
-/** Cookie から CSRF トークンを取得する。request() を通らない fetch（Blob 系）でも使う。 */
-export function getCsrfToken(): string {
+/** Cookie から CSRF トークンを取得する。 */
+function getCsrfToken(): string {
   const match = document.cookie.match(/csrf_token=([^;]+)/);
   return match ? match[1] : "";
+}
+
+/**
+ * 状態変更メソッド（POST/PUT/DELETE/PATCH）なら CSRF トークンをヘッダーに付与する。
+ * request() と Blob 系 fetch（download.ts）で共有し、CSRF 付与ルールを 1 箇所に集約する。
+ */
+export function applyCsrfHeader(headers: Record<string, string>, method: string): void {
+  if (["POST", "PUT", "DELETE", "PATCH"].includes(method.toUpperCase())) {
+    headers["X-CSRF-Token"] = getCsrfToken();
+  }
 }
 
 /** 進行中のリフレッシュ処理。複数の 401 は同じ Promise を待ち合わせる。 */
@@ -129,9 +139,7 @@ export async function request<T>(
   };
 
   // 状態変更リクエストには CSRF トークンを付与する
-  if (["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
-    headers["X-CSRF-Token"] = getCsrfToken();
-  }
+  applyCsrfHeader(headers, method);
 
   let response: Response;
   try {
