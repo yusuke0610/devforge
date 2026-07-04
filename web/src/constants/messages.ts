@@ -67,6 +67,7 @@ export const FALLBACK_MESSAGES = {
   GITHUB_OAUTH_START: "GitHub OAuth の開始に失敗しました",
   GITHUB_LINK: "連携に失敗しました",
   AGENT_CHAT: "AI への送信に失敗しました",
+  RESUME_DRAFT: "経歴書ドラフトの生成に失敗しました",
   CREDIT_BALANCE: "クレジット残高の取得に失敗しました",
   USAGE_SUMMARY: "利用状況の取得に失敗しました",
   CHECKOUT: "決済ページへの遷移に失敗しました",
@@ -191,6 +192,20 @@ export const GITHUB_LINK_MESSAGES = {
   YEAR_SELECT_ARIA: "表示する年",
   /** ヒートマップサマリーの最大連続日数ラベル。 */
   LONGEST_STREAK_LABEL: "最大連続日数",
+} as const;
+
+/** 経歴書ドラフト PDF 生成（ADR-0018）の UI 文言。 */
+export const RESUME_DRAFT_MESSAGES = {
+  /** セクション見出し。 */
+  HEADING: "経歴書ドラフト",
+  /** 生成ボタンのラベル。 */
+  GENERATE: "経歴書ドラフトPDFを生成",
+  /** 生成中のボタン/スピナーラベル。 */
+  GENERATING: "経歴書ドラフトを生成中...",
+  /** 機能説明（モデルはユーザーメニューで選択中のものを使う旨）。 */
+  HINT: "連携したリポジトリの情報から、AI が経歴書のたたき台（PDF）を作成します。使用モデルはユーザーメニューで変更できます。",
+  /** 生成物が保存されない旨の注意書き。 */
+  NOT_SAVED_NOTE: "生成した PDF は保存されません。必要な内容は職務経歴書フォームへ転記してください。",
 } as const;
 
 /** 年セレクトの選択肢表記「N年」。 */

@@ -12,8 +12,8 @@ export function setOnUnauthorized(callback: () => void): void {
   _onUnauthorized = callback;
 }
 
-/** Cookie から CSRF トークンを取得する。 */
-function getCsrfToken(): string {
+/** Cookie から CSRF トークンを取得する。request() を通らない fetch（Blob 系）でも使う。 */
+export function getCsrfToken(): string {
   const match = document.cookie.match(/csrf_token=([^;]+)/);
   return match ? match[1] : "";
 }
@@ -106,6 +106,15 @@ function buildApiError(response: Response, body: ErrorResponseBody | null, fallb
         ? body.error_id
         : generateErrorId(),
   });
+}
+
+/**
+ * Response から ApiError を組み立てる（Blob 系など request() を通らない fetch 用）。
+ * backend の AppErrorResponse（code / message / action）を保持して呼び出し元へ渡す。
+ */
+export async function toApiError(response: Response, fallbackMessage: string): Promise<ApiError> {
+  const body = await getErrorBody(response);
+  return buildApiError(response, body, fallbackMessage);
 }
 
 export async function request<T>(

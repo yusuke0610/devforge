@@ -1,5 +1,17 @@
 import { downloadFailureMessage, FALLBACK_MESSAGES } from "../constants/messages";
-import { API_BASE_URL } from "./client";
+import { API_BASE_URL, getCsrfToken, toApiError } from "./client";
+
+/** 状態変更メソッドなら CSRF トークン付きヘッダーを組み立てる（client.ts の request() と同じ契約）。 */
+function buildHeaders(options?: RequestInit): Record<string, string> {
+  const method = (options?.method ?? "GET").toUpperCase();
+  const headers: Record<string, string> = {
+    ...((options?.headers as Record<string, string>) ?? {}),
+  };
+  if (["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
+    headers["X-CSRF-Token"] = getCsrfToken();
+  }
+  return headers;
+}
 
 export async function downloadBlob(
   url: string,
@@ -8,6 +20,7 @@ export async function downloadBlob(
 ): Promise<void> {
   const response = await fetch(`${API_BASE_URL}${url}`, {
     ...options,
+    headers: buildHeaders(options),
     credentials: "include",
   });
   if (!response.ok) {
@@ -22,12 +35,15 @@ export async function downloadBlob(
   URL.revokeObjectURL(blobUrl);
 }
 
-export async function getBlobUrl(url: string): Promise<string> {
+export async function getBlobUrl(url: string, options?: RequestInit): Promise<string> {
   const response = await fetch(`${API_BASE_URL}${url}`, {
+    ...options,
+    headers: buildHeaders(options),
     credentials: "include",
   });
   if (!response.ok) {
-    throw new Error(FALLBACK_MESSAGES.PREVIEW_FETCH);
+    // AppErrorResponse の code / message / action を保持して呼び出し元の分岐・表示に使う
+    throw await toApiError(response, FALLBACK_MESSAGES.PREVIEW_FETCH);
   }
   const blob = await response.blob();
   return URL.createObjectURL(blob);

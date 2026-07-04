@@ -29,17 +29,41 @@ backend/
 │       ├── chat_service.py        # コンテキスト組み立て → LLM → 検証（DB に触れない）
 │       ├── context_builder.py     # Phase 2: GitHub/ブログ参照コンテキスト取得（DB 読み取り専用）
 │       ├── output_schema.py       # tool use スキーマ（機械制約の正本）
-│       └── llm/
-│           ├── base.py            # LLMClient 抽象・LLMError
-│           ├── anthropic_client.py
-│           ├── google_client.py   # Gemini（ADR-0013）
-│           ├── openai_client.py   # GPT（ADR-0013）
-│           ├── ollama_client.py
-│           └── factory.py         # get_llm_client(provider) で分岐（ADR-0013）
+│       ├── llm/
+│       │   ├── base.py            # LLMClient 抽象・LLMError
+│       │   ├── anthropic_client.py
+│       │   ├── google_client.py   # Gemini（ADR-0013）
+│       │   ├── openai_client.py   # GPT（ADR-0013）
+│       │   ├── ollama_client.py
+│       │   └── factory.py         # get_llm_client(provider) で分岐（ADR-0013）
+│       └── resume_draft/          # 経歴書ドラフト生成（ADR-0018。下記「resume_draft」節）
+│           ├── context.py         # DB 読み取り専用（連携キャッシュ + スキル証跡 → DraftSource）
+│           ├── mapper.py          # ルールベース純関数（骨格 payload 構築）
+│           ├── output_schema.py   # ドラフト用構造化出力スキーマ（機械制約の正本）
+│           └── draft_service.py   # LLM 1 コール → パース(リトライ1回) → 骨格へマージ
 └── tests/
     ├── test_agent.py
-    └── test_agent_context_builder.py  # Phase 2: context_builder の単体テスト
+    ├── test_agent_context_builder.py  # Phase 2: context_builder の単体テスト
+    ├── test_resume_draft_mapper.py    # ADR-0018: ルールベースマッピングの単体テスト
+    └── test_resume_draft_service.py   # ADR-0018: draft_service（LLM モック）
 ```
+
+## resume_draft（経歴書ドラフト生成 / ADR-0018）
+
+GitHub 連携データから経歴書ドラフト payload を組み立て、PDF プレビューを返す単発生成機能。
+チャットとは別系統だが、**本ファイルの不変条件（制約の責務分離・リトライ 1 回・エラー契約・
+LLMError/usage の課金漏れ防止）を全て継承する**。
+
+- **構造はルールベース、自然文だけ LLM**: repo→プロジェクト骨格・技術スタック・期間は
+  `mapper.py`（純関数）が決定論で写す。LLM が生成するのは career_summary / self_pr /
+  各プロジェクト description のみ。
+- **出力スキーマは動的**: `repo_full_name` を選定リポジトリの enum で縛る（捏造リポの構造排除）。
+  チャットの「プロンプトは静的・スキーマも静的」と異なりリクエストごとに構築するが、
+  プロンプト md（`agent_resume_draft.md`）自体は静的を維持する（動的情報は user メッセージへ）。
+- **何も永続化しない**: resumes テーブルへ書かない。生成物はレスポンスの PDF だけ
+  （クレジット消費・使用ログは例外 / ADR-0012）。DB 読み取りは `context.py` の SELECT のみ。
+- **degrade 方針**: 個別プロジェクトの説明文が欠落・上限超過した場合のみ repo description の
+  定型文へフォールバック（切り詰めはしない）。career_summary / self_pr の欠落はパース失敗扱い。
 
 ## プロバイダ抽象（ADR-0013）
 

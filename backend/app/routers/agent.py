@@ -8,15 +8,16 @@ Agent のレスポンス（operations）はフロントの state にのみ適用
 import logging
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from ..core.errors import ErrorCode, raise_app_error
 from ..core.messages import get_error
-from ..core.security.auth import get_current_user
+from ..core.security.auth import get_current_user, require_github_user
 from ..core.security.dependencies import limiter
 from ..db import get_db
 from ..models import User
-from ..schemas.agent import AgentChatRequest, AgentChatResponse
+from ..schemas.agent import AgentChatRequest, AgentChatResponse, ResumeDraftRequest
 from ..services.agent import chat_service
 from ..services.agent.chat_service import (
     AgentResponseParseError,
@@ -25,15 +26,24 @@ from ..services.agent.chat_service import (
 )
 from ..services.agent.context_builder import build_reference_context
 from ..services.agent.llm.base import LLMError
+from ..services.agent.resume_draft.context import (
+    ResumeDraftSourceUnavailableError,
+    build_draft_source,
+)
+from ..services.agent.resume_draft.draft_service import run_resume_draft
 from ..services.billing import credit_service
 from ..services.billing.credit_service import InsufficientCreditsError
+from ..services.pdf.generators.resume_generator import build_resume_pdf
+from .download_utils import stream_pdf
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
 
 
-def _record_usage_after_llm(db: Session, user_id: str, usage: AgentUsage) -> None:
+def _record_usage_after_llm(
+    db: Session, user_id: str, usage: AgentUsage, *, description: str | None = None
+) -> None:
     """LLM 応答後のクレジット消費・使用ログ記録を、ストリームを開き直してから行う。
 
     LLM 呼び出しの await 中にリクエストの DB セッションがアイドルになり、libSQL
@@ -43,7 +53,7 @@ def _record_usage_after_llm(db: Session, user_id: str, usage: AgentUsage) -> Non
     新しいコネクション（=新規 Hrana ストリーム）を取得して正常に確定できる。
     """
     db.close()
-    credit_service.record_chat_usage(db, user_id, usage)
+    credit_service.record_chat_usage(db, user_id, usage, description=description)
 
 
 @router.post("/chat", response_model=AgentChatResponse)
@@ -112,3 +122,70 @@ async def agent_chat(
     # 記録失敗は応答を返さず 500 にする（課金漏れを黙って通さない / ADR-0012）
     _record_usage_after_llm(db, user.id, result.usage)
     return result.response
+
+
+@router.post("/resume-draft/pdf")
+@limiter.limit("5/minute")
+async def generate_resume_draft_pdf(
+    request: Request,
+    body: ResumeDraftRequest,
+    user: User = Depends(require_github_user),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    """GitHub 連携データから経歴書ドラフトを生成し、PDF で返す（ADR-0018）。
+
+    構造（プロジェクト・技術スタック・期間）は連携データからルールベースで写し、
+    自然文（職務要約・自己PR・プロジェクト説明）だけを LLM で生成する。
+    ドラフトは DB に保存しない（生成物はレスポンスの PDF のみ。
+    クレジット消費・使用ログの記録は除く / ADR-0012）。
+    """
+    usage_description = f"経歴書ドラフト生成（{body.model}）"
+    # 有料モデルは LLM を呼ぶ前に残高をチェックする（チャットと同一契約 / ADR-0012）
+    try:
+        credit_service.ensure_can_use_model(db, user.id, body.model)
+    except InsufficientCreditsError:
+        raise_app_error(
+            status_code=402,
+            code=ErrorCode.INSUFFICIENT_CREDITS,
+            message=get_error("billing.insufficient_credits"),
+        )
+    # 連携キャッシュ + スキル証跡の読み取り（SELECT のみ）。未連携・旧形式は 409
+    try:
+        source = build_draft_source(db, user)
+    except ResumeDraftSourceUnavailableError as exc:
+        logger.info("経歴書ドラフト生成の入力が未整備: %s", exc)
+        raise_app_error(
+            status_code=409,
+            code=ErrorCode.VALIDATION_ERROR,
+            message=get_error("agent.draft_link_required"),
+            action="サイドバーの「GitHub連携」から連携を実行してください",
+        )
+    try:
+        result = await run_resume_draft(body.model, source)
+    except LLMError as exc:
+        # 失敗パスでも消費済みトークンの課金を確定させる（チャットと同一 / ADR-0012）
+        if exc.usage is not None:
+            try:
+                _record_usage_after_llm(db, user.id, exc.usage, description=usage_description)
+            except Exception:
+                logger.error("LLM 失敗時のクレジット消費記録に失敗", exc_info=True)
+        raise_app_error(
+            status_code=502,
+            code=ErrorCode.AGENT_LLM_ERROR,
+            message=get_error("agent.llm_failed"),
+        )
+    except AgentResponseParseError as exc:
+        if exc.usage is not None:
+            try:
+                _record_usage_after_llm(db, user.id, exc.usage, description=usage_description)
+            except Exception:
+                logger.error("パース失敗時のクレジット消費記録に失敗", exc_info=True)
+        raise_app_error(
+            status_code=502,
+            code=ErrorCode.AGENT_PARSE_ERROR,
+            message=get_error("agent.parse_failed"),
+        )
+    # 課金記録を確定してから PDF を生成する（記録失敗は 500 / ADR-0012）
+    _record_usage_after_llm(db, user.id, result.usage, description=usage_description)
+    pdf_bytes = build_resume_pdf(result.payload)
+    return stream_pdf(pdf_bytes, "career-resume-draft.pdf")

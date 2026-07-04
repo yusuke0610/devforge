@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from ...core.errors import ErrorCode, raise_app_error, resolve_async_error_code
 from ...core.messages import get_error
-from ...core.security.auth import get_current_user
+from ...core.security.auth import get_current_user, require_github_user
 from ...core.security.dependencies import limiter
 from ...db import get_db
 from ...models import User
@@ -44,21 +44,6 @@ def _raise_dispatch_failed() -> None:
         message=get_error("task.dispatch_failed"),
         action="しばらく待ってから再試行してください",
     )
-
-
-def require_github_user(user: User = Depends(get_current_user)) -> User:
-    """GitHub 連携には GitHub ログイン（``github_id`` 保持）が必須。未連携なら 403。
-
-    ``start`` / ``retry`` の両エンドポイントで共通の認可ガード。
-    """
-    if user.github_id is None:
-        raise_app_error(
-            status_code=403,
-            code=ErrorCode.AUTH_REQUIRED,
-            message=get_error("github_link.github_login_required"),
-            action="GitHub アカウントでログインし直してください",
-        )
-    return user
 
 
 @router.get("/cache", response_model=CachedGitHubLinkResponse)
