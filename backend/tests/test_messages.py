@@ -11,6 +11,8 @@ def test_key_lookup_returns_message() -> None:
 
     assert get_error("auth.login_required") == "ログインが必要です。"
     assert get_notification("github_link", "completed") == "GitHub連携が完了しました"
+    # schemas/resume.py の model_validator から直接参照される契約なので明示的に固定する
+    assert get_error("validation.end_date_required") == "在職中でない場合は終了年月を入力してください。"
 
 
 def test_get_error_formats_placeholders() -> None:
