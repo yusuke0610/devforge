@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 import pytest
 from app.schemas import (
     Client,
@@ -5,6 +7,7 @@ from app.schemas import (
     Project,
     ResumeCreate,
 )
+from app.schemas.resume import ProjectPeriod
 from pydantic import ValidationError
 
 
@@ -41,17 +44,6 @@ def experience_payload() -> dict:
             }
         ],
     }
-
-
-def test_current_experience_forces_end_date_empty() -> None:
-    """在籍中（is_current=True）なら end_date は "" に正規化される。"""
-    payload = experience_payload()
-    payload["is_current"] = True
-    payload["end_date"] = "2024-03"
-
-    experience = Experience(**payload)
-
-    assert experience.end_date == ""
 
 
 def test_end_date_is_required_when_not_current() -> None:
@@ -240,137 +232,83 @@ def test_experience_allows_empty_employee_count_and_capital() -> None:
     assert exp.capital == ""
 
 
-def test_experience_end_date_before_start_date_is_rejected() -> None:
-    """経歴: 終了日が開始日より前の場合は422エラーとなること。"""
+def _build_experience_period(
+    start_date: str, end_date: str | None, is_current: bool
+) -> Experience:
+    """経歴の期間を検証する（期間フィールドは Experience 自身が持つ）。"""
     payload = experience_payload()
-    payload["start_date"] = "2024-04"
-    payload["end_date"] = "2021-03"
-    payload["is_current"] = False
+    payload["start_date"] = start_date
+    payload["end_date"] = end_date
+    payload["is_current"] = is_current
+    return Experience(**payload)
 
+
+def _build_project_period(
+    start_date: str, end_date: str | None, is_current: bool
+) -> ProjectPeriod:
+    """プロジェクトの期間を検証する（フラット日付 → periods[0] 移行経路を通す）。"""
+    proj = Project.model_validate(
+        {
+            "name": "テスト",
+            "start_date": start_date,
+            "end_date": end_date,
+            "is_current": is_current,
+            "technology_stacks": [],
+        }
+    )
+    return proj.periods[0]
+
+
+# 経歴・プロジェクトは共通の期間バリデーション契約を持つため、両モデルを同一系列で検証する
+_period_builders = pytest.mark.parametrize(
+    "build_period",
+    [_build_experience_period, _build_project_period],
+    ids=["experience", "project"],
+)
+PeriodBuilder = Callable[[str, str | None, bool], Experience | ProjectPeriod]
+
+
+@_period_builders
+def test_end_date_before_start_date_is_rejected(build_period: PeriodBuilder) -> None:
+    """終了日が開始日より前の場合は 422 エラーとなること。"""
     with pytest.raises(ValidationError, match="開始日は終了日より前"):
-        Experience(**payload)
+        build_period("2024-04", "2021-03", False)
 
 
-def test_experience_end_date_equals_start_date_is_accepted() -> None:
-    """経歴: 終了日 = 開始日は正常に保存されること。"""
-    payload = experience_payload()
-    payload["start_date"] = "2024-04"
-    payload["end_date"] = "2024-04"
-    payload["is_current"] = False
-
-    exp = Experience(**payload)
-    assert exp.start_date == "2024-04"
-    assert exp.end_date == "2024-04"
+@_period_builders
+def test_end_date_equals_start_date_is_accepted(build_period: PeriodBuilder) -> None:
+    """終了日 = 開始日は正常に保存されること。"""
+    period = build_period("2024-04", "2024-04", False)
+    assert period.start_date == "2024-04"
+    assert period.end_date == "2024-04"
 
 
-def test_experience_end_date_after_start_date_is_accepted() -> None:
-    """経歴: 終了日 > 開始日は正常に保存されること。"""
-    payload = experience_payload()
-    payload["start_date"] = "2021-04"
-    payload["end_date"] = "2024-03"
-    payload["is_current"] = False
-
-    exp = Experience(**payload)
-    assert exp.start_date == "2021-04"
-    assert exp.end_date == "2024-03"
+@_period_builders
+def test_end_date_after_start_date_is_accepted(build_period: PeriodBuilder) -> None:
+    """終了日 > 開始日は正常に保存されること。"""
+    period = build_period("2021-04", "2024-03", False)
+    assert period.start_date == "2021-04"
+    assert period.end_date == "2024-03"
 
 
-def test_experience_in_progress_end_date_is_normalized_to_empty() -> None:
-    """経歴: 在職中（is_current=True）は end_date が "" に正規化されること。
+@_period_builders
+@pytest.mark.parametrize("end_date", ["2024-03", ""], ids=["value", "empty"])
+def test_in_progress_end_date_is_normalized_to_empty(
+    build_period: PeriodBuilder, end_date: str
+) -> None:
+    """在職中/参画中（is_current=True）は end_date が "" に正規化されること。
 
-    schema 上は str 必須・None 不可。在籍中なら値が入っていても "" に丸める。
+    schema 上は str 必須・None 不可。値が入っていても "" に丸める。
     """
-    payload = experience_payload()
-    payload["is_current"] = True
-    payload["end_date"] = "2024-03"
-
-    exp = Experience(**payload)
-    assert exp.end_date == ""
+    period = build_period("2021-04", end_date, True)
+    assert period.end_date == ""
 
 
-def test_experience_end_date_none_is_rejected() -> None:
-    """経歴: end_date に None を渡すと ValidationError になる（str 必須契約）。"""
-    payload = experience_payload()
-    payload["is_current"] = True
-    payload["end_date"] = None
-
+@_period_builders
+def test_end_date_none_is_rejected(build_period: PeriodBuilder) -> None:
+    """end_date に None を渡すと ValidationError になる（str 必須契約）。"""
     with pytest.raises(ValidationError):
-        Experience(**payload)
-
-
-def test_project_end_date_before_start_date_is_rejected() -> None:
-    """プロジェクト: 終了日が開始日より前の場合はエラーとなること。"""
-    with pytest.raises(ValidationError, match="開始日は終了日より前"):
-        Project.model_validate(
-            {
-                "name": "テスト",
-                "start_date": "2024-04",
-                "end_date": "2021-03",
-                "is_current": False,
-                "technology_stacks": [],
-            }
-        )
-
-
-def test_project_end_date_equals_start_date_is_accepted() -> None:
-    """プロジェクト: 終了日 = 開始日は正常に保存されること。"""
-    proj = Project.model_validate(
-        {
-            "name": "テスト",
-            "periods": [{"start_date": "2024-04", "end_date": "2024-04", "is_current": False}],
-            "technology_stacks": [],
-        }
-    )
-    assert proj.periods[0].end_date == "2024-04"
-
-
-def test_project_end_date_after_start_date_is_accepted() -> None:
-    """プロジェクト: 終了日 > 開始日は正常に保存されること。"""
-    proj = Project.model_validate(
-        {
-            "name": "テスト",
-            "periods": [{"start_date": "2021-04", "end_date": "2024-03", "is_current": False}],
-            "technology_stacks": [],
-        }
-    )
-    assert proj.periods[0].end_date == "2024-03"
-
-
-def test_project_in_progress_end_date_is_normalized_to_empty() -> None:
-    """プロジェクト: 参画中（is_current=True）の期間は end_date が "" に正規化されること。"""
-    # 値が入っていても is_current=True なら "" に正規化される
-    proj = Project.model_validate(
-        {
-            "name": "テスト",
-            "periods": [{"start_date": "2021-04", "end_date": "2024-03", "is_current": True}],
-            "technology_stacks": [],
-        }
-    )
-    assert proj.periods[0].end_date == ""
-
-    # 空文字列も当然 OK
-    proj_empty = Project.model_validate(
-        {
-            "name": "テスト",
-            "periods": [{"start_date": "2021-04", "end_date": "", "is_current": True}],
-            "technology_stacks": [],
-        }
-    )
-    assert proj_empty.periods[0].end_date == ""
-
-
-def test_project_end_date_none_is_rejected() -> None:
-    """プロジェクト: end_date に None を渡すと ValidationError になる。"""
-    with pytest.raises(ValidationError):
-        Project.model_validate(
-            {
-                "name": "テスト",
-                "start_date": "2021-04",
-                "end_date": None,
-                "is_current": True,
-                "technology_stacks": [],
-            }
-        )
+        build_period("2021-04", None, True)
 
 
 def test_non_it_experience_with_description_and_no_clients() -> None:

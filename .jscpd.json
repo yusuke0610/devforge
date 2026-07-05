@@ -37,7 +37,6 @@
     "**/node_modules/**",
     "**/.venv/**",
     "**/dist/**",
-    "**/.test-dist/**",
     "**/__pycache__/**",
     "backend/alembic_migrations/versions/**",
     "web/src/**/*.test.{ts,tsx}",

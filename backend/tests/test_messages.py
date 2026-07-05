@@ -1,19 +1,16 @@
 from app.core.messages import get_error, get_notification, get_success, load_messages
 
 
-def test_get_notification_returns_message() -> None:
-    load_messages()
+def test_key_lookup_returns_message() -> None:
+    """キー引きで messages.json の文言が返ること（アクセサごとに代表 1 件）。
 
-    assert (
-        get_notification("github_link", "completed") == "GitHub連携が完了しました"
-    )
-    assert get_notification("github_link", "failed") == "GitHub連携に失敗しました"
-
-
-def test_get_error_returns_message_by_key() -> None:
+    文言の逐語 pin を全キーに置くと文言変更のたびに壊れる割に検出力が無いため、
+    ここではキー→文言の解決経路だけを確認する。
+    """
     load_messages()
 
     assert get_error("auth.login_required") == "ログインが必要です。"
+    assert get_notification("github_link", "completed") == "GitHub連携が完了しました"
 
 
 def test_get_error_formats_placeholders() -> None:
@@ -32,12 +29,6 @@ def test_missing_message_key_falls_back_to_key() -> None:
     load_messages()
 
     assert get_error("unknown.category.key") == "unknown.category.key"
-
-
-def test_validation_end_date_required() -> None:
-    load_messages()
-
-    assert get_error("validation.end_date_required") == "在職中でない場合は終了年月を入力してください。"
 
 
 def test_master_data_placeholder() -> None:
