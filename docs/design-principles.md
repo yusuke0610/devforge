@@ -167,3 +167,4 @@ CLAUDE.md の「過剰な抽象化を避ける」・`.claude/rules/common/duplic
 | [0015](./adr/0015-vertex-ai-for-gemini-anthropic.md) Vertex AI (ADC) | | ● | | | | | ○ |
 | [0016](./adr/0016-github-skill-inference.md) スキル推論 3 層 | | | | ● | ○ | | |
 | [0017](./adr/0017-mutation-testing-and-slack-notifications.md) ミューテーションテスト | | | ● | | | | ○ |
+| [0019](./adr/0019-tdd-for-logic-layer.md) TDD（ロジック層） | | | ● | | ○ | ○ | |

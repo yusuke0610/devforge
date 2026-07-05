@@ -22,6 +22,7 @@
 | [ADR-0015](./0015-vertex-ai-for-gemini-anthropic.md) | Gemini / Anthropic を Vertex AI（SA→ADC）経由にする | LLM / Agent | API キー注入を廃止し ADC 認証へ。データ所在地（アジア圏）と学習除外を担保 |
 | [ADR-0016](./0016-github-skill-inference.md) | GitHub 連携によるスキル推論基盤 | LLM / Agent | スキルを 3 層に分離（機械=幅 / 人間=深さ）。推論パイプラインは決定論を維持 |
 | [ADR-0017](./0017-mutation-testing-and-slack-notifications.md) | ミューテーションテスト週次実行と Slack 通知チャンネル分割 | 開発プロセス / 品質 | テストの検出力を週次ミューテーションで可視化（warn-only）、CI 通知を用途別 Slack へ分割 |
+| [ADR-0019](./0019-tdd-for-logic-layer.md) | 決定論的ロジック層への TDD（テスト駆動開発）導入 | 開発プロセス / 品質 | mutation 対象と同一スコープに red→green→refactor を必須化。テスト随伴を lint-tdd で機械検証 |
 
 ## 全 ADR 一覧
 
@@ -47,6 +48,7 @@
 | [ADR-0015](./0015-vertex-ai-for-gemini-anthropic.md) | Gemini / Anthropic を Vertex AI（SA→ADC）経由にする | Accepted | LLM / Agent | 0013 の認証部分を更新。関連: 0010、0012 | P2 |
 | [ADR-0016](./0016-github-skill-inference.md) | GitHub 連携によるスキル推論基盤 | Accepted | LLM / Agent | 関連: 0010（責務分離の元思想）、0013、0015 | P4 |
 | [ADR-0017](./0017-mutation-testing-and-slack-notifications.md) | ミューテーションテスト週次実行と Slack 通知チャンネル分割 | Accepted | 開発プロセス / 品質 | 関連: 0014 | P3 |
+| [ADR-0019](./0019-tdd-for-logic-layer.md) | 決定論的ロジック層への TDD（テスト駆動開発）導入 | Accepted | 開発プロセス / 品質 | 関連: 0017（対象スコープの正本を共有）、0007（drift の機械検知パターン） | P3・P5 |
 
 ## テーマ別の決定系統
 
@@ -94,9 +96,10 @@ graph LR
 graph LR
     D0007["0007<br/>OpenAPI → TS codegen"]
     D0014["0014<br/>Renovate 自動追従"] -.->|"SHA ピン運用"| D0017["0017<br/>ミューテーションテスト"]
+    D0017 -.->|"対象スコープを共有"| D0019["0019<br/>TDD（ロジック層）"]
 ```
 
-「正本を 1 つに定め、複製との乖離は機械で検知する」（0007）、「依存は固定し、追従は自動化する」（0014）、「テストの検出力自体を計測する」（0017）という、**プロダクト機能ではなく開発体験そのものへの投資**の系統。`docs/metrics/ai-friendliness.md` はこの系統の効果を月次で観測するダッシュボード。
+「正本を 1 つに定め、複製との乖離は機械で検知する」（0007）、「依存は固定し、追従は自動化する」（0014）、「テストの検出力自体を計測する」（0017）、「テストを先に書くプロセスを機械ゲートで支える」（0019。0017 の事後計測と対になる事前プロセス）という、**プロダクト機能ではなく開発体験そのものへの投資**の系統。`docs/metrics/ai-friendliness.md` はこの系統の効果を月次で観測するダッシュボード。
 
 ## 運用
 

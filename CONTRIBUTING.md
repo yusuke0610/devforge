@@ -19,6 +19,10 @@
 - PR タイトルは `<type>: <内容>` の形式（例: `feat: GitHub 連携スコア計算の追加`）
 - セルフレビュー後にマージする
 
+## テスト方針（TDD）
+
+決定論的ロジック層（ミューテーションテスト対象と同一スコープ）の変更は **TDD（red → green → refactor）** で行う。手順の正本は [`.claude/rules/common/tdd.md`](.claude/rules/common/tdd.md)、判断の経緯は [ADR-0019](docs/adr/0019-tdd-for-logic-layer.md)、コマンドは [`docs/development.md`](docs/development.md) の「TDD」節を参照（ここには複製しない）。
+
 ## ADR（Architecture Decision Record）
 
 ### ADR とは
