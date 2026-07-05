@@ -137,6 +137,17 @@ class AgentChatRequest(BaseModel):
         return self
 
 
+class ResumeDraftRequest(BaseModel):
+    """経歴書ドラフト生成（ADR-0018）のリクエスト。
+
+    生成対象（リポジトリ集合）はサーバー側が連携キャッシュから決めるため、
+    クライアントが指定するのは使用モデルのみ。
+    """
+
+    # 使用モデル。既定は無料枠の haiku（ADR-0012 の課金契約はチャットと共通）
+    model: AgentModelAlias = "haiku"
+
+
 class AgentOperation(BaseModel):
     """resume state へ適用する差分（テキストフィールドの置換）。
 

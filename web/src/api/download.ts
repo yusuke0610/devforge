@@ -1,5 +1,14 @@
 import { downloadFailureMessage, FALLBACK_MESSAGES } from "../constants/messages";
-import { API_BASE_URL } from "./client";
+import { API_BASE_URL, applyCsrfHeader, toApiError } from "./client";
+
+/** リクエストヘッダーを組み立てる（CSRF 付与は client.ts の共有ヘルパーに委譲）。 */
+function buildHeaders(options?: RequestInit): Record<string, string> {
+  const headers: Record<string, string> = {
+    ...((options?.headers as Record<string, string>) ?? {}),
+  };
+  applyCsrfHeader(headers, options?.method ?? "GET");
+  return headers;
+}
 
 export async function downloadBlob(
   url: string,
@@ -8,6 +17,7 @@ export async function downloadBlob(
 ): Promise<void> {
   const response = await fetch(`${API_BASE_URL}${url}`, {
     ...options,
+    headers: buildHeaders(options),
     credentials: "include",
   });
   if (!response.ok) {
@@ -22,12 +32,20 @@ export async function downloadBlob(
   URL.revokeObjectURL(blobUrl);
 }
 
-export async function getBlobUrl(url: string): Promise<string> {
+export async function getBlobUrl(
+  url: string,
+  options?: RequestInit,
+  fallbackMessage: string = FALLBACK_MESSAGES.PREVIEW_FETCH,
+): Promise<string> {
   const response = await fetch(`${API_BASE_URL}${url}`, {
+    ...options,
+    headers: buildHeaders(options),
     credentials: "include",
   });
   if (!response.ok) {
-    throw new Error(FALLBACK_MESSAGES.PREVIEW_FETCH);
+    // AppErrorResponse の code / message / action を保持して呼び出し元の分岐・表示に使う。
+    // JSON エラーボディが無い場合の fallback は呼び出し元が用途別に指定できる
+    throw await toApiError(response, fallbackMessage);
   }
   const blob = await response.blob();
   return URL.createObjectURL(blob);

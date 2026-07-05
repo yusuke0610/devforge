@@ -57,11 +57,16 @@ backend/app/
 │   │   ├── context_builder.py   # GitHub/ブログ参照コンテキスト取得（DB 読み取り専用）
 │   │   ├── model_catalog.py     # エイリアス→provider/実モデル ID/課金レート（SSoT / ADR-0012・0013）
 │   │   ├── output_schema.py     # 構造化出力スキーマ（機械制約の正本）
-│   │   └── llm/                 # LLM プロバイダ抽象（失敗は raise / ADR-0013）
-│   │       ├── base.py          # LLMClient 抽象・LLMError・共通ヘルパ
-│   │       ├── factory.py       # get_llm_client(provider) で分岐
-│   │       ├── anthropic_client.py / openai_client.py / google_client.py
-│   │       └── ollama_client.py # ローカル開発用（LLM_LOCAL_OLLAMA）
+│   │   ├── llm/                 # LLM プロバイダ抽象（失敗は raise / ADR-0013）
+│   │   │   ├── base.py          # LLMClient 抽象・LLMError・共通ヘルパ
+│   │   │   ├── factory.py       # get_llm_client(provider) で分岐
+│   │   │   ├── anthropic_client.py / openai_client.py / google_client.py
+│   │   │   └── ollama_client.py # ローカル開発用（LLM_LOCAL_OLLAMA）
+│   │   └── resume_draft/        # GitHub 連携データ → 経歴書ドラフト生成（ADR-0018）
+│   │       ├── context.py       # DB 読み取り専用（連携キャッシュ + スキル証跡 → DraftSource）
+│   │       ├── mapper.py        # ルールベース純関数（骨格 payload 構築）
+│   │       ├── output_schema.py # ドラフト用 LLM 構造化出力スキーマ
+│   │       └── draft_service.py # LLM 1 コール → パース → 骨格へ自然文マージ
 │   ├── blog/                    # ブログ収集・技術記事判定・スコア算出
 │   │   ├── account_service.py
 │   │   ├── collector.py

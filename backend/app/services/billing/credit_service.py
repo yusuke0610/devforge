@@ -46,19 +46,24 @@ def ensure_can_use_model(db: Session, user_id: str, model_alias: str) -> None:
         )
 
 
-def record_chat_usage(db: Session, user_id: str, usage: AgentUsage) -> int | None:
-    """チャット 1 回分の使用量を記録し、有料モデルならクレジットを消費する。
+def record_chat_usage(
+    db: Session, user_id: str, usage: AgentUsage, *, description: str | None = None
+) -> int | None:
+    """LLM 利用 1 回分の使用量を記録し、有料モデルならクレジットを消費する。
 
     無料モデルは使用ログのみ記録して None を返す。有料モデルは残高減算・台帳追記・
     使用ログ記録を単一トランザクションで原子的に確定し、適用後残高を返す。記録の
     失敗（途中での例外）は全体を rollback して呼び出し元へ伝播させる
     （課金漏れ・課金とログの不整合を黙って通さない方針 / ADR-0012）。
+
+    description は台帳の用途表示。省略時は既定のチャット文言（経歴書ドラフト生成
+    など別用途の呼び出し元が上書きする / ADR-0018）。
     """
     cost = calculate_credit_cost(usage.model, usage.input_tokens, usage.output_tokens)
     balance_after = BillingRepository(db, user_id).record_chat_consumption(
         amount=-cost,
         transaction_type=TRANSACTION_TYPE_CONSUMPTION,
-        description=f"Agent チャット（{usage.model}）",
+        description=description or f"Agent チャット（{usage.model}）",
         model_alias=usage.model,
         input_tokens=usage.input_tokens,
         output_tokens=usage.output_tokens,

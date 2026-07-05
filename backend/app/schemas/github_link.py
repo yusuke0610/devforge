@@ -34,6 +34,19 @@ class ContributionCalendar(BaseModel):
     )
 
 
+class AnalyzedRepoSummary(BaseModel):
+    """連携で分析したリポジトリ 1 件分のサマリ（ADR-0018）。
+
+    経歴書ドラフト生成のルールベースマッピングが入力にする決定論データ。
+    スキル証跡（github_skill_evidence）と同一連携実行時点のスナップショットになる。
+    """
+
+    full_name: str = Field(description="owner/name 形式のリポジトリ名")
+    description: str = Field(default="", description="GitHub のリポジトリ説明（無ければ空文字）")
+    created_at: str = Field(default="", description="ISO 8601 形式の作成日時")
+    pushed_at: str = Field(default="", description="ISO 8601 形式の最終 push 日時")
+
+
 class GitHubLinkResponse(BaseModel):
     username: str
     repos_analyzed: int
@@ -46,6 +59,12 @@ class GitHubLinkResponse(BaseModel):
     contribution_calendars: List[ContributionCalendar] = Field(
         default_factory=list,
         description="年ごとのコントリビューションカレンダー（新しい年順。取得失敗時は空配列）",
+    )
+    # ADR-0018 以前に保存された旧形式 JSON には無いフィールド。default_factory で
+    # 後方互換を保ち、旧形式かどうかは「空リスト」で判定する（ドラフト生成側で 409）
+    repos: List[AnalyzedRepoSummary] = Field(
+        default_factory=list,
+        description="分析対象リポジトリのサマリ一覧（経歴書ドラフト生成の入力 / ADR-0018）",
     )
 
 

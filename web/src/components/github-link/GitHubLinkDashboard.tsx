@@ -15,10 +15,14 @@ import {
   FALLBACK_MESSAGES,
   GITHUB_LINK_MESSAGES,
   LOADING_MESSAGES,
+  RESUME_DRAFT_MESSAGES,
   UI_MESSAGES,
   yearLabel,
 } from "../../constants/messages";
 import { useAsyncTaskPage } from "../../hooks/useAsyncTaskPage";
+import { useResumeDraftPdf } from "../../hooks/useResumeDraftPdf";
+import { useAppSelector } from "../../store";
+import { PdfPreviewModal } from "../forms/PdfPreviewModal";
 import { ContributionHeatmap } from "./ContributionHeatmap";
 import { LanguageBar } from "./LanguageBar";
 import shared from "../../styles/shared.module.css";
@@ -57,6 +61,11 @@ export function GitHubLinkDashboard() {
 
   // 連携実行・ポーリング失敗のエラー（AppErrorState）をトーストで通知する（回復アクション付き・手動クローズ）。
   useAppErrorToast(error);
+
+  // 経歴書ドラフト PDF 生成（ADR-0018）。モデルはユーザーメニューで選択中のグローバル設定を使う
+  const agentModel = useAppSelector((state) => state.agentModel.model);
+  const draft = useResumeDraftPdf(agentModel);
+  useAppErrorToast(draft.error);
 
   /**
    * GitHub 連携を実行する（非同期バックグラウンド）。
@@ -160,6 +169,25 @@ export function GitHubLinkDashboard() {
                 <LanguageBar languages={result.languages} />
               </div>
             )}
+
+            {/* 経歴書ドラフト PDF 生成（ADR-0018） */}
+            <div className={styles.section}>
+              <h2>{RESUME_DRAFT_MESSAGES.HEADING}</h2>
+              <p className={styles.summaryText}>{RESUME_DRAFT_MESSAGES.HINT}</p>
+              <button
+                type="button"
+                className={styles.downloadButton}
+                onClick={() => void draft.generate()}
+                disabled={draft.generating}
+              >
+                {draft.generating ? (
+                  <InlineSpinner label={RESUME_DRAFT_MESSAGES.GENERATING} />
+                ) : (
+                  RESUME_DRAFT_MESSAGES.GENERATE
+                )}
+              </button>
+              <p className={styles.summaryText}>{RESUME_DRAFT_MESSAGES.NOT_SAVED_NOTE}</p>
+            </div>
           </>
         )}
       </div>
@@ -172,6 +200,9 @@ export function GitHubLinkDashboard() {
         <h1>GitHub連携</h1>
       </div>
       <div className={shared.pageBody}>{renderBody()}</div>
+      {draft.previewUrl && (
+        <PdfPreviewModal previewUrl={draft.previewUrl} onClose={draft.closePreview} />
+      )}
     </>
   );
 }
