@@ -18,6 +18,21 @@ from fastapi.testclient import TestClient
 from conftest import auth_header
 
 
+def _flatten_exceptions(exc: BaseException) -> list[BaseException]:
+    """例外を leaf まで平坦化する（ExceptionGroup を再帰展開）。
+
+    TestClient から伝播する例外は環境により RuntimeError 単体だったり、Starlette の
+    TaskGroup で ExceptionGroup にラップされたりする。中身の例外を型・メッセージで
+    検証できるよう、どちらの形でも leaf の列にそろえる。
+    """
+    if isinstance(exc, BaseExceptionGroup):
+        leaves: list[BaseException] = []
+        for sub in exc.exceptions:
+            leaves.extend(_flatten_exceptions(sub))
+        return leaves
+    return [exc]
+
+
 class _FakeLLM(LLMClient):
     """固定応答を返すテスト用 LLM クライアント。"""
 
@@ -195,11 +210,16 @@ def test_resume_draft_pdf_generation_failure_not_charged(
     monkeypatch.setattr(agent_router, "build_resume_pdf", _fail_pdf)
 
     # PDF 生成失敗は raise_app_error を通らない生の例外で、TestClient から伝播する。
-    # 環境により RuntimeError が Starlette の TaskGroup で ExceptionGroup にラップされるため、
-    # 例外型を固定せず「例外で失敗すること」だけを検証する（ExceptionGroup を pytest.raises に
-    # 直接渡すと pytest がグループ検査モードになり素直にマッチしないため、BaseException で受ける）
-    with pytest.raises(BaseException):  # noqa: B017, PT011
+    # ExceptionGroup を pytest.raises に直接渡すと pytest がグループ検査モードになり
+    # 素直にマッチしないため、いったん BaseException で捕捉してから中身を検証する。
+    with pytest.raises(BaseException) as exc_info:  # noqa: B017, PT011
         client.post("/api/agent/resume-draft/pdf", json={"model": "haiku"}, headers=headers)
+    # 環境により RuntimeError が ExceptionGroup にラップされるため平坦化し、
+    # _fail_pdf が投げた PDF 生成失敗の例外であることまで確認する（無関係な例外での誤検知を防ぐ）
+    leaves = _flatten_exceptions(exc_info.value)
+    assert any(
+        isinstance(e, RuntimeError) and "PDF 生成失敗" in str(e) for e in leaves
+    ), f"想定した PDF 生成失敗の例外ではありません: {leaves}"
     # 課金は PDF 生成成功後にのみ行うため、使用ログは記録されない
     assert client._db_session.query(AgentUsageLog).count() == 0
 
