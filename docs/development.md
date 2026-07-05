@@ -117,6 +117,19 @@ make dev
 make ci          # lint + test + build-web
 ```
 
+### TDD（決定論的ロジック層）— ADR-0019
+
+ミューテーションテスト対象と同じスコープ（backend: `backend/pyproject.toml` の `[tool.mutmut] only_mutate` / web: `web/stryker.conf.json` の `mutate`）の実装変更は、**テストを先に書く TDD（red → green → refactor）で行う**。手順の正本は [`.claude/rules/common/tdd.md`](../.claude/rules/common/tdd.md)。
+
+テスト差分の随伴は機械ゲートで検証される（`make lint` / `make ci` / CI の test-backend ジョブに含まれる）:
+
+```bash
+make lint-tdd    # TDD 対象の実装変更にテスト差分が随伴しているか検知
+```
+
+- 振る舞いを変えない変更（リネーム・コメント修正・機械的リファクタ等）は、コミットメッセージに `Tdd-Exempt: <理由>` トレーラーを付けると skip される（理由は PR レビューで確認）。コミット前のローカル一時実行は `TDD_EXEMPT=1 make ci` で代用できる
+- 対象スコープの追加・削除は mutation 設定側を編集する（TDD 用の別リストは持たない）
+
 ### バックエンド
 
 ```bash

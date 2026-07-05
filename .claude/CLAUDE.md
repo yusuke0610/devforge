@@ -5,6 +5,7 @@
 - 本ファイルは全体ルールの索引。AI エージェント（Claude Code 含む）が最初に読むべき内容を集約している。
 - 領域固有ルール（backend / web / infra）は `.claude/rules/<scope>/*.md` に分割済み。対象パスを編集する際に自動でロードされる。重複は避け、詳細は各 rule ファイルへ寄せる。
 - **DevForge Agent（`backend/app/services/agent/` / `backend/app/prompts/agent_*.md` / `backend/app/schemas/agent.py`）を変更する場合は、作業前に必ず `.claude/rules/backend/agent.md` を読むこと。** 制約の責務分離（スキーマ vs プロンプト）・エラー契約・DB 非更新原則など、意図せず壊しやすい不変条件が集約されている。
+- **決定論的ロジック層（mutmut / stryker のミューテーション対象）を変更する場合は TDD（red→green→refactor）が必須。** 手順の正本は `.claude/rules/common/tdd.md`（ADR-0019）。テスト差分の随伴は `make lint-tdd`（`make ci` に含まれる）が機械検証する。
 
 ## AI エージェント実行方法
 
@@ -140,7 +141,7 @@ Secrets は未登録の間は通知が静かに skip される（CI は green �
 
 | 合言葉 | やること |
 |---|---|
-| **stage** | 実装 → `make ci` → `git add` まで。作業開始時にブランチを切り損ねて `main` にいた場合はここで feature ブランチを `origin/main` 起点で切る（本来は「作業開始時のブランチ運用」で切る）。会話に「サマリ＋判断が必要な事案」を提示し、ユーザーのエディタ確認を待つ |
+| **stage** | 実装 → `make ci` → `git add` まで。TDD 対象（`.claude/rules/common/tdd.md` の対象判定に該当）の変更は red→green→refactor を経てから stage に入る。作業開始時にブランチを切り損ねて `main` にいた場合はここで feature ブランチを `origin/main` 起点で切る（本来は「作業開始時のブランチ運用」で切る）。会話に「サマリ＋判断が必要な事案」を提示し、ユーザーのエディタ確認を待つ |
 | **commit** | コミットメッセージ案（**日本語**）を提示 → **ユーザー承認を待ってから** commit。承認は必須ゲート |
 | **pr** | `git fetch origin main` → `git log --oneline origin/main..HEAD` / `git diff --stat origin/main...HEAD` で**最新の main との差分を確認**（ローカルの古い `origin/main` 参照で誤認しないため）→ `git push` → `gh pr create`（**日本語**タイトル/本文、base = `main`）→ PR URL を返す |
 | **pr 後の追従** | PR 作成後、`gh pr checks` / `gh pr view --comments` で **CI と指摘を確認**。こけ・指摘があれば修正 → `make ci` → 同ブランチへ push を green かつ解消まで繰り返す。CI 修正は実装フェーズなので元のモデルで（Haiku のままにしない）。**ただし意思決定を要する指摘（設計・API/型契約・挙動変更）と diff 範囲を逸脱する指摘は、勝手に直さず指摘内容・対応案・影響範囲を提示して承認を待つ**。範囲内の機械的修正（lint / typo 等）は承認不要 |

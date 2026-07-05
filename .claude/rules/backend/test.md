@@ -5,6 +5,10 @@ paths:
 
 # Backend テスト方針
 
+## TDD 対象の判定（最初に確認）
+
+変更する実装ファイルが `backend/pyproject.toml` の `[tool.mutmut] only_mutate` に該当する場合（決定論的ビジネスロジック層）、**テストを先に書く TDD ワークフローが必須**。手順は `.claude/rules/common/tdd.md`（正本）に従うこと（ADR-0019。`make lint-tdd` が CI で検証する）。該当しない変更は以下のトリガーベース方針に従う。
+
 ## いつテストを書く・回すか（トリガー）
 
 以下のいずれかに該当する変更を行った場合、テスト追加・更新と実行が必須:

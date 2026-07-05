@@ -2,7 +2,7 @@
 	setup install-hooks install-backend install-web generate-keys \
 	dev dev-build dev-down dev-amd64 dev-amd64-build dev-web preview-web dev-proxy dev-proxy-only stripe-webhook \
 	test test-backend test-web mutation-backend mutation-web \
-	lint lint-backend typecheck-backend lint-web lint-web-messages lint-env-keys lint-adr-index lint-fix \
+	lint lint-backend typecheck-backend lint-web lint-web-messages lint-env-keys lint-adr-index lint-tdd lint-fix \
 	format format-check \
 	ci \
 	dupe-check dupe-check-html dupe-clean \
@@ -48,6 +48,7 @@ help:
 	@echo "  lint-web-messages  Frontend: setError等にリテラル日本語が渡っていないか検知"
 	@echo "  lint-env-keys     env名/エラーコードの SSoT drift を検知 (env_keys.py↔compose/cloud_run 双方向, リテラル参照禁止, errors.py↔errorCodes.ts)"
 	@echo "  lint-adr-index    ADR 索引の drift を検知 (docs/adr/README.md↔ADR ファイルの存在/ステータス/見出し番号)"
+	@echo "  lint-tdd          TDD 対象 (mutmut/stryker スコープ) の実装変更にテスト差分が随伴しているか検知 (ADR-0019)"
 	@echo "  lint-fix          リント自動修正 (ruff + eslint)"
 	@echo "  format            Prettier で整形"
 	@echo "  format-check      Prettier チェック"
@@ -159,7 +160,7 @@ mutation-backend:
 mutation-web:
 	nix develop --command bash -c "cd web && npm run test:mutation"
 
-lint: lint-backend typecheck-backend lint-web lint-web-messages lint-env-keys lint-adr-index
+lint: lint-backend typecheck-backend lint-web lint-web-messages lint-env-keys lint-adr-index lint-tdd
 
 lint-backend:
 	nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check app tests alembic_migrations"
@@ -190,6 +191,12 @@ lint-env-keys:
 # nix wrap 不要（devshell に無い依存を使わない）。
 lint-adr-index:
 	bash scripts/lint-adr-index.sh
+
+# TDD 対象（mutmut/stryker スコープの決定論的ロジック層）の実装変更にテスト差分が
+# 随伴しているかを検知（ADR-0019）。対象 glob は mutation 設定から動的に読み出す。
+# bash/git/awk/sed のみに依存するため nix wrap 不要。
+lint-tdd:
+	bash scripts/lint-tdd.sh
 
 lint-fix:
 	nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check --fix app tests alembic_migrations"

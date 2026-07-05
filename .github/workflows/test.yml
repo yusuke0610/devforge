@@ -148,6 +148,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
+          # lint-tdd が base ブランチとの merge-base diff を必要とするため全履歴を取得する。
+          fetch-depth: 0
           # 読み取り専用ジョブのため checkout の認証情報をディスクに残さない（サプライチェーン保護）。
           persist-credentials: false
 
@@ -161,6 +163,11 @@ jobs:
       # 一覧の複製（旧 CONTRIBUTING の表）が陳腐化した再発防止。bash/grep/comm のみ。
       - name: Lint SSoT (ADR index)
         run: bash scripts/lint-adr-index.sh
+
+      # TDD 対象（決定論的ロジック層 = mutmut/stryker スコープ）の実装変更に
+      # テスト差分が随伴しているかを検知（ADR-0019）。bash/git/awk/sed のみ。
+      - name: Lint SSoT (TDD test accompaniment)
+        run: bash scripts/lint-tdd.sh
 
       - name: Install uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0

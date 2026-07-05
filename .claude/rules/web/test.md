@@ -5,6 +5,10 @@ paths:
 
 # Frontend テスト方針
 
+## TDD 対象の判定（最初に確認）
+
+変更する実装ファイルが `web/stryker.conf.json` の `mutate`（`!` 除外込み）に該当する場合（utils / hooks / formMappers / payloadBuilders / store slice 等の決定論的ロジック層）、**テストを先に書く TDD ワークフローが必須**。手順は `.claude/rules/common/tdd.md`（正本）に従うこと（ADR-0019。`make lint-tdd` が CI で検証する）。該当しない変更は以下のトリガーベース方針に従う。
+
 ## いつテストを書く・回すか（トリガー）
 
 ### ユニット / コンポーネントテスト（vitest）
