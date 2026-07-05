@@ -72,7 +72,9 @@
       "llm_failed": "AI の応答取得に失敗しました。しばらくしてからもう一度お試しください。",
       "parse_failed": "AI の応答を解釈できませんでした。もう一度お試しください。",
       "target_required": "このスコープでは対象の指定が必要です。",
-      "target_not_found": "指定された対象が見つかりません。"
+      "target_not_found": "指定された対象が見つかりません。",
+      "draft_link_required": "経歴書ドラフトの生成に必要な GitHub 連携データがありません。GitHub 連携を実行してから再度お試しください。",
+      "draft_no_repositories": "分析対象の公開リポジトリが見つかりませんでした。経歴書ドラフトの生成には公開リポジトリが必要です。"
     },
     "billing": {
       "insufficient_credits": "クレジット残高が不足しています。Haiku（無料）に切り替えるか、クレジットを追加してください。",

@@ -32,6 +32,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/resume-draft/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Resume Draft Pdf
+         * @description GitHub 連携データから経歴書ドラフトを生成し、PDF で返す（ADR-0018）。
+         *
+         *     構造（プロジェクト・技術スタック・期間）は連携データからルールベースで写し、
+         *     自然文（職務要約・自己PR・プロジェクト説明）だけを LLM で生成する。
+         *     ドラフトは DB に保存しない（生成物はレスポンスの PDF のみ。
+         *     クレジット消費・使用ログの記録は除く / ADR-0012）。
+         */
+        post: operations["generate_resume_draft_pdf_api_agent_resume_draft_pdf_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/billing/admin/grant": {
         parameters: {
             query?: never;
@@ -1105,6 +1130,38 @@ export interface components {
             output_tokens: number;
         };
         /**
+         * AnalyzedRepoSummary
+         * @description 連携で分析したリポジトリ 1 件分のサマリ（ADR-0018）。
+         *
+         *     経歴書ドラフト生成のルールベースマッピングが入力にする決定論データ。
+         *     スキル証跡（github_skill_evidence）と同一連携実行時点のスナップショットになる。
+         */
+        AnalyzedRepoSummary: {
+            /**
+             * Created At
+             * @description ISO 8601 形式の作成日時
+             * @default
+             */
+            created_at: string;
+            /**
+             * Description
+             * @description GitHub のリポジトリ説明（無ければ空文字）
+             * @default
+             */
+            description: string;
+            /**
+             * Full Name
+             * @description owner/name 形式のリポジトリ名
+             */
+            full_name: string;
+            /**
+             * Pushed At
+             * @description ISO 8601 形式の最終 push 日時
+             * @default
+             */
+            pushed_at: string;
+        };
+        /**
          * BlogAccountCreate
          * @description ブログ連携アカウントの作成リクエスト。
          */
@@ -1494,6 +1551,11 @@ export interface components {
             languages?: {
                 [key: string]: number;
             };
+            /**
+             * Repos
+             * @description 分析対象リポジトリのサマリ一覧（経歴書ドラフト生成の入力 / ADR-0018）
+             */
+            repos?: components["schemas"]["AnalyzedRepoSummary"][];
             /** Repos Analyzed */
             repos_analyzed: number;
             /** Unique Skills */
@@ -1764,6 +1826,21 @@ export interface components {
             qualifications?: components["schemas"]["ResumeQualificationItem"][];
             /** Self Pr */
             self_pr: string;
+        };
+        /**
+         * ResumeDraftRequest
+         * @description 経歴書ドラフト生成（ADR-0018）のリクエスト。
+         *
+         *     生成対象（リポジトリ集合）はサーバー側が連携キャッシュから決めるため、
+         *     クライアントが指定するのは使用モデルのみ。
+         */
+        ResumeDraftRequest: {
+            /**
+             * Model
+             * @default haiku
+             * @enum {string}
+             */
+            model: "haiku" | "sonnet" | "gemini-flash" | "gemini-pro" | "gpt-mini" | "gpt";
         };
         /** ResumeQualificationItem */
         ResumeQualificationItem: {
@@ -2068,6 +2145,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentChatResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_resume_draft_pdf_api_agent_resume_draft_pdf_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResumeDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

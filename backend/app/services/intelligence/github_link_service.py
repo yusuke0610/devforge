@@ -144,7 +144,8 @@ async def run_github_link(session_factory: SessionFactory, payload: dict) -> Non
     # dashboard 表示用サマリ（件数・言語バイト数）を検出スキルから組む。
     result = aggregate_intelligence(payload["github_username"], repos, detected_skills)
 
-    response = map_pipeline_result(result)
+    # リポジトリ単位のサマリも保存対象に含める（経歴書ドラフト生成の入力 / ADR-0018）
+    response = map_pipeline_result(result, repos)
     response.contribution_calendars = calendars
     result_dict = response.model_dump()
 

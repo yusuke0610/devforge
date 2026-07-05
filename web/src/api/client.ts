@@ -18,6 +18,16 @@ function getCsrfToken(): string {
   return match ? match[1] : "";
 }
 
+/**
+ * 状態変更メソッド（POST/PUT/DELETE/PATCH）なら CSRF トークンをヘッダーに付与する。
+ * request() と Blob 系 fetch（download.ts）で共有し、CSRF 付与ルールを 1 箇所に集約する。
+ */
+export function applyCsrfHeader(headers: Record<string, string>, method: string): void {
+  if (["POST", "PUT", "DELETE", "PATCH"].includes(method.toUpperCase())) {
+    headers["X-CSRF-Token"] = getCsrfToken();
+  }
+}
+
 /** 進行中のリフレッシュ処理。複数の 401 は同じ Promise を待ち合わせる。 */
 let _refreshPromise: Promise<boolean> | null = null;
 
@@ -108,6 +118,15 @@ function buildApiError(response: Response, body: ErrorResponseBody | null, fallb
   });
 }
 
+/**
+ * Response から ApiError を組み立てる（Blob 系など request() を通らない fetch 用）。
+ * backend の AppErrorResponse（code / message / action）を保持して呼び出し元へ渡す。
+ */
+export async function toApiError(response: Response, fallbackMessage: string): Promise<ApiError> {
+  const body = await getErrorBody(response);
+  return buildApiError(response, body, fallbackMessage);
+}
+
 export async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -120,9 +139,7 @@ export async function request<T>(
   };
 
   // 状態変更リクエストには CSRF トークンを付与する
-  if (["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
-    headers["X-CSRF-Token"] = getCsrfToken();
-  }
+  applyCsrfHeader(headers, method);
 
   let response: Response;
   try {

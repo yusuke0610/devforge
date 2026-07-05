@@ -144,3 +144,18 @@ def get_current_user(
             message_key="auth.user_not_found",
         )
     return user
+
+
+def require_github_user(user: User = Depends(get_current_user)) -> User:
+    """GitHub 連携データを使う機能には GitHub ログイン（``github_id`` 保持）が必須。未連携なら 403。
+
+    github-link の run / retry と経歴書ドラフト生成（ADR-0018）で共通の認可ガード。
+    """
+    if user.github_id is None:
+        raise_app_error(
+            status_code=403,
+            code=ErrorCode.AUTH_REQUIRED,
+            message=get_error("github_link.github_login_required"),
+            action="GitHub アカウントでログインし直してください",
+        )
+    return user
