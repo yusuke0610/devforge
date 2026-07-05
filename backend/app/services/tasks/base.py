@@ -8,6 +8,7 @@ class TaskType(str, Enum):
     """バックグラウンドで実行可能なタスクの種別。"""
 
     GITHUB_LINK = "github_link"
+    RESUME_DRAFT = "resume_draft"
 
 
 # 手動再実行を許可するキャッシュレコードのステータス集合。

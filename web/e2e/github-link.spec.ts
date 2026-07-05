@@ -153,6 +153,75 @@ test.describe("GitHub 連携 - コントリビューションヒートマップ"
     expect(runCalled).toBe(false);
   });
 
+  test("連携後の「ドラフト生成」ボタンで非同期生成が走りプレビューが開く", async ({
+    page,
+  }) => {
+    // 連携済み（result あり）→ ダッシュボードにドラフト生成セクションが出る
+    await page.route("**/api/github-link/cache", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "completed",
+          result: {
+            username: "e2e-test-user",
+            repos_analyzed: 1,
+            unique_skills: 1,
+            analyzed_at: "2026-04-24T00:00:00Z",
+            languages: { TypeScript: 100 },
+            repos: [
+              {
+                full_name: "e2e-test-user/app",
+                description: "アプリ",
+                created_at: "2024-01-01T00:00:00Z",
+                pushed_at: "2026-04-01T00:00:00Z",
+              },
+            ],
+          },
+        }),
+      }),
+    );
+    // マウント時・ポーリングとも完了を返す（enqueue → 即完了 → PDF 取得の順で流れる）
+    await page.route("**/api/agent/resume-draft/status", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ status: "completed" }),
+      }),
+    );
+    let runCalled = false;
+    await page.route("**/api/agent/resume-draft/run", (route) => {
+      runCalled = true;
+      return route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({ status: "pending" }),
+      });
+    });
+    await page.route("**/api/agent/resume-draft/pdf", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/pdf",
+        body: "%PDF-1.4\n%mock\n",
+      }),
+    );
+
+    await page.goto("/github_link");
+    await waitForAuthenticatedLayout(page);
+
+    // 連携結果が表示され、ドラフト生成ボタンが出る
+    await expect(
+      page.getByRole("heading", { name: "e2e-test-user の連携結果" }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "経歴書ドラフトPDFを生成" })
+      .click();
+
+    // enqueue → ポーリング完了 → PDF 取得でプレビューモーダルが開く
+    await expect(page.getByText("PDFプレビュー")).toBeVisible();
+    expect(runCalled).toBe(true);
+  });
+
   test("サブパネルの「連携実行」ボタンで連携が実行されポーリング表示になる", async ({
     page,
   }) => {

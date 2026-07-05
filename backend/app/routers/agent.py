@@ -7,17 +7,19 @@ Agent のレスポンス（operations）はフロントの state にのみ適用
 
 import logging
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from ..core.errors import ErrorCode, raise_app_error
+from ..core.errors import ErrorCode, raise_app_error, resolve_async_error_code
 from ..core.messages import get_error
 from ..core.security.auth import get_current_user, require_github_user
 from ..core.security.dependencies import limiter
 from ..db import get_db
 from ..models import User
+from ..repositories.resume_draft import ResumeDraftCacheRepository
 from ..schemas.agent import AgentChatRequest, AgentChatResponse, ResumeDraftRequest
+from ..schemas.shared import TaskAcceptedResponse, TaskStatusResponse
 from ..services.agent import chat_service
 from ..services.agent.chat_service import (
     AgentResponseParseError,
@@ -31,10 +33,10 @@ from ..services.agent.resume_draft.context import (
     ResumeDraftSourceUnavailableError,
     build_draft_source,
 )
-from ..services.agent.resume_draft.draft_service import run_resume_draft
 from ..services.billing import credit_service
 from ..services.billing.credit_service import InsufficientCreditsError
 from ..services.pdf.generators.resume_generator import build_resume_pdf
+from ..services.tasks import AsyncTaskCacheService, TaskType
 from .download_utils import stream_pdf
 
 logger = logging.getLogger(__name__)
@@ -125,23 +127,24 @@ async def agent_chat(
     return result.response
 
 
-@router.post("/resume-draft/pdf")
+@router.post("/resume-draft/run", response_model=TaskAcceptedResponse, status_code=202)
 @limiter.limit("5/minute")
-async def generate_resume_draft_pdf(
+async def start_resume_draft(
     request: Request,
     body: ResumeDraftRequest,
+    background_tasks: BackgroundTasks,
     user: User = Depends(require_github_user),
     db: Session = Depends(get_db),
-) -> StreamingResponse:
-    """GitHub 連携データから経歴書ドラフトを生成し、PDF で返す（ADR-0018）。
+) -> TaskAcceptedResponse:
+    """GitHub 連携データからの経歴書ドラフト生成をバックグラウンドで開始する（202 / ADR-0018）。
 
-    構造（プロジェクト・技術スタック・期間）は連携データからルールベースで写し、
-    自然文（職務要約・自己PR・プロジェクト説明）だけを LLM で生成する。
-    ドラフトは DB に保存しない（生成物はレスポンスの PDF のみ。
-    クレジット消費・使用ログの記録は除く / ADR-0012）。
+    構造（プロジェクト・技術スタック・期間）は連携データからルールベースで写し、自然文
+    （職務要約・自己PR・プロジェクト説明）だけを LLM で生成する。生成物（payload）は
+    ``resume_draft_cache`` に保存され、``GET /resume-draft/pdf`` でダウンロードできる。
+    確定した職務経歴書（``resumes``）とは別物で、そちらには書き込まない。
+    課金は生成タスク側で確定する（残高の事前チェックのみ本エンドポイントで行う / ADR-0012）。
     """
-    usage_description = f"経歴書ドラフト生成（{body.model}）"
-    # 有料モデルは LLM を呼ぶ前に残高をチェックする（チャットと同一契約 / ADR-0012）
+    # 有料モデルは生成を開始する前に残高をチェックする（チャットと同一契約 / ADR-0012）
     try:
         credit_service.ensure_can_use_model(db, user.id, body.model)
     except InsufficientCreditsError:
@@ -150,10 +153,10 @@ async def generate_resume_draft_pdf(
             code=ErrorCode.INSUFFICIENT_CREDITS,
             message=get_error("billing.insufficient_credits"),
         )
-    # 連携キャッシュ + スキル証跡の読み取り（SELECT のみ）。未連携・旧形式・0 件は 409。
+    # 連携キャッシュ + スキル証跡の読み取り（SELECT のみ）で事前検証し、409 を即時に返す。
     # 0 件（NoRepositories）は再連携で回復しないため別導線を案内する（サブクラスを先に catch）
     try:
-        source = build_draft_source(db, user)
+        build_draft_source(db, user)
     except ResumeDraftNoRepositoriesError as exc:
         logger.info("経歴書ドラフト生成: 分析対象リポジトリなし: %s", exc)
         raise_app_error(
@@ -170,36 +173,66 @@ async def generate_resume_draft_pdf(
             message=get_error("agent.draft_link_required"),
             action="サイドバーの「GitHub連携」から連携を実行してください",
         )
+
+    cache = ResumeDraftCacheRepository(db).get_or_create(user.id)
+    service = AsyncTaskCacheService(db, cache)
+    # DB 最新状態を取得しつつ pending へアトミック遷移。進行中なら現ステータスを返す。
+    # dead_letter からの再実行も本メソッドが pending へ戻すため、生成ボタンが再試行を兼ねる。
+    if not service.try_reset_to_pending(reset_retry_count=True):
+        return TaskAcceptedResponse(status=cache.status)
+
     try:
-        result = await run_resume_draft(body.model, source)
-    except LLMError as exc:
-        # 失敗パスでも消費済みトークンの課金を確定させる（チャットと同一 / ADR-0012）
-        if exc.usage is not None:
-            try:
-                _record_usage_after_llm(db, user.id, exc.usage, description=usage_description)
-            except Exception:
-                logger.error("LLM 失敗時のクレジット消費記録に失敗", exc_info=True)
-        raise_app_error(
-            status_code=502,
-            code=ErrorCode.AGENT_LLM_ERROR,
-            message=get_error("agent.llm_failed"),
+        await service.dispatch(
+            background_tasks,
+            TaskType.RESUME_DRAFT,
+            {"user_id": user.id, "model": body.model},
+            failure_message="タスクの開始に失敗しました",
+            logger=logger,
         )
-    except AgentResponseParseError as exc:
-        if exc.usage is not None:
-            try:
-                _record_usage_after_llm(db, user.id, exc.usage, description=usage_description)
-            except Exception:
-                logger.error("パース失敗時のクレジット消費記録に失敗", exc_info=True)
+    except Exception:
         raise_app_error(
-            status_code=502,
-            code=ErrorCode.AGENT_PARSE_ERROR,
-            message=get_error("agent.parse_failed"),
+            status_code=500,
+            code=ErrorCode.INTERNAL_ERROR,
+            message=get_error("task.dispatch_failed"),
+            action="しばらく待ってから再試行してください",
         )
-    # 先に PDF を生成し、成功した場合のみ課金を確定する。build_resume_pdf は DB 非依存の
-    # 同期処理なので _record_usage_after_llm（db.close を伴う）より前に実行してよい。
-    # PDF 生成失敗（稀な実装/環境エラー）でユーザーに課金しないため、この順序にする。
-    # LLM 呼び出し自体の失敗（上の except）はコストが発生済みなので従来どおり課金する（ADR-0012）
-    pdf_bytes = build_resume_pdf(result.payload)
-    # 実トークン量に基づくクレジット消費 + 使用ログ記録（記録失敗は 500 / ADR-0012）
-    _record_usage_after_llm(db, user.id, result.usage, description=usage_description)
+
+    return TaskAcceptedResponse(status="pending")
+
+
+@router.get("/resume-draft/status", response_model=TaskStatusResponse)
+def get_resume_draft_status(
+    user: User = Depends(require_github_user),
+    db: Session = Depends(get_db),
+) -> TaskStatusResponse:
+    """経歴書ドラフト生成タスクのステータスを返す（軽量ポーリング用 / ADR-0018）。"""
+    cache = ResumeDraftCacheRepository(db).get_by_user(user.id)
+    if not cache:
+        return TaskStatusResponse(status="completed")
+    return TaskStatusResponse(
+        status=cache.status,
+        error_message=cache.error_message,
+        error_code=resolve_async_error_code(cache.error_message),
+    )
+
+
+@router.get("/resume-draft/pdf")
+def download_resume_draft_pdf(
+    user: User = Depends(require_github_user),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    """完了済みの経歴書ドラフトを PDF で返す（ADR-0018）。
+
+    生成タスクが保存した payload から PDF を再レンダリングする（決定論的・DB 非依存）。
+    生成未完了・結果なしは 409 を返す。
+    """
+    cache = ResumeDraftCacheRepository(db).get_by_user(user.id)
+    if not cache or cache.status != "completed" or not cache.result:
+        raise_app_error(
+            status_code=409,
+            code=ErrorCode.VALIDATION_ERROR,
+            message=get_error("agent.draft_not_ready"),
+            action="経歴書ドラフトの生成が完了してから再度お試しください",
+        )
+    pdf_bytes = build_resume_pdf(cache.result)
     return stream_pdf(pdf_bytes, "career-resume-draft.pdf")

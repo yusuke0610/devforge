@@ -2,7 +2,7 @@
 
 from .billing import AgentUsageLog, CreditTransaction
 from .blog import BlogAccount, BlogArticle, BlogArticleTag
-from .cache import GitHubLinkCache
+from .cache import GitHubLinkCache, ResumeDraftCache
 from .master_data import MQualification, MTechnologyStack
 from .notification import Notification
 from .resume import (
@@ -41,5 +41,6 @@ __all__ = [
     "ResumeProjectTeamMember",
     "ResumeProjectTechnologyStack",
     "ResumeQualification",
+    "ResumeDraftCache",
     "User",
 ]
