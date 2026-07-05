@@ -72,6 +72,12 @@ GitHub 連携データから経歴書ドラフト payload を組み立てて PDF
 - **課金はタスク側（ADR-0020）**: 残高の事前チェック（402）だけ enqueue で行い、実課金は
   `run_task.py` が確定する。**PDF レンダリング成功後にのみ課金**（失敗＝課金なし）、LLM/パース失敗時は
   消費済みトークンを必ず課金、課金記録の失敗は `NonRetryableError` で dead_letter 化（LLM 再実行=再課金を防ぐ）。
+- **二重課金を防ぐ原子性・冪等性（ADR-0020）**: 本課金と結果保存（`completed` + `result`）は
+  **同一セッションの単一トランザクション**で確定する（`record_chat_usage` の commit が staged な
+  cache 変更も一括 flush する）。「課金済みだが結果未保存」の窓を作らないことで、その状態からの
+  リトライ・再配信による再課金を構造的に防ぐ。加えてフェーズA に**冪等ガード**を置き、既に
+  `completed` かつ `result` があるタスク再配信（原子 commit 後・ack 前のクラッシュ）は再実行しない。
+  手動再実行は router が status を `pending` へ戻すためガードに掛からず、意図どおり再生成する。
 - **degrade 方針**: 個別プロジェクトの説明文が欠落・上限超過した場合のみ repo description の
   定型文へフォールバック（切り詰めはしない）。career_summary / self_pr の欠落はパース失敗扱い。
 

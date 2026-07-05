@@ -66,6 +66,14 @@ async def run_resume_draft_task(session_factory: SessionFactory, payload: dict) 
             message = "経歴書ドラフトキャッシュが見つかりません"
             logger.error(message, extra={"user_id": user_id})
             raise NonRetryableError(f"{message} (user_id={user_id})")
+        # 冪等ガード: 既に completed かつ result があるなら再実行しない。
+        # フェーズC の課金＋結果保存を原子的に確定した後、worker が ack する前に
+        # プロセスが落ちると Cloud Tasks が同一メッセージを再配信しうる。ここで
+        # 短絡しないと LLM を再実行して二重課金する（手動再実行は router が status を
+        # pending へ戻すため本ガードには掛からない）。
+        if cache.status == "completed" and cache.result:
+            logger.info("経歴書ドラフトは完了済みのため再実行をスキップ", extra={"user_id": user_id})
+            return
         user = db.get(User, user_id)
         if not user:
             message = "ユーザーが見つかりません"
@@ -102,10 +110,24 @@ async def run_resume_draft_task(session_factory: SessionFactory, payload: dict) 
         logger.error("経歴書ドラフト PDF のレンダリングに失敗", exc_info=True)
         raise NonRetryableError(get_error("agent.draft_pdf_failed")) from exc
 
-    # ── フェーズC: 課金確定 → 結果書き戻し（新セッション）──────────────────
-    # 本課金は PDF レンダリング成功後にのみ行う。課金記録の失敗は NonRetryable に包んで
-    # dead_letter にし、リトライによる LLM 再実行（＝再課金）を防ぐ。
+    # ── フェーズC: 課金確定 + 結果書き戻し（単一トランザクションで原子的に）──────
+    # 本課金は PDF レンダリング成功後にのみ行う。課金と結果保存は**同一セッション**で
+    # staged し、``record_chat_usage`` 内の commit が両者を 1 トランザクションで確定する
+    # （SQLAlchemy の commit は pending 変更を一括 flush する）。これにより「課金済みだが
+    # 結果未保存」の窓が無くなり、その状態からのリトライによる二重課金が構造的に起きない。
+    # 課金記録の失敗は同一トランザクションを rollback（結果保存も巻き戻る）した上で
+    # NonRetryable に包み dead_letter 化する（リトライで LLM を再実行＝再課金しないため）。
     with session_factory() as db:
+        cache = ResumeDraftCacheRepository(db).get_by_user(user_id)
+        if not cache:
+            # 結果の保存先（ユーザーの ResumeDraftCache）が消えた（例: ユーザー削除の
+            # CASCADE）。保存先が無いだけで課金確定はせず終了する。
+            logger.warning("結果書き戻し時にキャッシュが見つかりません", extra={"user_id": user_id})
+            return
+        cache.result = result.payload
+        cache.status = "completed"
+        cache.error_message = None
+        cache.completed_at = _now()
         try:
             credit_service.record_chat_usage(
                 db, user_id, result.usage, description=usage_description
@@ -113,17 +135,6 @@ async def run_resume_draft_task(session_factory: SessionFactory, payload: dict) 
         except Exception as exc:
             logger.error("経歴書ドラフト生成のクレジット消費記録に失敗", exc_info=True)
             raise NonRetryableError("課金記録に失敗しました") from exc
-
-    with session_factory() as db:
-        cache = ResumeDraftCacheRepository(db).get_by_user(user_id)
-        if not cache:
-            logger.warning("結果書き戻し時にキャッシュが見つかりません", extra={"user_id": user_id})
-            return
-        cache.result = result.payload
-        cache.status = "completed"
-        cache.error_message = None
-        cache.completed_at = _now()
-        db.commit()
 
 
 def _charge_consumed_usage(

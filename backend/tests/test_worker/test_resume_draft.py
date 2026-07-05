@@ -153,6 +153,33 @@ def test_task_source_unavailable_raises_non_retryable(db_session, session_factor
         _run(run_resume_draft_task(session_factory, {"user_id": user.id, "model": "haiku"}))
 
 
+def test_task_skips_when_already_completed(db_session, session_factory, monkeypatch):
+    """冪等ガード: 既に completed + result のタスク再配信は再実行せず、課金も LLM 呼び出しもしない。
+
+    原子 commit 後・worker の ack 前にプロセスが落ちると Cloud Tasks が同一メッセージを
+    再配信しうる。フェーズA の短絡が無いと LLM を再実行して二重課金するため、その回帰を固定する。
+    """
+    user = _seed(db_session)
+    draft = db_session.query(ResumeDraftCache).filter_by(user_id=user.id).one()
+    draft.status = "completed"
+    draft.result = {"career_summary": "既存の結果。", "self_pr": "既存。", "project_descriptions": []}
+    db_session.commit()
+
+    def _fail_llm(provider):
+        raise AssertionError("完了済みタスクで LLM を呼んではならない")
+
+    monkeypatch.setattr(draft_service, "get_llm_client", _fail_llm)
+
+    _run(run_resume_draft_task(session_factory, {"user_id": user.id, "model": "haiku"}))
+
+    db_session.expire_all()
+    # 課金（使用ログ）は発生しない。既存の completed 結果も上書きされない。
+    assert db_session.query(AgentUsageLog).count() == 0
+    draft = db_session.query(ResumeDraftCache).filter_by(user_id=user.id).one()
+    assert draft.status == "completed"
+    assert draft.result["career_summary"] == "既存の結果。"
+
+
 def test_task_missing_cache_raises_non_retryable(session_factory):
     """ドラフトキャッシュが無い場合は NonRetryableError（worker が dead_letter 化）。"""
     with pytest.raises(NonRetryableError):
