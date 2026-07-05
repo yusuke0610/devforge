@@ -21,34 +21,20 @@ from conftest import _test_public_key, auth_header
 # ── RS256 トークン生成・検証 ──────────────────────────────────────
 
 
-def test_create_access_token_contains_username() -> None:
-    token = create_access_token("alice")
-    payload = jwt.decode(token, _test_public_key, algorithms=["RS256"])
+def test_access_and_refresh_token_claims() -> None:
+    """アクセス / リフレッシュトークンのクレーム契約（sub / exp / type / jti）を検証する。"""
+    access_payload = jwt.decode(
+        create_access_token("alice"), _test_public_key, algorithms=["RS256"]
+    )
+    assert access_payload["sub"] == "alice"
+    assert "exp" in access_payload
+    assert access_payload["type"] == "access"
 
-    assert payload["sub"] == "alice"
-
-
-def test_create_access_token_has_expiry() -> None:
-    token = create_access_token("alice")
-    payload = jwt.decode(token, _test_public_key, algorithms=["RS256"])
-
-    assert "exp" in payload
-
-
-def test_create_access_token_type_is_access() -> None:
-    token = create_access_token("alice")
-    payload = jwt.decode(token, _test_public_key, algorithms=["RS256"])
-
-    assert payload["type"] == "access"
-
-
-def test_create_refresh_token_type_is_refresh() -> None:
-    token, jti = create_refresh_token("alice")
-    payload = jwt.decode(token, _test_public_key, algorithms=["RS256"])
-
-    assert payload["type"] == "refresh"
-    assert payload["sub"] == "alice"
-    assert payload["jti"] == jti
+    refresh_token, jti = create_refresh_token("alice")
+    refresh_payload = jwt.decode(refresh_token, _test_public_key, algorithms=["RS256"])
+    assert refresh_payload["sub"] == "alice"
+    assert refresh_payload["type"] == "refresh"
+    assert refresh_payload["jti"] == jti
 
 
 def test_hs256_token_rejected_by_rs256_verification() -> None:

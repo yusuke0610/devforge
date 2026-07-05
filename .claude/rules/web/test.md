@@ -7,11 +7,11 @@ paths:
 
 ## いつテストを書く・回すか（トリガー）
 
-### ユニット / コンポーネントテスト（vitest + node:test）
+### ユニット / コンポーネントテスト（vitest）
 
 - **新規フック追加**: 必ず `*.test.ts` を作成（loading / success / error の 3 パス最低限）
 - **既存フックの契約変更**: 戻り値・副作用が変わる場合、既存 `*.test.ts` の assert を見直す
-- **payloadBuilders / formMappers の変更**: `payloadBuilders.test.ts` を更新（node:test 経由）
+- **payloadBuilders / formMappers の変更**: `payloadBuilders.test.ts` を更新（vitest）
 - **api/client.ts の変更**: `api/client.test.ts` を更新（401 リダイレクト、Cookie 認証の挙動）
 - **コンポーネント追加**: ロジックを含むものはテストを追加。表示のみのものは省略可
 
@@ -27,7 +27,7 @@ paths:
 ## 実行コマンド
 
 ```bash
-make test-web                                              # unit + vitest
+make test-web                                              # vitest（unit / コンポーネント）
 nix develop --command bash -c "cd web && npm run test:e2e" # E2E（Playwright）
 ```
 
@@ -40,7 +40,7 @@ nix develop --command bash -c "cd web && npx vitest run src/hooks/useDocumentFor
 
 以下をすべて満たして初めて「テスト OK」と判定する:
 
-1. **全 unit / vitest pass**: `make test-web` が exit 0
+1. **全 vitest pass**: `make test-web` が exit 0
 2. **lint が pass**: `make lint-web` も同時に通ること
 3. **build が通る**: `make build-web`（tsc + vite build）が通ること。TypeScript の型エラーが残っていないこと
 4. **E2E トリガーに該当する場合は E2E pass**: 上記トリガーリストに該当する変更では `npm run test:e2e` を必ず実行し、全シナリオが green

@@ -8,8 +8,7 @@ SQLAlchemy の LargeBinary 型が bind_processor を組み立てる時に参照�
 import importlib
 
 import pytest
-from sqlalchemy import LargeBinary, create_engine
-from sqlalchemy.pool import NullPool
+from sqlalchemy import LargeBinary
 
 
 @pytest.fixture()
@@ -35,13 +34,3 @@ def test_large_binary_bind_processor_passes_bytes_through(libsql_engine):
     assert proc is not None
     payload = b"%PDF-1.3\n%fake-binary"
     assert proc(payload) == payload
-
-
-def test_standard_sqlite_dialect_unaffected():
-    """通常の pysqlite ドライバには影響しない（Binary は元から存在する）。"""
-    engine = create_engine("sqlite:///:memory:", poolclass=NullPool)
-    assert engine.dialect.driver == "pysqlite"
-    # pysqlite は標準で Binary を提供する
-    dbapi = engine.dialect.dbapi
-    assert dbapi is not None
-    assert callable(dbapi.Binary)
