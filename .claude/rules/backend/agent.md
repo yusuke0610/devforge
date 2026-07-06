@@ -36,23 +36,27 @@ backend/
 │       │   ├── openai_client.py   # GPT（ADR-0013）
 │       │   ├── ollama_client.py
 │       │   └── factory.py         # get_llm_client(provider) で分岐（ADR-0013）
-│       └── resume_draft/          # 経歴書ドラフト生成（ADR-0018。下記「resume_draft」節）
+│       └── resume_draft/          # 経歴書ドラフト生成（ADR-0018・0020。下記「resume_draft」節）
 │           ├── context.py         # DB 読み取り専用（連携キャッシュ + スキル証跡 → DraftSource）
 │           ├── mapper.py          # ルールベース純関数（骨格 payload 構築）
 │           ├── output_schema.py   # ドラフト用構造化出力スキーマ（機械制約の正本）
-│           └── draft_service.py   # LLM 1 コール → パース(リトライ1回) → 骨格へマージ
+│           ├── draft_service.py   # LLM 1 コール → パース(リトライ1回) → 骨格へマージ（DB 非依存）
+│           └── run_task.py        # 非同期タスク本体（ADR-0020: LLM→PDF検証→課金→結果保存。DB 書き込みはここ）
 └── tests/
     ├── test_agent.py
     ├── test_agent_context_builder.py  # Phase 2: context_builder の単体テスト
     ├── test_resume_draft_mapper.py    # ADR-0018: ルールベースマッピングの単体テスト
-    └── test_resume_draft_service.py   # ADR-0018: draft_service（LLM モック）
+    ├── test_resume_draft_service.py   # ADR-0018: draft_service（LLM モック）
+    ├── test_resume_draft_api.py       # ADR-0020: enqueue/status/download の統合テスト
+    └── test_worker/test_resume_draft.py  # ADR-0020: run_resume_draft_task（課金順序の不変条件）
 ```
 
-## resume_draft（経歴書ドラフト生成 / ADR-0018）
+## resume_draft（経歴書ドラフト生成 / ADR-0018・0020）
 
-GitHub 連携データから経歴書ドラフト payload を組み立て、PDF プレビューを返す単発生成機能。
-チャットとは別系統だが、**本ファイルの不変条件（制約の責務分離・リトライ 1 回・エラー契約・
-LLMError/usage の課金漏れ防止）を全て継承する**。
+GitHub 連携データから経歴書ドラフト payload を組み立てて PDF を生成する機能。**ADR-0020 で
+非同期タスク化**した（連携とは別の「ドラフト生成」ボタンで明示実行）。チャットとは別系統だが、
+**本ファイルの不変条件（制約の責務分離・リトライ 1 回・エラー契約・LLMError/usage の課金漏れ防止）を
+全て継承する**。
 
 - **構造はルールベース、自然文だけ LLM**: repo→プロジェクト骨格・技術スタック・期間は
   `mapper.py`（純関数）が決定論で写す。LLM が生成するのは career_summary / self_pr /
@@ -60,8 +64,20 @@ LLMError/usage の課金漏れ防止）を全て継承する**。
 - **出力スキーマは動的**: `repo_full_name` を選定リポジトリの enum で縛る（捏造リポの構造排除）。
   チャットの「プロンプトは静的・スキーマも静的」と異なりリクエストごとに構築するが、
   プロンプト md（`agent_resume_draft.md`）自体は静的を維持する（動的情報は user メッセージへ）。
-- **何も永続化しない**: resumes テーブルへ書かない。生成物はレスポンスの PDF だけ
-  （クレジット消費・使用ログは例外 / ADR-0012）。DB 読み取りは `context.py` の SELECT のみ。
+- **非同期タスク + 最小永続化（ADR-0020）**: `TaskType.RESUME_DRAFT` の独立タスク。生成 payload
+  だけを連携ドメインの `resume_draft_cache`（1 ユーザー 1 件・最新上書き）に保存し、
+  `GET /api/agent/resume-draft/pdf` で再レンダリングする。**`resumes` テーブルへは書かない**
+  （確定した Resume と混同させない）。DB 書き込み（課金・結果保存・状態遷移）は `run_task.py` と
+  repository に閉じ込め、`draft_service.py` / `mapper.py` / `context.py`（SELECT のみ）の DB 非依存は維持。
+- **課金はタスク側（ADR-0020）**: 残高の事前チェック（402）だけ enqueue で行い、実課金は
+  `run_task.py` が確定する。**PDF レンダリング成功後にのみ課金**（失敗＝課金なし）、LLM/パース失敗時は
+  消費済みトークンを必ず課金、課金記録の失敗は `NonRetryableError` で dead_letter 化（LLM 再実行=再課金を防ぐ）。
+- **二重課金を防ぐ原子性・冪等性（ADR-0020）**: 本課金と結果保存（`completed` + `result`）は
+  **同一セッションの単一トランザクション**で確定する（`record_chat_usage` の commit が staged な
+  cache 変更も一括 flush する）。「課金済みだが結果未保存」の窓を作らないことで、その状態からの
+  リトライ・再配信による再課金を構造的に防ぐ。加えてフェーズA に**冪等ガード**を置き、既に
+  `completed` かつ `result` があるタスク再配信（原子 commit 後・ack 前のクラッシュ）は再実行しない。
+  手動再実行は router が status を `pending` へ戻すためガードに掛からず、意図どおり再生成する。
 - **degrade 方針**: 個別プロジェクトの説明文が欠落・上限超過した場合のみ repo description の
   定型文へフォールバック（切り詰めはしない）。career_summary / self_pr の欠落はパース失敗扱い。
 

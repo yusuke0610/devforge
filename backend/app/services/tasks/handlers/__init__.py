@@ -9,9 +9,11 @@ from typing import Dict
 from ..base import TaskType
 from .base import TaskHandler
 from .github_link import GitHubLinkHandler
+from .resume_draft import ResumeDraftHandler
 
 _HANDLERS: Dict[TaskType, TaskHandler] = {
     TaskType.GITHUB_LINK: GitHubLinkHandler(),
+    TaskType.RESUME_DRAFT: ResumeDraftHandler(),
 }
 
 

@@ -39,18 +39,62 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * Download Resume Draft Pdf
+         * @description 完了済みの経歴書ドラフトを PDF で返す（ADR-0018）。
+         *
+         *     生成タスクが保存した payload から PDF を再レンダリングする（決定論的・DB 非依存）。
+         *     生成未完了・結果なしは 409 を返す。
+         */
+        get: operations["download_resume_draft_pdf_api_agent_resume_draft_pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/resume-draft/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         get?: never;
         put?: never;
         /**
-         * Generate Resume Draft Pdf
-         * @description GitHub 連携データから経歴書ドラフトを生成し、PDF で返す（ADR-0018）。
+         * Start Resume Draft
+         * @description GitHub 連携データからの経歴書ドラフト生成をバックグラウンドで開始する（202 / ADR-0018）。
          *
-         *     構造（プロジェクト・技術スタック・期間）は連携データからルールベースで写し、
-         *     自然文（職務要約・自己PR・プロジェクト説明）だけを LLM で生成する。
-         *     ドラフトは DB に保存しない（生成物はレスポンスの PDF のみ。
-         *     クレジット消費・使用ログの記録は除く / ADR-0012）。
+         *     構造（プロジェクト・技術スタック・期間）は連携データからルールベースで写し、自然文
+         *     （職務要約・自己PR・プロジェクト説明）だけを LLM で生成する。生成物（payload）は
+         *     ``resume_draft_cache`` に保存され、``GET /resume-draft/pdf`` でダウンロードできる。
+         *     確定した職務経歴書（``resumes``）とは別物で、そちらには書き込まない。
+         *     課金は生成タスク側で確定する（残高の事前チェックのみ本エンドポイントで行う / ADR-0012）。
          */
-        post: operations["generate_resume_draft_pdf_api_agent_resume_draft_pdf_post"];
+        post: operations["start_resume_draft_api_agent_resume_draft_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/resume-draft/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Resume Draft Status
+         * @description 経歴書ドラフト生成タスクのステータスを返す（軽量ポーリング用 / ADR-0018）。
+         */
+        get: operations["get_resume_draft_status_api_agent_resume_draft_status_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2158,7 +2202,27 @@ export interface operations {
             };
         };
     };
-    generate_resume_draft_pdf_api_agent_resume_draft_pdf_post: {
+    download_resume_draft_pdf_api_agent_resume_draft_pdf_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    start_resume_draft_api_agent_resume_draft_run_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -2172,12 +2236,12 @@ export interface operations {
         };
         responses: {
             /** @description Successful Response */
-            200: {
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TaskAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2187,6 +2251,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_resume_draft_status_api_agent_resume_draft_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskStatusResponse"];
                 };
             };
         };

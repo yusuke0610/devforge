@@ -29,6 +29,8 @@ export const PATHS = {
   },
   agent: {
     chat: "/api/agent/chat",
+    resumeDraftRun: "/api/agent/resume-draft/run",
+    resumeDraftStatus: "/api/agent/resume-draft/status",
     resumeDraftPdf: "/api/agent/resume-draft/pdf",
   },
   billing: {
