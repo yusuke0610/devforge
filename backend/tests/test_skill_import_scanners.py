@@ -1,8 +1,8 @@
 """import スキャナ（verify / ADR-0016 D6）の単体テスト。
 
 エコシステム別の import 抽出（scan）と、宣言 package との照合（matches）を検証する。
-辞書レスの保守的照合のため、import 名がずれるケース（PyYAML→yaml 等）は
-昇格漏れ（false negative）になることも明示的に固定する。
+機械的照合で当たらない既知の乖離（PyYAML→yaml 等）は内部マスタで補正されること（#477）、
+マスタ未収録の乖離は依然 false negative になることの両方を明示的に固定する。
 """
 
 from app.services.intelligence.skills.imports import (
@@ -61,9 +61,21 @@ class TestPythonScanner:
         # canonical（PEP503）は小文字・ダッシュ。import 名はアンダースコア。
         assert self.scanner.matches("google-cloud-storage", {"google_cloud_storage"})
 
-    def test_false_negative_when_import_name_differs(self):
-        # PyYAML→yaml のような乖離は照合できない（昇格漏れを受容）。
-        assert self.scanner.matches("pyyaml", {"yaml"}) is False
+    def test_matches_divergent_import_name_via_alias_master(self):
+        # 配布名≠import名の既知乖離は内部マスタ（pypi_import_aliases.json）で昇格する（#477 / D3・D4）。
+        assert self.scanner.matches("pyyaml", {"yaml"}) is True
+        assert self.scanner.matches("pillow", {"pil"}) is True
+        assert self.scanner.matches("beautifulsoup4", {"bs4"}) is True
+        assert self.scanner.matches("scikit-learn", {"sklearn"}) is True
+        assert self.scanner.matches("opencv-python", {"cv2"}) is True
+
+    def test_known_alias_not_imported_stays_false(self):
+        # マスタ収録済みでも実 import が無ければ昇格しない（過剰昇格の防止）。
+        assert self.scanner.matches("pyyaml", {"requests"}) is False
+
+    def test_unknown_divergence_still_false(self):
+        # マスタ未収録の乖離は依然として昇格漏れ（false negative）を受容する。
+        assert self.scanner.matches("some-obscure-dist", {"obscuremod"}) is False
 
 
 # ── JS/TS ───────────────────────────────────────────────────────────────

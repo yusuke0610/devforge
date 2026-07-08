@@ -230,6 +230,21 @@ def test_verify_uses_ecosystem_matching_rules() -> None:
     assert "actual_import" in _signals(gin.evidence)
 
 
+def test_verify_promotes_pypi_import_name_divergence_via_alias_master() -> None:
+    """配布名≠import名の乖離（PyYAML→yaml）も内部マスタ経由で actual_import へ昇格すること（#477）。"""
+    skills = aggregate_skills(
+        [
+            _repo(
+                declarations=[PackageDeclaration("pypi", "PyYAML", "direct")],
+                imported={"pypi": {"yaml"}},
+            )
+        ]
+    )
+    # 宣言名は PEP503 正規化で canonical "pyyaml" になり、import 名 "yaml" と照合される。
+    pyyaml = _by_name(skills)["pyyaml"]
+    assert "actual_import" in _signals(pyyaml.evidence)
+
+
 # ── IaC 検出（kind=infra / D10）──────────────────────────────────────────────
 
 
