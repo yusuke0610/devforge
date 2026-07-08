@@ -4,8 +4,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import NoReturn
 
+import jwt
 from fastapi import Depends, Request, status
-from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from ...db import get_db
@@ -39,7 +39,7 @@ def validate_jwt_key_pair() -> None:
             algorithm=_ALGORITHM,
         )
         jwt.decode(tok, get_jwt_public_key(), algorithms=[_ALGORITHM])
-    except JWTError as e:
+    except jwt.PyJWTError as e:
         raise RuntimeError(
             f"JWT 鍵ペアが不正です（秘密鍵と公開鍵が一致しないか、フォーマットが壊れています）: {e}"
         ) from e
@@ -86,7 +86,7 @@ def _decode_token(token: str) -> dict:
     """JWT をデコードしてペイロードを返す。失敗時は 401 を送出する。"""
     try:
         return jwt.decode(token, get_jwt_public_key(), algorithms=[_ALGORITHM])
-    except JWTError:
+    except jwt.PyJWTError:
         _raise_auth_failed("jwt_decode_error", with_bearer_header=True)
 
 
