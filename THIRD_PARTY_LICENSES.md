@@ -78,8 +78,8 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 | [pydantic](https://github.com/pydantic/pydantic) | 2.13.4 | MIT |
 | [pydyf](https://www.courtbouillon.org/pydyf) | 0.12.1 | BSD License |
 | [PyGithub](https://github.com/pygithub/pygithub) | 2.9.1 | GNU Library or Lesser General Public License (LGPL) |
+| [PyJWT](https://github.com/jpadilla/pyjwt) | 2.13.0 | MIT |
 | [python-dotenv](https://github.com/theskumar/python-dotenv) | 1.2.2 | BSD-3-Clause |
-| [python-jose](http://github.com/mpdavis/python-jose) | 3.5.0 | MIT License |
 | [python-multipart](https://github.com/Kludex/python-multipart) | 0.0.32 | Apache-2.0 |
 | [redis](https://github.com/redis/redis-py) | 8.0.1 | MIT |
 | [reportlab](https://www.reportlab.com/) | 5.0.0 | BSD License |
