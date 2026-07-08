@@ -1,0 +1,22 @@
+{
+  "_comment": "PyPI 配布名（canonical / PEP 503 正規化済み）→ トップレベル import 名 の内部マスタ（ADR-0016 #477 / D3・D4）。verify（D6）の機械的照合（-→_ 変換）では当たらない『配布名≠import名』の乖離を補正する。値は wheel の top_level.txt に相当するトップレベルモジュール名（小文字）。連携ホットパスで外部を叩かず実行時はここへ resolve するだけ（D4）。本ファイルは top_level.txt からのオフライン再生成を想定した暫定キュレーションで、既知の乖離 package を初期集合とする（実データでの拡張は後追い）。google.* のような汎用名前空間に畳まれる package（protobuf 等）は false positive を避けるため意図的に含めない。",
+  "aliases": {
+    "pyyaml": ["yaml"],
+    "pillow": ["pil"],
+    "beautifulsoup4": ["bs4"],
+    "scikit-learn": ["sklearn"],
+    "scikit-image": ["skimage"],
+    "opencv-python": ["cv2"],
+    "opencv-python-headless": ["cv2"],
+    "opencv-contrib-python": ["cv2"],
+    "python-dateutil": ["dateutil"],
+    "python-dotenv": ["dotenv"],
+    "pyjwt": ["jwt"],
+    "python-jose": ["jose"],
+    "python-magic": ["magic"],
+    "python-slugify": ["slugify"],
+    "pymupdf": ["fitz"],
+    "websocket-client": ["websocket"],
+    "msgpack-python": ["msgpack"]
+  }
+}

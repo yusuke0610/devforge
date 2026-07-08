@@ -159,7 +159,8 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 
 ## 将来の移行条件
 
-- **verify ステージ**: D6 として実装済み（2026-06）。recursive Trees API の 1 コールを manifest 探索と共有し、direct 宣言のエコシステムの source だけを浅い順・件数キャップでサンプリング → import 解析。辞書レスの保守的照合（`-`→`_` 変換・go 接頭辞一致・npm 完全一致）で direct 宣言を `actual_import` へ**昇格のみ**（降格なし）。残課題は import 名乖離（PyYAML→yaml 等）の取りこぼし低減・サンプリング閾値の実データチューニング。
+- **verify ステージ**: D6 として実装済み（2026-06）。recursive Trees API の 1 コールを manifest 探索と共有し、direct 宣言のエコシステムの source だけを浅い順・件数キャップでサンプリング → import 解析。辞書レスの保守的照合（`-`→`_` 変換・go 接頭辞一致・npm 完全一致）で direct 宣言を `actual_import` へ**昇格のみ**（降格なし）。
+  - **import 名乖離の補正（#477 / 2026-07）**: 機械変換で当たらない配布名≠import名の乖離（PyYAML→yaml・Pillow→PIL・beautifulsoup4→bs4 等）を、pypi のみ内部マスタ（`skills/resources/pypi_import_aliases.json`）経由で補正する。**D3（辞書を持たない）とのテンション**は `linguist_master.json` と同じモデルで解消: マスタは wheel の `top_level.txt` 由来の機械的事実であり taxonomy 判断を含まない／連携ホットパスで外部を叩かず実行時は読むだけ（D4）／`top_level.txt` からのオフライン再生成を想定した暫定キュレーションで、既知の乖離 package を初期集合とする。`google.*` のような汎用名前空間へ畳まれる package（protobuf 等）は false positive を避け意図的に除外。マスタ未収録の乖離は引き続き false negative として受容（昇格漏れのみ・過剰昇格なし）。残課題は初期集合の実データ拡張・サンプリング閾値の実データチューニング。
 - **monorepo 対応**: D9 で採用済み（recursive Trees API + パスセグメント除外 + 深さ/件数キャップ + keep-all）。残課題は除外定義の高度化（Linguist `vendor.yml` 流用）・キャップ閾値の実データチューニング・規模シグナルの導入。
 - **IaC からのインフラリソース検出**: 機械検出は **D10 で採用・実装済み**（2026-07。Terraform/OpenTofu・provider+service 粒度・kind=infra・signal_source=infra_declared・D9 探索流用・正規表現 parser）。残課題は表示名の HITL 畳み込み・動的 module 解決・Tier2 IaC・resource 出現回数の量的シグナル。
 - **private リポジトリの扱い**: Layer 3 経由で人間が深さを補完する。生データは持ち込まない前提を維持する。
@@ -216,6 +217,7 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 
 ## 改訂履歴
 
+- **2026-07**: verify（D6）の **import 名乖離の取りこぼしを低減（#477）**。pypi のみ、機械変換で当たらない配布名≠import名の乖離を内部マスタ（`skills/resources/pypi_import_aliases.json`）で補正。D3 テンションは `linguist_master.json` と同じ「ホットパス外で生成する暫定キュレーション・実行時は読むだけ」モデルで解消。既知の乖離 package を初期集合とし、`google.*` 等の汎用名前空間は false positive 回避のため除外。未収録は引き続き false negative 受容（過剰昇格なし）。schema / API 契約は不変（migration 不要）。3 層モデル・D1〜D10 は不変。
 - **2026-07**: 「将来課題」だった IaC からのインフラリソース検出を **D10 として採用・実装**（Terraform/OpenTofu の `.tf` を対象に provider+service を抽出、kind=`infra` / signal_source=`infra_declared`、static resource ブロック限定、正規表現 parser で依存なし、D9 探索流用で `.terraform` 除外を追加、canonical=raw type で keep-all）。表示名の human-in-the-loop 畳み込み・動的 module 解決・Tier2 IaC・出現回数の量的シグナルは残課題。kind / signal_source / ecosystem は既存カラムの値域内のため migration 不要。3 層モデル・D1〜D9 は不変。
 - **2026-06**: 当初「代替案」で延期していた monorepo サブツリー探索を **D9 として採用**（recursive Trees API + パスセグメント除外 + 深さ/件数キャップ + keep-all + manifest パス永続化）。3 層モデル・D1〜D8 は不変。当初は別 ADR 案だったが、0016 の核を維持する refine であり 1 箇所の追補に留まるため、本 ADR への統合とした。
 - **2026-06**: IaC からのインフラリソース検出（provider+service 粒度・HCL 先行・kind=infra 案・D9 探索流用・D8 同様の human-in-the-loop 正規化）を**将来課題として追記**。決定（D1〜D9）・3 層モデルは不変。
