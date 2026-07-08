@@ -7,6 +7,7 @@
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import jwt
 import pytest
 from app.core.security.auth import (
     create_access_token,
@@ -14,7 +15,6 @@ from app.core.security.auth import (
 )
 from app.core.settings import get_cookie_samesite, get_cookie_secure
 from app.routers.auth.token_manager import GITHUB_OAUTH_STATE_COOKIE
-from jose import jwt
 
 from conftest import _test_public_key, auth_header
 
