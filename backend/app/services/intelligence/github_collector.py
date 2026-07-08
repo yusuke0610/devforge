@@ -166,6 +166,7 @@ async def _collect_repo_signals(
     }
     imported_symbols: Dict[str, set] = {}
     source_dropped = False
+    selected_sources: List[str] = []
     if direct_ecosystems:
         # path → scanner を一度だけ引き、後段の取得ループで再計算しない。
         path_scanners = {}
@@ -179,7 +180,6 @@ async def _collect_repo_signals(
         paths_by_ecosystem: Dict[str, List[str]] = {}
         for path, scanner in path_scanners.items():
             paths_by_ecosystem.setdefault(scanner.ecosystem, []).append(path)
-        selected_sources: List[str] = []
         for eco_paths in paths_by_ecosystem.values():
             eco_selected, eco_dropped = _select_shallow(
                 eco_paths, _SOURCE_MAX_DEPTH, _SOURCE_MAX_COUNT_PER_ECOSYSTEM
@@ -215,6 +215,18 @@ async def _collect_repo_signals(
 
     partial = bool(truncated or manifest_dropped or source_dropped)
     infra_partial = bool(truncated or infra_dropped)
+    # 取得ボリュームの可観測性（#478）: エコシステム別キャップで source fetch 件数が
+    # 増えうるため、GitHub API 消費量を監視できるよう 1 リポあたりの fetch 件数を残す。
+    # レート制限・バックオフ自体は api_client 側で warning ログ化済み（ここでは重複させない）。
+    logger.debug(
+        "ツリー走査 fetch 件数: %s/%s (tree_blobs=%d, manifest=%d, source=%d, infra=%d)",
+        owner,
+        repo,
+        len(tree_paths),
+        len(selected_manifests),
+        len(selected_sources),
+        len(selected_infra),
+    )
     if partial or infra_partial:
         logger.warning(
             "ツリー走査が部分的: %s/%s (truncated=%s, manifest_dropped=%s, "
