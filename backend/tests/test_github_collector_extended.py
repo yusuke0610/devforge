@@ -418,6 +418,45 @@ class TestCollectRepoSignals:
         assert "main.go" not in fetched
         assert "go" not in imported
 
+    def test_verify_source_cap_is_applied_per_ecosystem(self, monkeypatch):
+        """source の件数キャップはエコシステム別に効くこと（#478）。
+
+        グローバルキャップだと辞書順で先行するエコシステムが枠を使い切り、
+        他エコシステムのソースが 1 件も走査されなくなる（実データで確認した昇格漏れ）。
+        """
+        monkeypatch.setattr(github_collector, "_SOURCE_MAX_COUNT_PER_ECOSYSTEM", 1)
+        _decls, _imported, partial, fetched = self._patched_collect(
+            # pypi（requirements.txt）と npm（package.json）の両方に direct 宣言がある
+            # monorepo。ソースは backend/（.py）が辞書順で web/（.ts）に先行する。
+            [
+                "requirements.txt",
+                "package.json",
+                "backend/a.py",
+                "backend/b.py",
+                "web/a.ts",
+                "web/b.ts",
+            ],
+            False,
+        )
+        # 各エコシステムから浅い順で 1 件ずつ走査される（npm が押し出されない）
+        assert "backend/a.py" in fetched
+        assert "web/a.ts" in fetched
+        assert "backend/b.py" not in fetched
+        assert "web/b.ts" not in fetched
+        # どちらのエコシステムも打ち切りが発生しているので partial
+        assert partial is True
+
+    def test_verify_source_count_cap_marks_partial(self, monkeypatch):
+        """source の件数キャップ打ち切りを partial として伝播すること（D6 / D9 d）。"""
+        monkeypatch.setattr(github_collector, "_SOURCE_MAX_COUNT_PER_ECOSYSTEM", 1)
+        _decls, _imported, partial, fetched = self._patched_collect(
+            ["requirements.txt", "app.py", "sub/deep.py"], False
+        )
+        # 浅い順で app.py のみ走査し、打ち切りを partial にする
+        assert "app.py" in fetched
+        assert "sub/deep.py" not in fetched
+        assert partial is True
+
     # ── IaC（.tf）探索（D10）────────────────────────────────────────────────
 
     def test_detects_tf_and_attaches_source_path(self):

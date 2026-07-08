@@ -55,14 +55,21 @@ _PATH_EXCLUDE_SEGMENTS = frozenset(
 _MANIFEST_MAX_DEPTH = 4
 # D9(c): 1 リポあたり fetch する manifest 件数上限。
 _MANIFEST_MAX_COUNT = 20
-# D6: verify で 1 リポあたり fetch するソースファイル件数上限（import サンプリングの打ち切り）。
-_SOURCE_MAX_COUNT = 30
+# D6: verify で 1 リポ・1 エコシステムあたり fetch するソースファイル件数上限
+# （import サンプリングの打ち切り）。実データ計測（#478）で、グローバルキャップだと
+# monorepo で先頭のエコシステムが残りを押し出して昇格漏れが増えることが分かったため、
+# エコシステム別に適用する。50 は同計測で単一エコシステムのリポが全量走査に収まり、
+# monorepo でも中規模までの昇格を回収できた値（それ以降はロングテールで頭打ち）。
+_SOURCE_MAX_COUNT_PER_ECOSYSTEM = 50
 # D6: verify 対象ソースのセグメント数上限（浅い側を優先サンプリング）。
+# 実データ計測（#478）で深さ 7 以上のソースは昇格に寄与しなかったため据え置き。
 _SOURCE_MAX_DEPTH = 6
 # D10: IaC（.tf）探索のセグメント数上限。infra/modules/... へ分散するため manifest より深め。
 _INFRA_MAX_DEPTH = 6
 # D10: 1 リポあたり fetch する IaC ファイル件数上限（浅い側を優先サンプリング）。
-_INFRA_MAX_COUNT = 30
+# 実データ計測（#478）で 30 だと modules 配下の resource（provider 3 種・resource 11 種）を
+# 取りこぼした。同計測では 50 で全量一致したため、余裕を持たせて 60 とする。
+_INFRA_MAX_COUNT = 60
 
 # このモジュールの公開 API。``GitHubUserNotFoundError`` は github_link_service が
 # ``from .github_collector import GitHubUserNotFoundError`` で参照するため再エクスポートする。
@@ -166,9 +173,19 @@ async def _collect_repo_signals(
             scanner = scanner_for_extension(path)
             if scanner is not None and scanner.ecosystem in direct_ecosystems:
                 path_scanners[path] = scanner
-        selected_sources, source_dropped = _select_shallow(
-            list(path_scanners), _SOURCE_MAX_DEPTH, _SOURCE_MAX_COUNT
-        )
+        # キャップはエコシステム別に適用する（#478）。浅い順の全体キャップだと monorepo で
+        # 辞書順先頭のサブツリー（例: backend/）が枠を使い切り、他エコシステムのソースが
+        # 1 件も走査されず昇格漏れになるため、候補をエコシステムごとに分けて絞る。
+        paths_by_ecosystem: Dict[str, List[str]] = {}
+        for path, scanner in path_scanners.items():
+            paths_by_ecosystem.setdefault(scanner.ecosystem, []).append(path)
+        selected_sources: List[str] = []
+        for eco_paths in paths_by_ecosystem.values():
+            eco_selected, eco_dropped = _select_shallow(
+                eco_paths, _SOURCE_MAX_DEPTH, _SOURCE_MAX_COUNT_PER_ECOSYSTEM
+            )
+            selected_sources.extend(eco_selected)
+            source_dropped = source_dropped or eco_dropped
         for path in selected_sources:
             scanner = path_scanners[path]
             content = await fetch_repo_file(client, owner, repo, path)
