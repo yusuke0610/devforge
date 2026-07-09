@@ -90,22 +90,11 @@ async def fetch_repos_raw(
         )
         if resp.status_code == 404:
             raise GitHubUserNotFoundError(username)
+        # レート制限（403 + 残量 0 / 429）は共通ヘルパで RetryableError に変換する
+        _raise_if_rate_limited(resp)
         if resp.status_code == 403:
-            # GitHub は rate limit でも 403 を返すため、ヘッダで判別する
-            if _is_rate_limited(resp):
-                retry_after = _retry_after_from_github(resp)
-                logger.warning(
-                    "GitHub API rate limit hit (retry_after=%s)", retry_after,
-                )
-                raise RetryableError(
-                    "GitHub API rate limit", retry_after=retry_after,
-                )
+            # レート制限でない 403 は権限エラー等の恒久障害
             raise NonRetryableError(f"GitHub API 403 Forbidden: {resp.text[:200]}")
-        if resp.status_code == 429:
-            retry_after = _retry_after_from_github(resp)
-            raise RetryableError(
-                "GitHub API 429 Too Many Requests", retry_after=retry_after,
-            )
         if resp.status_code in _RETRYABLE_STATUS_CODES:
             raise RetryableError(f"GitHub API {resp.status_code}")
         if 400 <= resp.status_code < 500:
@@ -121,9 +110,35 @@ async def fetch_repos_raw(
 
 
 def _is_rate_limited(response: httpx.Response) -> bool:
-    """GitHub のレスポンスがレート制限起因かを判定する。"""
-    remaining = response.headers.get("x-ratelimit-remaining")
-    return remaining == "0"
+    """GitHub のレスポンスがレート制限起因かを判定する。
+
+    GitHub は API レート制限を超過すると **403** を返す（残量ヘッダで判別する）。
+    二次的な abuse 検出などで **429** を返すこともあり、こちらは残量に依らずレート制限扱い。
+    """
+    if response.status_code == 429:
+        return True
+    if response.status_code == 403:
+        return response.headers.get("x-ratelimit-remaining") == "0"
+    return False
+
+
+def _raise_if_rate_limited(response: httpx.Response) -> None:
+    """レスポンスがレート制限（403 + 残量 0 / 429）なら ``RetryableError`` を raise する。
+
+    GitHub の全 fetch 経路で共通のレート制限ハンドリング。レート制限は特定リポの問題では
+    なくトークン単位のグローバルなスロットリングのため、``([], partial)`` として黙って
+    握り込むと後続リポも同様に空収集になり、証跡が静かに欠ける。``retry_after`` 付きで
+    raise し直し、リセット窓を待ってタスク全体を再試行させる（``fetch_repos_raw`` と同方針）。
+    レート制限でなければ何もしない（呼び出し側が他ステータスを処理する）。
+    """
+    if _is_rate_limited(response):
+        retry_after = _retry_after_from_github(response)
+        logger.warning(
+            "GitHub API rate limit hit (status=%s, retry_after=%s)",
+            response.status_code,
+            retry_after,
+        )
+        raise RetryableError("GitHub API rate limit", retry_after=retry_after)
 
 
 def _retry_after_from_github(response: httpx.Response) -> float | None:
@@ -155,8 +170,11 @@ async def fetch_languages(
         return {}
     try:
         resp = await client.get(f"/repos/{owner}/{repo}/languages")
+        # レート制限は握り込まず RetryableError で連携全体をリトライさせる（#485）
+        _raise_if_rate_limited(resp)
         if resp.status_code == 403:
-            logger.warning("Rate limit on languages for %s/%s", owner, repo)
+            # レート制限でない 403（ブロック等）は言語情報を欠いたまま best-effort 継続
+            logger.warning("Languages fetch forbidden for %s/%s", owner, repo)
             return {}
         resp.raise_for_status()
         return resp.json()
@@ -183,6 +201,10 @@ async def fetch_repo_tree(
     加え、tree 取得自体が失敗した場合（非200 / 不正レスポンス / ``httpx.HTTPError``）も
     「依存ゼロ」と「走査不能」を区別するため ``True`` を返す（D9(d)）。不正 owner/repo は
     実在リポではなく走査対象ですらないため ``([], False)`` とする。
+
+    ただしレート制限（403 + 残量 0 / 429）は 1 リポの部分走査ではなくトークン単位の
+    グローバルなスロットリングのため、partial として握り込まず ``RetryableError`` を raise し、
+    リセット窓を待って連携タスク全体を再試行させる（#485。``fetch_repos_raw`` と同方針）。
     """
     if not _is_valid_owner_repo(owner, repo):
         return [], False
@@ -192,7 +214,16 @@ async def fetch_repo_tree(
             f"/repos/{owner}/{repo}/git/trees/{branch}",
             params={"recursive": "1"},
         )
+        # レート制限は「1 リポの部分走査」ではなくトークン単位のスロットリングのため、
+        # partial として握り込まず RetryableError で連携全体をリトライさせる（#485）。
+        _raise_if_rate_limited(resp)
         if resp.status_code != 200:
+            logger.warning(
+                "Git tree fetch returned %s for %s/%s (partial)",
+                resp.status_code,
+                owner,
+                repo,
+            )
             return [], True
         data = resp.json()
         if not isinstance(data, dict):
@@ -228,6 +259,8 @@ async def fetch_repo_file(
             f"/repos/{owner}/{repo}/contents/{path}",
             headers={"Accept": "application/vnd.github.raw+json"},
         )
+        # レート制限は握り込まず RetryableError で連携全体をリトライさせる（#485）
+        _raise_if_rate_limited(resp)
         if resp.status_code != 200:
             return None
         return resp.text
