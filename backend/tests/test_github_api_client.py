@@ -10,7 +10,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
-from app.services.intelligence.github.api_client import fetch_languages, fetch_repo_tree
+from app.services.intelligence.github.api_client import (
+    fetch_languages,
+    fetch_repo_file,
+    fetch_repo_tree,
+)
 from app.services.tasks.exceptions import RetryableError
 
 
@@ -128,3 +132,29 @@ def test_languages_genuine_403_returns_empty():
     """レート制限でない 403 は言語情報を欠いたまま {} で best-effort 継続すること。"""
     client = _client_with_status(403, headers={"x-ratelimit-remaining": "57"})
     assert _run(fetch_languages(client, "u", "repo")) == {}
+
+
+def test_repo_file_rate_limited_403_raises_retryable():
+    """fetch_repo_file もレート制限 403 を None で握り込まず RetryableError を raise すること
+    （同一ホットパスの兄弟 fetch も #485 で統一）。"""
+    client = _client_with_status(
+        403, headers={"x-ratelimit-remaining": "0", "retry-after": "42"}
+    )
+    with pytest.raises(RetryableError) as exc:
+        _run(fetch_repo_file(client, "u", "repo", "requirements.txt"))
+    assert exc.value.retry_after == 42
+
+
+def test_repo_file_429_raises_retryable():
+    """fetch_repo_file の 429 も RetryableError（retry_after 付き）で raise すること（#485）。"""
+    client = _client_with_status(429, headers={"retry-after": "30"})
+    with pytest.raises(RetryableError) as exc:
+        _run(fetch_repo_file(client, "u", "repo", "requirements.txt"))
+    assert exc.value.retry_after == 30
+
+
+def test_repo_file_genuine_403_returns_none():
+    """レート制限でない 403（残量あり = 権限エラー等）はリトライさせず
+    従来どおり None（当該 manifest をスキップ）で best-effort 継続すること（#485）。"""
+    client = _client_with_status(403, headers={"x-ratelimit-remaining": "57"})
+    assert _run(fetch_repo_file(client, "u", "repo", "requirements.txt")) is None
