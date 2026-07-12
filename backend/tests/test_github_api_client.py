@@ -9,7 +9,13 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
-from app.services.intelligence.github.api_client import fetch_repo_tree
+import pytest
+from app.services.intelligence.github.api_client import (
+    fetch_languages,
+    fetch_repo_file,
+    fetch_repo_tree,
+)
+from app.services.tasks.exceptions import RetryableError
 
 
 def _run(coro):
@@ -23,7 +29,19 @@ def _run(coro):
 def _client_with_tree(tree, truncated=False, status_code=200):
     """Trees API レスポンスを返す AsyncClient モックを生成する。"""
     resp = MagicMock(status_code=status_code)
+    resp.headers = {}
     resp.json = MagicMock(return_value={"tree": tree, "truncated": truncated})
+    client = MagicMock()
+    client.get = AsyncMock(return_value=resp)
+    return client
+
+
+def _client_with_status(status_code, headers=None):
+    """任意ステータス・ヘッダのレスポンスを返す AsyncClient モックを生成する。"""
+    resp = MagicMock(status_code=status_code)
+    resp.headers = headers or {}
+    resp.json = MagicMock(return_value={})
+    resp.text = ""
     client = MagicMock()
     client.get = AsyncMock(return_value=resp)
     return client
@@ -74,3 +92,69 @@ def test_invalid_owner_repo_returns_empty():
     result = _run(fetch_repo_tree(client, "../evil", "repo", "main"))
     assert result == ([], False)
     client.get.assert_not_called()
+
+
+def test_rate_limited_403_raises_retryable():
+    """レート制限の 403（X-RateLimit-Remaining:0）は partial 握り込みではなく
+    RetryableError を raise し、連携全体をリトライ経路へ乗せること（#485）。"""
+    client = _client_with_status(
+        403, headers={"x-ratelimit-remaining": "0", "retry-after": "42"}
+    )
+    with pytest.raises(RetryableError) as exc:
+        _run(fetch_repo_tree(client, "u", "repo", "main"))
+    assert exc.value.retry_after == 42
+
+
+def test_429_raises_retryable():
+    """429 Too Many Requests も RetryableError（retry_after 付き）で raise すること（#485）。"""
+    client = _client_with_status(429, headers={"retry-after": "30"})
+    with pytest.raises(RetryableError) as exc:
+        _run(fetch_repo_tree(client, "u", "repo", "main"))
+    assert exc.value.retry_after == 30
+
+
+def test_genuine_403_returns_partial():
+    """レート制限でない 403（残量あり = 権限エラー等）はリトライさせず
+    従来どおり partial 扱い（[], True）で返すこと（#485）。"""
+    client = _client_with_status(403, headers={"x-ratelimit-remaining": "57"})
+    assert _run(fetch_repo_tree(client, "u", "repo", "main")) == ([], True)
+
+
+def test_languages_rate_limited_raises_retryable():
+    """fetch_languages もレート制限 403 を {} で握り込まず RetryableError を raise すること
+    （同一ホットパスの兄弟 fetch も #485 で統一）。"""
+    client = _client_with_status(403, headers={"x-ratelimit-remaining": "0"})
+    with pytest.raises(RetryableError):
+        _run(fetch_languages(client, "u", "repo"))
+
+
+def test_languages_genuine_403_returns_empty():
+    """レート制限でない 403 は言語情報を欠いたまま {} で best-effort 継続すること。"""
+    client = _client_with_status(403, headers={"x-ratelimit-remaining": "57"})
+    assert _run(fetch_languages(client, "u", "repo")) == {}
+
+
+def test_repo_file_rate_limited_403_raises_retryable():
+    """fetch_repo_file もレート制限 403 を None で握り込まず RetryableError を raise すること
+    （同一ホットパスの兄弟 fetch も #485 で統一）。"""
+    client = _client_with_status(
+        403, headers={"x-ratelimit-remaining": "0", "retry-after": "42"}
+    )
+    with pytest.raises(RetryableError) as exc:
+        _run(fetch_repo_file(client, "u", "repo", "requirements.txt"))
+    assert exc.value.retry_after == 42
+
+
+def test_repo_file_429_raises_retryable():
+    """fetch_repo_file の 429 も RetryableError（retry_after 付き）で raise すること（#485）。"""
+    client = _client_with_status(429, headers={"retry-after": "30"})
+    with pytest.raises(RetryableError) as exc:
+        _run(fetch_repo_file(client, "u", "repo", "requirements.txt"))
+    assert exc.value.retry_after == 30
+
+
+def test_repo_file_genuine_403_returns_none():
+    """レート制限でない 403（残量あり = 権限エラー等）はリトライさせず
+    従来どおり None（当該 manifest をスキップ）で best-effort 継続すること（#485）。"""
+    client = _client_with_status(403, headers={"x-ratelimit-remaining": "57"})
+    assert _run(fetch_repo_file(client, "u", "repo", "requirements.txt")) is None
