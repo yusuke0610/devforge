@@ -235,8 +235,8 @@ export const SKILL_DISPLAY_MESSAGES = {
   EMPTY: "検出されたスキルがありません。先に GitHub 連携を実行してください。",
   /** 提案が 0 件だったときの表示。 */
   PROPOSE_EMPTY: "提案できる表示名がありませんでした。",
-  /** 畳み込みメンバー数のラベル接尾（例: 「3 件をまとめる」）。 */
-  memberCountLabel: (count: number): string => `${count} 件をまとめる`,
+  /** 畳み込みメンバー数のラベル接尾（例: 「3 件内包」）。 */
+  memberCountLabel: (count: number): string => `${count} 件内包`,
 } as const;
 
 /** 年セレクトの選択肢表記「N年」。 */
