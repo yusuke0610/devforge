@@ -19,7 +19,7 @@ httpx==0.28.1
 # 供給網リスク（レンジ内 yank / 侵害バージョンの混入）を避けるため == で固定する。
 # CVE は CI の pip-audit が検出するので、検出時に明示バージョンを引き上げる運用とする。
 anthropic[vertex]==0.116.0
-google-genai==2.10.0
+google-genai==2.11.0
 openai==2.44.0
 # Stripe Checkout / Webhook 署名検証（ADR-0012 Phase 2）。公式ライブラリを使う
 stripe==15.3.0
