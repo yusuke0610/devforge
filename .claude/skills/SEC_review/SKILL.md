@@ -153,13 +153,13 @@ description: Use when running a security review / vulnerability check against th
 
 ### 13. 依存監査 / サプライチェーン攻撃リスク（Dependency & Supply Chain）
 
-既知 CVE だけでなく「依存経路そのものが攻撃面になる」観点で見る。CI には既に audit が配線済み（`.github/workflows/ci.yml`: `npm audit --audit-level=high` / `uv tool run pip-audit -r requirements.txt`）なので、ローカルでは差分の妥当性確認に重点を置く。
+既知 CVE だけでなく「依存経路そのものが攻撃面になる」観点で見る。CI には既に audit が配線済み（`.github/workflows/ci.yml`: `npm audit --audit-level=high` / uv.lock を export した requirements への `pip-audit`）なので、ローカルでは差分の妥当性確認に重点を置く。
 
 - **既知 CVE スキャン**（実行可能なら）:
   - `nix develop --command bash -c "cd web && npm audit --audit-level=high"`
-  - `nix develop --command bash -c "cd backend && uv tool run pip-audit -r requirements.txt"`（実行できなければ「未実行・要手動」と記録。**本 skill で新規ツール導入はしない**）
+  - `nix develop --command bash -c "cd backend && uv export --frozen --no-emit-project --no-hashes --format requirements-txt --output-file /tmp/req-audit.txt && uv tool run --python 3.13 pip-audit -r /tmp/req-audit.txt"`（実行できなければ「未実行・要手動」と記録。**本 skill で新規ツール導入はしない**）
   - High / Critical を Findings に取り込む
-- **バージョン固定 / lockfile 整合**: 直接依存にレンジ指定（`^` / `~` / `*` / `>=` のみ）が無いか、lockfile（`package-lock.json` / `uv.lock` 等）が commit され integrity hash を持つか。`requirements.txt` が pin（`==`）されているか。
+- **バージョン固定 / lockfile 整合**: 直接依存にレンジ指定（`^` / `~` / `*` / `>=` のみ）が無いか、lockfile（`package-lock.json` / `uv.lock` 等）が commit され integrity hash を持つか。`backend/pyproject.toml` の `[project.dependencies]` が pin（`==`）されているか（ADR-0021 Phase 0）。
 - **GitHub Actions のピン留め**: `uses:` がタグ（`@v4`）ではなく commit SHA で固定されているか（直近 commit「GitHub Actions のサプライチェーン保護」で対応済みの方針を維持。`rg -n 'uses:.*@v[0-9]' .github/workflows` で SHA 未固定を検出）。
 - **新規・更新依存の素性**: 差分で追加された依存があれば、メンテ状況・ダウンロード規模・typosquatting（正規パッケージ名との1文字違い）・dependency confusion（社内名と公開名の衝突）を確認。`postinstall` / ビルドスクリプトを持つ npm パッケージは特に注視。
 - **取得元の信頼性**: パッケージ取得が公式レジストリ（npm / PyPI）以外（任意 git URL / 直リンク tarball）を指していないか。

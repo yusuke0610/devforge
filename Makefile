@@ -93,8 +93,10 @@ setup: install-hooks install-backend install-web
 install-hooks:
 	./scripts/setup-git-hooks.sh
 
+# 依存の SSoT は backend/pyproject.toml [project.dependencies] + uv.lock（ADR-0021 Phase 0）。
+# uv sync が uv.lock から .venv を構成する（.venv 廃止は Phase 1）。
 install-backend:
-	nix develop --command bash -c "cd backend && (.venv/bin/python --version > /dev/null 2>&1 || (rm -rf .venv && uv venv)) && uv pip install --python .venv/bin/python -r requirements.txt"
+	nix develop --command bash -c "cd backend && uv sync"
 
 install-web:
 	nix develop --command bash -c "cd web && npm ci"
@@ -265,7 +267,7 @@ metrics-ai-friendliness:
 # 使用 OSS ライセンス一覧
 # ------------------------------------------------------------------ #
 
-# 直接依存 OSS の一覧と各ライセンスを web/package.json・backend/requirements.txt
+# 直接依存 OSS の一覧と各ライセンスを web/package.json・backend/pyproject.toml
 # から収集し THIRD_PARTY_LICENSES.md を再生成する。importlib.metadata を使うため
 # backend の依存がインストール済みの Nix devshell 経由で実行する。
 licenses:

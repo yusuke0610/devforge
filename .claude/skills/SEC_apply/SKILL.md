@@ -88,7 +88,7 @@ Missing Exploit Tests: 4
    - 設計変更は必ず後述の exploit テストとセットで固定する。
 7. **依存 / サプライチェーン対応**:
    - CVE 解消のバージョン更新は `--force` で無視せず該当パッケージを更新（`.claude/rules/security.md` の依存関係節）。更新後に再度 audit を回して解消を確認。
-   - 緩いバージョン指定は pin（`requirements.txt` の `==` / lockfile commit）に寄せる。
+   - 緩いバージョン指定は pin（`backend/pyproject.toml [project.dependencies]` の `==` + `uv.lock` / lockfile commit）に寄せる。
    - GitHub Actions の `uses:` がタグ参照なら commit SHA 固定へ（直近 commit「GitHub Actions のサプライチェーン保護」の方針を踏襲）。
    - 不審な新規依存（typosquatting / dependency confusion / postinstall）は導入を止め、代替を提案。
 8. **Missing Exploit Tests（攻撃者視点の回帰テスト）**:
