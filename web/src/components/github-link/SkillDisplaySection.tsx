@@ -59,7 +59,8 @@ export function SkillDisplaySection({ model }: { model: AgentModelAlias }) {
             type="button"
             className={dash.downloadButton}
             onClick={() => void propose()}
-            disabled={proposing || confirming}
+            // レビュー中（proposal 表示中）は再提案を止め、確定待ちの提案を取りこぼさない
+            disabled={proposing || confirming || proposal !== null}
           >
             {proposing ? (
               <InlineSpinner label={SKILL_DISPLAY_MESSAGES.PROPOSING} />
@@ -84,7 +85,10 @@ export function SkillDisplaySection({ model }: { model: AgentModelAlias }) {
                 className={styles.nameInput}
                 type="text"
                 value={group.displayName}
-                aria-label={SKILL_DISPLAY_MESSAGES.DISPLAY_NAME_LABEL}
+                // 各行を支援技術で区別できるよう、対象スキルを含めた aria-label にする
+                aria-label={`${SKILL_DISPLAY_MESSAGES.DISPLAY_NAME_LABEL}: ${group.members
+                  .map((m) => m.canonical_name)
+                  .join(", ")}`}
                 onChange={(e) => updateProposalName(index, e.target.value)}
               />
               <span className={styles.groupMembers}>

@@ -38,6 +38,8 @@ export function useGitHubSkills(model: AgentModelAlias) {
 
   const reload = useCallback(async () => {
     setLoading(true);
+    // 前回の失敗が残らないよう、再取得の成功でエラー表示が消えるようにする（propose/confirm と同様）
+    setError(null);
     try {
       const res = await getGitHubSkills();
       setSkills(res.skills ?? []);
