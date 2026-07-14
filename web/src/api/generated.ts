@@ -522,11 +522,60 @@ export interface paths {
          * Get Skills
          * @description GitHub 連携で推論した 3 層スキル（ADR-0016）を取得する。
          *
-         *     連携がまだ実行されていない場合は空配列を返す。
+         *     表示名の human-in-the-loop 確定（D11）があれば ``confirmed_display_name`` / ``group_id``
+         *     として載せる。連携がまだ実行されていない場合は空配列を返す。
          */
         get: operations["get_skills_api_github_link_skills_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/github-link/skills/display-decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Confirm Skill Display Decisions
+         * @description レビュー済みの表示名・畳み込みを確定・永続化する（ADR-0016 D11）。
+         *
+         *     確定対象の identity は当該ユーザーの検出済みスキルに属していなければならない
+         *     （他者・非実在 identity の混入を拒否）。確定は独立 Layer 3 テーブルへ upsert され、
+         *     連携の洗い替えに耐える。確定後の最新スキル一覧を返す。
+         */
+        put: operations["confirm_skill_display_decisions_api_github_link_skills_display_decisions_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/github-link/skills/display-names/propose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose Skill Display Names Endpoint
+         * @description 検出済みスキルの表示名・畳み込みグループを agent に提案させる（ADR-0016 D11）。
+         *
+         *     agent は提案するだけで確定・DB 更新はしない（D8 / P4）。提案結果はレスポンスとして返し、
+         *     ユーザーがレビュー・編集して ``PUT /skills/display-decisions`` で確定する。
+         *     外部 LLM を呼ぶ高コスト endpoint のため rate limit を付与し、課金はチャットと同一契約。
+         */
+        post: operations["propose_skill_display_names_endpoint_api_github_link_skills_display_names_propose_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1631,8 +1680,24 @@ export interface components {
              */
             canonical_name: string;
             /**
+             * Confirmed Display Name
+             * @description 人間が確定した表示名（未確定は null / D11）
+             */
+            confirmed_display_name?: string | null;
+            /**
+             * Decision Reviewed
+             * @description 人間レビュー済みか（D11）
+             * @default false
+             */
+            decision_reviewed: boolean;
+            /**
+             * Decision Source
+             * @description 確定の出所（agent / human。未確定は null / D11）
+             */
+            decision_source?: string | null;
+            /**
              * Display Name
-             * @description 表示名（粒度畳みの確定値。未確定は null）
+             * @description 機械（Linguist）由来の表示補正。未補正は null
              */
             display_name?: string | null;
             /**
@@ -1642,6 +1707,11 @@ export interface components {
             ecosystem?: string | null;
             /** Evidence */
             evidence?: components["schemas"]["SkillEvidence"][];
+            /**
+             * Group Id
+             * @description 畳み込みグループ ID。同一 group_id のスキルは 1 表示へ畳む（D11）
+             */
+            group_id?: string | null;
             /**
              * Kind
              * @description スキル種別（language / package / infra）
@@ -1943,6 +2013,90 @@ export interface components {
             self_pr: string;
         };
         /**
+         * SkillDisplayConfirmRequest
+         * @description 表示名確定（人間）のバッチリクエスト（ADR-0016 D11）。
+         */
+        SkillDisplayConfirmRequest: {
+            /** Decisions */
+            decisions?: components["schemas"]["SkillDisplayDecisionInput"][];
+        };
+        /**
+         * SkillDisplayDecisionInput
+         * @description 人間が確定する 1 スキルの表示名（identity + 確定表示名 + グループ / D11）。
+         */
+        SkillDisplayDecisionInput: {
+            /**
+             * Canonical Name
+             * @description 正規名
+             */
+            canonical_name: string;
+            /**
+             * Display Name
+             * @description 確定した表示名
+             */
+            display_name: string;
+            /**
+             * Ecosystem
+             * @description エコシステム（language は空文字）
+             * @default
+             */
+            ecosystem: string;
+            /**
+             * Group Id
+             * @description 畳み込みグループ ID（単独確定は null）
+             */
+            group_id?: string | null;
+            /**
+             * Kind
+             * @description スキル種別
+             */
+            kind: string;
+            /**
+             * Source
+             * @description 出所（agent / human）
+             * @default human
+             */
+            source: string;
+        };
+        /**
+         * SkillDisplayProposeRequest
+         * @description 表示名提案（agent）のリクエスト（ADR-0016 D11）。
+         *
+         *     提案対象スキルはサーバーが連携結果から決めるため、クライアントは使用モデルのみ指定する。
+         */
+        SkillDisplayProposeRequest: {
+            /**
+             * Model
+             * @default haiku
+             * @enum {string}
+             */
+            model: "haiku" | "sonnet" | "gemini-flash" | "gemini-pro" | "gpt-mini" | "gpt";
+        };
+        /**
+         * SkillDisplayProposeResponse
+         * @description 表示名提案の結果（永続化されない。人間がレビュー・確定する / D11）。
+         */
+        SkillDisplayProposeResponse: {
+            /** Groups */
+            groups?: components["schemas"]["SkillDisplayProposedGroup"][];
+        };
+        /**
+         * SkillDisplayProposedGroup
+         * @description agent が提案した 1 表示スキル（表示名 + 畳むメンバー群 / D11）。
+         */
+        SkillDisplayProposedGroup: {
+            /**
+             * Display Name
+             * @description 提案する表示名
+             */
+            display_name: string;
+            /**
+             * Members
+             * @description このグループに畳むスキルの identity
+             */
+            members?: components["schemas"]["SkillIdentityRef"][];
+        };
+        /**
          * SkillEvidence
          * @description Layer 2: 技術×リポの根拠。
          */
@@ -1988,6 +2142,28 @@ export interface components {
              * @description 根拠の出所（language_bytes / manifest_declared / actual_import / infra_declared）
              */
             signal_source: string;
+        };
+        /**
+         * SkillIdentityRef
+         * @description スキルの安定 identity（github_skills と一致 / D11）。
+         */
+        SkillIdentityRef: {
+            /**
+             * Canonical Name
+             * @description 正規名（package ID / 言語名 / raw resource type）
+             */
+            canonical_name: string;
+            /**
+             * Ecosystem
+             * @description エコシステム（language は空文字）
+             * @default
+             */
+            ecosystem: string;
+            /**
+             * Kind
+             * @description スキル種別（language / package / infra）
+             */
+            kind: string;
         };
         /**
          * SkillProficiency
@@ -2806,6 +2982,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GitHubSkillsResponse"];
+                };
+            };
+        };
+    };
+    confirm_skill_display_decisions_api_github_link_skills_display_decisions_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillDisplayConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubSkillsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    propose_skill_display_names_endpoint_api_github_link_skills_display_names_propose_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillDisplayProposeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillDisplayProposeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

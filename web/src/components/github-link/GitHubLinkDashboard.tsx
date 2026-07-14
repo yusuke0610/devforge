@@ -25,6 +25,7 @@ import { useAppSelector } from "../../store";
 import { PdfPreviewModal } from "../forms/PdfPreviewModal";
 import { ContributionHeatmap } from "./ContributionHeatmap";
 import { LanguageBar } from "./LanguageBar";
+import { SkillDisplaySection } from "./SkillDisplaySection";
 import shared from "../../styles/shared.module.css";
 import styles from "./GitHubLinkDashboard.module.css";
 
@@ -169,6 +170,9 @@ export function GitHubLinkDashboard() {
                 <LanguageBar languages={result.languages} />
               </div>
             )}
+
+            {/* スキル一覧 + 表示名の human-in-the-loop 確定（ADR-0016 D11） */}
+            <SkillDisplaySection model={agentModel} />
 
             {/* 経歴書ドラフト PDF 生成（ADR-0018） */}
             <div className={styles.section}>

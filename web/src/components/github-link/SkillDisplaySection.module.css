@@ -1,0 +1,100 @@
+.skillList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.skillChip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-section);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.skillLabel {
+  font-weight: 600;
+}
+
+.skillSub {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.kindBadge {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.reviewPanel {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-section);
+}
+
+.reviewHeading {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.groupRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.groupRow:first-of-type {
+  border-top: none;
+}
+
+.nameInput {
+  flex: 0 0 220px;
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border-input);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.groupMembers {
+  flex: 1 1 240px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.reviewActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.secondaryButton {
+  background: var(--ghost-bg);
+  color: var(--ghost-text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.secondaryButton:hover {
+  background: var(--ghost-hover);
+}

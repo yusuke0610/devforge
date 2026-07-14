@@ -40,6 +40,32 @@ export type GitHubLinkResponse = Schemas["GitHubLinkResponse"];
 /** DB に保存された連携結果。backend `schemas/github_link.py:CachedGitHubLinkResponse`。 */
 export type CachedGitHubLinkResponse = Schemas["CachedGitHubLinkResponse"];
 
+// ── GitHub 連携スキル 3 層 + 表示名 HITL（github_skill.py / ADR-0016）─────────
+
+/** ユーザーのスキル一覧（3 層）。backend `schemas/github_skill.py:GitHubSkillsResponse`。 */
+export type GitHubSkillsResponse = Schemas["GitHubSkillsResponse"];
+
+/** スキル 1 件（Layer 1 + evidence + 確定表示名）。backend `GitHubSkillItem`。 */
+export type GitHubSkillItem = Schemas["GitHubSkillItem"];
+
+/** スキルの安定 identity。backend `schemas/github_skill.py:SkillIdentityRef`（D11）。 */
+export type SkillIdentityRef = Schemas["SkillIdentityRef"];
+
+/** 表示名提案リクエスト（使用モデル）。backend `SkillDisplayProposeRequest`（D11）。 */
+export type SkillDisplayProposeRequest = Schemas["SkillDisplayProposeRequest"];
+
+/** agent が提案した 1 表示スキル。backend `SkillDisplayProposedGroup`（D11）。 */
+export type SkillDisplayProposedGroup = Schemas["SkillDisplayProposedGroup"];
+
+/** 表示名提案の結果。backend `schemas/github_skill.py:SkillDisplayProposeResponse`（D11）。 */
+export type SkillDisplayProposeResponse = Schemas["SkillDisplayProposeResponse"];
+
+/** 人間が確定する 1 スキルの表示名。backend `SkillDisplayDecisionInput`（D11）。 */
+export type SkillDisplayDecisionInput = Schemas["SkillDisplayDecisionInput"];
+
+/** 表示名確定のバッチリクエスト。backend `SkillDisplayConfirmRequest`（D11）。 */
+export type SkillDisplayConfirmRequest = Schemas["SkillDisplayConfirmRequest"];
+
 // ── 認証（auth.py）────────────────────────────────────────────────────────
 
 /** GitHub OAuth 認可 URL と CSRF 検証用 state。backend `schemas/auth.py:GitHubLoginUrlResponse`。 */

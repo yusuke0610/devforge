@@ -71,6 +71,9 @@ export const FALLBACK_MESSAGES = {
   CREDIT_BALANCE: "クレジット残高の取得に失敗しました",
   USAGE_SUMMARY: "利用状況の取得に失敗しました",
   CHECKOUT: "決済ページへの遷移に失敗しました",
+  SKILL_FETCH: "スキルの取得に失敗しました",
+  SKILL_DISPLAY_PROPOSE: "表示名の提案に失敗しました",
+  SKILL_DISPLAY_CONFIRM: "表示名の確定に失敗しました",
 } as const;
 
 /**
@@ -206,6 +209,34 @@ export const RESUME_DRAFT_MESSAGES = {
   HINT: "連携したリポジトリの情報から、AI が経歴書のたたき台（PDF）を作成します。生成はバックグラウンドで実行され、完了すると通知でお知らせします。使用モデルはユーザーメニューで変更できます。",
   /** 生成物が職務経歴書として保存されない旨の注意書き。 */
   NOT_SAVED_NOTE: "生成した内容は職務経歴書として保存されません。必要な部分は職務経歴書フォームへ転記してください。",
+} as const;
+
+/** スキル表示名の human-in-the-loop 確定（ADR-0016 D11）の UI 文言。 */
+export const SKILL_DISPLAY_MESSAGES = {
+  /** セクション見出し。 */
+  HEADING: "スキル",
+  /** 機能説明。 */
+  HINT: "連携から検出した技術スキルです。AI に読みやすい表示名・まとめ方を提案させ、確認・編集して確定できます。確定した表示名は再連携しても保持されます。",
+  /** 提案ボタンのラベル。 */
+  PROPOSE: "表示名をAIに提案してもらう",
+  /** 提案中のラベル。 */
+  PROPOSING: "表示名を提案中...",
+  /** レビューパネルの見出し。 */
+  REVIEW_HEADING: "表示名の提案（確認して確定してください）",
+  /** 表示名入力欄のラベル。 */
+  DISPLAY_NAME_LABEL: "表示名",
+  /** 確定ボタンのラベル。 */
+  CONFIRM: "この内容で確定",
+  /** 確定中のラベル。 */
+  CONFIRMING: "確定中...",
+  /** 提案破棄ボタンのラベル。 */
+  DISCARD: "破棄",
+  /** スキルが未検出のときの空表示。 */
+  EMPTY: "検出されたスキルがありません。先に GitHub 連携を実行してください。",
+  /** 提案が 0 件だったときの表示。 */
+  PROPOSE_EMPTY: "提案できる表示名がありませんでした。",
+  /** 畳み込みメンバー数のラベル接尾（例: 「3 件をまとめる」）。 */
+  memberCountLabel: (count: number): string => `${count} 件をまとめる`,
 } as const;
 
 /** 年セレクトの選択肢表記「N年」。 */

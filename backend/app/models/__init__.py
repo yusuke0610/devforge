@@ -16,7 +16,12 @@ from .resume import (
     ResumeProjectTechnologyStack,
     ResumeQualification,
 )
-from .skill import GitHubSkill, GitHubSkillEvidence, GitHubSkillProficiency
+from .skill import (
+    GitHubSkill,
+    GitHubSkillDisplayDecision,
+    GitHubSkillEvidence,
+    GitHubSkillProficiency,
+)
 from .user import User
 
 __all__ = [
@@ -27,6 +32,7 @@ __all__ = [
     "CreditTransaction",
     "GitHubLinkCache",
     "GitHubSkill",
+    "GitHubSkillDisplayDecision",
     "GitHubSkillEvidence",
     "GitHubSkillProficiency",
     "MQualification",
