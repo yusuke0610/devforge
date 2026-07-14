@@ -4,6 +4,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from .agent import AgentModelAlias
+
 
 class SkillEvidence(BaseModel):
     """Layer 2: 技術×リポの根拠。"""
@@ -65,7 +67,21 @@ class GitHubSkillItem(BaseModel):
     )
     parent: Optional[str] = Field(default=None, description="親（Linguist の group）")
     display_name: Optional[str] = Field(
-        default=None, description="表示名（粒度畳みの確定値。未確定は null）"
+        default=None, description="機械（Linguist）由来の表示補正。未補正は null"
+    )
+    # D11: human-in-the-loop の確定表示名・畳み込みグループ（github_skill_display_decisions 由来）
+    confirmed_display_name: Optional[str] = Field(
+        default=None, description="人間が確定した表示名（未確定は null / D11）"
+    )
+    group_id: Optional[str] = Field(
+        default=None,
+        description="畳み込みグループ ID。同一 group_id のスキルは 1 表示へ畳む（D11）",
+    )
+    decision_source: Optional[str] = Field(
+        default=None, description="確定の出所（agent / human。未確定は null / D11）"
+    )
+    decision_reviewed: bool = Field(
+        default=False, description="人間レビュー済みか（D11）"
     )
     evidence: List[SkillEvidence] = Field(default_factory=list)
     proficiency: Optional[SkillProficiency] = Field(default=None)
@@ -75,3 +91,55 @@ class GitHubSkillsResponse(BaseModel):
     """ユーザーの GitHub 連携スキル一覧（3 層）。"""
 
     skills: List[GitHubSkillItem] = Field(default_factory=list)
+
+
+class SkillDisplayProposeRequest(BaseModel):
+    """表示名提案（agent）のリクエスト（ADR-0016 D11）。
+
+    提案対象スキルはサーバーが連携結果から決めるため、クライアントは使用モデルのみ指定する。
+    """
+
+    # 使用モデル。既定は無料枠の haiku（課金契約はチャットと共通 / ADR-0012）
+    model: AgentModelAlias = "haiku"
+
+
+class SkillIdentityRef(BaseModel):
+    """スキルの安定 identity（github_skills と一致 / D11）。"""
+
+    kind: str = Field(description="スキル種別（language / package / infra）")
+    ecosystem: str = Field(default="", description="エコシステム（language は空文字）")
+    canonical_name: str = Field(description="正規名（package ID / 言語名 / raw resource type）")
+
+
+class SkillDisplayProposedGroup(BaseModel):
+    """agent が提案した 1 表示スキル（表示名 + 畳むメンバー群 / D11）。"""
+
+    display_name: str = Field(description="提案する表示名")
+    members: List[SkillIdentityRef] = Field(
+        default_factory=list, description="このグループに畳むスキルの identity"
+    )
+
+
+class SkillDisplayProposeResponse(BaseModel):
+    """表示名提案の結果（永続化されない。人間がレビュー・確定する / D11）。"""
+
+    groups: List[SkillDisplayProposedGroup] = Field(default_factory=list)
+
+
+class SkillDisplayDecisionInput(BaseModel):
+    """人間が確定する 1 スキルの表示名（identity + 確定表示名 + グループ / D11）。"""
+
+    kind: str = Field(description="スキル種別")
+    ecosystem: str = Field(default="", description="エコシステム（language は空文字）")
+    canonical_name: str = Field(description="正規名")
+    display_name: str = Field(min_length=1, max_length=255, description="確定した表示名")
+    group_id: Optional[str] = Field(
+        default=None, description="畳み込みグループ ID（単独確定は null）"
+    )
+    source: str = Field(default="human", description="出所（agent / human）")
+
+
+class SkillDisplayConfirmRequest(BaseModel):
+    """表示名確定（人間）のバッチリクエスト（ADR-0016 D11）。"""
+
+    decisions: List[SkillDisplayDecisionInput] = Field(default_factory=list)

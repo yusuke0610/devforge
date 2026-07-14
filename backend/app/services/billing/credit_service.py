@@ -81,6 +81,21 @@ def record_chat_usage(
     return balance_after
 
 
+def record_usage_after_llm(
+    db: Session, user_id: str, usage: AgentUsage, *, description: str | None = None
+) -> None:
+    """LLM 応答後のクレジット消費・使用ログ記録を、ストリームを開き直してから行う。
+
+    LLM 呼び出しの await 中にリクエストの DB セッションがアイドルになり、libSQL
+    （Hrana over HTTP）のストリームが idle timeout で失効する。失効したまま commit
+    すると ``STREAM_EXPIRED`` で 400 → 500 になり課金記録も落ちるため、``db.close()`` で
+    失効ストリームを解放してから記録する（次の SELECT/commit が新規コネクション＝新規
+    Hrana ストリームを取得して正常に確定できる）。LLM を await する各 router 共通の後処理。
+    """
+    db.close()
+    record_chat_usage(db, user_id, usage, description=description)
+
+
 def grant_credits(
     db: Session,
     user_id: str,

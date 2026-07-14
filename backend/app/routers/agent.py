@@ -47,16 +47,8 @@ router = APIRouter(prefix="/api/agent", tags=["agent"])
 def _record_usage_after_llm(
     db: Session, user_id: str, usage: AgentUsage, *, description: str | None = None
 ) -> None:
-    """LLM 応答後のクレジット消費・使用ログ記録を、ストリームを開き直してから行う。
-
-    LLM 呼び出しの await 中にリクエストの DB セッションがアイドルになり、libSQL
-    （Hrana over HTTP）のストリームが idle timeout で失効する。失効したまま commit
-    すると `STREAM_EXPIRED` で 400 → 500 になり、課金記録も落ちる。`db.close()` で
-    失効ストリームを解放しておけば、record_chat_usage 内の次の SELECT/commit が
-    新しいコネクション（=新規 Hrana ストリーム）を取得して正常に確定できる。
-    """
-    db.close()
-    credit_service.record_chat_usage(db, user_id, usage, description=description)
+    """LLM 応答後のクレジット消費・使用ログ記録（billing の共通後処理へ委譲）。"""
+    credit_service.record_usage_after_llm(db, user_id, usage, description=description)
 
 
 @router.post("/chat", response_model=AgentChatResponse)

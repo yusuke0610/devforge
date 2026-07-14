@@ -42,6 +42,14 @@ test.describe("GitHub 連携 - コントリビューションヒートマップ"
         }),
       }),
     );
+    // スキルセクション（D11）がマウント時に叩く一覧 API。空で返す
+    await page.route("**/api/github-link/skills", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ skills: [] }),
+      }),
+    );
 
     await page.goto("/github_link");
     await waitForAuthenticatedLayout(page);
@@ -205,6 +213,13 @@ test.describe("GitHub 連携 - コントリビューションヒートマップ"
         body: "%PDF-1.4\n%mock\n",
       }),
     );
+    await page.route("**/api/github-link/skills", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ skills: [] }),
+      }),
+    );
 
     await page.goto("/github_link");
     await waitForAuthenticatedLayout(page);
@@ -257,5 +272,109 @@ test.describe("GitHub 連携 - コントリビューションヒートマップ"
     await expect(
       page.getByText("GitHubプロフィールを取得中..."),
     ).toBeVisible();
+  });
+
+  test("スキル表示名を AI 提案 → 確定するとチップに確定表示名が反映される（D11）", async ({
+    page,
+  }) => {
+    await page.route("**/api/github-link/cache", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "completed",
+          result: {
+            username: "e2e-test-user",
+            repos_analyzed: 1,
+            unique_skills: 1,
+            analyzed_at: "2026-04-24T00:00:00Z",
+            languages: { TypeScript: 100 },
+          },
+        }),
+      }),
+    );
+    // 初期一覧: 未確定の package 1 件（canonical 名で表示される）
+    await page.route("**/api/github-link/skills", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          skills: [
+            {
+              kind: "package",
+              canonical_name: "@aws-sdk/client-s3",
+              ecosystem: "npm",
+              parent: null,
+              display_name: null,
+              confirmed_display_name: null,
+              group_id: null,
+              decision_source: null,
+              decision_reviewed: false,
+              evidence: [],
+              proficiency: null,
+            },
+          ],
+        }),
+      }),
+    );
+    await page.route("**/api/github-link/skills/display-names/propose", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          groups: [
+            {
+              display_name: "Amazon S3",
+              members: [
+                { kind: "package", ecosystem: "npm", canonical_name: "@aws-sdk/client-s3" },
+              ],
+            },
+          ],
+        }),
+      }),
+    );
+    // 確定後の一覧: confirmed_display_name が入った状態を返す
+    await page.route("**/api/github-link/skills/display-decisions", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          skills: [
+            {
+              kind: "package",
+              canonical_name: "@aws-sdk/client-s3",
+              ecosystem: "npm",
+              parent: null,
+              display_name: null,
+              confirmed_display_name: "Amazon S3",
+              group_id: null,
+              decision_source: "agent",
+              decision_reviewed: true,
+              evidence: [],
+              proficiency: null,
+            },
+          ],
+        }),
+      }),
+    );
+
+    await page.goto("/github_link");
+    await waitForAuthenticatedLayout(page);
+
+    // 未確定なので canonical 名がチップに出る
+    await expect(page.getByText("@aws-sdk/client-s3")).toBeVisible();
+
+    // 提案 → レビューパネルが開く
+    await page.getByRole("button", { name: "表示名をAIに提案してもらう" }).click();
+    await expect(
+      page.getByText("表示名の提案（確認して確定してください）"),
+    ).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "表示名" })).toHaveValue(
+      "Amazon S3",
+    );
+
+    // 確定 → チップに確定表示名が反映される
+    await page.getByRole("button", { name: "この内容で確定" }).click();
+    await expect(page.getByText("Amazon S3")).toBeVisible();
   });
 });

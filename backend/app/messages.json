@@ -76,7 +76,9 @@
       "draft_link_required": "経歴書ドラフトの生成に必要な GitHub 連携データがありません。GitHub 連携を実行してから再度お試しください。",
       "draft_no_repositories": "分析対象の公開リポジトリが見つかりませんでした。経歴書ドラフトの生成には公開リポジトリが必要です。",
       "draft_pdf_failed": "経歴書ドラフトの PDF 生成に失敗しました。もう一度お試しください。",
-      "draft_not_ready": "経歴書ドラフトの生成が完了していません。生成を実行してからダウンロードしてください。"
+      "draft_not_ready": "経歴書ドラフトの生成が完了していません。生成を実行してからダウンロードしてください。",
+      "skill_display_no_skills": "表示名を提案できるスキルがありません。先に GitHub 連携を実行してください。",
+      "skill_display_invalid_identity": "確定対象に連携結果に存在しないスキルが含まれています。"
     },
     "billing": {
       "insufficient_credits": "クレジット残高が不足しています。Haiku（無料）に切り替えるか、クレジットを追加してください。",

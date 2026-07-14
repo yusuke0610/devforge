@@ -119,7 +119,7 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 
 ### D10. IaC（Terraform）からインフラリソースを検出する（2026-07 改訂で追加）
 
-当初「将来課題」としていた IaC からのインフラリソース検出を、**機械検出（幅）に限定して採用**する。Terraform/HCL は Linguist の*言語*スキル「Terraform」（kind=language）としては捕捉済みだが、「どのクラウドの何のサービスを IaC で構築したか」（provider / service 粒度）が取れていない。この検出軸を Layer 1-2 に足す。表示名の畳み込み（`aws_s3_bucket` → 「Amazon S3」）を伴う human-in-the-loop（D8）は package 層含め未実装のため、本 D10 のスコープからは外し別途とする（canonical は raw type を保持するだけ）。
+当初「将来課題」としていた IaC からのインフラリソース検出を、**機械検出（幅）に限定して採用**する。Terraform/HCL は Linguist の*言語*スキル「Terraform」（kind=language）としては捕捉済みだが、「どのクラウドの何のサービスを IaC で構築したか」（provider / service 粒度）が取れていない。この検出軸を Layer 1-2 に足す。表示名の畳み込み（`aws_s3_bucket` → 「Amazon S3」）を伴う human-in-the-loop（D8）は本 D10 のスコープからは外し別途とした（canonical は raw type を保持するだけ）。**→ その human-in-the-loop 畳み込みは package / infra / language 全 kind を対象に D11 で採用・実装済み。**
 
 - **(a) 対象 = Terraform / OpenTofu（`.tf`）**: parser は plugin 型（`InfraParser`）とし、CloudFormation / Pulumi / k8s manifest 等は後追いで差し込める設計にとどめる（v1 は Terraform のみ実装）。
 - **(b) 抽出粒度 = provider + service 両方**: `provider "<name>"` / `required_providers` → クラウドプロバイダ、`resource "<type>" "<name>"` → 具体サービス（type 接頭辞で provider を導出。`aws_s3_bucket` → provider `aws`）。**static な `resource` ブロックの type 抽出に限定**し、`module` / `count` / `for_each` / `dynamic` による動的生成は静的列挙できないため対象外（将来課題）。
@@ -132,6 +132,21 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 新規値オブジェクト: `InfraResourceDeclaration(tool, provider, resource_type, source_path)` を IaC parser plugin が返し、aggregator の `_collect_infra()` が `kind=infra` で集約する（`_collect_languages` / `_collect_packages` と並ぶ）。
 
 実装で触った箇所: `skills/types.py`（`SKILL_KIND_INFRA` / `InfraResourceDeclaration`）/ 新規 `skills/infra/`（`InfraParser` Protocol・`terraform.py`・registry）/ `github_collector.py`（`.tf` 探索・`.terraform` 除外・partial 伝播）/ `skills/aggregator.py`（`_collect_infra`・`infra_declared`）/ `github_link_service.py`（`RepoSkillInput` へ伝播）/ `schemas/github_skill.py`（docstring 拡張 + `make codegen-types`）。migration・新規依存はなし。
+
+### D11. 表示名・粒度の畳み込みを human-in-the-loop で確定する（2026-07 改訂で追加）
+
+D3・D8 で「表示名・粒度の畳み込み（`@aws-sdk/client-eventbridge` →「Amazon EventBridge」・`aws_s3_bucket` →「Amazon S3」）は文脈依存で機械検証不能なので agent 提案 → 人間確定」と方針だけ定め、実装は未着手だった（D10 に「package 層含め未実装」と明記）。本 D11 で **agent 提案 → 人間確定 → 永続化 → スキルビュー反映**の一連フローを採用する。package / infra / language の全 kind を対象とする。
+
+- **(a) 確定値は Layer 1-2 から切り離した独立の Layer 3 テーブルに、安定 identity をキーに保存する**: 新テーブル `github_skill_display_decision`（`user_id` + `kind` + `ecosystem` + `canonical_name` を一意キー）に、確定した `display_name` と畳み込みグループ（`group_id`）を持つ。Layer 1-2（`github_skills` / `github_skill_evidence`）は連携再実行のたびに `replace_for_user` で**洗い替え（全削除→再挿入）**されるため、確定値をそこに置くと再連携で消える。identity キーの独立テーブルにすることで洗い替えに自然に耐え（skill.id ではなく安定 identity で紐づく）、かつ N:1 グルーピングを表現できる。これは D1「機械=幅（Layer 1-2）/ 人間=深さ（Layer 3）」の責務分離に沿う（確定は人間の判断＝深さ）。
+- **(b) 既存 `github_skills.display_name` は機械フォールバックとして残す**: このカラムは Linguist 由来の**機械的**表示補正（`HCL` → `Terraform` / `Dockerfile` → `Docker`）を持ち、HITL 確定値ではない（package/infra は常に NULL）。D11 の人間確定は (a) の別テーブルが正本とし、本カラムは解決順の中間フォールバックとして温存する（削除しない）。
+- **(c) 表示名の解決順（serve 時）**: **人間確定（group 表示名 or 1:1 表示名 / Layer 3）> 機械 `display_name`（Linguist / Layer 1）> `canonical_name`**。`GET /skills` が `github_skill_display_decision` を join し、各スキルに確定値と `group_id` を載せる。同一 `group_id` のスキルは 1 スキルへ畳んで表示する（畳み込みは後段ビュー変換 / D8「保持は細かく、畳み込みは後段」を踏襲。Layer 1-2 の生データは畳まず保持）。
+- **(d) agent は提案のみ（D8 / 設計原則 P4 の責務分離を維持）**: 提案エンドポイントが実在スキル群を LLM に渡し、グループ（表示名 + メンバー canonical 群）を提案させる。**メンバーはリクエストごとの動的 enum で実在スキルに制約**し、存在しないスキルの捏造を構造的に排除する（ADR-0018 の `repo_full_name` 動的 enum と同手法）。LLM は確定しない・DB を書かない。提案は永続化せずレスポンスとして返すだけ。
+- **(e) 人間が確定・永続化**: web でレビュー/編集した確定内容をバッチ upsert する確定エンドポイントを設ける。identity が当該ユーザーのスキルに属することを検証し（他者 identity の混入を拒否）、`source`（"agent"=提案そのまま / "human"=編集）と `reviewed` を記録する。
+- **(f) 機械制約はスキーマ・品質はプロンプト（ADR-0010 責務分離を厳守）**: 提案の JSON 構造・許可メンバー enum・表示名の文字数上限は構造化出力スキーマ（`output_schema.py`）に、畳み込みの品質基準（同一 SDK / 製品ファミリだけを保守的に畳む・不確実なら raw 維持・技術の捏造禁止）はプロンプト（`agent_skill_display.md`）に置く。提案 LLM は課金・プロバイダ抽象（ADR-0012・0013）を既存のまま流用する。
+
+**スコープ外（残課題）**: 確定値のバージョニング / 監査履歴、group をまたぐ evidence の重み再計算、agent による足切り（言語の上位 N 位）提案（D8 で別項）。動的 module 解決・Tier2 IaC は D10 の残課題のまま。
+
+実装で触る箇所: 新規 `models/skill.py`（`GitHubSkillDisplayDecision`）+ migration（`op.create_table`）/ `repositories/skill.py`（decision repo・serve join）/ 新規 `services/agent/skill_display/`（`output_schema.py`・`proposer.py`）/ 新規 `prompts/agent_skill_display.md` / `routers/github_link/endpoints.py`（propose / confirm / GET 拡張）/ `schemas/github_skill.py`（新規スキーマ + `GitHubSkillItem` 拡張、`make codegen-types`）/ web（スキル一覧ビュー + 提案レビュー UI 新規）。
 
 ### この設計で得られるもの
 
@@ -163,14 +178,15 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
   - **import 名乖離の補正（#477 / 2026-07）**: 機械変換で当たらない配布名≠import名の乖離（PyYAML→yaml・Pillow→PIL・beautifulsoup4→bs4 等）を、pypi のみ内部マスタ（`skills/resources/pypi_import_aliases.json`）経由で補正する。**D3（辞書を持たない）とのテンション**は `linguist_master.json` と同じモデルで解消: マスタは wheel の `top_level.txt` 由来の機械的事実であり taxonomy 判断を含まない／連携ホットパスで外部を叩かず実行時は読むだけ（D4）／`top_level.txt` からのオフライン再生成を想定した暫定キュレーションで、既知の乖離 package を初期集合とする。`google.*` のような汎用名前空間へ畳まれる package（protobuf 等）は false positive を避け意図的に除外。マスタ未収録の乖離は引き続き false negative として受容（昇格漏れのみ・過剰昇格なし）。残課題は初期集合の実データ拡張。
   - **サンプリング閾値の実データチューニング（#478 / 2026-07）**: 連携実データで計測した結果、グローバル 30 件キャップは monorepo（npm+pypi 同居・候補 514 ファイル）で辞書順先頭のサブツリーが枠を使い切り、全量なら昇格する direct 依存 26 件中 17 件を取りこぼしていた。順序戦略の変更（ディレクトリ分散・ランダム）は浅い順に勝てず（import が深い数ファイルに局在するため）、**キャップをエコシステム別 50 件に変更**（単一エコシステムのリポは全量走査に収まり、monorepo の押し出しが解消。50 超はロングテールで頭打ち）。深さ上限 6 は深さ 7 以上のソースが昇格に寄与しなかったため据え置き。残る昇格漏れ（26 件中 9 件・全量走査には約 500 ファイル必要）はコスト対効果からロングテールとして受容（false negative のみ・declare 証跡は残る）。
 - **monorepo 対応**: D9 で採用済み（recursive Trees API + パスセグメント除外 + 深さ/件数キャップ + keep-all）。キャップ閾値の実データチューニングは #478（2026-07）で実施: manifest キャップ（深さ 4 / 件数 20）は実データ最大が 4 件・深さ 3 で打ち切りゼロのため据え置き。IaC キャップは 30 件だと `infra/modules/` 配下の resource を取りこぼした（検出 20 種中 11 種が漏れ。50 件で全量一致）ため **60 件へ引き上げ**（深さ 6 は据え置き）。残課題は除外定義の高度化（Linguist `vendor.yml` 流用）・規模シグナルの導入。
-- **IaC からのインフラリソース検出**: 機械検出は **D10 で採用・実装済み**（2026-07。Terraform/OpenTofu・provider+service 粒度・kind=infra・signal_source=infra_declared・D9 探索流用・正規表現 parser）。残課題は表示名の HITL 畳み込み・動的 module 解決・Tier2 IaC・resource 出現回数の量的シグナル。
+- **IaC からのインフラリソース検出**: 機械検出は **D10 で採用・実装済み**（2026-07。Terraform/OpenTofu・provider+service 粒度・kind=infra・signal_source=infra_declared・D9 探索流用・正規表現 parser）。残課題は動的 module 解決・Tier2 IaC・resource 出現回数の量的シグナル。
+- **表示名の human-in-the-loop 畳み込み**: **D11 で採用・実装済み**（2026-07。全 kind 対象・独立 Layer 3 テーブル `github_skill_display_decision`・agent 提案は動的 enum で捏造防止・人間確定を永続化・解決順は確定値 > 機械 display_name > canonical）。残課題は確定値のバージョニング / 監査履歴・group をまたぐ evidence 重み再計算・agent による足切り提案。
 - **private リポジトリの扱い**: Layer 3 経由で人間が深さを補完する。生データは持ち込まない前提を維持する。
 - **deps.dev エンリッチ**: 横断名寄せの範囲・実行タイミング。
 - **閾値・粒度のデフォルト**: 言語足切りの初期値、表示名 alias の初期セット。
 
 ## 将来課題: IaC からのインフラリソース検出（機械検出は D10 で採用済み / 2026-07）
 
-> **更新（2026-07）**: 本項の「機械検出（provider+service・static resource・kind=infra）」は **D10 として採用・実装済み**。以下は当初の課題提起の記録であり、**残る未採用部分**は「表示名の human-in-the-loop 畳み込み」「動的 module 解決」「Tier2 IaC（CloudFormation / Pulumi / k8s / Helm）」「resource 出現回数の量的シグナル（ADD COLUMN 案）」。実装済みの決定は D10 を正とする。
+> **更新（2026-07）**: 本項の「機械検出（provider+service・static resource・kind=infra）」は **D10 として採用・実装済み**。**「表示名の human-in-the-loop 畳み込み」も D11 として採用・実装済み**（package / infra / language 全 kind 対象）。以下は当初の課題提起の記録であり、**残る未採用部分**は「動的 module 解決」「Tier2 IaC（CloudFormation / Pulumi / k8s / Helm）」「resource 出現回数の量的シグナル（ADD COLUMN 案）」。実装済みの決定は D10 / D11 を正とする。
 
 **背景**: Terraform/HCL は Linguist により*言語*スキル「Terraform」として検出済み（D3・D9(g)）。一方「どのクラウドの何のサービスを IaC で構築・運用したか」は捉えられていない。インフラが **IaC で記述されている場合に限り**、宣言から具体的なインフラリソースを抽出すれば、インフラ系スキルの幅と証跡性が上がる。
 
@@ -218,6 +234,7 @@ Layer 1 を単一型にせず、`LanguageSkill` と `PackageSkill` に型分割�
 
 ## 改訂履歴
 
+- **2026-07**: 「将来課題」「D10 スコープ外」だった**表示名・粒度の human-in-the-loop 畳み込みを D11 として採用・実装（#476）**。全 kind（package / infra / language）対象。人間の確定を Layer 1-2（機械・洗い替え対象）から切り離した独立 Layer 3 テーブル `github_skill_display_decision`（安定 identity キー）に保存し再連携の洗い替えに耐性を持たせた。agent は実在スキルの動的 enum で提案のみ行い（捏造防止・D8/P4 の提案のみ責務を維持）、人間が確定・永続化する。serve 時の解決順は確定値 > 機械 display_name（Linguist）> canonical。既存 `github_skills.display_name` は機械フォールバックとして温存。3 層モデル・D1〜D10 は不変。
 - **2026-07**: D6/D9/D10 の**キャップ・サンプリング閾値を実データでチューニング（#478）**。連携本人の実データに収集コードを当てて打ち切り発生状況とキャップ反実仮想（値を変えた場合の検出数推移）を計測した。verify のソースキャップをグローバル 30 件 → **エコシステム別 50 件**へ変更（monorepo で先頭エコシステムが枠を使い切る押し出しを解消。順序戦略の変更は浅い順に勝てないことを確認）。IaC キャップを 30 → **60 件**へ引き上げ（30 では resource 20 種中 11 種を取りこぼし、50 で全量一致）。manifest キャップ（深さ 4 / 件数 20）と各深さ上限は実データで打ち切りゼロ・寄与ゼロを確認し据え置き。スキーマ・API 契約は不変。3 層モデル・D1〜D10 は不変。
 - **2026-07**: verify（D6）の **import 名乖離の取りこぼしを低減（#477）**。pypi のみ、機械変換で当たらない配布名≠import名の乖離を内部マスタ（`skills/resources/pypi_import_aliases.json`）で補正。D3 テンションは `linguist_master.json` と同じ「ホットパス外で生成する暫定キュレーション・実行時は読むだけ」モデルで解消。既知の乖離 package を初期集合とし、`google.*` 等の汎用名前空間は false positive 回避のため除外。未収録は引き続き false negative 受容（過剰昇格なし）。schema / API 契約は不変（migration 不要）。3 層モデル・D1〜D10 は不変。
 - **2026-07**: 「将来課題」だった IaC からのインフラリソース検出を **D10 として採用・実装**（Terraform/OpenTofu の `.tf` を対象に provider+service を抽出、kind=`infra` / signal_source=`infra_declared`、static resource ブロック限定、正規表現 parser で依存なし、D9 探索流用で `.terraform` 除外を追加、canonical=raw type で keep-all）。表示名の human-in-the-loop 畳み込み・動的 module 解決・Tier2 IaC・出現回数の量的シグナルは残課題。kind / signal_source / ecosystem は既存カラムの値域内のため migration 不要。3 層モデル・D1〜D9 は不変。

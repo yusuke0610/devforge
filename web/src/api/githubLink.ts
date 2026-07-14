@@ -2,7 +2,11 @@ import { request } from "./client";
 import { PATHS } from "./paths";
 import type {
   CachedGitHubLinkResponse,
+  GitHubSkillsResponse,
   ProgressResponse,
+  SkillDisplayConfirmRequest,
+  SkillDisplayProposeRequest,
+  SkillDisplayProposeResponse,
   TaskAcceptedResponse,
   TaskStatusResponse,
 } from "./types";
@@ -56,6 +60,39 @@ export function retryGitHubLink(
 ): Promise<TaskAcceptedResponse> {
   return request<TaskAcceptedResponse>(PATHS.githubLink.runRetry, {
     method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * 連携で推論した 3 層スキル（表示名の確定込み）を取得します（ADR-0016 D11）。
+ */
+export function getGitHubSkills(): Promise<GitHubSkillsResponse> {
+  return request<GitHubSkillsResponse>(PATHS.githubLink.skills);
+}
+
+/**
+ * スキル表示名・畳み込みグループの提案を agent に依頼します（D11）。
+ * agent は提案するだけで確定はしません（ユーザーがレビュー・確定する）。
+ */
+export function proposeSkillDisplayNames(
+  payload: SkillDisplayProposeRequest,
+): Promise<SkillDisplayProposeResponse> {
+  return request<SkillDisplayProposeResponse>(PATHS.githubLink.skillsDisplayPropose, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * レビュー済みの表示名・畳み込みを確定・永続化します（D11）。
+ * 確定後の最新スキル一覧を返します。
+ */
+export function confirmSkillDisplayDecisions(
+  payload: SkillDisplayConfirmRequest,
+): Promise<GitHubSkillsResponse> {
+  return request<GitHubSkillsResponse>(PATHS.githubLink.skillsDisplayConfirm, {
+    method: "PUT",
     body: JSON.stringify(payload),
   });
 }

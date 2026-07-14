@@ -137,6 +137,62 @@ class GitHubSkillEvidence(Base):
     skill: Mapped["GitHubSkill"] = relationship(back_populates="evidence")
 
 
+class GitHubSkillDisplayDecision(Base):
+    """Layer 3: 表示名・粒度畳み込みの人間確定（ADR-0016 D11）。
+
+    agent が提案し人間が確定した「表示名」と「畳み込みグループ」を保持する。
+    Layer 1-2（``github_skills`` / ``github_skill_evidence``）は連携再実行のたびに
+    ``replace_for_user`` で洗い替え（全削除→再挿入）されるため、確定値をそこに置くと
+    再連携で消える。本テーブルは **安定 identity**（``kind`` + ``ecosystem`` +
+    ``canonical_name``）をキーに ``github_skills`` から切り離して持ち、洗い替えに耐える。
+
+    ``group_id`` が同じ複数行は 1 スキルへ畳んで表示する（N:1 グルーピング）。
+    ``group_id`` が NULL の行は 1:1 の表示名確定（単独スキルのリネーム）。
+    ``display_name`` は当該 canonical の確定表示名（グループなら共通のグループ表示名）。
+    """
+
+    __tablename__ = "github_skill_display_decisions"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "kind", "ecosystem", "canonical_name",
+            name="uq_github_skill_display_decision_identity",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # 対象スキルの identity（github_skills の同名カラムと突き合わせる）
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    ecosystem: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="", server_default=""
+    )
+    canonical_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # 確定した表示名（グループの場合は共通のグループ表示名）
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # 畳み込みグループ ID。同一 group_id は 1 スキルへ畳む。NULL は 1:1 の単独確定
+    group_id: Mapped[str | None] = mapped_column(String(36), nullable=True, default=None)
+    # 出所: "agent"（提案そのまま採用）/ "human"（人間が編集）
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="human")
+    # 人間レビュー済みか（確定フローを通ったら True）
+    reviewed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="1"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=func.now(), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
 class GitHubSkillProficiency(Base):
     """Layer 3: 習熟度・文脈（人間/agent が後追いで埋める / D1）。
 

@@ -4,6 +4,7 @@ HTTP 出力整形（プレゼンテーション層）を endpoints から分離�
 （.claude/rules/common/duplication.md の Backend ヒエラルキー「routers/<scope>/_responses.py」）。
 """
 
+from ...models import GitHubSkillDisplayDecision
 from ...schemas.github_skill import (
     GitHubSkillItem,
     SkillEvidence,
@@ -11,8 +12,14 @@ from ...schemas.github_skill import (
 )
 
 
-def to_skill_item(skill) -> GitHubSkillItem:
-    """ORM の GitHubSkill を API スキーマへ変換する。"""
+def to_skill_item(
+    skill, decision: GitHubSkillDisplayDecision | None = None
+) -> GitHubSkillItem:
+    """ORM の GitHubSkill を API スキーマへ変換する。
+
+    ``decision`` は同一 identity の human-in-the-loop 確定（D11）。あれば確定表示名・
+    グループ・出所を載せる（serve 時の解決順は web が「確定 > 機械 display_name > canonical」で行う）。
+    """
     proficiency = None
     if skill.proficiency is not None:
         proficiency = SkillProficiency(
@@ -30,6 +37,10 @@ def to_skill_item(skill) -> GitHubSkillItem:
         ecosystem=skill.ecosystem or None,
         parent=skill.parent,
         display_name=skill.display_name,
+        confirmed_display_name=decision.display_name if decision else None,
+        group_id=decision.group_id if decision else None,
+        decision_source=decision.source if decision else None,
+        decision_reviewed=decision.reviewed if decision else False,
         evidence=[
             SkillEvidence(
                 repo_full_name=ev.repo_full_name,

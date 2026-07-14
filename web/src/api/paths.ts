@@ -54,6 +54,9 @@ export const PATHS = {
     cache: "/api/github-link/cache",
     cacheStatus: "/api/github-link/cache/status",
     progress: "/api/github-link/progress",
+    skills: "/api/github-link/skills",
+    skillsDisplayPropose: "/api/github-link/skills/display-names/propose",
+    skillsDisplayConfirm: "/api/github-link/skills/display-decisions",
   },
   masterData: {
     qualification: "/api/master-data/qualification",
