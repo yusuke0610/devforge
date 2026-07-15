@@ -54,7 +54,8 @@ dependencies = [
 
 [tool.uv]
 # backend はアプリケーション（app/ レイアウト）でありパッケージとして build/install しない。
-# uv sync は依存のみを .venv へ導入する（ADR-0021 Phase 0。.venv 廃止は Phase 1）
+# ローカル開発の依存は flake.nix の uv2nix build（devshell）が提供する（ADR-0021 Phase 1）。
+# uv sync（.venv 作成）は CI 経路（Phase 2 で Nix 化予定）でのみ使う
 package = false
 
 [tool.pytest.ini_options]
@@ -95,9 +96,10 @@ line-length = 100
 select = ["E", "F", "I"]
 ignore = ["E501"]
 
+# import 解決先の Python は実行側が --pythonpath で明示する（ADR-0021 Phase 1）:
+#   ローカル: make typecheck-backend が devshell の python3（uv2nix build）を渡す
+#   CI: test.yml が uv sync 済みの .venv/bin/python を渡す
 [tool.pyright]
-venvPath = "."
-venv = ".venv"
 pythonVersion = "3.13"
 include = ["app", "tests", "alembic_migrations"]
 extraPaths = ["."]

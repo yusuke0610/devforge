@@ -36,14 +36,16 @@ Makefile は `nix develop --command bash -c "..."` でラップ済み。AI は�
 make に無い操作（特定ファイルだけ ruff したい等）の場合のみ使う:
 
 ```bash
-nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check app/services/tasks/handlers/blog_summarize.py"
-nix develop --command bash -c "cd backend && .venv/bin/python -m pytest tests/test_worker_extended.py -q"
+nix develop --command bash -c "cd backend && ruff check app/services/tasks/handlers/blog_summarize.py"
+nix develop --command bash -c "cd backend && python -m pytest tests/test_worker_extended.py -q"
 nix develop --command bash -c "cd web && npm run test:e2e"
 ```
 
+python / pytest / ruff / alembic は devshell の Nix build 環境（`devforge-backend-env`）から PATH で解決される（`.venv` は廃止済み / ADR-0021 Phase 1）。
+
 ### 禁止: 生シェルでの直接実行
 
-`cd backend && .venv/bin/python -m pytest ...` を nix の外で叩くと、`LD_LIBRARY_PATH` / `DYLD_LIBRARY_PATH` が未設定で WeasyPrint のインポートが `OSError: cannot load library 'libgobject-2.0-0'` で落ちる。AI は nix wrap を必ず通す。
+`cd backend && python -m pytest ...` を nix の外で叩くと、backend の Python 環境（uv2nix build）自体が PATH に無く、あったとしても `LD_LIBRARY_PATH` / `DYLD_LIBRARY_PATH` が未設定で WeasyPrint のインポートが `OSError: cannot load library 'libgobject-2.0-0'` で落ちる。AI は nix wrap を必ず通す。
 
 ### Sandbox と nix の競合（重要）
 
@@ -109,7 +111,7 @@ CI 定義: `.github/workflows/ci.yml`
 
 テストの検出力（弱い assertion / 実装なぞり）を週次のミューテーションテストで可視化し、CI 結果は用途別 Slack チャンネルへ通知する。詳細（ローカル実行・レポート確認・Secrets 登録手順）は `docs/development.md`「ミューテーションテスト」「Slack 通知」節が正本。
 
-- **ローカル実行**: `make mutation-backend`（mutmut）/ `make mutation-web`（Stryker）。**フル実行は長時間**のため、対象を絞る場合は `nix develop --command bash -c "cd backend && .venv/bin/python -m mutmut run 'app.services.shared.sort_utils*'"` / `nix develop --command bash -c "cd web && npx stryker run --mutate 'src/utils/text.ts'"`
+- **ローカル実行**: `make mutation-backend`（mutmut）/ `make mutation-web`（Stryker）。**フル実行は長時間**のため、対象を絞る場合は `nix develop --command bash -c "cd backend && python -m mutmut run 'app.services.shared.sort_utils*'"` / `nix develop --command bash -c "cd web && npx stryker run --mutate 'src/utils/text.ts'"`
 - **対象スコープの正本**: backend = `backend/pyproject.toml` の `[tool.mutmut]`、web = `web/stryker.conf.json`。決定論的ビジネスロジックに限定（schemas / models / routers / 自動生成コード等は対象外）
 - **CI**: `.github/workflows/mutation.yml`（週次 月曜 3:00 JST + workflow_dispatch。**PR/push では動かない・fail しない warn-only**）
 - **pytest の `--cov` は addopts に戻さない**: mutmut 干渉回避のため Makefile / test.yml の呼び出し側で付与している（ADR-0017）

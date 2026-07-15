@@ -1,6 +1,5 @@
 {
-    "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
-    "python-envs.defaultEnvManager": "ms-python.python:venv",
+    "python.defaultInterpreterPath": "python3",
     "python.testing.pytestArgs": [
         "backend"
     ],

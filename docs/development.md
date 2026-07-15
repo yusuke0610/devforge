@@ -32,7 +32,7 @@ direnv allow   # 初回のみ許可が必要
 
 ```bash
 nix develop          # devshell に入る（または direnv で自動）
-make setup           # git hooks + backend (.venv + uv) + web (npm ci)
+make setup           # git hooks + backend (Nix devshell が依存を提供 / .venv なし) + web (npm ci)
 make generate-keys   # JWT RS256 鍵ペアを生成
 touch backend/.env   # 環境変数を設定する（必要な変数一覧: docs/api.md「環境変数」セクション参照）
 ```
@@ -78,7 +78,7 @@ make dev-proxy       # Vite + Cloudflare Pages dev proxy（http://localhost:8788
 docker compose up libsql
 
 # 別ターミナルで uvicorn 起動（nix devshell 内で実行）
-nix develop --command bash -c "cd backend && .venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
+nix develop --command bash -c "cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
 ```
 
 `backend/.env`:
@@ -142,10 +142,10 @@ make lint-fix           # ruff --fix（自動修正）
 特定ファイルだけ ruff したい場合:
 
 ```bash
-nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check <path>"
+nix develop --command bash -c "cd backend && ruff check <path>"
 ```
 
-> **pyright の前提**: 型チェックは `backend/pyproject.toml` の `[tool.pyright]`（`venv=".venv"`）を参照するため、事前に `make install-backend` で `backend/.venv` へ依存を入れておくこと。バージョンは CI（`.github/workflows/test.yml`）と Makefile でピン留めを揃えている。
+> **pyright の前提**: import 解決先の Python は実行側が `--pythonpath` で明示する（ADR-0021 Phase 1）。ローカルは `make typecheck-backend` が devshell の python3（uv2nix build）を渡し、CI は uv sync 済みの `.venv/bin/python` を渡す。バージョンは CI（`.github/workflows/test.yml`）と Makefile でピン留めを揃えている。
 
 ### フロントエンド（ユニット・ビルド）
 
@@ -187,7 +187,7 @@ make mutation-web       # Stryker（対象: web/stryker.conf.json）
 
 ```bash
 # backend: ミュータント名のグロブで絞る（モジュールパス + '*'）
-nix develop --command bash -c "cd backend && .venv/bin/python -m mutmut run 'app.services.shared.sort_utils*'"
+nix develop --command bash -c "cd backend && python -m mutmut run 'app.services.shared.sort_utils*'"
 # web: --mutate でファイルを絞る
 nix develop --command bash -c "cd web && npx stryker run --mutate 'src/utils/text.ts'"
 ```
@@ -196,8 +196,8 @@ nix develop --command bash -c "cd web && npx stryker run --mutate 'src/utils/tex
 
 ```bash
 # backend: 生存ミュータント一覧 / TUI ブラウズ / CI 用 JSON（mutants/mutmut-cicd-stats.json）
-nix develop --command bash -c "cd backend && .venv/bin/python -m mutmut results"
-nix develop --command bash -c "cd backend && .venv/bin/python -m mutmut browse"
+nix develop --command bash -c "cd backend && python -m mutmut results"
+nix develop --command bash -c "cd backend && python -m mutmut browse"
 # web: HTML レポート
 open web/reports/mutation/mutation.html
 ```

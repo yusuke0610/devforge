@@ -97,8 +97,8 @@ sandbox が `~/.cache/nix/fetcher-locks/*.lock` で落ちる場合は `dangerous
 特定ファイルだけ確認したい場合のみ:
 
 ```bash
-nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check <touched_file>"
-nix develop --command bash -c "cd backend && .venv/bin/python -m pytest <touched_test> -q"
+nix develop --command bash -c "cd backend && ruff check <touched_file>"
+nix develop --command bash -c "cd backend && python -m pytest <touched_test> -q"
 ```
 
 lint / test に失敗したら、原因を直してから次の検証に進む。失敗を残したまま PR レポートを書かない。`--no-verify` 等で hook を skip しない。

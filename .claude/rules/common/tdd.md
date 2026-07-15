@@ -30,7 +30,7 @@ paths:
 
 ```bash
 # backend
-nix develop --command bash -c "cd backend && .venv/bin/python -m pytest tests/test_<module>.py -q"
+nix develop --command bash -c "cd backend && python -m pytest tests/test_<module>.py -q"
 # web
 nix develop --command bash -c "cd web && npx vitest run src/<path>/<module>.test.ts"
 ```
