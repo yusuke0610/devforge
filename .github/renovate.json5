@@ -27,7 +27,7 @@
   prHourlyLimit: 4,
 
   // lockfile / locked input を定期的にリフレッシュする
-  // （package-lock.json / flake.lock / .terraform.lock.hcl）
+  // （package-lock.json / uv.lock / flake.lock / .terraform.lock.hcl）
   lockFileMaintenance: {
     enabled: true,
     schedule: ["before 9am on monday"],
@@ -48,9 +48,10 @@
       groupName: "github-actions",
     },
     {
-      // Python (backend/requirements.txt): == 完全固定を維持して版上げ PR を出す。
-      // CVE コメント付き行（anthropic / google-genai / starlette 等）も対象。
-      matchManagers: ["pip_requirements"],
+      // Python (backend/pyproject.toml [project.dependencies] + uv.lock / ADR-0021 Phase 0):
+      // == 完全固定を維持して版上げ PR を出す。pep621 manager が pyproject を更新し、
+      // uv.lock も同一 PR で追従する。CVE コメント付き行（anthropic / starlette 等）も対象。
+      matchManagers: ["pep621"],
       rangeStrategy: "pin",
     },
     {

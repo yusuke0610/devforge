@@ -45,7 +45,7 @@ jobs:
         with:
           version: "latest"
           enable-cache: true
-          cache-dependency-glob: "backend/requirements.txt"
+          cache-dependency-glob: "backend/uv.lock"
 
       - name: Setup Python
         run: uv python install 3.13
@@ -57,9 +57,10 @@ jobs:
             libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
             libglib2.0-0 libgobject-2.0-0 libffi-dev libcairo2
 
+      # --locked: uv.lock が pyproject.toml と drift していたら fail する（ADR-0021 Phase 0）
       - name: Install backend dependencies
         working-directory: backend
-        run: uv pip install -r requirements.txt
+        run: uv sync --locked
 
       # 生存ミュータントがあっても集計と通知は行うため continue-on-error にする
       - name: Run mutmut

@@ -2,8 +2,8 @@
 """THIRD_PARTY_LICENSES.md を再生成する。
 
 DevForge が直接依存する OSS（自分で選んで入れたライブラリ）の一覧と
-ライセンス・リンクを SSoT（web/package.json, backend/requirements.txt）から
-収集し、ルートの THIRD_PARTY_LICENSES.md へ出力する。
+ライセンス・リンクを SSoT（web/package.json, backend/pyproject.toml の
+[project.dependencies]）から収集し、ルートの THIRD_PARTY_LICENSES.md へ出力する。
 
 - Frontend: web/node_modules/<pkg>/package.json を読む（オフライン・追加依存なし）
 - Backend: importlib.metadata でインストール済みパッケージのメタデータを読む
@@ -17,13 +17,14 @@ from __future__ import annotations
 import importlib.metadata as imd
 import json
 import re
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 WEB = ROOT / "web"
 OUTPUT = ROOT / "THIRD_PARTY_LICENSES.md"
 
-# requirements.txt のうち開発専用ツール（ランタイムには載らない）
+# backend 直接依存のうち開発専用ツール（ランタイムには載らない）
 BACKEND_DEV_TOOLS = {
     "pytest",
     "pytest-cov",
@@ -137,15 +138,14 @@ def _py_license(dist_name: str) -> tuple[str, str, str]:
 
 
 def parse_requirements() -> list[str]:
-    """requirements.txt から配布名（extras/version 指定を除いた名前）を抽出する。"""
-    req = (ROOT / "backend" / "requirements.txt").read_text(encoding="utf-8")
+    """pyproject.toml の [project.dependencies] から配布名（extras/version 指定を除いた名前）を抽出する。"""
+    pyproject = tomllib.loads(
+        (ROOT / "backend" / "pyproject.toml").read_text(encoding="utf-8")
+    )
     names: list[str] = []
-    for line in req.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
+    for spec in pyproject["project"]["dependencies"]:
         # 例: uvicorn[standard]==0.34.0 / pydantic[email]==2.10.3 / stripe>=11,<13
-        name = re.split(r"[\[<>=!~ ]", line, maxsplit=1)[0].strip()
+        name = re.split(r"[\[<>=!~; ]", spec.strip(), maxsplit=1)[0].strip()
         if name:
             names.append(name)
     return names

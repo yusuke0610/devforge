@@ -18,7 +18,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt ./
+# 依存の SSoT は pyproject.toml + uv.lock（ADR-0021 Phase 0）。
+# 本番ビルドの pip wheel → pip install 経路は変えず、lock から requirements.txt を
+# ビルド時に生成して従来経路へ渡す（pip の Nix build 化は Phase 3 で行う）。
+# uv 自体も供給網方針（P7）に合わせて == で固定する。
+# --no-hashes: final stage はローカルビルドした wheel を install するため、
+# sdist のハッシュ検証を要求すると不一致で失敗する
+COPY pyproject.toml uv.lock ./
+RUN pip install --no-cache-dir uv==0.8.17 \
+    && uv export --frozen --no-emit-project --no-hashes \
+       --format requirements-txt --output-file requirements.txt
 
 # wheel を /build/wheels に集約しておき、final stage で再利用する
 RUN pip wheel --no-cache-dir --wheel-dir=/build/wheels -r requirements.txt
@@ -45,9 +54,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 libgobject-2.0-0 libffi-dev libcairo2 \
     && rm -rf /var/lib/apt/lists/*
 
-# builder stage でビルドした wheel を流用して高速・確実に install する
+# builder stage でビルドした wheel と、lock から生成した requirements.txt を流用する
 COPY --from=builder /build/wheels /wheels
-COPY requirements.txt ./
+COPY --from=builder /build/requirements.txt ./
 RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt \
     && rm -rf /wheels
 

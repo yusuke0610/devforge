@@ -97,6 +97,7 @@ nix develop --command bash -c "cd web && npm run test:e2e"
 | 正本（変更したら） | 再生成コマンド | コミットすべき生成物 | CI ジョブ |
 |---|---|---|---|
 | backend の OpenAPI スキーマ（`app/schemas/` の Pydantic、router のシグネチャ・query/path パラメータ・**endpoint/schema の docstring**） | `make codegen-types` | `web/src/api/generated.ts`（`backend/openapi.json` は gitignore で対象外） | `codegen-drift`（ADR-0007） |
+| backend の依存定義（`backend/pyproject.toml` の `[project.dependencies]`） | `cd backend && uv lock`（nix devshell 経由） | `backend/uv.lock` | `test-backend` / `codegen-drift` の `uv sync --locked`（ADR-0021 Phase 0） |
 
 - **判定基準**: 「OpenAPI スペックに出るものを変えたか」。エンドポイントの追加・削除、リクエスト/レスポンス型の変更、query/path パラメータの増減はもちろん、**docstring の文言変更だけでも description として spec に反映される**ため再生成が要る（今回の codegen-drift はこれで発生）。
 - backend の `app/schemas/` / `app/routers/` を触ったら、`make ci` 前に `make codegen-types` を回して `git diff web/src/api/generated.ts` を確認する。差分が出たら必ず同じ PR でコミットする。
