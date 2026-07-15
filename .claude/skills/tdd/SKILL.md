@@ -26,7 +26,7 @@ description: Use when implementing changes to the deterministic logic layer (mut
 
 1. テストだけを書く（**実装コードには触れない**）
 2. 対象を絞って実行する:
-   - backend: `nix develop --command bash -c "cd backend && .venv/bin/python -m pytest tests/test_<module>.py -q"`
+   - backend: `nix develop --command bash -c "cd backend && python -m pytest tests/test_<module>.py -q"`
    - web: `nix develop --command bash -c "cd web && npx vitest run src/<path>/<module>.test.ts"`
 3. **失敗出力の要点を会話に提示する**。「期待どおりの理由での失敗」であることを確認する（import エラー・collection error はテスト自体の不備なので直してから再実行）
 

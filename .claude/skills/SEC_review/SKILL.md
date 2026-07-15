@@ -254,7 +254,7 @@ description: Use when running a security review / vulnerability check against th
 ## 最低限の検証コマンド
 
 - スキャンは grep / git ベースで破壊なし。差分対象は `git diff --name-only` で取得。
-- 依存監査は nix wrap 経由で実行（生シェルで `.venv/bin/` を直接叩かない。WeasyPrint の動的ライブラリ解決に失敗する）。
+- 依存監査は nix wrap 経由で実行（生シェルで python を直接叩かない。devshell 外では backend の Python 環境も WeasyPrint の動的ライブラリも解決できない）。
 - `make lint-*` / `make test-*` は本 skill では必須としない（修正検証は `SEC_apply` 側で回す）。
 
 実装変更は `SEC_apply` skill が担う。本 skill はレビューと提案までで止める。

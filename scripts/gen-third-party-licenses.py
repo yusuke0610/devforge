@@ -9,7 +9,7 @@ DevForge が直接依存する OSS（自分で選んで入れたライブラリ�
 - Backend: importlib.metadata でインストール済みパッケージのメタデータを読む
 
 依存を追加したら `make licenses` で再生成すること。
-nix devshell 経由（backend/.venv の python）で実行する前提。
+nix devshell 経由（uv2nix build の python / ADR-0021 Phase 1）で実行する前提。
 """
 
 from __future__ import annotations

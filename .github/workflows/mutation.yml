@@ -40,52 +40,46 @@ jobs:
           # 読み取り専用ジョブのため checkout の認証情報をディスクに残さない（サプライチェーン保護）。
           persist-credentials: false
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+      # dev と CI のビルド経路を Nix devshell（uv2nix build）へ一致させる（ADR-0021 Phase 2）。
+      # WeasyPrint のネイティブライブラリ・Python 3.13・依存パッケージはすべて devshell が提供する。
+      - name: Install Nix
+        uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
         with:
-          version: "latest"
-          enable-cache: true
-          cache-dependency-glob: "backend/uv.lock"
+          # flake inputs（nixpkgs / uv2nix 等）の GitHub 取得でレート制限に当たらないようにする
+          github_access_token: ${{ github.token }}
 
-      - name: Setup Python
-        run: uv python install 3.13
+      - name: Cache Nix store
+        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+        with:
+          primary-key: nix-devshell-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock', 'backend/pyproject.toml', 'backend/uv.lock') }}
+          restore-prefixes-first-match: nix-devshell-${{ runner.os }}-
 
-      - name: WeasyPrint 用システムライブラリのインストール
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
-            libglib2.0-0 libgobject-2.0-0 libffi-dev libcairo2
+      - name: Build devshell (uv2nix)
+        run: nix develop --command true
 
-      # --locked: uv.lock が pyproject.toml と drift していたら fail する（ADR-0021 Phase 0）
-      - name: Install backend dependencies
-        working-directory: backend
-        run: uv sync --locked
-
-      # 生存ミュータントがあっても集計と通知は行うため continue-on-error にする
+      # 生存ミュータントがあっても集計と通知は行うため continue-on-error にする。
+      # nix develop は flake.nix のあるリポジトリルートで実行する必要があるため
+      # working-directory は使わず、コマンド内で cd する。
       - name: Run mutmut
         id: run
-        working-directory: backend
         continue-on-error: true
-        run: uv run mutmut run 2>&1 | tee mutmut-run.log
+        run: nix develop --command bash -c "cd backend && mutmut run" 2>&1 | tee backend/mutmut-run.log
 
       # 生存ミュータントの一覧（調査用）。run が途中で落ちても best-effort で出力する
       - name: 生存ミュータント一覧を出力
-        working-directory: backend
         continue-on-error: true
-        run: uv run mutmut results > mutmut-results.txt
+        run: nix develop --command bash -c "cd backend && mutmut results" > backend/mutmut-results.txt
 
       - name: 結果集計
         id: stats
-        working-directory: backend
         run: |
           # export-cicd-stats が mutants/mutmut-cicd-stats.json に統計を書き出す。
           # score の定義（ADR-0017 / Stryker と同基準）:
           #   killed   = killed + timeout（無限ループ化もテストによる検出とみなす）
           #   survived = survived + no_tests（どのテストにも触れられない = 検出不能）
           #   score    = killed * 100 / (killed + survived + suspicious + segfault)
-          uv run mutmut export-cicd-stats || true
-          STATS=mutants/mutmut-cicd-stats.json
+          nix develop --command bash -c "cd backend && mutmut export-cicd-stats" || true
+          STATS=backend/mutants/mutmut-cicd-stats.json
           if [ -f "$STATS" ]; then
             killed=$(jq '.killed + .timeout' "$STATS")
             survived=$(jq '.survived + .no_tests' "$STATS")

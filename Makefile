@@ -39,7 +39,7 @@ help:
 	@echo "  test              全テスト (backend + web)"
 	@echo "  test-backend      Backend: pytest"
 	@echo "  test-web     Frontend: vitest"
-	@echo "  mutation-backend  Backend: mutmut (長時間。結果閲覧: cd backend && .venv/bin/python -m mutmut browse)"
+	@echo "  mutation-backend  Backend: mutmut (長時間。結果閲覧: nix develop 内で cd backend && mutmut browse)"
 	@echo "  mutation-web      Frontend: Stryker (長時間。レポート: web/reports/mutation/)"
 	@echo "  lint              全リント (backend + web)"
 	@echo "  lint-backend      Backend: ruff check"
@@ -94,9 +94,10 @@ install-hooks:
 	./scripts/setup-git-hooks.sh
 
 # 依存の SSoT は backend/pyproject.toml [project.dependencies] + uv.lock（ADR-0021 Phase 0）。
-# uv sync が uv.lock から .venv を構成する（.venv 廃止は Phase 1）。
+# Python 依存は Nix devshell（flake.nix の uv2nix build）が提供し、.venv は作らない（Phase 1）。
+# devshell を一度ビルドしておくことがセットアップに相当する。
 install-backend:
-	nix develop --command bash -c "cd backend && uv sync"
+	nix develop --command bash -c "python3 --version && echo 'backend 依存は Nix devshell が提供します（.venv 不要 / ADR-0021 Phase 1）'"
 
 install-web:
 	nix develop --command bash -c "cd web && npm ci"
@@ -148,7 +149,7 @@ test: test-backend test-web
 
 # --cov は pyproject の addopts ではなくここで付与する（mutmut 干渉回避 / ADR-0017）
 test-backend:
-	nix develop --command bash -c "cd backend && .venv/bin/python -m pytest -q --cov=app --cov-report=term-missing tests"
+	nix develop --command bash -c "cd backend && python -m pytest -q --cov=app --cov-report=term-missing tests"
 
 test-web:
 	nix develop --command bash -c "cd web && npm test"
@@ -157,7 +158,7 @@ test-web:
 # 週次の .github/workflows/mutation.yml で実行する。対象は pyproject [tool.mutmut] /
 # web/stryker.conf.json を参照。
 mutation-backend:
-	nix develop --command bash -c "cd backend && .venv/bin/python -m mutmut run"
+	nix develop --command bash -c "cd backend && python -m mutmut run"
 
 mutation-web:
 	nix develop --command bash -c "cd web && npm run test:mutation"
@@ -165,13 +166,13 @@ mutation-web:
 lint: lint-backend typecheck-backend lint-web lint-web-messages lint-env-keys lint-adr-index lint-tdd
 
 lint-backend:
-	nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check app tests alembic_migrations"
+	nix develop --command bash -c "cd backend && ruff check app tests alembic_migrations"
 
-# Backend 型チェック（pyright）。pyproject [tool.pyright] の venv=".venv" を参照するため
-# 事前に make install-backend で backend/.venv に依存を入れておくこと。
+# Backend 型チェック（pyright）。import 解決は devshell の python（uv2nix build 環境）を
+# --pythonpath で明示する（ADR-0021 Phase 1 で .venv 参照を撤廃）。
 # バージョンは CI（.github/workflows/test.yml）と揃えてピン留めする（drift 防止）。
 typecheck-backend:
-	nix develop --command bash -c "cd backend && uvx pyright@1.1.411 app tests alembic_migrations"
+	nix develop --command bash -c "cd backend && uvx pyright@1.1.411 --pythonpath \"\$$(command -v python3)\" app tests alembic_migrations"
 
 lint-web:
 	nix develop --command bash -c "cd web && npm run lint"
@@ -201,7 +202,7 @@ lint-tdd:
 	bash scripts/lint-tdd.sh
 
 lint-fix:
-	nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check --fix app tests alembic_migrations"
+	nix develop --command bash -c "cd backend && ruff check --fix app tests alembic_migrations"
 	cd web && npm run lint:fix
 
 format:
@@ -251,7 +252,7 @@ gen-redirects:
 # web/src/api/generated.ts を再生成する。backend app の import に
 # WeasyPrint 等のネイティブ依存解決が必要なため Nix devshell 経由で実行する。
 codegen-types:
-	nix develop --command bash -c "set -e; cd backend && .venv/bin/python scripts/export_openapi.py && cd ../web && node scripts/gen-types.mjs"
+	nix develop --command bash -c "set -e; cd backend && python scripts/export_openapi.py && cd ../web && node scripts/gen-types.mjs"
 
 # ------------------------------------------------------------------ #
 # 計測（AI フレンドリーさダッシュボード）
@@ -271,18 +272,18 @@ metrics-ai-friendliness:
 # から収集し THIRD_PARTY_LICENSES.md を再生成する。importlib.metadata を使うため
 # backend の依存がインストール済みの Nix devshell 経由で実行する。
 licenses:
-	nix develop --command bash -c "backend/.venv/bin/python scripts/gen-third-party-licenses.py"
+	nix develop --command bash -c "python3 scripts/gen-third-party-licenses.py"
 
 # ------------------------------------------------------------------ #
 # マイグレーション
 # ------------------------------------------------------------------ #
 
 migrate:
-	cd backend && .venv/bin/alembic upgrade head
+	nix develop --command bash -c "cd backend && alembic upgrade head"
 
 migrate-create:
 	@if [ -z "$(MSG)" ]; then echo "エラー: MSG を指定してください (例: make migrate-create MSG=\"add user table\")"; exit 1; fi
-	cd backend && .venv/bin/alembic revision --autogenerate -m "$(MSG)"
+	nix develop --command bash -c "cd backend && alembic revision --autogenerate -m \"$(MSG)\""
 
 # ------------------------------------------------------------------ #
 # インフラ (OpenTofu)

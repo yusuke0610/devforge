@@ -28,7 +28,7 @@ make test-backend                    # 全テスト
 
 特定ファイルだけ回す場合:
 ```bash
-nix develop --command bash -c "cd backend && .venv/bin/python -m pytest tests/test_worker_extended.py -q"
+nix develop --command bash -c "cd backend && python -m pytest tests/test_worker_extended.py -q"
 ```
 
 ### pytest が通らない経路（コンテナ起動スモーク）

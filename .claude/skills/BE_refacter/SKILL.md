@@ -220,6 +220,6 @@ backend/app/
 - `make test-backend`
 - `make dupe-check`（重複検知。`report/dupe/jscpd-report.json` を生成。sandbox は無効化して実行）
 
-特定ファイルだけ検証したい場合は `nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check <path>"` を使う。生シェルで `.venv/bin/python` を直接叩くのは禁止（WeasyPrint の動的ライブラリが解決できず import に失敗する）。
+特定ファイルだけ検証したい場合は `nix develop --command bash -c "cd backend && ruff check <path>"` を使う（devshell の Nix build 環境から PATH 解決 / ADR-0021 Phase 1）。生シェルで python / ruff を直接叩くのは禁止（backend の Python 環境が PATH に無く、WeasyPrint の動的ライブラリも解決できない）。
 
 コード変更を含む場合は、少なくとも影響範囲のテストを回し、必要なら全件を回してください。

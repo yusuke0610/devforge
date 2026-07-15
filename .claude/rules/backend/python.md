@@ -8,7 +8,7 @@ paths:
 - ruff に準拠すること（設定: `backend/pyproject.toml`）
 - PEP8を守るな、PEP8を理解した上で抽象化しろ
 - コード変更後は `make lint-backend` を実行し、違反がないことを確認すること（Nix devshell 経由で ruff が解決される）
-- 特定ファイルだけ検証したい場合は `nix develop --command bash -c "cd backend && .venv/bin/python -m ruff check <path>"` を使う。生シェルで `.venv/bin/python` を直接叩くのは禁止（WeasyPrint の動的ライブラリが解決できず import に失敗するため）
+- 特定ファイルだけ検証したい場合は `nix develop --command bash -c "cd backend && ruff check <path>"` を使う（ruff は devshell の Nix build 環境から PATH 解決される / ADR-0021 Phase 1）。生シェルで python / ruff を直接叩くのは禁止（backend の Python 環境が PATH に無く、WeasyPrint の動的ライブラリも解決できない）
 - **lint 失敗時は当該ファイルだけ確認する**: `make lint-backend` が他ファイルの I001 等で落ちる場合、自分の変更分は上記の個別 `ruff check <touched_file>` で検証してから進める（既存違反を巻き込まない）
 - 未使用の import を残さないこと（F401）
 - 重複検知 / DRY ポリシーは `.claude/rules/common/duplication.md` を参照（抽出先は `backend/app/services/shared/` または同一サブパッケージの `_utils.py`）
