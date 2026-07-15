@@ -145,7 +145,7 @@ make lint-fix           # ruff --fix（自動修正）
 nix develop --command bash -c "cd backend && ruff check <path>"
 ```
 
-> **pyright の前提**: import 解決先の Python は実行側が `--pythonpath` で明示する（ADR-0021 Phase 1）。ローカルは `make typecheck-backend` が devshell の python3（uv2nix build）を渡し、CI は uv sync 済みの `.venv/bin/python` を渡す。バージョンは CI（`.github/workflows/test.yml`）と Makefile でピン留めを揃えている。
+> **pyright の前提**: import 解決先の Python は実行側が `--pythonpath` で明示する（ADR-0021 Phase 1）。ローカル・CI とも `make typecheck-backend` が devshell の python3（uv2nix build）を渡す（CI も同じ make ターゲットを呼ぶ / ADR-0021 Phase 2）。pyright のバージョンピンは Makefile の `typecheck-backend` が正本。
 
 ### フロントエンド（ユニット・ビルド）
 

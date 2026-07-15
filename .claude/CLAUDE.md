@@ -99,7 +99,7 @@ nix develop --command bash -c "cd web && npm run test:e2e"
 | 正本（変更したら） | 再生成コマンド | コミットすべき生成物 | CI ジョブ |
 |---|---|---|---|
 | backend の OpenAPI スキーマ（`app/schemas/` の Pydantic、router のシグネチャ・query/path パラメータ・**endpoint/schema の docstring**） | `make codegen-types` | `web/src/api/generated.ts`（`backend/openapi.json` は gitignore で対象外） | `codegen-drift`（ADR-0007） |
-| backend の依存定義（`backend/pyproject.toml` の `[project.dependencies]`） | `cd backend && uv lock`（nix devshell 経由） | `backend/uv.lock` | `test-backend` / `codegen-drift` の `uv sync --locked`（ADR-0021 Phase 0） |
+| backend の依存定義（`backend/pyproject.toml` の `[project.dependencies]`） | `cd backend && uv lock`（nix devshell 経由） | `backend/uv.lock` | `test-backend` の `uv lock --check`（ADR-0021 Phase 0/2。依存導入自体は uv2nix の Nix build） |
 
 - **判定基準**: 「OpenAPI スペックに出るものを変えたか」。エンドポイントの追加・削除、リクエスト/レスポンス型の変更、query/path パラメータの増減はもちろん、**docstring の文言変更だけでも description として spec に反映される**ため再生成が要る（今回の codegen-drift はこれで発生）。
 - backend の `app/schemas/` / `app/routers/` を触ったら、`make ci` 前に `make codegen-types` を回して `git diff web/src/api/generated.ts` を確認する。差分が出たら必ず同じ PR でコミットする。
@@ -114,7 +114,7 @@ CI 定義: `.github/workflows/ci.yml`
 - **ローカル実行**: `make mutation-backend`（mutmut）/ `make mutation-web`（Stryker）。**フル実行は長時間**のため、対象を絞る場合は `nix develop --command bash -c "cd backend && python -m mutmut run 'app.services.shared.sort_utils*'"` / `nix develop --command bash -c "cd web && npx stryker run --mutate 'src/utils/text.ts'"`
 - **対象スコープの正本**: backend = `backend/pyproject.toml` の `[tool.mutmut]`、web = `web/stryker.conf.json`。決定論的ビジネスロジックに限定（schemas / models / routers / 自動生成コード等は対象外）
 - **CI**: `.github/workflows/mutation.yml`（週次 月曜 3:00 JST + workflow_dispatch。**PR/push では動かない・fail しない warn-only**）
-- **pytest の `--cov` は addopts に戻さない**: mutmut 干渉回避のため Makefile / test.yml の呼び出し側で付与している（ADR-0017）
+- **pytest の `--cov` は addopts に戻さない**: mutmut 干渉回避のため Makefile（`make test-backend`。CI も同ターゲットを呼ぶ）で付与している（ADR-0017）
 
 | Slack Secret | 用途 | 送信元 workflow |
 |---|---|---|

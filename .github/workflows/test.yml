@@ -141,7 +141,8 @@ jobs:
 
   test-backend:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Nix store キャッシュミス時は devshell（uv2nix build）の構築に数分かかるため余裕を持たせる
+    timeout-minutes: 20
     if: ${{ inputs.app }}
 
     steps:
@@ -169,67 +170,62 @@ jobs:
       - name: Lint SSoT (TDD test accompaniment)
         run: bash scripts/lint-tdd.sh
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+      # dev と CI のビルド経路を Nix devshell（uv2nix build）へ一致させる（ADR-0021 Phase 2）。
+      # WeasyPrint のネイティブライブラリ・Python 3.13・依存パッケージはすべて devshell が提供する。
+      - name: Install Nix
+        uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
         with:
-          version: "latest"
-          enable-cache: true
-          cache-dependency-glob: "backend/uv.lock"
+          # flake inputs（nixpkgs / uv2nix 等）の GitHub 取得でレート制限に当たらないようにする
+          github_access_token: ${{ github.token }}
 
-      - name: Setup Python
-        run: uv python install 3.13
+      # devshell の closure（uv2nix build の Python 環境込み）を GitHub Actions cache に保存する。
+      # キーは flake と uv.lock のハッシュ。ミス時は restore-prefixes-first-match で旧キャッシュから
+      # 差分ビルドする。古い世代は GitHub の容量上限（10GB）到達時に LRU で自動退避される。
+      - name: Cache Nix store
+        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+        with:
+          primary-key: nix-devshell-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock', 'backend/pyproject.toml', 'backend/uv.lock') }}
+          restore-prefixes-first-match: nix-devshell-${{ runner.os }}-
 
-      - name: WeasyPrint 用システムライブラリのインストール
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
-            libglib2.0-0 libgobject-2.0-0 libffi-dev libcairo2
+      - name: Build devshell (uv2nix)
+        run: nix develop --command true
 
-      # --locked: uv.lock が pyproject.toml と drift していたら fail する（ADR-0021 Phase 0）
-      - name: Install backend dependencies
-        working-directory: backend
-        run: uv sync --locked
+      # uv.lock が pyproject.toml と drift していたら fail する（旧 uv sync --locked 相当 / ADR-0021 Phase 0）。
+      # uv2nix は uv.lock を正として build するため、drift の検知はこのステップが担う。
+      - name: uv.lock の drift 検証
+        run: nix develop --command bash -c "cd backend && uv lock --check"
 
       - name: バージョン確認
-        working-directory: backend
-        run: |
-          echo "Python : $(uv run --no-sync python --version)"
-          echo "uv     : $(uv --version)"
-          echo "ruff   : $(uv run --no-sync ruff --version)"
+        run: nix develop --command bash -c "python3 --version && uv --version && ruff --version"
 
       # uv.lock の全依存（推移的依存込み）を requirements 形式へ export して監査する。
-      # --python 3.13: 監査時の依存解決を requires-python (==3.13.*) に合わせる
-      # （ツール既定の Python が 3.12 以下だと 3.13+ 必須の依存で解決に失敗する）
+      # --no-deps --disable-pip: export 結果は完全固定の全依存なので依存解決・install は不要。
+      # （一時 venv を作らないため、ensurepip を持たない Nix の python でも動く）
       - name: 脆弱性スキャン (pip-audit)
-        working-directory: backend
         run: |
-          uv export --frozen --no-emit-project --no-hashes \
-            --format requirements-txt --output-file /tmp/requirements-audit.txt
-          uv tool run --python 3.13 pip-audit -r /tmp/requirements-audit.txt
+          nix develop --command bash -c "cd backend && uv export --frozen --no-emit-project --no-hashes \
+            --format requirements-txt --output-file /tmp/requirements-audit.txt \
+            && uv tool run --python 3.13 pip-audit --no-deps --disable-pip -r /tmp/requirements-audit.txt"
 
+      # lint / typecheck / test はローカルと同一の make ターゲットを呼ぶ（コマンドの SSoT は Makefile）。
+      # pyright の import 解決も devshell の python に一致する（.venv 参照は ADR-0021 Phase 1 で撤廃）。
       - name: Lint backend
-        working-directory: backend
-        run: uv run ruff check app tests alembic_migrations
+        run: make lint-backend
 
-      # 型チェック（pyright）。import 解決先は uv sync 済みの .venv を --pythonpath で明示する
-      # （pyproject [tool.pyright] の venv 参照は ADR-0021 Phase 1 で撤廃。ローカルは devshell の
-      # python3 を渡す）。バージョンは Makefile の typecheck-backend と揃えてピン留めする（drift 防止）。
       - name: Type check backend (pyright)
-        working-directory: backend
-        run: uvx pyright@1.1.411 --pythonpath .venv/bin/python app tests alembic_migrations
+        run: make typecheck-backend
 
+      # --cov は pyproject の addopts ではなく make test-backend 側で付与される（mutmut 干渉回避 / ADR-0017）
       - name: Run backend tests
-        working-directory: backend
-        # --cov は pyproject の addopts ではなくここで付与する（mutmut 干渉回避 / ADR-0017）
-        run: uv run pytest -q --cov=app --cov-report=term-missing tests
+        run: make test-backend
 
   # OpenAPI → TypeScript 型のドリフト検知 (ADR-0007)。
   # backend schema を変更したのに web/src/api/generated.ts を再生成して
   # いない状態をビルドで落とす。エラーコードの型縛りと同じ思想。
   codegen-drift:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Nix store キャッシュミス時は devshell（uv2nix build）の構築に数分かかるため余裕を持たせる
+    timeout-minutes: 20
     if: ${{ inputs.app }}
 
     steps:
@@ -240,44 +236,29 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+      # dev と CI のビルド経路を Nix devshell へ一致させる（ADR-0021 Phase 2）。
+      # Python（WeasyPrint ネイティブ依存込み）と Node.js の両方を devshell が提供するため、
+      # 型の再生成はローカルと同一の make codegen-types を呼ぶ（コマンドの SSoT は Makefile）。
+      - name: Install Nix
+        uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
         with:
-          version: "latest"
-          enable-cache: true
-          cache-dependency-glob: "backend/uv.lock"
+          # flake inputs（nixpkgs / uv2nix 等）の GitHub 取得でレート制限に当たらないようにする
+          github_access_token: ${{ github.token }}
 
-      - name: Setup Python
-        run: uv python install 3.13
-
-      - name: WeasyPrint 用システムライブラリのインストール
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
-            libglib2.0-0 libgobject-2.0-0 libffi-dev libcairo2
-
-      # --locked: uv.lock が pyproject.toml と drift していたら fail する（ADR-0021 Phase 0）
-      - name: Install backend dependencies
-        working-directory: backend
-        run: uv sync --locked
-
-      - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      - name: Cache Nix store
+        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
         with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: web/package-lock.json
+          primary-key: nix-devshell-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock', 'backend/pyproject.toml', 'backend/uv.lock') }}
+          restore-prefixes-first-match: nix-devshell-${{ runner.os }}-
+
+      - name: Build devshell (uv2nix)
+        run: nix develop --command true
 
       - name: Install web dependencies
-        run: npm ci --prefix web
+        run: make install-web
 
-      - name: Export OpenAPI schema
-        working-directory: backend
-        run: uv run python scripts/export_openapi.py
-
-      - name: Generate TypeScript types
-        run: node web/scripts/gen-types.mjs
+      - name: OpenAPI → TypeScript 型を再生成
+        run: make codegen-types
 
       - name: Check generated types drift
         run: |
