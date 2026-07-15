@@ -54,8 +54,8 @@ dependencies = [
 
 [tool.uv]
 # backend はアプリケーション（app/ レイアウト）でありパッケージとして build/install しない。
-# ローカル開発の依存は flake.nix の uv2nix build（devshell）が提供する（ADR-0021 Phase 1）。
-# uv sync（.venv 作成）は CI 経路（Phase 2 で Nix 化予定）でのみ使う
+# 依存はローカル・CI とも flake.nix の uv2nix build（devshell）が提供し、uv sync は使わない
+# （ADR-0021 Phase 1/2）。uv は uv.lock の更新（uv lock）と uvx / uv tool run 専用。
 package = false
 
 [tool.pytest.ini_options]
