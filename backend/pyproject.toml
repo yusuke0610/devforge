@@ -96,9 +96,8 @@ line-length = 100
 select = ["E", "F", "I"]
 ignore = ["E501"]
 
-# import 解決先の Python は実行側が --pythonpath で明示する（ADR-0021 Phase 1）:
-#   ローカル: make typecheck-backend が devshell の python3（uv2nix build）を渡す
-#   CI: test.yml が uv sync 済みの .venv/bin/python を渡す
+# import 解決先の Python は実行側が --pythonpath で明示する（ADR-0021 Phase 1/2）:
+#   ローカル・CI とも make typecheck-backend が devshell の python3（uv2nix build）を渡す
 [tool.pyright]
 pythonVersion = "3.13"
 include = ["app", "tests", "alembic_migrations"]
