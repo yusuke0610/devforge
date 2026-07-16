@@ -16,10 +16,10 @@ Accepted
 
 | 領域 | ツール | 実行系 |
 |---|---|---|
-| backend | mutmut 3.x（`requirements.txt` で固定） | pytest を `mutants/` 内で in-process 実行 |
+| backend | mutmut 3.x（導入当時は `requirements.txt` で固定。現在は `pyproject.toml` の `[project.dependencies]` / ADR-0021） | pytest を `mutants/` 内で in-process 実行 |
 | web | Stryker（`@stryker-mutator/core` + `@stryker-mutator/vitest-runner`） | 既存 vitest（`vite.config.ts` 内蔵設定）をそのまま利用 |
 
-- **backend は uv 管理ではない**（pyproject に `[project]` なし・lockfile は `requirements.txt`）ため、mutmut も既存慣例どおり `requirements.txt` にバージョン固定で追加する。
+- **backend は uv 管理ではない**（導入当時。pyproject に `[project]` なし・lockfile は `requirements.txt`）ため、mutmut も既存慣例どおり `requirements.txt` にバージョン固定で追加する。
   - **更新（2026-07-16 / ADR-0021）**: backend は PEP 621 + `uv.lock` 管理へ移行済み。mutmut は `backend/pyproject.toml` の `[project.dependencies]` で `==` 固定し、実体は Nix devshell（uv2nix build）が提供する。
 - Stryker の TS checker は使わない（tsconfig が project-references + noEmit 構成のため）。ランナーは vitest-runner（peer: `vitest >=2.0.0`、vitest 4 対応確認済み）。
 
