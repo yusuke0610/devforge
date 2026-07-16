@@ -33,5 +33,5 @@ paths:
 
 ## システムパッケージと Dockerfile
 
-- Pythonライブラリがシステムパッケージ（C ライブラリ等）に依存する場合、ローカル環境（`flake.nix` の `devShells.default.packages`）と本番イメージ（`backend/Dockerfile` の `apt-get install`）の両方に追加すること
-- `flake.nix` だけ更新して Dockerfile を忘れると Cloud Run デプロイで import エラーになる
+- Python ライブラリがシステムパッケージ（C ライブラリ等）に依存する場合、`flake.nix` の **devshell（`devShells.default.packages`）と本番ランタイム（`backendRuntime` の `paths`）の両方**に追加すること（ADR-0021 Phase 3 で本番イメージも flake の Nix build に一元化済み。Dockerfile 側に apt はもう無い）
+- devshell だけ更新して `backendRuntime` を忘れると、ローカルのテストは通るのに Cloud Run / smoke-backend で import エラーになる（逆も然り）。CI の `smoke-backend` が本番イメージの起動でこれを検知する

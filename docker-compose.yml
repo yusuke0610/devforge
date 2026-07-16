@@ -1,6 +1,9 @@
 services:
   api:
-    build: ./backend
+    # build context はリポジトリルート（Dockerfile が flake.nix を参照するため / ADR-0021 Phase 3）
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: devforge-api
     restart: unless-stopped
     depends_on:

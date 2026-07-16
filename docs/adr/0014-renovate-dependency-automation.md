@@ -8,7 +8,7 @@ Accepted
 
 DevForge は依存をすべて「固定」運用している。GitHub Actions は SHA(digest) ピン留め
 （`uses: actions/checkout@34e1148... # v4`）、Python は `backend/requirements.txt` で
-`==` 完全固定、infra プロバイダは `~>` 制約 + `.terraform.lock.hcl`、Nix は `flake.lock`
+`==` 完全固定（導入当時。現在は `pyproject.toml` + `uv.lock` / ADR-0021）、infra プロバイダは `~>` 制約 + `.terraform.lock.hcl`、Nix は `flake.lock`
 で固定している。これはサプライチェーン攻撃（レンジ内 yank / 侵害バージョンの混入）に
 対して安全な一方で、**固定したバージョンを追従する仕組みが無い**という弱点があった。
 
@@ -26,11 +26,12 @@ Dependabot / Renovate のいずれも未導入だったため、依存更新を�
 「提案（PR 起票）」だけを自動化する。
 
 - 設定の正本は `.github/renovate.json5`（コメントを日本語で残すため JSON5）。
-- 対象エコシステム: github-actions / pip(requirements) / npm / terraform /
-  docker・docker-compose / nix の 6 種。
+- 対象エコシステム: github-actions / pip(requirements)（導入当時。現在は pep621） / npm /
+  terraform / docker・docker-compose / nix の 6 種。
+  - **更新（2026-07-16 / ADR-0021）**: backend の依存が pyproject + `uv.lock` 管理へ移行したため、pip(requirements) manager は pep621 manager（`uv lock` で lockfile 追従）へ置き換えた。
 - 固定方式は維持する:
   - github-actions は `pinDigests: true` で digest 固定 + `# v4` コメントを継続。
-  - pip は `rangeStrategy: "pin"` で `==` 固定を維持。
+  - pip（現 pep621）は `rangeStrategy: "pin"` で `==` 固定を維持。
   - docker は `docker:pinDigests` で digest 固定。
   - nix は `flake.lock` の locked input を追従。
 - `vulnerabilityAlerts` を優先起票し、pip-audit の後追いを Renovate の先回りで補強する。
@@ -67,3 +68,7 @@ Dependabot / Renovate のいずれも未導入だったため、依存更新を�
 - 設定: `.github/renovate.json5`
 - 関連方針: `.claude/rules/common/duplication.md`（環境変数・バージョン固定の SSoT）
 - Renovate ドキュメント: https://docs.renovatebot.com/
+
+---
+
+> **追記（2026-07-16）**: ADR-0021 の Accepted 昇格に伴い、対象 manager の pip(requirements) → pep621 置き換えを反映した（設定の正本は `.github/renovate.json5`）。

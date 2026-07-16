@@ -25,6 +25,7 @@
 | [ADR-0018](./0018-github-resume-draft-generation.md) | GitHub 連携データからの経歴書ドラフト生成 | LLM / Agent | 構造はルールベース・自然文だけ LLM のハイブリッド。何も永続化せず PDF プレビューのみ返す |
 | [ADR-0019](./0019-tdd-for-logic-layer.md) | 決定論的ロジック層への TDD（テスト駆動開発）導入 | 開発プロセス / 品質 | mutation 対象と同一スコープに red→green→refactor を必須化。テスト随伴を lint-tdd で機械検証 |
 | [ADR-0020](./0020-async-resume-draft-generation.md) | 経歴書ドラフト生成の非同期化と最小永続化 | LLM / Agent | ドラフト生成を独立の非同期タスク化。payload だけを連携ドメインに最小永続化し DL 時に再レンダリング |
+| [ADR-0021](./0021-nix-managed-python-env.md) | backend Python 環境の Nix フルマネージド化（.venv 廃止） | 開発プロセス / 品質 | 依存 SSoT を pyproject + uv.lock に一本化し、devshell / CI / 本番イメージの 3 経路を uv2nix（flake）で統一 |
 
 ## 全 ADR 一覧
 
@@ -53,7 +54,7 @@
 | [ADR-0018](./0018-github-resume-draft-generation.md) | GitHub 連携データからの経歴書ドラフト生成 | Accepted | LLM / Agent | 関連: 0010（不変条件を継承し適用範囲を拡張）、0012（課金配線）、0013・0015（プロバイダ）、0016（データ供給源）、0020（非同期化・最小永続化で更新） | P4・P5 |
 | [ADR-0019](./0019-tdd-for-logic-layer.md) | 決定論的ロジック層への TDD（テスト駆動開発）導入 | Accepted | 開発プロセス / 品質 | 関連: 0017（対象スコープの正本を共有）、0007（drift の機械検知パターン） | P3・P5 |
 | [ADR-0020](./0020-async-resume-draft-generation.md) | 経歴書ドラフト生成の非同期化と最小永続化 | Accepted | LLM / Agent | 関連: 0018（同期実装を更新）、0010（不変条件を継承）、0012（課金をタスク側へ移設）、0016（データ供給源） | P1・P4・P5 |
-| [ADR-0021](./0021-nix-managed-python-env.md) | backend Python 環境の Nix フルマネージド化（.venv 廃止） | Proposed | 開発プロセス / 品質 | 関連: 0017（uv 非管理前提を更新）、0014（依存固定・Renovate manager）、0007（Nix devshell 規約） | P7・P3・P6 |
+| [ADR-0021](./0021-nix-managed-python-env.md) | backend Python 環境の Nix フルマネージド化（.venv 廃止） | Accepted | 開発プロセス / 品質 | 関連: 0017（uv 非管理前提を更新）、0014（依存固定・Renovate manager）、0007（Nix devshell 規約） | P7・P3・P6 |
 
 ## テーマ別の決定系統
 
@@ -110,7 +111,7 @@ graph LR
     D0017 -.->|"uv 非管理前提を更新"| D0021
 ```
 
-「正本を 1 つに定め、複製との乖離は機械で検知する」（0007）、「依存は固定し、追従は自動化する」（0014）、「テストの検出力自体を計測する」（0017）、「テストを先に書くプロセスを機械ゲートで支える」（0019。0017 の事後計測と対になる事前プロセス）という、**プロダクト機能ではなく開発体験そのものへの投資**の系統。`docs/metrics/ai-friendliness.md` はこの系統の効果を月次で観測するダッシュボード。0021（Proposed）は 0014 の依存固定運用を継承しつつ、backend の Python 環境を Nix でフルマネージド化して `.venv` を廃止する方向を提案している（0017 の「uv 非管理・requirements.txt が lockfile」前提を将来更新する）。
+「正本を 1 つに定め、複製との乖離は機械で検知する」（0007）、「依存は固定し、追従は自動化する」（0014）、「テストの検出力自体を計測する」（0017）、「テストを先に書くプロセスを機械ゲートで支える」（0019。0017 の事後計測と対になる事前プロセス）という、**プロダクト機能ではなく開発体験そのものへの投資**の系統。`docs/metrics/ai-friendliness.md` はこの系統の効果を月次で観測するダッシュボード。0021 は 0014 の依存固定運用を継承しつつ、backend の Python 環境を Nix でフルマネージド化して `.venv` を廃止した（devshell / CI / 本番 Dockerfile の 3 経路を flake + uv.lock に一元化。0017 の「uv 非管理・requirements.txt が lockfile」前提も更新済み）。
 
 ## 運用
 

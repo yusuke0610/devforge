@@ -268,11 +268,12 @@ jobs:
           fi
 
   # コンテナ起動スモークテスト。
-  # test-backend は uv + 標準 SQLite で動くため、本番イメージ（Dockerfile）の
-  # ビルド・libsql ネイティブドライバ・alembic マイグレーション実行・uvicorn 起動という
-  # 実行パスを一度も通らない。実際にイメージを build → libsql を立てて起動し、
-  # /health（DB 接続を検証する）が 200 を返すことを確認することで、
-  # 「ビルドは通るが起動時にネイティブ拡張が segfault する」種の不具合を CI で検知する。
+  # test-backend は devshell + 標準 SQLite で動くため、本番イメージ（Dockerfile 内の
+  # nix build / ADR-0021 Phase 3）の実イメージ組み立て・libsql ネイティブドライバ・
+  # alembic マイグレーション実行・uvicorn 起動という実行パスを一度も通らない。
+  # 実際にイメージを build → libsql を立てて起動し、/health（DB 接続を検証する）が
+  # 200 を返すことを確認することで、「ビルドは通るが起動時にネイティブ拡張が
+  # segfault する」種の不具合を CI で検知する。
   # （例: Python 3.14 への bump で libsql-experimental が segfault した事象）
   smoke-backend:
     runs-on: ubuntu-latest
