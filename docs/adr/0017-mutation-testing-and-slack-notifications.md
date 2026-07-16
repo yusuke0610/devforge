@@ -20,6 +20,7 @@ Accepted
 | web | Stryker（`@stryker-mutator/core` + `@stryker-mutator/vitest-runner`） | 既存 vitest（`vite.config.ts` 内蔵設定）をそのまま利用 |
 
 - **backend は uv 管理ではない**（pyproject に `[project]` なし・lockfile は `requirements.txt`）ため、mutmut も既存慣例どおり `requirements.txt` にバージョン固定で追加する。
+  - **更新（2026-07-16 / ADR-0021）**: backend は PEP 621 + `uv.lock` 管理へ移行済み。mutmut は `backend/pyproject.toml` の `[project.dependencies]` で `==` 固定し、実体は Nix devshell（uv2nix build）が提供する。
 - Stryker の TS checker は使わない（tsconfig が project-references + noEmit 構成のため）。ランナーは vitest-runner（peer: `vitest >=2.0.0`、vitest 4 対応確認済み）。
 
 ### 対象スコープ（決定論的ビジネスロジックに限定）
@@ -86,7 +87,7 @@ mutmut は `mutants/` に app / tests / pyproject.toml をコピーし pytest �
 
 - baseline が安定したら `MUTATION_SCORE_THRESHOLD` を実測に合わせて調整し、`thresholds.break`（Stryker）/ CI ゲート化（mutmut）へ移行する。
 - 通知チャンネルが増えたら Incoming Webhook 方式から Slack App（Bot トークン + チャンネル指定）へ移行する。
-- backend が uv 管理（PEP 621 + uv.lock）へ移行した場合、mutmut は dev dependency group（`uv add --dev`）へ移す。
+- ~~backend が uv 管理（PEP 621 + uv.lock）へ移行した場合、mutmut は dev dependency group（`uv add --dev`）へ移す。~~ → ADR-0021 Phase 0 で移行済み（dependency group ではなく `[project.dependencies]` に一本化。uv2nix の mkVirtualEnv が default 依存のみを build するため）。
 
 ## 関連リンク
 
@@ -96,3 +97,7 @@ mutmut は `mutants/` に app / tests / pyproject.toml をコピーし pytest �
 - `docs/development.md`「ミューテーションテスト」節（ローカル実行・Secrets 登録手順）
 - ADR-0014（Renovate。Action の SHA ピン運用）
 - mutmut: https://mutmut.readthedocs.io/ / Stryker: https://stryker-mutator.io/docs/
+
+---
+
+> **追記（2026-07-16）**: ADR-0021（backend Python 環境の Nix フルマネージド化）の Accepted 昇格に伴い、本文中の「uv 非管理・requirements.txt が lockfile」という前提記述を更新した。

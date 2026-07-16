@@ -1,42 +1,45 @@
 # ============================================================================
-# Build stage: libsql-experimental など Rust ビルドが必要な wheel を作成する
+# 本番イメージ（ADR-0021 Phase 3: Nix build 化）
+#
+# build context は「リポジトリルート」であること（flake.nix を参照するため）:
+#   docker build -f backend/Dockerfile .
+# （docker-compose.yml / deploy.yml / smoke-backend はこの前提で呼び出す）
+#
+# 依存の SSoT は backend/pyproject.toml + uv.lock（Phase 0）。devshell（flake.nix の
+# uv2nix build）と同じ backend-runtime 環境をイメージ内で nix build し、
+# dev / CI / 本番の 3 経路のビルド機構を flake に一元化する。
 # ============================================================================
-FROM python:3.13-slim@sha256:eb43ff125d8d58d7449dcba7d336c23bcac412f526d861db493b9994d8010280 AS builder
+
+# ============================================================================
+# Build stage: uv2nix で Python 依存 + WeasyPrint ライブラリの closure を構成する
+# ============================================================================
+FROM nixos/nix:2.33.0@sha256:081b65e50a5c4e6ef4a9094a462da3b83ff76bfec70236eb010047fcee36e11c AS builder
 
 WORKDIR /build
 
-# Rust + C リンカ + cmake + tcl が必要なのは libsql-experimental
-# (aarch64-linux + cp313 の wheel が PyPI に無いためソースから build される)
-# - build-essential: gcc / cc (Rust の linker)
-# - cmake: libsql-ffi が同梱する sqlite3mc (SQLite3MultipleCiphers) のビルドに必要
-# - tcl: SQLite 系のビルドスクリプトが要求するケースあり
-# - curl: puccinialin が rustup を取得する際に使う
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    cmake \
-    tcl \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# flake と lock 一式のみコピーする（app コードの変更で Nix build レイヤの
+# docker cache が無効化されないよう、コード COPY は final stage 側で行う）
+COPY flake.nix flake.lock ./
+COPY backend/pyproject.toml backend/uv.lock ./backend/
 
-# 依存の SSoT は pyproject.toml + uv.lock（ADR-0021 Phase 0）。
-# 本番ビルドの pip wheel → pip install 経路は変えず、lock から requirements.txt を
-# ビルド時に生成して従来経路へ渡す（pip の Nix build 化は Phase 3 で行う）。
-# uv 自体も供給網方針（P7）に合わせて == で固定する。
-# --no-hashes: final stage はローカルビルドした wheel を install するため、
-# sdist のハッシュ検証を要求すると不一致で失敗する
-COPY pyproject.toml uv.lock ./
-RUN pip install --no-cache-dir uv==0.8.17 \
-    && uv export --frozen --no-emit-project --no-hashes \
-       --format requirements-txt --output-file requirements.txt
+# --option sandbox false: コンテナ内では Nix サンドボックス（user namespace）を
+# 作れないため無効化する。wheel の取得は fixed-output derivation（ハッシュ検証付き）
+# なので再現性は lock で担保される。aarch64-linux のみ libsql-experimental が
+# sdist（Rust）ビルドとなり crates.io へのネットワーク取得を伴う
+# （従来の pip wheel ビルドと同等の妥協。本番 = amd64 は wheel のみで純粋）。
+RUN nix --extra-experimental-features "nix-command flakes" \
+        build --option sandbox false .#backend-runtime -o /build/runtime
 
-# wheel を /build/wheels に集約しておき、final stage で再利用する
-RUN pip wheel --no-cache-dir --wheel-dir=/build/wheels -r requirements.txt
+# ランタイム closure を /out に集約し、実体へのパスを控える（final stage へのコピー用）
+RUN mkdir -p /out/nix/store \
+    && cp -a $(nix --extra-experimental-features "nix-command flakes" path-info -r /build/runtime) /out/nix/store/ \
+    && readlink /build/runtime > /out/runtime-path
 
 
 # ============================================================================
-# Final stage: 実行に必要なシステムライブラリと wheel のみを含む軽量イメージ
+# Final stage: ランタイム closure とアプリコードのみを含む軽量イメージ
 # ============================================================================
-FROM python:3.13-slim@sha256:eb43ff125d8d58d7449dcba7d336c23bcac412f526d861db493b9994d8010280
+FROM debian:12-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818
 
 ARG APP_VERSION=dev
 ENV APP_VERSION=$APP_VERSION
@@ -48,22 +51,23 @@ ENV TURSO_DATABASE_URL=""
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
-    libglib2.0-0 libgobject-2.0-0 libffi-dev libcairo2 \
-    && rm -rf /var/lib/apt/lists/*
+# Nix build 済みのランタイム closure（python / uvicorn / alembic / WeasyPrint ライブラリ）。
+# /runtime は store パスへの symlink で、ENV から固定パスで参照できるようにする
+COPY --from=builder /out/nix/store /nix/store
+COPY --from=builder /out/runtime-path /tmp/runtime-path
+RUN ln -s "$(cat /tmp/runtime-path)" /runtime && rm /tmp/runtime-path
 
-# builder stage でビルドした wheel と、lock から生成した requirements.txt を流用する
-COPY --from=builder /build/wheels /wheels
-COPY --from=builder /build/requirements.txt ./
-RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt \
-    && rm -rf /wheels
+ENV PATH="/runtime/bin:$PATH"
+# WeasyPrint が共有ライブラリを発見できるよう動的リンカーのパスを設定（devshell と同じ構成）
+ENV LD_LIBRARY_PATH="/runtime/lib"
+# libsql ドライバ（rustls）と curl が CA 証明書を発見できるようにする
+# （debian:12-slim は ca-certificates 非同梱。バンドルは flake の cacert 由来）
+ENV SSL_CERT_FILE="/runtime/etc/ssl/certs/ca-bundle.crt"
 
-COPY alembic.ini ./
-COPY alembic_migrations ./alembic_migrations
-COPY app ./app
-COPY scripts ./scripts
+COPY backend/alembic.ini ./
+COPY backend/alembic_migrations ./alembic_migrations
+COPY backend/app ./app
+COPY backend/scripts ./scripts
 
 RUN chmod +x ./scripts/entrypoint.sh
 

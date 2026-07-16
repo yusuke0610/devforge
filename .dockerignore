@@ -1,0 +1,12 @@
+# backend/Dockerfile の build context はリポジトリルート（flake.nix 参照のため / ADR-0021 Phase 3）。
+# ホワイトリスト方式: イメージビルドに必要なファイルだけを context に含める。
+*
+!flake.nix
+!flake.lock
+!backend/pyproject.toml
+!backend/uv.lock
+!backend/alembic.ini
+!backend/alembic_migrations
+!backend/app
+!backend/scripts
+backend/app/**/__pycache__

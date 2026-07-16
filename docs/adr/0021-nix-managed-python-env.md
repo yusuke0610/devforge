@@ -2,7 +2,7 @@
 
 ## ステータス
 
-Proposed
+Accepted
 
 ## 関連 ADR
 
@@ -81,3 +81,10 @@ Proposed
 - 本番パリティ検証: `.github/workflows/test.yml` の `smoke-backend` ジョブ
 - uv2nix: https://github.com/pyproject-nix/uv2nix
 - 関連 ADR: [ADR-0017](./0017-mutation-testing-and-slack-notifications.md) / [ADR-0014](./0014-renovate-dependency-automation.md) / [ADR-0007](./0007-openapi-typescript-codegen.md)
+
+---
+
+> **実装追記（2026-07-16）**: Phase 0（PR #499）/ Phase 1・2（PR #500）/ Phase 3 を実装し Accepted へ昇格。
+> Phase 3 は dockerTools（pure Nix イメージ）ではなく **Nix-in-Dockerfile 方式**（builder stage の `nixos/nix` イメージ内で `nix build .#backend-runtime` → final stage へ closure コピー）を採用した。macOS ローカルでは linux イメージを `nix build` できず、`make dev-build`（docker compose）の開発フローを維持するため。build context はリポジトリルートへ変更（flake.nix 参照のため）。
+> 既知の妥協: aarch64-linux（Apple Silicon のローカル Docker）のみ `libsql-experimental` が sdist（Rust）ビルドとなり、`--option sandbox false` の下で crates.io 取得にネットワークを使う（従来 pip 経路と同等）。本番 = amd64 は全依存 wheel のため lock のハッシュ検証で純粋性が保たれる。smoke-backend は `docker compose up --build` の構図を維持したまま新経路（Nix build イメージ）を検証している。
+
