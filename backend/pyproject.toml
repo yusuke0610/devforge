@@ -35,7 +35,7 @@ dependencies = [
     "stripe==15.3.1",
     "PyGithub==2.9.1",
     "slowapi==0.1.10",
-    "ruff==0.15.21",
+    "ruff==0.15.22",
     "autopep8==2.3.2",
     "markdown==3.10.2",
     "weasyprint==69.0",
