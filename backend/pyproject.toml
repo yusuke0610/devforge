@@ -8,7 +8,7 @@ version = "0.0.0"
 description = "DevForge backend (FastAPI)"
 # libsql-experimental（sqlalchemy-libsql 経由）が Python 3.14 未対応のため 3.13 系に固定する
 # （renovate.json5 の allowedVersions "<3.14" と同期）
-requires-python = "==3.13.*"
+requires-python = "==3.13.14"
 dependencies = [
     "fastapi==0.139.2",
     # starlette は fastapi の推移的依存だが、PYSEC-2026-161（Host ヘッダ未検証による認証バイパス）
