@@ -30,7 +30,7 @@ dependencies = [
     # extra が ADC 用の google-auth を引き込む。google-genai は vertexai=True で Vertex 対応。
     "anthropic[vertex]==0.116.0",
     "google-genai==2.11.0",
-    "openai==2.45.0",
+    "openai==2.46.0",
     # Stripe Checkout / Webhook 署名検証（ADR-0012 Phase 2）。公式ライブラリを使う
     "stripe==15.3.0",
     "PyGithub==2.9.1",
