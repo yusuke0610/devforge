@@ -141,3 +141,24 @@ class GitHubSkillDisplayDecisionRepository:
                     )
                 )
         self.db.commit()
+
+    def delete_by_identities(
+        self, identities: list[tuple[str, str, str]]
+    ) -> int:
+        """指定 identity（kind + ecosystem + canonical_name）の確定行を削除する（#496）。
+
+        ユーザー自身の確定行だけを対象にし（``user_id`` 固定）、機械デフォルトへ戻す。
+        存在しない identity はスキップ（冪等）。削除件数を返す。畳み込みグループを解く場合は
+        当該グループの全メンバー identity をまとめて渡す。
+        """
+        identity_set = set(identities)
+        if not identity_set:
+            return 0
+        deleted = 0
+        for decision in self.get_for_user():
+            key = (decision.kind, decision.ecosystem, decision.canonical_name)
+            if key in identity_set:
+                self.db.delete(decision)
+                deleted += 1
+        self.db.commit()
+        return deleted

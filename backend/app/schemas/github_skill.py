@@ -143,3 +143,13 @@ class SkillDisplayConfirmRequest(BaseModel):
     """表示名確定（人間）のバッチリクエスト（ADR-0016 D11）。"""
 
     decisions: List[SkillDisplayDecisionInput] = Field(default_factory=list)
+
+
+class SkillDisplayResetRequest(BaseModel):
+    """表示名確定の解除（リセット）リクエスト（ADR-0016 D11 / #496）。
+
+    指定 identity の確定行（Layer 3）を削除し、機械デフォルト（機械 display_name /
+    canonical）へ完全に戻す。同一グループの全メンバー identity を渡せば畳み込みも解ける。
+    """
+
+    identities: List[SkillIdentityRef] = Field(default_factory=list)

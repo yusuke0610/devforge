@@ -377,4 +377,86 @@ test.describe("GitHub 連携 - コントリビューションヒートマップ"
     await page.getByRole("button", { name: "この内容で確定" }).click();
     await expect(page.getByText("Amazon S3")).toBeVisible();
   });
+
+  test("確定済みスキルの「解除」で機械デフォルト（canonical 名）に戻る（D11 / #496）", async ({
+    page,
+  }) => {
+    await page.route("**/api/github-link/cache", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "completed",
+          result: {
+            username: "e2e-test-user",
+            repos_analyzed: 1,
+            unique_skills: 1,
+            analyzed_at: "2026-04-24T00:00:00Z",
+            languages: { TypeScript: 100 },
+          },
+        }),
+      }),
+    );
+    // 初期一覧: 確定済み（confirmed_display_name あり）→ チップに確定名と「解除」が出る
+    await page.route("**/api/github-link/skills", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          skills: [
+            {
+              kind: "package",
+              canonical_name: "@aws-sdk/client-s3",
+              ecosystem: "npm",
+              parent: null,
+              display_name: null,
+              confirmed_display_name: "Amazon S3",
+              group_id: null,
+              decision_source: "human",
+              decision_reviewed: true,
+              evidence: [],
+              proficiency: null,
+            },
+          ],
+        }),
+      }),
+    );
+    // 解除（DELETE）後の一覧: confirmed_display_name が null に戻る
+    await page.route("**/api/github-link/skills/display-decisions", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          skills: [
+            {
+              kind: "package",
+              canonical_name: "@aws-sdk/client-s3",
+              ecosystem: "npm",
+              parent: null,
+              display_name: null,
+              confirmed_display_name: null,
+              group_id: null,
+              decision_source: null,
+              decision_reviewed: false,
+              evidence: [],
+              proficiency: null,
+            },
+          ],
+        }),
+      }),
+    );
+
+    await page.goto("/github_link");
+    await waitForAuthenticatedLayout(page);
+
+    // 確定済みなので確定表示名がチップに出る
+    await expect(page.getByText("Amazon S3")).toBeVisible();
+
+    // 「解除」→ 機械デフォルト（canonical 名）に戻る
+    await page
+      .getByRole("button", { name: "Amazon S3 の表示名確定を解除" })
+      .click();
+    await expect(page.getByText("@aws-sdk/client-s3")).toBeVisible();
+    await expect(page.getByText("Amazon S3")).toHaveCount(0);
+  });
 });

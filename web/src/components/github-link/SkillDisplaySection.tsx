@@ -2,6 +2,10 @@ import { useGitHubSkills } from "../../hooks/useGitHubSkills";
 import { useAppErrorToast } from "../ui/toast";
 import { InlineSpinner } from "../ui/InlineSpinner";
 import { SKILL_DISPLAY_MESSAGES } from "../../constants/messages";
+import {
+  buildResetIdentities,
+  isResettableGroup,
+} from "../../utils/skillDisplay";
 import type { AgentModelAlias } from "../../api/types";
 import dash from "./GitHubLinkDashboard.module.css";
 import styles from "./SkillDisplaySection.module.css";
@@ -22,10 +26,12 @@ export function SkillDisplaySection({ model }: { model: AgentModelAlias }) {
     proposal,
     proposing,
     confirming,
+    resetting,
     propose,
     updateProposalName,
     discardProposal,
     confirm,
+    reset,
   } = useGitHubSkills(model);
 
   useAppErrorToast(error);
@@ -50,6 +56,20 @@ export function SkillDisplaySection({ model }: { model: AgentModelAlias }) {
                   <span className={styles.skillSub}>
                     {SKILL_DISPLAY_MESSAGES.memberCountLabel(group.skills.length)}
                   </span>
+                )}
+                {/* 確定済みグループのみ、機械デフォルトへ戻す「解除」を出す（#496） */}
+                {isResettableGroup(group) && (
+                  <button
+                    type="button"
+                    className={styles.resetButton}
+                    onClick={() => void reset(buildResetIdentities(group))}
+                    disabled={resetting || confirming || proposing}
+                    aria-label={SKILL_DISPLAY_MESSAGES.resetAriaLabel(group.label)}
+                  >
+                    {resetting
+                      ? SKILL_DISPLAY_MESSAGES.RESETTING
+                      : SKILL_DISPLAY_MESSAGES.RESET}
+                  </button>
                 )}
               </span>
             ))}

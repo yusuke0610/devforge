@@ -35,6 +35,7 @@ from ...schemas.github_skill import (
     SkillDisplayProposedGroup,
     SkillDisplayProposeRequest,
     SkillDisplayProposeResponse,
+    SkillDisplayResetRequest,
     SkillIdentityRef,
 )
 from ...schemas.shared import TaskAcceptedResponse, TaskStatusResponse
@@ -268,6 +269,35 @@ def confirm_skill_display_decisions(
             )
             for d in body.decisions
         ]
+    )
+    return _build_skills_response(db, user.id)
+
+
+@router.delete("/skills/display-decisions", response_model=GitHubSkillsResponse)
+def reset_skill_display_decisions(
+    body: SkillDisplayResetRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> GitHubSkillsResponse:
+    """確定済みの表示名・畳み込みを解除（リセット）する（ADR-0016 D11 / #496）。
+
+    指定 identity の Layer 3 確定行を削除し、機械デフォルト（機械 display_name > canonical）
+    へ戻す。畳み込みグループの全メンバー identity を渡せば畳み込みも解ける。identity は当該
+    ユーザーの検出済みスキルに属していなければならない（confirm と同じ authz）。存在しない
+    確定行の指定は冪等に無視する。リセット後の最新スキル一覧を返す。
+    """
+    skills = GitHubSkillRepository(db, user.id).list_for_user()
+    valid_identities = {(s.kind, s.ecosystem, s.canonical_name) for s in skills}
+    for ident in body.identities:
+        if (ident.kind, ident.ecosystem, ident.canonical_name) not in valid_identities:
+            raise_app_error(
+                status_code=422,
+                code=ErrorCode.VALIDATION_ERROR,
+                message=get_error("agent.skill_display_invalid_identity"),
+            )
+
+    GitHubSkillDisplayDecisionRepository(db, user.id).delete_by_identities(
+        [(i.kind, i.ecosystem, i.canonical_name) for i in body.identities]
     )
     return _build_skills_response(db, user.id)
 
