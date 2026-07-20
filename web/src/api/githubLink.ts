@@ -7,6 +7,7 @@ import type {
   SkillDisplayConfirmRequest,
   SkillDisplayProposeRequest,
   SkillDisplayProposeResponse,
+  SkillDisplayResetRequest,
   TaskAcceptedResponse,
   TaskStatusResponse,
 } from "./types";
@@ -93,6 +94,20 @@ export function confirmSkillDisplayDecisions(
 ): Promise<GitHubSkillsResponse> {
   return request<GitHubSkillsResponse>(PATHS.githubLink.skillsDisplayConfirm, {
     method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * 確定済みの表示名・畳み込みを解除（リセット）します（D11 / #496）。
+ * 指定 identity の確定行を削除し機械デフォルトへ戻す。リセット後の最新一覧を返します。
+ * URL は確定と同じリソース（`/skills/display-decisions`）で、DELETE メソッドで区別します。
+ */
+export function resetSkillDisplayDecisions(
+  payload: SkillDisplayResetRequest,
+): Promise<GitHubSkillsResponse> {
+  return request<GitHubSkillsResponse>(PATHS.githubLink.skillsDisplayConfirm, {
+    method: "DELETE",
     body: JSON.stringify(payload),
   });
 }

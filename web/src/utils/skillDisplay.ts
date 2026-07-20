@@ -58,6 +58,28 @@ export function groupSkillsForDisplay(skills: GitHubSkillItem[]): DisplaySkillGr
   return groups;
 }
 
+/**
+ * グループが確定済み（Layer 3 の確定行を持つ）で「解除」可能かを返す（#496）。
+ * 確定表示名を持つメンバーがあれば true（畳み込みグループ・1:1 リネームの両方）。
+ * 機械デフォルト（未確定）のみのグループは解除対象が無いので false。
+ */
+export function isResettableGroup(group: DisplaySkillGroup): boolean {
+  return group.skills.some((s) => Boolean(s.confirmed_display_name));
+}
+
+/**
+ * 解除（リセット）対象グループから、削除する identity 群を作る（#496）。
+ * グループの全メンバーを返すため、N:1 の畳み込みはまとめてバラせる（機械デフォルトへ戻る）。
+ * ``ecosystem`` は null（language）を空文字へ正規化して backend の identity と揃える。
+ */
+export function buildResetIdentities(group: DisplaySkillGroup): SkillIdentityRef[] {
+  return group.skills.map((s) => ({
+    kind: s.kind,
+    ecosystem: s.ecosystem ?? "",
+    canonical_name: s.canonical_name,
+  }));
+}
+
 /** ユーザーがレビュー・編集した提案グループ（確定前の編集状態）。 */
 export interface EditableProposalGroup {
   /** 現在の（編集後の）表示名 */

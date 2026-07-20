@@ -98,3 +98,22 @@
 .secondaryButton:hover {
   background: var(--ghost-hover);
 }
+
+.resetButton {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  cursor: pointer;
+  padding: 0 2px;
+  text-decoration: underline;
+}
+
+.resetButton:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.resetButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

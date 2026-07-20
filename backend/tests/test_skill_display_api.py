@@ -267,3 +267,147 @@ def test_decision_survives_relink_wipe(client) -> None:
     # スキルは作り直されたが、確定表示名は独立テーブルに残っているので復活する
     assert by_name["@aws-sdk/client-s3"]["confirmed_display_name"] == "Amazon S3"
     assert by_name["@aws-sdk/client-s3"]["group_id"] == "grp-aws"
+
+
+# ---- reset（解除） -------------------------------------------------------
+
+
+def test_reset_requires_auth(client) -> None:
+    """未認証は 401。"""
+    resp = client.request(
+        "DELETE",
+        "/api/github-link/skills/display-decisions",
+        json={"identities": []},
+    )
+    assert resp.status_code == 401
+
+
+def test_reset_rejects_unknown_identity(client) -> None:
+    """当該ユーザーの検出済みスキルに無い identity のリセットは 422。"""
+    headers = auth_header(client, "disp_reset_badid")
+    uid = _user_id(client, "disp_reset_badid")
+    GitHubSkillRepository(client._db_session, uid).replace_for_user(_detected())
+
+    resp = client.request(
+        "DELETE",
+        "/api/github-link/skills/display-decisions",
+        json={
+            "identities": [
+                {"kind": "package", "ecosystem": "npm", "canonical_name": "does-not-exist"}
+            ]
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 422
+
+
+def test_reset_removes_decision_and_reverts_to_default(client) -> None:
+    """確定行を削除し、確定表示名・グループが機械デフォルト（null）へ戻ること（#496）。"""
+    headers = auth_header(client, "disp_reset")
+    uid = _user_id(client, "disp_reset")
+    GitHubSkillRepository(client._db_session, uid).replace_for_user(_detected())
+    GitHubSkillDisplayDecisionRepository(client._db_session, uid).upsert_many(
+        [DisplayDecisionInput("package", "npm", "@aws-sdk/client-s3", "Amazon S3", "grp-aws")]
+    )
+
+    resp = client.request(
+        "DELETE",
+        "/api/github-link/skills/display-decisions",
+        json={
+            "identities": [
+                {"kind": "package", "ecosystem": "npm", "canonical_name": "@aws-sdk/client-s3"}
+            ]
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    by_name = {s["canonical_name"]: s for s in resp.json()["skills"]}
+    s3 = by_name["@aws-sdk/client-s3"]
+    # 確定行が消え、確定フィールドは null（機械デフォルトへ完全リセット）
+    assert s3["confirmed_display_name"] is None
+    assert s3["group_id"] is None
+    assert s3["decision_source"] is None
+    assert s3["decision_reviewed"] is False
+
+    # DB からも消えており、GET でも確定が復活しないこと
+    remaining = GitHubSkillDisplayDecisionRepository(
+        client._db_session, uid
+    ).get_for_user()
+    assert remaining == []
+
+
+def test_reset_ungroups_all_members(client) -> None:
+    """グループ全メンバーの identity を渡すと畳み込みが解ける（バラす / #496）。"""
+    headers = auth_header(client, "disp_reset_group")
+    uid = _user_id(client, "disp_reset_group")
+    # 2 つの package を同一 group_id で確定（N:1 畳み込み）
+    detected = [
+        DetectedSkill(
+            kind="package",
+            canonical_name=name,
+            ecosystem="npm",
+            parent=None,
+            display_name=None,
+            evidence=[
+                EvidenceRecord(
+                    repo_full_name="u/a",
+                    repo_url="https://github.com/u/a",
+                    signal_source="manifest_declared",
+                    confidence=0.6,
+                    dependency_kind="direct",
+                )
+            ],
+        )
+        for name in ("@aws-sdk/client-s3", "@aws-sdk/client-eventbridge")
+    ]
+    GitHubSkillRepository(client._db_session, uid).replace_for_user(detected)
+    GitHubSkillDisplayDecisionRepository(client._db_session, uid).upsert_many(
+        [
+            DisplayDecisionInput("package", "npm", "@aws-sdk/client-s3", "AWS", "grp-aws"),
+            DisplayDecisionInput(
+                "package", "npm", "@aws-sdk/client-eventbridge", "AWS", "grp-aws"
+            ),
+        ]
+    )
+
+    resp = client.request(
+        "DELETE",
+        "/api/github-link/skills/display-decisions",
+        json={
+            "identities": [
+                {"kind": "package", "ecosystem": "npm", "canonical_name": "@aws-sdk/client-s3"},
+                {
+                    "kind": "package",
+                    "ecosystem": "npm",
+                    "canonical_name": "@aws-sdk/client-eventbridge",
+                },
+            ]
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    by_name = {s["canonical_name"]: s for s in resp.json()["skills"]}
+    for name in ("@aws-sdk/client-s3", "@aws-sdk/client-eventbridge"):
+        assert by_name[name]["confirmed_display_name"] is None
+        assert by_name[name]["group_id"] is None
+
+
+def test_reset_is_idempotent_for_missing_decision(client) -> None:
+    """確定行が無い identity のリセットは 200・件数 0 で冪等（存在スキルなら 422 にしない）。"""
+    headers = auth_header(client, "disp_reset_idem")
+    uid = _user_id(client, "disp_reset_idem")
+    GitHubSkillRepository(client._db_session, uid).replace_for_user(_detected())
+
+    resp = client.request(
+        "DELETE",
+        "/api/github-link/skills/display-decisions",
+        json={
+            "identities": [
+                {"kind": "package", "ecosystem": "npm", "canonical_name": "@aws-sdk/client-s3"}
+            ]
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    by_name = {s["canonical_name"]: s for s in resp.json()["skills"]}
+    assert by_name["@aws-sdk/client-s3"]["confirmed_display_name"] is None

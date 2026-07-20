@@ -4,9 +4,14 @@ import {
   confirmSkillDisplayDecisions,
   getGitHubSkills,
   proposeSkillDisplayNames,
+  resetSkillDisplayDecisions,
 } from "../api/githubLink";
 import { toAppError, type AppErrorState } from "../api";
-import type { AgentModelAlias, GitHubSkillItem } from "../api/types";
+import type {
+  AgentModelAlias,
+  GitHubSkillItem,
+  SkillIdentityRef,
+} from "../api/types";
 import { FALLBACK_MESSAGES } from "../constants/messages";
 import {
   buildDisplayDecisions,
@@ -35,6 +40,7 @@ export function useGitHubSkills(model: AgentModelAlias) {
   const [proposal, setProposal] = useState<EditableProposalGroup[] | null>(null);
   const [proposing, setProposing] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -101,6 +107,23 @@ export function useGitHubSkills(model: AgentModelAlias) {
     }
   }, [proposal]);
 
+  /**
+   * 確定済みの表示名・畳み込みを解除（リセット）し、返ってきた最新一覧で置き換える（#496）。
+   * グループの全メンバー identity を渡せば畳み込みも解ける（機械デフォルトへ戻る）。
+   */
+  const reset = useCallback(async (identities: SkillIdentityRef[]) => {
+    setError(null);
+    setResetting(true);
+    try {
+      const res = await resetSkillDisplayDecisions({ identities });
+      setSkills(res.skills ?? []);
+    } catch (e) {
+      setError(toAppError(e, FALLBACK_MESSAGES.SKILL_DISPLAY_RESET));
+    } finally {
+      setResetting(false);
+    }
+  }, []);
+
   const groups: DisplaySkillGroup[] = groupSkillsForDisplay(skills);
 
   return {
@@ -111,10 +134,12 @@ export function useGitHubSkills(model: AgentModelAlias) {
     proposal,
     proposing,
     confirming,
+    resetting,
     propose,
     updateProposalName,
     discardProposal,
     confirm,
+    reset,
     reload,
   };
 }

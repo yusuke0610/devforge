@@ -552,7 +552,16 @@ export interface paths {
          */
         put: operations["confirm_skill_display_decisions_api_github_link_skills_display_decisions_put"];
         post?: never;
-        delete?: never;
+        /**
+         * Reset Skill Display Decisions
+         * @description 確定済みの表示名・畳み込みを解除（リセット）する（ADR-0016 D11 / #496）。
+         *
+         *     指定 identity の Layer 3 確定行を削除し、機械デフォルト（機械 display_name > canonical）
+         *     へ戻す。畳み込みグループの全メンバー identity を渡せば畳み込みも解ける。identity は当該
+         *     ユーザーの検出済みスキルに属していなければならない（confirm と同じ authz）。存在しない
+         *     確定行の指定は冪等に無視する。リセット後の最新スキル一覧を返す。
+         */
+        delete: operations["reset_skill_display_decisions_api_github_link_skills_display_decisions_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2097,6 +2106,17 @@ export interface components {
             members?: components["schemas"]["SkillIdentityRef"][];
         };
         /**
+         * SkillDisplayResetRequest
+         * @description 表示名確定の解除（リセット）リクエスト（ADR-0016 D11 / #496）。
+         *
+         *     指定 identity の確定行（Layer 3）を削除し、機械デフォルト（機械 display_name /
+         *     canonical）へ完全に戻す。同一グループの全メンバー identity を渡せば畳み込みも解ける。
+         */
+        SkillDisplayResetRequest: {
+            /** Identities */
+            identities?: components["schemas"]["SkillIdentityRef"][];
+        };
+        /**
          * SkillEvidence
          * @description Layer 2: 技術×リポの根拠。
          */
@@ -2996,6 +3016,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SkillDisplayConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubSkillsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_skill_display_decisions_api_github_link_skills_display_decisions_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillDisplayResetRequest"];
             };
         };
         responses: {

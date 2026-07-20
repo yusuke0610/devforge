@@ -2,8 +2,10 @@ import { describe, it, expect } from "vitest";
 
 import {
   buildDisplayDecisions,
+  buildResetIdentities,
   effectiveSkillName,
   groupSkillsForDisplay,
+  isResettableGroup,
   type EditableProposalGroup,
 } from "./skillDisplay";
 import type { GitHubSkillItem } from "../api/types";
@@ -98,5 +100,56 @@ describe("buildDisplayDecisions", () => {
       },
     ]);
     expect(decisions).toHaveLength(0);
+  });
+});
+
+describe("isResettableGroup", () => {
+  it("確定表示名を持つメンバーがあれば解除可能", () => {
+    const group = groupSkillsForDisplay([
+      skill({ canonical_name: "@aws-sdk/client-s3", group_id: "g1", confirmed_display_name: "AWS" }),
+      skill({ canonical_name: "@aws-sdk/client-sns", group_id: "g1", confirmed_display_name: "AWS" }),
+    ])[0];
+    expect(isResettableGroup(group)).toBe(true);
+  });
+
+  it("単独の 1:1 確定スキルも解除可能", () => {
+    const group = groupSkillsForDisplay([
+      skill({ canonical_name: "hcl", display_name: "Terraform", confirmed_display_name: "IaC" }),
+    ])[0];
+    expect(isResettableGroup(group)).toBe(true);
+  });
+
+  it("未確定（機械デフォルトのみ）のグループは解除不可", () => {
+    const group = groupSkillsForDisplay([skill({ canonical_name: "react" })])[0];
+    expect(isResettableGroup(group)).toBe(false);
+  });
+});
+
+describe("buildResetIdentities", () => {
+  it("グループ全メンバーの identity を返す（畳み込みをバラす）", () => {
+    const group = groupSkillsForDisplay([
+      skill({ canonical_name: "@aws-sdk/client-s3", group_id: "g1", confirmed_display_name: "AWS" }),
+      skill({ canonical_name: "@aws-sdk/client-sns", group_id: "g1", confirmed_display_name: "AWS" }),
+    ])[0];
+    const identities = buildResetIdentities(group);
+    expect(identities.map((i) => i.canonical_name).sort()).toEqual([
+      "@aws-sdk/client-s3",
+      "@aws-sdk/client-sns",
+    ]);
+    expect(identities.every((i) => i.kind === "package" && i.ecosystem === "npm")).toBe(true);
+  });
+
+  it("ecosystem が null のスキル（language）は空文字に正規化する", () => {
+    const group = groupSkillsForDisplay([
+      skill({
+        kind: "language",
+        canonical_name: "Python",
+        ecosystem: null,
+        confirmed_display_name: "Python3",
+      }),
+    ])[0];
+    expect(buildResetIdentities(group)).toEqual([
+      { kind: "language", ecosystem: "", canonical_name: "Python" },
+    ]);
   });
 });

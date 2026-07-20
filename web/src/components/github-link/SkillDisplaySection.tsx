@@ -1,7 +1,14 @@
+import { useState } from "react";
+
 import { useGitHubSkills } from "../../hooks/useGitHubSkills";
 import { useAppErrorToast } from "../ui/toast";
 import { InlineSpinner } from "../ui/InlineSpinner";
 import { SKILL_DISPLAY_MESSAGES } from "../../constants/messages";
+import {
+  buildResetIdentities,
+  isResettableGroup,
+  type DisplaySkillGroup,
+} from "../../utils/skillDisplay";
 import type { AgentModelAlias } from "../../api/types";
 import dash from "./GitHubLinkDashboard.module.css";
 import styles from "./SkillDisplaySection.module.css";
@@ -22,11 +29,26 @@ export function SkillDisplaySection({ model }: { model: AgentModelAlias }) {
     proposal,
     proposing,
     confirming,
+    resetting,
     propose,
     updateProposalName,
     discardProposal,
     confirm,
+    reset,
   } = useGitHubSkills(model);
+
+  // 「解除中...」は押されたグループのボタンにだけ出す（global resetting は全ボタンの
+  // 無効化に使い、ローカルキーで対象グループを区別する / #496）
+  const [resettingKey, setResettingKey] = useState<string | null>(null);
+
+  const handleReset = async (group: DisplaySkillGroup) => {
+    setResettingKey(group.key);
+    try {
+      await reset(buildResetIdentities(group));
+    } finally {
+      setResettingKey(null);
+    }
+  };
 
   useAppErrorToast(error);
 
@@ -50,6 +72,20 @@ export function SkillDisplaySection({ model }: { model: AgentModelAlias }) {
                   <span className={styles.skillSub}>
                     {SKILL_DISPLAY_MESSAGES.memberCountLabel(group.skills.length)}
                   </span>
+                )}
+                {/* 確定済みグループのみ、機械デフォルトへ戻す「解除」を出す（#496） */}
+                {isResettableGroup(group) && (
+                  <button
+                    type="button"
+                    className={styles.resetButton}
+                    onClick={() => void handleReset(group)}
+                    disabled={resetting || confirming || proposing}
+                    aria-label={SKILL_DISPLAY_MESSAGES.resetAriaLabel(group.label)}
+                  >
+                    {resettingKey === group.key
+                      ? SKILL_DISPLAY_MESSAGES.RESETTING
+                      : SKILL_DISPLAY_MESSAGES.RESET}
+                  </button>
                 )}
               </span>
             ))}

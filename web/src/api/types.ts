@@ -66,6 +66,9 @@ export type SkillDisplayDecisionInput = Schemas["SkillDisplayDecisionInput"];
 /** 表示名確定のバッチリクエスト。backend `SkillDisplayConfirmRequest`（D11）。 */
 export type SkillDisplayConfirmRequest = Schemas["SkillDisplayConfirmRequest"];
 
+/** 表示名確定の解除（リセット）リクエスト。backend `SkillDisplayResetRequest`（D11 / #496）。 */
+export type SkillDisplayResetRequest = Schemas["SkillDisplayResetRequest"];
+
 // ── 認証（auth.py）────────────────────────────────────────────────────────
 
 /** GitHub OAuth 認可 URL と CSRF 検証用 state。backend `schemas/auth.py:GitHubLoginUrlResponse`。 */

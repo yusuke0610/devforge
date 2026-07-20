@@ -7,12 +7,15 @@ import type { GitHubSkillItem } from "../api/types";
 const getGitHubSkillsMock = vi.fn();
 const proposeSkillDisplayNamesMock = vi.fn();
 const confirmSkillDisplayDecisionsMock = vi.fn();
+const resetSkillDisplayDecisionsMock = vi.fn();
 
 vi.mock("../api/githubLink", () => ({
   getGitHubSkills: (...args: unknown[]) => getGitHubSkillsMock(...args),
   proposeSkillDisplayNames: (...args: unknown[]) => proposeSkillDisplayNamesMock(...args),
   confirmSkillDisplayDecisions: (...args: unknown[]) =>
     confirmSkillDisplayDecisionsMock(...args),
+  resetSkillDisplayDecisions: (...args: unknown[]) =>
+    resetSkillDisplayDecisionsMock(...args),
 }));
 
 function skill(overrides: Partial<GitHubSkillItem>): GitHubSkillItem {
@@ -36,6 +39,7 @@ beforeEach(() => {
   getGitHubSkillsMock.mockReset();
   proposeSkillDisplayNamesMock.mockReset();
   confirmSkillDisplayDecisionsMock.mockReset();
+  resetSkillDisplayDecisionsMock.mockReset();
 });
 
 describe("useGitHubSkills", () => {
@@ -135,5 +139,50 @@ describe("useGitHubSkills", () => {
 
     act(() => result.current.discardProposal());
     expect(result.current.proposal).toBeNull();
+  });
+
+  it("reset で解除 API を呼び、返却された最新一覧で置き換える（success）", async () => {
+    getGitHubSkillsMock.mockResolvedValue({
+      skills: [skill({ confirmed_display_name: "React", group_id: "g1" })],
+    });
+    resetSkillDisplayDecisionsMock.mockResolvedValue({
+      skills: [skill({ confirmed_display_name: null, group_id: null })],
+    });
+
+    const { result } = renderHook(() => useGitHubSkills("haiku"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.reset([
+        { kind: "package", ecosystem: "npm", canonical_name: "react" },
+      ]);
+    });
+
+    expect(resetSkillDisplayDecisionsMock).toHaveBeenCalledTimes(1);
+    const payload = resetSkillDisplayDecisionsMock.mock.calls[0][0];
+    expect(payload.identities[0].canonical_name).toBe("react");
+    // 解除後は確定フィールドが消えた最新一覧で置き換わる
+    expect(result.current.skills[0].confirmed_display_name).toBeNull();
+    expect(result.current.error).toBeNull();
+  });
+
+  it("reset 失敗時は error にメッセージが入る（error）", async () => {
+    getGitHubSkillsMock.mockResolvedValue({
+      skills: [skill({ confirmed_display_name: "React" })],
+    });
+    resetSkillDisplayDecisionsMock.mockRejectedValue("boom");
+
+    const { result } = renderHook(() => useGitHubSkills("haiku"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.reset([
+        { kind: "package", ecosystem: "npm", canonical_name: "react" },
+      ]);
+    });
+
+    expect(result.current.error).not.toBeNull();
+    // 失敗しても元の確定一覧は保持される
+    expect(result.current.skills[0].confirmed_display_name).toBe("React");
   });
 });

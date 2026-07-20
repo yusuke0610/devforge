@@ -74,6 +74,7 @@ export const FALLBACK_MESSAGES = {
   SKILL_FETCH: "スキルの取得に失敗しました",
   SKILL_DISPLAY_PROPOSE: "表示名の提案に失敗しました",
   SKILL_DISPLAY_CONFIRM: "表示名の確定に失敗しました",
+  SKILL_DISPLAY_RESET: "表示名の解除に失敗しました",
 } as const;
 
 /**
@@ -237,6 +238,12 @@ export const SKILL_DISPLAY_MESSAGES = {
   PROPOSE_EMPTY: "提案できる表示名がありませんでした。",
   /** 畳み込みメンバー数のラベル接尾（例: 「3 件内包」）。 */
   memberCountLabel: (count: number): string => `${count} 件内包`,
+  /** 確定解除（リセット）ボタンのラベル。 */
+  RESET: "解除",
+  /** 解除中のラベル。 */
+  RESETTING: "解除中...",
+  /** 解除ボタンの aria-label（対象グループ名を含める）。 */
+  resetAriaLabel: (label: string): string => `${label} の表示名確定を解除`,
 } as const;
 
 /** 年セレクトの選択肢表記「N年」。 */
