@@ -28,7 +28,7 @@ dependencies = [
     # マルチプロバイダ LLM（ADR-0013）。Gemini = google-genai、GPT = openai。
     # Gemini / Anthropic は Vertex AI（SA→ADC）経由（ADR-0015）。anthropic[vertex] の
     # extra が ADC 用の google-auth を引き込む。google-genai は vertexai=True で Vertex 対応。
-    "anthropic[vertex]==0.116.0",
+    "anthropic[vertex]==0.117.0",
     "google-genai==2.11.0",
     "openai==2.46.0",
     # Stripe Checkout / Webhook 署名検証（ADR-0012 Phase 2）。公式ライブラリを使う
