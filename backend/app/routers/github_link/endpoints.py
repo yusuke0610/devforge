@@ -41,13 +41,12 @@ from ...schemas.github_skill import (
 from ...schemas.shared import TaskAcceptedResponse, TaskStatusResponse
 from ...services.agent.chat_service import AgentResponseParseError
 from ...services.agent.llm.base import LLMError
+from ...services.agent.rate_limit import AgentRateLimitExceededError, enforce_daily_limit
 from ...services.agent.skill_display import (
     MAX_SKILLS_PER_PROPOSAL,
     SkillForProposal,
     propose_skill_display_names,
 )
-from ...services.billing import credit_service
-from ...services.billing.credit_service import InsufficientCreditsError
 from ...services.intelligence.github_link_service import get_or_create_github_link_cache
 from ...services.intelligence.skills.types import SKILL_KIND_LANGUAGE
 from ...services.tasks import AsyncTaskCacheService, TaskType
@@ -151,16 +150,19 @@ async def propose_skill_display_names_endpoint(
 
     agent は提案するだけで確定・DB 更新はしない（D8 / P4）。提案結果はレスポンスとして返し、
     ユーザーがレビュー・編集して ``PUT /skills/display-decisions`` で確定する。
-    外部 LLM を呼ぶ高コスト endpoint のため rate limit を付与し、課金はチャットと同一契約。
+    外部 LLM を呼ぶ高コスト endpoint のため、slowapi の分間 rate limit に加えて
+    ユーザ単位の日次レート制限で abuse を防ぐ（ADR-0023 で課金を撤去した代替）。
     """
-    # 有料モデルは LLM を呼ぶ前に残高をチェックする（事後減算 / ADR-0012）
+    # 日次利用上限（abuse 防止 / #521・ADR-0023）を LLM 呼び出し前に確認する
     try:
-        credit_service.ensure_can_use_model(db, user.id, body.model)
-    except InsufficientCreditsError:
+        enforce_daily_limit(db, user.id)
+        db.commit()
+    except AgentRateLimitExceededError:
+        db.commit()
         raise_app_error(
-            status_code=402,
-            code=ErrorCode.INSUFFICIENT_CREDITS,
-            message=get_error("billing.insufficient_credits"),
+            status_code=429,
+            code=ErrorCode.AGENT_DAILY_LIMIT_EXCEEDED,
+            message=get_error("agent.daily_limit_exceeded"),
         )
 
     skills = GitHubSkillRepository(db, user.id).list_for_user()
@@ -190,33 +192,19 @@ async def propose_skill_display_names_endpoint(
 
     try:
         result = await propose_skill_display_names(body.model, proposal_inputs)
-    except LLMError as exc:
-        # 消費済みトークンがあれば課金してから 502（課金漏れ防止 / ADR-0012）
-        if exc.usage is not None:
-            try:
-                credit_service.record_usage_after_llm(db, user.id, exc.usage)
-            except Exception:
-                logger.error("表示名提案の LLM 失敗時のクレジット記録に失敗", exc_info=True)
+    except LLMError:
         raise_app_error(
             status_code=502,
             code=ErrorCode.AGENT_LLM_ERROR,
             message=get_error("agent.llm_failed"),
         )
-    except AgentResponseParseError as exc:
-        if exc.usage is not None:
-            try:
-                credit_service.record_usage_after_llm(db, user.id, exc.usage)
-            except Exception:
-                logger.error("表示名提案のパース失敗時のクレジット記録に失敗", exc_info=True)
+    except AgentResponseParseError:
         raise_app_error(
             status_code=502,
             code=ErrorCode.AGENT_PARSE_ERROR,
             message=get_error("agent.parse_failed"),
         )
 
-    credit_service.record_usage_after_llm(
-        db, user.id, result.usage, description=f"スキル表示名提案（{body.model}）"
-    )
     return SkillDisplayProposeResponse(
         groups=[
             SkillDisplayProposedGroup(

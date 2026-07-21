@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   AGENT_MODEL_MESSAGES,
   AUTH_PROMPT_MESSAGES,
-  BILLING_PAGE_MESSAGES,
   EXTERNAL_LINKS,
   UI_MESSAGES,
 } from "../constants/messages";
@@ -26,7 +25,6 @@ export function UserMenu({
   onLogout,
   onLogin,
   onOpenModelSelect,
-  onOpenBilling,
 }: {
   isAuthenticated: boolean;
   username: string | null;
@@ -34,10 +32,8 @@ export function UserMenu({
   onToggleTheme: () => void;
   onLogout: () => void;
   onLogin: () => void;
-  /** AI モデル選択モーダルを開く（認証済みのみ表示 / ADR-0012）。 */
+  /** AI モデル選択モーダルを開く（認証済みのみ表示）。 */
   onOpenModelSelect?: () => void;
-  /** トークン購入画面へ遷移する（認証済みのみ表示。モデル切り替えとは分離 / ADR-0012）。 */
-  onOpenBilling?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -79,20 +75,7 @@ export function UserMenu({
               <span className={styles.menuItemLabel}>{AGENT_MODEL_MESSAGES.MENU_ITEM}</span>
             </button>
           )}
-          {/* トークン購入はモデル切り替えとは別項目（購入と切り替えを分離 / ADR-0012）。 */}
-          {isAuthenticated && onOpenBilling && (
-            <button
-              type="button"
-              className={styles.menuItem}
-              onClick={() => {
-                setOpen(false);
-                onOpenBilling();
-              }}
-            >
-              <span className={styles.menuItemLabel}>{BILLING_PAGE_MESSAGES.MENU_ITEM}</span>
-            </button>
-          )}
-          {(onOpenModelSelect || onOpenBilling) && isAuthenticated && (
+          {onOpenModelSelect && isAuthenticated && (
             <div className={styles.separator} />
           )}
           {/* 未認証ではログインはトリガー側のボタンに集約するため、メニューには出さない。 */}

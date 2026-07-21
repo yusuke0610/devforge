@@ -43,9 +43,8 @@ class AgentTargetNotFoundError(Exception):
 class AgentResponseParseError(Exception):
     """LLM 応答の JSON パースまたはスキーマ検証に失敗。
 
-    リトライ後も失敗した場合、消費済みトークンの課金漏れを防ぐため確定済みの
-    使用量を ``usage`` に載せて呼び出し元（router）へ伝播する（ADR-0012）。
-    パース前段（リトライ未到達）の失敗では ``usage`` は None。
+    リトライ後も失敗した場合、確定済みの使用量を ``usage`` に載せて呼び出し元（router）へ
+    伝播する（観測用。ADR-0023 で課金は撤去）。パース前段（リトライ未到達）の失敗では ``usage`` は None。
     """
 
     def __init__(self, message: str, *, usage: "AgentUsage | None" = None) -> None:
@@ -55,10 +54,10 @@ class AgentResponseParseError(Exception):
 
 @dataclass(frozen=True)
 class AgentUsage:
-    """チャット 1 回分の実トークン使用量（リトライ分を含む合算 / ADR-0012）。
+    """チャット 1 回分の実トークン使用量（リトライ分を含む合算）。
 
-    router がクレジット消費・使用ログ記録（services/billing）へ渡す。
-    本モジュールは DB に触れない原則を維持するため、記録自体は行わない。
+    ADR-0023 で課金を撤去したため現在は消費されないが、将来の観測・計測用に
+    トークン計上インフラとして温存する。本モジュールは DB に触れない原則を維持する。
     """
 
     model: AgentModelAlias
@@ -68,7 +67,7 @@ class AgentUsage:
 
 @dataclass(frozen=True)
 class AgentChatResult:
-    """run_agent_chat の戻り値（API レスポンス + 課金用の使用量）。"""
+    """run_agent_chat の戻り値（API レスポンス + 観測用の使用量）。"""
 
     response: AgentChatResponse
     usage: AgentUsage
@@ -79,7 +78,7 @@ def _make_usage(
 ) -> AgentUsage:
     """リクエストのモデルと合算トークンから AgentUsage を組み立てる。
 
-    課金漏れ防止（ADR-0012）のため成功・失敗の各パスで同じ形の使用量を作る箇所を集約する。
+    成功・失敗の各パスで同じ形の使用量を作る箇所を集約する（観測用 / ADR-0023 で課金撤去）。
     """
     return AgentUsage(
         model=request.model, input_tokens=input_tokens, output_tokens=output_tokens
@@ -298,14 +297,14 @@ async def run_agent_chat(
     client = get_llm_client(spec.provider)
     output_schema = _SCOPE_SCHEMAS[request.scope]
 
-    # リトライしても 1 回目の API 原価は発生しているため、使用量は全呼び出しの合算で課金する
+    # リトライしても 1 回目の API 原価は発生しているため、使用量は全呼び出しの合算で記録する（観測用）
     input_tokens = 0
     output_tokens = 0
 
     async def _generate_and_account(call_messages: list[dict], *, label: str):
         """LLM を呼び出し、合算トークンへ加算してから生応答を返す。
 
-        課金漏れ防止（ADR-0012）のため、初回・リトライの両方でトークン加算経路を
+        観測用（ADR-0023 で課金撤去）のため、初回・リトライの両方でトークン加算経路を
         この 1 箇所に集約する。``client.generate`` が失敗した場合は加算前に例外が伝播し、
         呼び出し元で確定済みの合算使用量を載せて再 raise する（使用量の二重計上を防ぐ）。
         """
@@ -347,15 +346,13 @@ async def run_agent_chat(
     try:
         result = await _generate_and_account(retry_messages, label="リトライ")
     except LLMError as retry_exc:
-        # リトライ呼び出し自体が失敗。1 回目の API 原価は発生済みのため使用量を
-        # 載せて伝播し、router 側で課金を確定させる（課金漏れを防ぐ / ADR-0012）
+        # リトライ呼び出し自体が失敗。合算した使用量（観測用）を載せて伝播する（ADR-0023 で課金撤去）
         retry_exc.usage = _make_usage(request, input_tokens, output_tokens)
         raise
     try:
         response = _parse_response(result.text, request.scope)
     except AgentResponseParseError as retry_exc:
-        # 2 回目も失敗。1・2 回目分の API 原価は発生済みのため、合算した使用量を
-        # 載せて伝播し、router 側で課金を確定させる（課金漏れを防ぐ / ADR-0012）
+        # 2 回目も失敗。合算した使用量（観測用）を載せて伝播する（ADR-0023 で課金撤去）
         raise AgentResponseParseError(
             str(retry_exc),
             usage=_make_usage(request, input_tokens, output_tokens),

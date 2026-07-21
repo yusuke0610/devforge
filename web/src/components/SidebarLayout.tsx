@@ -10,8 +10,6 @@ import { NotificationBell } from "./NotificationBell";
 import { UserMenu } from "./UserMenu";
 import { AgentModelBadge } from "./agent/AgentModelBadge";
 import { ModelSelectModal } from "./agent/ModelSelectModal";
-import { CreditBalanceBadge } from "./billing/CreditBalanceBadge";
-import { CreditBalanceProvider } from "./billing/CreditBalanceProvider";
 import { useLoginPrompt } from "./auth/loginPromptContext";
 import { ChevronDownIcon } from "./icons/ChevronDownIcon";
 import shared from "../styles/shared.module.css";
@@ -72,9 +70,6 @@ export function SidebarLayout({
 
   return (
     <div className={shared.page}>
-      {/* 残高（アカウント属性）をサイドバーと Agent ウィジェットで共有する（ADR-0012）。
-          認証済みの間だけ取得し、ウィジェットの有料モデル消費後に refresh で更新される。 */}
-      <CreditBalanceProvider enabled={isAuthenticated}>
       <div
         className={`${styles.appLayout} ${sidebarCollapsed ? styles.sidebarCollapsed : ""}`}
       >
@@ -169,9 +164,8 @@ export function SidebarLayout({
             )}
           </nav>
           <div className={styles.sidebarFooter}>
-            {/* AI ステータス（使用モデル + クレジット残高）は認証済みのみ表示。 */}
+            {/* AI ステータス（使用モデル）は認証済みのみ表示。 */}
             {isAuthenticated && <AgentModelBadge />}
-            {isAuthenticated && <CreditBalanceBadge />}
             {/* 通知ベルは認証済みのみ（未認証はポーリングで 401 を連発しないよう出さない）。 */}
             {isAuthenticated && <NotificationBell />}
             <UserMenu
@@ -182,18 +176,15 @@ export function SidebarLayout({
               onLogout={onLogout}
               onLogin={handleLogin}
               onOpenModelSelect={isAuthenticated ? () => setModelSelectOpen(true) : undefined}
-              onOpenBilling={isAuthenticated ? () => navigate("/billing") : undefined}
             />
           </div>
         </aside>
 
         <main className={styles.mainContent}>{children ?? <Outlet />}</main>
       </div>
-      {/* モデル選択モーダルは残高 Provider 配下（残高不足の警告表示に balance を使う）。 */}
       {isAuthenticated && modelSelectOpen && (
         <ModelSelectModal onClose={() => setModelSelectOpen(false)} />
       )}
-      </CreditBalanceProvider>
     </div>
   );
 }

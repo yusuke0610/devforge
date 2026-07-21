@@ -31,7 +31,6 @@ from .middleware.request_id import RequestIDMiddleware  # noqa: E402
 from .routers import (  # noqa: E402
     agent_router,
     auth_router,
-    billing_router,
     github_link_router,
     health_router,
     internal_router,
@@ -133,9 +132,8 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Stripe Webhook は Cloudflare Pages を経由せず Cloud Run へ直接届くため
-# X-Internal-Secret を持たない。署名検証（Stripe-Signature）で別途防御する（ADR-0012）
-_INTERNAL_SECRET_SKIP_PATHS = {"/health", "/api/billing/webhook"}
+# INTERNAL_SECRET 検証をスキップするパス（ヘルスチェックのみ）
+_INTERNAL_SECRET_SKIP_PATHS = {"/health"}
 _INTERNAL_SECRET_HEADER = "x-internal-secret"
 
 
@@ -216,4 +214,3 @@ app.include_router(master_data_router)
 app.include_router(notifications_router)
 app.include_router(internal_router)
 app.include_router(agent_router)
-app.include_router(billing_router)

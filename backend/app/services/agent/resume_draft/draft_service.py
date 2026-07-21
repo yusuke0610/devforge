@@ -1,8 +1,8 @@
 """経歴書ドラフト生成の中核ロジック（骨格構築 → LLM → 検証 → マージ / ADR-0018）。
 
 本モジュールは DB に触れない（DB 読み取りは router → context.py 経由のみ）。
-LLM 呼び出しの失敗契約（LLMError / AgentResponseParseError に usage を載せて課金漏れを
-防ぐ・リトライは 1 回のみ）はチャット（chat_service）と同一。呼び出しの流れも同じ形だが、
+LLM 呼び出しの失敗契約（LLMError / AgentResponseParseError に usage〈観測用〉を載せる・
+リトライは 1 回のみ）はチャット（chat_service）と同一。ADR-0023 で課金は撤去。呼び出しの流れも同じ形だが、
 入出力（骨格 payload / ドラフト出力スキーマ）が異なるため現時点では共通化しない
 （Rule of Three / .claude/rules/common/duplication.md）。
 """
@@ -43,7 +43,7 @@ _MAX_RETRY_ERROR_LENGTH = 500
 
 @dataclass(frozen=True)
 class ResumeDraftResult:
-    """run_resume_draft の戻り値（PDF 生成用 payload + 課金用の使用量）。"""
+    """run_resume_draft の戻り値（PDF 生成用 payload + 観測用の使用量）。"""
 
     payload: dict
     usage: AgentUsage
@@ -153,7 +153,7 @@ def _merge_output(skeleton: dict, selected: list, output: _DraftOutput) -> dict:
 async def run_resume_draft(
     model: AgentModelAlias, source: DraftSource, *, today: date | None = None
 ) -> ResumeDraftResult:
-    """経歴書ドラフト payload を生成し、課金用の実トークン使用量とともに返す。
+    """経歴書ドラフト payload を生成し、観測用の実トークン使用量とともに返す。
 
     Args:
         model: モデルエイリアス（AgentModelAlias。router のスキーマで検証済み）。
@@ -182,7 +182,7 @@ async def run_resume_draft(
         len(user_prompt),
     )
 
-    # リトライしても 1 回目の API 原価は発生しているため、使用量は合算で課金する（ADR-0012）
+    # リトライしても 1 回目の API 原価は発生しているため、使用量は合算で記録する（観測用 / ADR-0023 で課金撤去）
     input_tokens = 0
     output_tokens = 0
 
@@ -224,12 +224,12 @@ async def run_resume_draft(
     try:
         result = await _generate_and_account(retry_messages, label="リトライ")
     except LLMError as retry_exc:
-        # 1 回目の API 原価は発生済み。使用量を載せて router 側で課金を確定させる（ADR-0012）
+        # 1 回目の API 原価は発生済み。使用量（観測用）を載せて伝播する（ADR-0023 で課金撤去）
         retry_exc.usage = _usage()
         raise
     try:
         output = _parse_draft(result.text, set(allowed_names))
     except AgentResponseParseError as retry_exc:
-        # 2 回目も失敗。合算使用量を載せて伝播する（課金漏れ防止 / ADR-0012）
+        # 2 回目も失敗。合算使用量（観測用）を載せて伝播する（ADR-0023 で課金撤去）
         raise AgentResponseParseError(str(retry_exc), usage=_usage()) from retry_exc
     return ResumeDraftResult(payload=_merge_output(skeleton, selected, output), usage=_usage())

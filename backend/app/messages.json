@@ -72,14 +72,6 @@
       "draft_not_ready": "経歴書ドラフトの生成が完了していません。生成を実行してからダウンロードしてください。",
       "skill_display_no_skills": "表示名を提案できるスキルがありません。先に GitHub 連携を実行してください。",
       "skill_display_invalid_identity": "確定対象に連携結果に存在しないスキルが含まれています。"
-    },
-    "billing": {
-      "insufficient_credits": "クレジット残高が不足しています。Haiku（無料）に切り替えるか、クレジットを追加してください。",
-      "grant_user_not_found": "付与対象のユーザーが見つかりません。",
-      "checkout_unavailable": "クレジット購入機能は現在利用できません。時間をおいて再度お試しください。",
-      "checkout_failed": "決済ページの作成に失敗しました。時間をおいて再度お試しください。",
-      "webhook_unavailable": "決済通知を処理できません。",
-      "webhook_invalid": "決済通知の検証に失敗しました。"
     }
   },
   "notification": {

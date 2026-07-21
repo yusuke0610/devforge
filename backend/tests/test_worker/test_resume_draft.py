@@ -1,17 +1,17 @@
 """run_resume_draft_task（経歴書ドラフト生成タスク本体 / ADR-0018 非同期化）の単体テスト。
 
-LLM のみモックし、連携データ読み取り・ルールベースマッピング・PDF レンダリング・課金配線は
-実コードを通す（DB は実 SQLite セッション）。課金順序の不変条件を固定する:
-  - 成功: completed + result 保存 + 使用ログ記録（無料モデルは credit_cost=0）。
-  - パース失敗: 消費済みトークンを課金してから NonRetryableError（worker が dead_letter 化）。
-  - PDF 生成失敗: 課金せず NonRetryableError（使用ログを残さない）。
+LLM のみモックし、連携データ読み取り・ルールベースマッピング・PDF レンダリングは
+実コードを通す（DB は実 SQLite セッション）。状態遷移の不変条件を固定する（課金は
+ADR-0023 で撤去済み）:
+  - 成功: completed + result 保存。
+  - パース失敗: NonRetryableError（worker が dead_letter 化）。結果は保存しない。
+  - PDF 生成失敗: NonRetryableError。結果は保存しない。
 """
 
 import json
 
 import pytest
 from app.models import GitHubLinkCache, ResumeDraftCache
-from app.models.billing import AgentUsageLog
 from app.models.skill import GitHubSkill, GitHubSkillEvidence
 from app.repositories import UserRepository
 from app.services.agent.llm.base import LLMClient, LLMResult
@@ -92,8 +92,8 @@ def _seed(db: Session, username: str = "draft-user", *, repos: bool = True):
     return user
 
 
-def test_task_completes_and_records_usage(db_session, session_factory, monkeypatch):
-    """成功: status=completed + result 保存 + 使用ログ記録（無料モデルは credit_cost=0）。"""
+def test_task_completes(db_session, session_factory, monkeypatch):
+    """成功: status=completed + result 保存。"""
     user = _seed(db_session)
     monkeypatch.setattr(draft_service, "get_llm_client", lambda provider: _FakeLLM(_draft_response()))
 
@@ -106,15 +106,9 @@ def test_task_completes_and_records_usage(db_session, session_factory, monkeypat
     assert draft.result["career_summary"] == "生成された職務要約。"
     assert draft.completed_at is not None
 
-    (log,) = db_session.query(AgentUsageLog).all()
-    assert log.model_alias == "haiku"
-    assert log.input_tokens == 100
-    assert log.output_tokens == 200
-    assert log.credit_cost == 0
 
-
-def test_task_parse_failure_charges_and_raises(db_session, session_factory, monkeypatch):
-    """パース失敗: 消費済みトークン（2 コール合算）を課金し NonRetryableError を送出する。"""
+def test_task_parse_failure_raises(db_session, session_factory, monkeypatch):
+    """パース失敗: NonRetryableError を送出し、結果は保存しない。"""
     user = _seed(db_session)
     monkeypatch.setattr(
         draft_service, "get_llm_client", lambda provider: _FakeLLM("JSON ではない応答")
@@ -124,13 +118,13 @@ def test_task_parse_failure_charges_and_raises(db_session, session_factory, monk
         _run(run_resume_draft_task(session_factory, {"user_id": user.id, "model": "haiku"}))
 
     db_session.expire_all()
-    (log,) = db_session.query(AgentUsageLog).all()
-    assert log.input_tokens == 200
-    assert log.output_tokens == 400
+    draft = db_session.query(ResumeDraftCache).filter_by(user_id=user.id).one()
+    assert draft.result is None
+    assert draft.status != "completed"
 
 
-def test_task_pdf_failure_not_charged(db_session, session_factory, monkeypatch):
-    """PDF 生成失敗: 課金せず NonRetryableError を送出する（使用ログを残さない）。"""
+def test_task_pdf_failure_raises(db_session, session_factory, monkeypatch):
+    """PDF 生成失敗: NonRetryableError を送出し、結果は保存しない。"""
     user = _seed(db_session)
     monkeypatch.setattr(draft_service, "get_llm_client", lambda provider: _FakeLLM(_draft_response()))
 
@@ -143,7 +137,9 @@ def test_task_pdf_failure_not_charged(db_session, session_factory, monkeypatch):
         _run(run_resume_draft_task(session_factory, {"user_id": user.id, "model": "haiku"}))
 
     db_session.expire_all()
-    assert db_session.query(AgentUsageLog).count() == 0
+    draft = db_session.query(ResumeDraftCache).filter_by(user_id=user.id).one()
+    assert draft.result is None
+    assert draft.status != "completed"
 
 
 def test_task_source_unavailable_raises_non_retryable(db_session, session_factory):
@@ -154,10 +150,10 @@ def test_task_source_unavailable_raises_non_retryable(db_session, session_factor
 
 
 def test_task_skips_when_already_completed(db_session, session_factory, monkeypatch):
-    """冪等ガード: 既に completed + result のタスク再配信は再実行せず、課金も LLM 呼び出しもしない。
+    """冪等ガード: 既に completed + result のタスク再配信は再実行せず LLM を呼ばない。
 
-    原子 commit 後・worker の ack 前にプロセスが落ちると Cloud Tasks が同一メッセージを
-    再配信しうる。フェーズA の短絡が無いと LLM を再実行して二重課金するため、その回帰を固定する。
+    結果保存後・worker の ack 前にプロセスが落ちると Cloud Tasks が同一メッセージを
+    再配信しうる。フェーズA の短絡が無いと LLM を無駄に再実行するため、その回帰を固定する。
     """
     user = _seed(db_session)
     draft = db_session.query(ResumeDraftCache).filter_by(user_id=user.id).one()
@@ -173,8 +169,7 @@ def test_task_skips_when_already_completed(db_session, session_factory, monkeypa
     _run(run_resume_draft_task(session_factory, {"user_id": user.id, "model": "haiku"}))
 
     db_session.expire_all()
-    # 課金（使用ログ）は発生しない。既存の completed 結果も上書きされない。
-    assert db_session.query(AgentUsageLog).count() == 0
+    # 既存の completed 結果は上書きされない（LLM 再実行なし）。
     draft = db_session.query(ResumeDraftCache).filter_by(user_id=user.id).one()
     assert draft.status == "completed"
     assert draft.result["career_summary"] == "既存の結果。"

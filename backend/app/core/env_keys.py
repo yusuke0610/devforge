@@ -132,13 +132,6 @@ OLLAMA_TIMEOUT_SECONDS = "OLLAMA_TIMEOUT_SECONDS"
 # （services/agent/rate_limit.py の DEFAULT_AGENT_DAILY_LIMIT）を使う。
 AGENT_DAILY_LIMIT = "AGENT_DAILY_LIMIT"
 
-# --- 決済（Stripe Checkout / ADR-0012 Phase 2） ---
-
-# 本番（Cloud Run）では Secret Manager から注入する。ログ出力禁止
-STRIPE_SECRET_KEY = "STRIPE_SECRET_KEY"
-# Webhook 署名検証用シークレット（whsec_...）。ログ出力禁止
-STRIPE_WEBHOOK_SECRET = "STRIPE_WEBHOOK_SECRET"
-
 # --- アプリ起動制御 ---
 
 APP_BOOTSTRAPPED = "APP_BOOTSTRAPPED"

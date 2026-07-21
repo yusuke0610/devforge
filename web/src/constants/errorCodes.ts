@@ -32,10 +32,6 @@ export const ERROR_CODES = [
   "AGENT_PARSE_ERROR",
   // Agent の日次利用上限（#521 / ADR-0023）
   "AGENT_DAILY_LIMIT_EXCEEDED",
-  // 課金（プリペイドクレジット / ADR-0012）
-  "INSUFFICIENT_CREDITS",
-  // 決済（Stripe Checkout / ADR-0012 Phase 2）
-  "PAYMENT_ERROR",
   // アプリケーション全体
   "RATE_LIMITED",
   // サーバー
