@@ -137,7 +137,7 @@ description: Use when reviewing or planning refactors for the DevForge FastAPI b
 - 1ファイルに複数ドメインの知識が混ざっていないか
 - `services/` 配下が機能別サブパッケージで分けられるか
 - `repositories.py` の肥大化を package 化で抑えるべきか
-- PDF / Markdown / Intelligence / Blog のような機能境界がディレクトリ境界に反映されているか
+- PDF / Markdown / Intelligence のような機能境界がディレクトリ境界に反映されているか
 
 構成変更を提案するときは、必ず次をセットで出します。
 

@@ -84,13 +84,11 @@ libSQL は SQLite 互換で ALTER COLUMN 非対応のため、複雑なスキー
 
 - `basic_info` / `resumes` は **1ユーザー1件**
 - `career_analyses` は **複数バージョン保持可能**（分析履歴として蓄積）
-- `intelligence_cache` / `blog_summary_cache` は **1ユーザー1件**（最新結果のみ保持）
+- `intelligence_cache` は **1ユーザー1件**（最新結果のみ保持）
 - 可変長データは JSON ではなく子テーブルに正規化
   - `basic_info_qualifications`
   - `resume_experiences` / `resume_clients` / `resume_projects` / `resume_project_*`
-  - `blog_article_tags`
 - 日付は DB では `DATE` として保持
-  - 日単位: `record_date` / `birthday` / `blog_articles.published_at`
+  - 日単位: `record_date` / `birthday`
   - 月単位: 職務経歴・学歴・職歴は月初日に正規化して保存し、API では `YYYY-MM` で返却
-- `blog_articles` は `account_id` 起点で管理し、`platform` は `blog_accounts` から解決
 - 非同期タスクはステータスフィールド（`pending` / `running` / `completed` / `failed`）で管理し、フロントエンドはポーリングで結果を取得する

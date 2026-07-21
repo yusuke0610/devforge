@@ -71,9 +71,9 @@ description: Use when running a security review / vulnerability check against th
 
 「個々の行は規約に沿っているが、設計として穴がある」類を拾う。DevForge のアーキテクチャ（`.claude/rules/backend/architecture.md` / `auth-security.md`）を踏まえて以下を見る。
 
-- **オブジェクトレベル認可 / IDOR**: エンドポイントが `user_id` 境界を必ず効かせているか。`resumes` / `blog_accounts` 等のリソースを ID 直指定で取得・更新する経路で「他人のリソースを取れてしまう」穴がないか（`get_current_user` で認証だけ通して認可（所有者一致）を確認していないケースが典型）。repository のクエリに `user_id` フィルタが入っているかまで追う。
+- **オブジェクトレベル認可 / IDOR**: エンドポイントが `user_id` 境界を必ず効かせているか。`resumes` / `notifications` 等のリソースを ID 直指定で取得・更新する経路で「他人のリソースを取れてしまう」穴がないか（`get_current_user` で認証だけ通して認可（所有者一致）を確認していないケースが典型）。repository のクエリに `user_id` フィルタが入っているかまで追う。
 - **信頼境界（Trust boundary）**: Cloudflare Pages → Cloud Run の `INTERNAL_SECRET` ヘッダ検証が `routers/internal.py`（Cloud Tasks → backend）で実際に効いているか。内部 API が認証なしで外部公開されていないか。
-- **SSRF / 外部フェッチ**: `services/intelligence/github/api_client.py` や blog collector がユーザー指定の URL / リポジトリ名を使って外部へ fetch する経路で、宛先を検証せず任意 URL を叩けないか（内部メタデータエンドポイントへの到達など）。
+- **SSRF / 外部フェッチ**: `services/intelligence/github/api_client.py` がユーザー指定の URL / リポジトリ名を使って外部へ fetch する経路で、宛先を検証せず任意 URL を叩けないか（内部メタデータエンドポイントへの到達など）。
 - **OAuth フローの設計**: GitHub OAuth の `state` が backend Cookie で検証されているか（web のみ検証は不可）、`redirect_uri` が許可リスト内に固定されているか（オープンリダイレクト防止）。
 - **トークンライフサイクル**: アクセス/リフレッシュトークンの失効・ローテーション、ログアウト時の Cookie 破棄、リフレッシュトークン再利用検知の有無。
 - **マスアサインメント**: Pydantic スキーマが更新系で「ユーザーが書き換えてはいけないフィールド」（`user_id` / `role` / `is_admin` 相当 / タイムスタンプ）まで受け付けていないか。入力スキーマと DB モデルのフィールド差を確認。
@@ -182,7 +182,7 @@ description: Use when running a security review / vulnerability check against th
 
 確認・提案する観点（`.claude/rules/backend/test.md` の方針に沿い、DB はモックせず実 SQLite セッション、外部 API はモック）:
 
-- **認可（IDOR）**: ユーザー A がユーザー B のリソース（resume / blog_account / notification）を ID 直指定で取得・更新・削除 → **403 / 404 を返す**ことを assert。所有者一致を破る試みが通らないこと。
+- **認可（IDOR）**: ユーザー A がユーザー B のリソース（resume / notification）を ID 直指定で取得・更新・削除 → **403 / 404 を返す**ことを assert。所有者一致を破る試みが通らないこと。
 - **認証ガード**: トークン無し / 期限切れ / 改竄トークンで保護エンドポイントを叩く → **401**。`get_current_user` 依存の欠落を検知する。
 - **入力境界**: 過大長・型不正・想定外フィールド（マスアサインメント）を投げる → **422 / 無視**。`user_id` 上書きが効かないこと。
 - **CSRF / OAuth state**: `state` 不一致・欠落の OAuth コールバック → 拒否。CSRF トークン不正 → 拒否。

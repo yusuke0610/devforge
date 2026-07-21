@@ -32,24 +32,3 @@ def test_github_link_run_rate_limited(client: TestClient) -> None:
     finally:
         # 失敗時もグローバルな limiter 状態を後続テストへ漏らさない
         limiter.reset()
-
-
-def test_blog_sync_rate_limited(client: TestClient) -> None:
-    """POST /api/blog/accounts/{id}/sync が 10/分の上限超で 429 を返す。
-
-    存在しない account_id でも rate limit はハンドラ本体より前に評価されるため、
-    上限超過で 429 になることを検証できる。
-    """
-    headers = auth_header(client, "rl-blog-user")
-    limiter.reset()
-    statuses: list[int] = []
-    try:
-        for _ in range(13):
-            resp = client.post("/api/blog/accounts/nonexistent/sync", headers=headers)
-            statuses.append(resp.status_code)
-            if resp.status_code == 429:
-                break
-        assert 429 in statuses, f"429 が観測されなかった: {statuses}"
-    finally:
-        # 失敗時もグローバルな limiter 状態を後続テストへ漏らさない
-        limiter.reset()

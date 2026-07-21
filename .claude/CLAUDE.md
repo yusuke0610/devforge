@@ -36,7 +36,7 @@ Makefile は `nix develop --command bash -c "..."` でラップ済み。AI は�
 make に無い操作（特定ファイルだけ ruff したい等）の場合のみ使う:
 
 ```bash
-nix develop --command bash -c "cd backend && ruff check app/services/tasks/handlers/blog_summarize.py"
+nix develop --command bash -c "cd backend && ruff check app/services/tasks/handlers/github_link.py"
 nix develop --command bash -c "cd backend && python -m pytest tests/test_worker_extended.py -q"
 nix develop --command bash -c "cd web && npm run test:e2e"
 ```

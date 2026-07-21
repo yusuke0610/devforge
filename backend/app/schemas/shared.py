@@ -10,7 +10,7 @@ _HIRAGANA_PATTERN = r"^[ぁ-ゖー\s　]+$"
 class TaskStatusResponse(BaseModel):
     """非同期タスクのステータスを返す軽量レスポンス。
 
-    blog / intelligence など複数の router で共通利用される。
+    github_link など複数の router で共通利用される。
     """
 
     status: str

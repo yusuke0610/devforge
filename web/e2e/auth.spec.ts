@@ -42,9 +42,8 @@ test.describe("未認証ユーザー（お試し入力）", () => {
 
     // サイドバー: ユーザーメニュー位置にログイントリガーが表示される
     await expect(page.getByRole("button", { name: "ログイン" })).toBeVisible();
-    // GitHub連携 / ブログ連携 は表示され、押下でログイン導線になる（非活性ではない）
+    // GitHub連携 は表示され、押下でログイン導線になる（非活性ではない）
     await expect(page.getByRole("button", { name: "GitHub連携" })).toBeEnabled();
-    await expect(page.getByRole("button", { name: "ブログ連携" })).toBeEnabled();
   });
 
   test("未ログインで連携メニューを押すとログイン促進モーダルが出る", async ({ page }) => {

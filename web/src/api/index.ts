@@ -5,6 +5,5 @@ export * from "./download";
 export * from "./resumes";
 export * from "./githubLink";
 export * from "./master-data";
-export * from "./blog";
 export * from "./notifications";
 export { ApiError, isApiError, toAppError, type AppErrorState } from "../utils/appError";

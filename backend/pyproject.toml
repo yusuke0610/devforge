@@ -74,7 +74,6 @@ testpaths = ["tests"]
 [tool.mutmut]
 source_paths = ["app"]
 only_mutate = [
-    "app/services/blog/scorer.py",                        # ブログ技術記事スコアリング
     "app/services/billing/pricing.py",                    # 課金レート表
     "app/services/billing/credit_service.py",             # クレジット計算・残高
     "app/services/intelligence/skills/*",                 # スキル推論（aggregator/linguist/パーサ群）

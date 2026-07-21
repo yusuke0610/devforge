@@ -1,4 +1,4 @@
-"""context_builder の単体テスト（GitHub/ブログ参照コンテキスト構築・圧縮・degrade）。
+"""context_builder の単体テスト（GitHub 参照コンテキスト構築・圧縮・degrade）。
 
 DB はモックしない（conftest の db_session fixture で実 SQLite を使う）。
 """
@@ -7,11 +7,9 @@ from datetime import date, timedelta
 
 import pytest
 from app.models import GitHubLinkCache, User
-from app.models.blog import BlogAccount, BlogArticle, BlogArticleTag
 from app.repositories import UserRepository
 from app.services.agent.context_builder import (
     _LANGUAGES_TOP_N,
-    _RECENT_ARTICLES_N,
     build_reference_context,
 )
 
@@ -53,29 +51,6 @@ def _make_github_cache(db_session, user_id: str, *, status: str = "completed", r
     db_session.add(cache)
     db_session.commit()
     return cache
-
-
-def _make_blog_articles(db_session, user_id: str, count: int) -> list[BlogArticle]:
-    """ブログアカウントと記事を count 件作成して返す。"""
-    account = BlogAccount(user_id=user_id, platform="zenn", username="testblog")
-    db_session.add(account)
-    db_session.flush()
-    articles = []
-    for i in range(count):
-        article = BlogArticle(
-            account_id=account.id,
-            external_id=f"article-{i}",
-            title=f"技術記事 {i}",
-            url=f"https://zenn.dev/testblog/{i}",
-            likes_count=i * 2,
-        )
-        db_session.add(article)
-        db_session.flush()
-        tag = BlogArticleTag(article_id=article.id, sort_order=0, name="Python")
-        db_session.add(tag)
-        articles.append(article)
-    db_session.commit()
-    return articles
 
 
 # --- スコープゲートのテスト ---
@@ -176,80 +151,13 @@ def test_github_context_status_processing_returns_none(db_session) -> None:
     _make_github_cache(db_session, user.id, status="processing")
 
     result = build_reference_context(db_session, user.id, "career_summary")
-    # github_context が無い（blog も無い）ので None
+    # github_context が無いので None
     assert result is None
 
 
 def test_github_context_no_cache_returns_none(db_session) -> None:
     """GitHub キャッシュ未連携は github_context が省略され None になる。"""
     user = _make_user(db_session, "gh_nocache")
-
-    result = build_reference_context(db_session, user.id, "career_summary")
-    assert result is None
-
-
-# --- ブログコンテキストのテスト ---
-
-
-def test_blog_context_recent_articles_limit(db_session) -> None:
-    """記事が N 件超でも recent_articles は上位 N 件に切り詰める。"""
-    user = _make_user(db_session, "blog_limit")
-    _make_blog_articles(db_session, user.id, _RECENT_ARTICLES_N + 1)
-
-    result = build_reference_context(db_session, user.id, "career_summary")
-    assert result is not None
-    blog = result["blog_context"]
-    assert len(blog["recent_articles"]) == _RECENT_ARTICLES_N
-    assert "tech_article_count" in blog
-    assert "avg_monthly_posts" in blog
-
-
-def test_blog_context_published_at_is_iso_string(db_session) -> None:
-    """published_at が設定された記事でも例外を出さず ISO 文字列で返す（二重変換の回帰防止）。
-
-    BlogArticle.published_at は format_iso_date 済みの str を返すプロパティ。
-    以前は context_builder が `.isoformat()` を二重に呼び AttributeError で
-    ブログコンテキスト全体が degrade していた。
-    """
-    user = _make_user(db_session, "blog_pub")
-    account = BlogAccount(user_id=user.id, platform="zenn", username="blog_pub")
-    db_session.add(account)
-    db_session.flush()
-    # 1 件目は published_at あり、2 件目は None（どちらの分岐も検証する）
-    article_with_date = BlogArticle(
-        account_id=account.id,
-        external_id="with-date",
-        title="技術記事 日付あり",
-        url="https://zenn.dev/blog_pub/1",
-        likes_count=3,
-        published_at_value=date(2026, 1, 15),
-    )
-    article_without_date = BlogArticle(
-        account_id=account.id,
-        external_id="without-date",
-        title="技術記事 日付なし",
-        url="https://zenn.dev/blog_pub/2",
-        likes_count=1,
-    )
-    db_session.add_all([article_with_date, article_without_date])
-    db_session.flush()
-    db_session.add(BlogArticleTag(article_id=article_with_date.id, sort_order=0, name="Python"))
-    db_session.add(BlogArticleTag(article_id=article_without_date.id, sort_order=0, name="Python"))
-    db_session.commit()
-
-    result = build_reference_context(db_session, user.id, "career_summary")
-    assert result is not None
-    recent = result["blog_context"]["recent_articles"]
-    published_values = {a["title"]: a["published_at"] for a in recent}
-    assert published_values["技術記事 日付あり"] == "2026-01-15"
-    assert published_values["技術記事 日付なし"] is None
-
-
-def test_blog_context_no_articles_returns_none(db_session) -> None:
-    """記事 0 件は blog_context が省略され None になる。"""
-    user = _make_user(db_session, "blog_empty")
-    db_session.add(BlogAccount(user_id=user.id, platform="zenn", username="blog_empty"))
-    db_session.commit()
 
     result = build_reference_context(db_session, user.id, "career_summary")
     assert result is None
@@ -270,23 +178,5 @@ def test_github_context_db_error_degrades(db_session, monkeypatch) -> None:
 
     monkeypatch.setattr(cb, "_build_github_context", _raise)
     result = build_reference_context(db_session, user.id, "career_summary")
-    # _build_github_context が例外 → github_context は省略。blog も無いので None
+    # _build_github_context が例外 → github_context は省略。他に参照が無いので None
     assert result is None
-
-
-def test_blog_context_db_error_degrades(db_session, monkeypatch) -> None:
-    """DB 例外時は blog_context を省略して処理を継続する（degrade）。"""
-    user = _make_user(db_session, "blog_err")
-    _make_github_cache(db_session, user.id)
-
-    import app.services.agent.context_builder as cb
-
-    def _raise(*a, **kw):
-        raise RuntimeError("db error")
-
-    monkeypatch.setattr(cb, "_build_blog_context", _raise)
-    result = build_reference_context(db_session, user.id, "career_summary")
-    # blog_context が省略されるが github_context は正常なので None にはならない
-    assert result is not None
-    assert "github_context" in result
-    assert "blog_context" not in result

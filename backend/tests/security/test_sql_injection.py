@@ -47,28 +47,6 @@ class TestSQLInjection:
         assert resp.status_code in (404, 422), resp.text
 
     @pytest.mark.parametrize("payload", SQLI_PAYLOADS)
-    def test_blog_account_path_returns_404_for_sqli(
-        self, client: TestClient, db_session, payload: str
-    ) -> None:
-        """blog account_id は str 型。SQLAlchemy がパラメタライズして 404。"""
-        headers = auth_header(client, "sqli-blog-account")
-        resp = client.delete(f"/api/blog/accounts/{payload}", headers=headers)
-        assert resp.status_code != 500, resp.text
-        assert resp.status_code in (404, 422)
-        # users テーブルが破壊されていないこと
-        assert count_rows(db_session, User) >= 1
-
-    @pytest.mark.parametrize("payload", SQLI_PAYLOADS)
-    def test_blog_articles_query_filter_handles_sqli(
-        self, client: TestClient, payload: str
-    ) -> None:
-        """?platform= に SQLi を渡しても 200 + 空配列。"""
-        headers = auth_header(client, "sqli-blog-articles")
-        resp = client.get("/api/blog/articles", params={"platform": payload}, headers=headers)
-        assert resp.status_code == 200
-        assert resp.json() == []
-
-    @pytest.mark.parametrize("payload", SQLI_PAYLOADS)
     def test_notification_path_returns_404_for_sqli(
         self, client: TestClient, payload: str
     ) -> None:

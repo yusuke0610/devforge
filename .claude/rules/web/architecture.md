@@ -17,7 +17,7 @@ web/src/
 │   └── index.ts
 ├── pages/                # ルートのエントリーポイント（薄いラッパー）
 │   ├── LoginPage.tsx / GitHubCallbackPage.tsx
-│   ├── CareerPage.tsx / BlogPage.tsx
+│   ├── CareerPage.tsx
 │   ├── GitHubLinkPage.tsx
 │   └── NotFoundPage.tsx
 ├── components/
@@ -30,8 +30,7 @@ web/src/
 │   ├── forms/                   # BasicInfoForm, CareerResumeForm, ResumeForm 等
 │   ├── github-link/             # GitHubLinkDashboard, LanguageBar 等
 │   ├── auth/                    # LoginForm, RegisterForm
-│   ├── blog/                    # BlogPage
-│   ├── icons/                   # アイコンコンポーネント（Bell, Eye, Qiita, Zenn 等）
+│   ├── icons/                   # アイコンコンポーネント（Bell, Eye, GitHubMark 等）
 │   └── ui/                      # 汎用 UI（toast/（ToastProvider/useToast）, InlineSpinner, Skeleton, AsyncTaskLoading）
 ├── hooks/
 │   ├── useDocumentForm.ts       # フォーム CRUD の共通フック（loading / saving / error 管理）
@@ -42,11 +41,10 @@ web/src/
 │   ├── useAsyncTaskPage.ts      # 「キャッシュ→入力→ポーリング→結果」の phase 管理（useTaskPolling を内包）
 │   ├── useAuthSession.ts        # 認証セッション状態
 │   ├── useTheme.ts
-│   ├── blog/                    # useBlogAccountManager
 │   └── career/                  # useCareerDirty / useCareerExperienceMutators / useProjectModalForm / useProjectModalState / usePhotoUpload / useImportPanelLayout / useResumeImportAssist
 ├── api/
 │   ├── client.ts                # fetch ラッパー（Cookie 認証、401 ハンドリング）
-│   └── *.ts                     # ドメイン別 API モジュール（auth, blog, resumes, master-data, notifications, download, ai-resume, githubLink）
+│   └── *.ts                     # ドメイン別 API モジュール（auth, resumes, master-data, notifications, download, ai-resume, githubLink）
 ├── store/                       # Redux Toolkit + redux-persist
 │   ├── index.ts                 # store 構成
 │   ├── persistConfig.ts

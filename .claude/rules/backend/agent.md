@@ -27,7 +27,7 @@ backend/
 │   │   └── agent.py               # リクエスト/レスポンス Pydantic スキーマ
 │   └── services/agent/
 │       ├── chat_service.py        # コンテキスト組み立て → LLM → 検証（DB に触れない）
-│       ├── context_builder.py     # Phase 2: GitHub/ブログ参照コンテキスト取得（DB 読み取り専用）
+│       ├── context_builder.py     # Phase 2: GitHub 参照コンテキスト取得（DB 読み取り専用）
 │       ├── output_schema.py       # tool use スキーマ（機械制約の正本）
 │       ├── llm/
 │       │   ├── base.py            # LLMClient 抽象・LLMError
@@ -192,15 +192,15 @@ Agent エンドポイント自体は DB を書き換えない。この原則を�
 
 `chat_service.py` は DB に触れない。DB 読み取りは `routers/agent.py` → `context_builder.py` 経由のみとする。
 
-## GitHub/ブログ参照コンテキスト（Phase 2）
+## GitHub 参照コンテキスト（Phase 2）
 
-`career_summary` / `self_pr` スコープのみに GitHub・ブログ分析サマリーを付与する。`project` / `experience` には付与しない。
+`career_summary` / `self_pr` スコープのみに GitHub 分析サマリーを付与する。`project` / `experience` には付与しない。
 
-**付与スコープの理由**: career_summary/self_pr はキャリア全体像を表す文章であり、GitHub の言語傾向・ブログの執筆頻度は LLM が根拠として参照できる。project/experience は特定案件・企業の記述改善用途であり GitHub/ブログ情報は文脈として不適切（捏造リスク・トークン浪費）。
+**付与スコープの理由**: career_summary/self_pr はキャリア全体像を表す文章であり、GitHub の言語傾向は LLM が根拠として参照できる。project/experience は特定案件・企業の記述改善用途であり GitHub 情報は文脈として不適切（捏造リスク・トークン浪費）。
 
 **フロー**: `router → build_reference_context(db, user_id, scope) → run_agent_chat(request, reference)`
 
-**degrade 方針**: GitHub・ブログ参照データの取得失敗は `None` に degrade しチャット本体を落とさない。`build_reference_context` と各ヘルパーが独立に `try/except Exception` + `logger.warning(exc_info=True)` でラップする。例外を握りつぶさずログを残すこと。
+**degrade 方針**: GitHub 参照データの取得失敗は `None` に degrade しチャット本体を落とさない。`build_reference_context` と各ヘルパーが独立に `try/except Exception` + `logger.warning(exc_info=True)` でラップする。例外を握りつぶさずログを残すこと。
 
 **SELECT のみ**: `context_builder.py` は `commit` / `flush` / `add` を書かない。
 

@@ -73,36 +73,6 @@ class TestBoundaryValues:
         resp = client.post("/api/resumes", json=payload, headers=headers)
         assert resp.status_code == 422
 
-    def test_blog_account_username_empty_returns_422(self, client: TestClient) -> None:
-        headers = auth_header(client, "bound-blog-empty")
-        resp = client.post(
-            "/api/blog/accounts",
-            json={"platform": "zenn", "username": ""},
-            headers=headers,
-        )
-        assert resp.status_code == 422
-
-    def test_blog_account_username_over_max_length_returns_422(
-        self, client: TestClient
-    ) -> None:
-        headers = auth_header(client, "bound-blog-max")
-        resp = client.post(
-            "/api/blog/accounts",
-            json={"platform": "zenn", "username": "x" * 121},
-            headers=headers,
-        )
-        assert resp.status_code == 422
-
-    def test_blog_account_unsupported_platform_returns_422(self, client: TestClient) -> None:
-        """Literal["zenn", "note", "qiita"] 以外は Pydantic Literal で 422。"""
-        headers = auth_header(client, "bound-blog-platform")
-        resp = client.post(
-            "/api/blog/accounts",
-            json={"platform": "unknown", "username": "x"},
-            headers=headers,
-        )
-        assert resp.status_code == 422
-
     def test_master_data_name_empty_returns_422(self, client: TestClient) -> None:
         resp = client.post(
             "/api/master-data/qualification",

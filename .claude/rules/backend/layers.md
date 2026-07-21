@@ -22,47 +22,40 @@ paths:
 ### パターン A — router への外部 API 例外処理の漏れ
 
 ```python
-# Bad: router が collector を直接 import し、外部 API 例外を自前で処理している
-# routers/blog/accounts.py
-from ...services.blog.collector import (
-    BlogPlatformRequestError,
-    UnsupportedBlogPlatformError,
-    normalize_username,
-    verify_user_exists,
-)
+# Bad: router が collector（外部 API クライアント）を直接 import し、外部 API 例外を自前で処理している
+# routers/github_link.py
+from ...services.intelligence.github.api_client import GitHubUserNotFoundError
+from ...services.intelligence.github_collector import collect_repos
 
-@router.post("/accounts")
-async def add_account(body: BlogAccountCreate, ...):
+@router.post("/preview")
+async def preview_repos(body: GitHubLinkRequest, ...):
     try:
-        normalized = normalize_username(body.platform, body.username)
-    except UnsupportedBlogPlatformError as exc:
-        raise HTTPException(status_code=400, ...) from exc
-    try:
-        user_exists = await verify_user_exists(body.platform, normalized)
-    except BlogPlatformRequestError as exc:
+        repos = await collect_repos(body.username)
+    except GitHubUserNotFoundError as exc:
+        raise HTTPException(status_code=404, ...) from exc
+    except (RetryableError, NonRetryableError) as exc:
         raise HTTPException(status_code=502, ...) from exc
 ```
 
 ```python
 # Good: service 層が外部 API 例外を吸収。router は raise_app_error への変換のみ
-# services/blog/account_service.py
-async def add_account(self, platform: str, username: str) -> BlogAccount:
-    normalized = normalize_username(platform, username)        # ドメイン例外を raise
-    user_exists = await verify_user_exists(platform, normalized)  # ドメイン例外を raise
-    if not user_exists:
-        raise BlogAccountNotFoundError(...)
-    return self._account_repo.upsert(platform, normalized)
+# services/intelligence/github_link_service.py
+async def preview(self, username: str) -> GitHubLinkPreview:
+    repos = await collect_repos(username)   # GitHubUserNotFoundError / Retryable 等を raise
+    if not repos:
+        raise GitHubLinkEmptyError(...)
+    return self._to_preview(repos)
 
-# routers/blog/accounts.py
-@router.post("/accounts")
-async def add_account(body: BlogAccountCreate, ...):
-    service = BlogAccountService(db, user.id)
+# routers/github_link.py
+@router.post("/preview")
+async def preview_repos(body: GitHubLinkRequest, ...):
+    service = GitHubLinkService(db, user.id)
     try:
-        return await service.add_account(body.platform, body.username)
-    except BlogPlatformRequestError as exc:
-        raise_app_error(ErrorCode.EXTERNAL_API_ERROR, ...) from exc
-    except BlogAccountNotFoundError as exc:
+        return await service.preview(body.username)
+    except GitHubUserNotFoundError as exc:
         raise_app_error(ErrorCode.NOT_FOUND, ...) from exc
+    except GitHubLinkEmptyError as exc:
+        raise_app_error(ErrorCode.EXTERNAL_API_ERROR, ...) from exc
 ```
 
 ### パターン B — router 内への DB クエリ直書き
@@ -122,7 +115,7 @@ experience_rows: Mapped[list["ResumeExperience"]] = relationship(
 
 ## 例外変換の責務ルール
 
-- 外部 API 固有例外（`BlogPlatformRequestError` 等）は発生するモジュール（collector / fetcher 等）内で定義し、service が raise する
+- 外部 API 固有例外（`GitHubUserNotFoundError` 等）は発生するモジュール（collector / api_client 等）内で定義し、service が raise する
 - router では `raise_app_error(...)` か `HTTPException` への変換のみ行う
 - service 層は `HTTPException` を import しない。HTTP ステータスコードを service に持ち込まない
 - ドメイン例外クラスの定義場所: 例外を raise するモジュールと同じファイルに置く
