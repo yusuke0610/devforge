@@ -16,10 +16,7 @@
 | [ADR-0007](./0007-openapi-typescript-codegen.md) | OpenAPI → TypeScript 型コード生成の導入（完全移行） | 開発プロセス / 品質 | Pydantic スキーマを正本に TS 型を自動生成し、drift を CI（codegen-drift）で機械検知 |
 | [ADR-0009](./0009-frontend-toast-notification.md) | フロントエンドの一時通知をトースト方式に統一する | フロントエンド | 外部ライブラリを足さず自前 Toast 基盤（Context + Portal）に一時通知を統一 |
 | [ADR-0010](./0010-devforge-agent.md) | DevForge Agent 機能の導入 | LLM / Agent | 対話型 LLM を再導入。DB 非更新原則・スキーマ/プロンプトの責務分離・失敗の明示的エラー化 |
-| [ADR-0012](./0012-agent-model-switching-and-prepaid-billing.md) | Agent モデル切り替えとプリペイドクレジット課金 | LLM / Agent | モデルはエイリアス方式（実 ID はサーバー側 model_catalog が SSoT）+ プリペイド従量課金（Stripe） |
-| [ADR-0013](./0013-multi-provider-llm-selection.md) | マルチプロバイダ LLM（ユーザー選択式） | LLM / Agent | プロバイダをモデルエイリアスの属性に移しユーザー選択式へ。グローバル `LLM_PROVIDER` 廃止 |
 | [ADR-0014](./0014-renovate-dependency-automation.md) | Renovate による依存更新の自動化 | 開発プロセス / 品質 | 依存の完全固定（SHA / `==` ピン）を維持したまま、追従だけを Renovate で自動化 |
-| [ADR-0015](./0015-vertex-ai-for-gemini-anthropic.md) | Gemini / Anthropic を Vertex AI（SA→ADC）経由にする | LLM / Agent | API キー注入を廃止し ADC 認証へ。データ所在地（アジア圏）と学習除外を担保 |
 | [ADR-0016](./0016-github-skill-inference.md) | GitHub 連携によるスキル推論基盤 | LLM / Agent | スキルを 3 層に分離（機械=幅 / 人間=深さ）。推論パイプラインは決定論を維持 |
 | [ADR-0017](./0017-mutation-testing-and-slack-notifications.md) | ミューテーションテスト週次実行と Slack 通知チャンネル分割 | 開発プロセス / 品質 | テストの検出力を週次ミューテーションで可視化（warn-only）、CI 通知を用途別 Slack へ分割 |
 | [ADR-0018](./0018-github-resume-draft-generation.md) | GitHub 連携データからの経歴書ドラフト生成 | LLM / Agent | 構造はルールベース・自然文だけ LLM のハイブリッド。何も永続化せず PDF プレビューのみ返す |
@@ -27,6 +24,7 @@
 | [ADR-0020](./0020-async-resume-draft-generation.md) | 経歴書ドラフト生成の非同期化と最小永続化 | LLM / Agent | ドラフト生成を独立の非同期タスク化。payload だけを連携ドメインに最小永続化し DL 時に再レンダリング |
 | [ADR-0021](./0021-nix-managed-python-env.md) | backend Python 環境の Nix フルマネージド化（.venv 廃止） | 開発プロセス / 品質 | 依存 SSoT を pyproject + uv.lock に一本化し、devshell / CI / 本番イメージの 3 経路を uv2nix（flake）で統一 |
 | [ADR-0022](./0022-remove-blog-integration.md) | ブログ連携機能の撤去 | プロダクト / 機能整理 | 経歴書へ還流せずスコアが逆効果になり得るブログ連携（テーブル 3 つ・router / service / web 一式）を全量撤去 |
+| [ADR-0023](./0023-remove-billing-multiprovider.md) | プリペイド課金・マルチプロバイダの撤去と Haiku 無料一本化 | LLM / Agent | 課金の壁を撤去し Haiku 無料一本化 + ユーザ単位レート制限へ縮退。Anthropic は Vertex(ADC) 維持、Gemini/OpenAI/Stripe を撤去 |
 
 ## 全 ADR 一覧
 
@@ -46,10 +44,10 @@
 | [ADR-0009](./0009-frontend-toast-notification.md) | フロントエンドの一時通知をトースト方式に統一する | Accepted | フロントエンド | — | P6 |
 | [ADR-0010](./0010-devforge-agent.md) | DevForge Agent 機能の導入 | Accepted | LLM / Agent | Supersedes: 0008。関連: 0004（積み残しリスクを設計段階で解消）、0007 | P4・P5 |
 | [ADR-0011](./0011-frontend-textlint-proofread.md) | 職務経歴書のフロントエンド完結型 文章校正（textlint + kuromoji） | Deprecated | フロントエンド | 実装後に運用不要と判断し撤去。関連: 0008（PII 非送信・ルールベース志向） | P2 |
-| [ADR-0012](./0012-agent-model-switching-and-prepaid-billing.md) | Agent モデル切り替えとプリペイドクレジット課金 | Accepted | LLM / Agent | 関連: 0010（チャット契約）、0005（原子的 UPDATE の前提） | P1 |
-| [ADR-0013](./0013-multi-provider-llm-selection.md) | マルチプロバイダ LLM（ユーザー選択式） | Accepted | LLM / Agent | 関連: 0010（切替 1 箇所の原則を維持）、0012（課金・model_catalog） | P3 |
+| [ADR-0012](./0012-agent-model-switching-and-prepaid-billing.md) | Agent モデル切り替えとプリペイドクレジット課金 | Superseded by ADR-0023 | LLM / Agent | 0023 が課金を撤去。関連: 0010（チャット契約）、0005（原子的 UPDATE の前提） | P1 |
+| [ADR-0013](./0013-multi-provider-llm-selection.md) | マルチプロバイダ LLM（ユーザー選択式） | Superseded by ADR-0023 | LLM / Agent | 0023 がマルチプロバイダを撤去。関連: 0010、0012 | P3 |
 | [ADR-0014](./0014-renovate-dependency-automation.md) | Renovate による依存更新の自動化 | Accepted | 開発プロセス / 品質 | 関連: 0017（Actions の SHA ピン運用） | P7 |
-| [ADR-0015](./0015-vertex-ai-for-gemini-anthropic.md) | Gemini / Anthropic を Vertex AI（SA→ADC）経由にする | Accepted | LLM / Agent | 0013 の認証部分を更新。関連: 0010、0012 | P2 |
+| [ADR-0015](./0015-vertex-ai-for-gemini-anthropic.md) | Gemini / Anthropic を Vertex AI（SA→ADC）経由にする | Superseded by ADR-0023 | LLM / Agent | 0023 が Gemini/OpenAI マルチプロバイダを撤去。Anthropic の Vertex(ADC) 認証は 0023 が継承 | P2 |
 | [ADR-0016](./0016-github-skill-inference.md) | GitHub 連携によるスキル推論基盤 | Accepted | LLM / Agent | 関連: 0010（責務分離の元思想）、0013、0015 | P4 |
 | [ADR-0017](./0017-mutation-testing-and-slack-notifications.md) | ミューテーションテスト週次実行と Slack 通知チャンネル分割 | Accepted | 開発プロセス / 品質 | 関連: 0014 | P3 |
 | [ADR-0018](./0018-github-resume-draft-generation.md) | GitHub 連携データからの経歴書ドラフト生成 | Accepted | LLM / Agent | 関連: 0010（不変条件を継承し適用範囲を拡張）、0012（課金配線）、0013・0015（プロバイダ）、0016（データ供給源）、0020（非同期化・最小永続化で更新） | P4・P5 |
@@ -57,6 +55,7 @@
 | [ADR-0020](./0020-async-resume-draft-generation.md) | 経歴書ドラフト生成の非同期化と最小永続化 | Accepted | LLM / Agent | 関連: 0018（同期実装を更新）、0010（不変条件を継承）、0012（課金をタスク側へ移設）、0016（データ供給源） | P1・P4・P5 |
 | [ADR-0021](./0021-nix-managed-python-env.md) | backend Python 環境の Nix フルマネージド化（.venv 廃止） | Accepted | 開発プロセス / 品質 | 関連: 0017（uv 非管理前提を更新）、0014（依存固定・Renovate manager）、0007（Nix devshell 規約） | P7・P3・P6 |
 | [ADR-0022](./0022-remove-blog-integration.md) | ブログ連携機能の撤去 | Accepted | プロダクト / 機能整理 | 手本: 0008（撤去の流儀）。関連: 0010（Agent コンテキストの入力縮小）、0016 | P6・P1 |
+| [ADR-0023](./0023-remove-billing-multiprovider.md) | プリペイド課金・マルチプロバイダの撤去と Haiku 無料一本化 | Accepted | LLM / Agent | Supersedes: 0012・0013・0015。関連: 0010（Agent 不変条件を継承）、0018・0020（課金配線を剥がす）、0005 | P1・P6・P2 |
 
 ## テーマ別の決定系統
 
@@ -71,6 +70,9 @@ graph LR
     A0010 -.-> A0012["0012<br/>モデル切替 + 課金"]
     A0012 -.-> A0013["0013<br/>マルチプロバイダ"]
     A0013 -.-> A0015["0015<br/>Vertex AI (ADC)"]
+    A0012 -->|"撤去"| A0023["0023<br/>Haiku 無料一本化<br/>+ レート制限"]
+    A0013 -->|"撤去"| A0023
+    A0015 -->|"撤去（Anthropic Vertex は継承）"| A0023
     A0010 -.-> A0016["0016<br/>スキル推論 3 層"]
     A0010 -.-> A0018["0018<br/>経歴書ドラフト生成"]
     A0016 -.-> A0018

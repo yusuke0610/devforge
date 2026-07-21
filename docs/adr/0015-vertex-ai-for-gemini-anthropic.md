@@ -2,7 +2,7 @@
 
 ## ステータス
 
-Accepted
+Superseded by ADR-0023
 
 （ADR-0013 の認証部分「Gemini / OpenAI の API キーを Secret Manager で管理し Cloud Run に注入する」を更新する。プロバイダ抽象・モデルエイリアス・課金の仕組みは ADR-0013 を踏襲。）
 
@@ -59,3 +59,7 @@ Cloud Run の SA には `roles/aiplatform.user` が既に付与済みで、IAM �
 - `backend/app/core/{settings,env_keys}.py` / `infra/modules/cloud_run/main.tf`
 - [Claude on Vertex AI（model id 一覧）](https://platform.claude.com/docs/en/build-with-claude/claude-on-vertex-ai)
 - [Anthropic Claude models | Vertex AI](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/partner-models/claude)
+
+---
+
+2026-07-22: 機能整理（#517）でプリペイド課金・マルチプロバイダを撤去し Haiku 無料一本化 + レート制限へ縮退したため、[ADR-0023](0023-remove-billing-multiprovider.md) で Superseded とした。Gemini/OpenAI のマルチプロバイダ部分は撤去するが、**Anthropic を Vertex AI(ADC) で叩く中核判断（学習除外 + アジア圏データ所在）は ADR-0023 が継承する**。

@@ -2,7 +2,7 @@
 
 ## ステータス
 
-Accepted
+Superseded by ADR-0023
 
 ## コンテキスト
 
@@ -113,3 +113,7 @@ DevForge Agent（ADR-0010）の LLM モデルは `claude-haiku-4-5` をハード
 - `.claude/rules/backend/agent.md`（Agent 実装の不変条件）
 - Stripe Checkout: https://docs.stripe.com/payments/checkout
 - Stripe Webhook 署名検証: https://docs.stripe.com/webhooks#verify-official-libraries
+
+---
+
+2026-07-22: 機能整理（#517）でプリペイド課金・マルチプロバイダを撤去し Haiku 無料一本化 + レート制限へ縮退したため、[ADR-0023](0023-remove-billing-multiprovider.md) で Superseded とした。

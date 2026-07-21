@@ -2,7 +2,7 @@
 
 ## ステータス
 
-Accepted
+Superseded by ADR-0023
 
 ## コンテキスト
 
@@ -68,3 +68,7 @@ ADR-0010 の原則は維持する（切替キーがグローバル env → alias
 
 - ADR-0010（DevForge Agent）/ ADR-0012（モデル切り替えとプリペイド課金）
 - `backend/app/services/agent/llm/`（factory / 各 client）・`model_catalog.py`・`output_schema.py`
+
+---
+
+2026-07-22: 機能整理（#517）でプリペイド課金・マルチプロバイダを撤去し Haiku 無料一本化 + レート制限へ縮退したため、[ADR-0023](0023-remove-billing-multiprovider.md) で Superseded とした。
