@@ -26,6 +26,7 @@
 | [ADR-0019](./0019-tdd-for-logic-layer.md) | 決定論的ロジック層への TDD（テスト駆動開発）導入 | 開発プロセス / 品質 | mutation 対象と同一スコープに red→green→refactor を必須化。テスト随伴を lint-tdd で機械検証 |
 | [ADR-0020](./0020-async-resume-draft-generation.md) | 経歴書ドラフト生成の非同期化と最小永続化 | LLM / Agent | ドラフト生成を独立の非同期タスク化。payload だけを連携ドメインに最小永続化し DL 時に再レンダリング |
 | [ADR-0021](./0021-nix-managed-python-env.md) | backend Python 環境の Nix フルマネージド化（.venv 廃止） | 開発プロセス / 品質 | 依存 SSoT を pyproject + uv.lock に一本化し、devshell / CI / 本番イメージの 3 経路を uv2nix（flake）で統一 |
+| [ADR-0022](./0022-remove-blog-integration.md) | ブログ連携機能の撤去 | プロダクト / 機能整理 | 経歴書へ還流せずスコアが逆効果になり得るブログ連携（テーブル 3 つ・router / service / web 一式）を全量撤去 |
 
 ## 全 ADR 一覧
 
@@ -55,6 +56,7 @@
 | [ADR-0019](./0019-tdd-for-logic-layer.md) | 決定論的ロジック層への TDD（テスト駆動開発）導入 | Accepted | 開発プロセス / 品質 | 関連: 0017（対象スコープの正本を共有）、0007（drift の機械検知パターン） | P3・P5 |
 | [ADR-0020](./0020-async-resume-draft-generation.md) | 経歴書ドラフト生成の非同期化と最小永続化 | Accepted | LLM / Agent | 関連: 0018（同期実装を更新）、0010（不変条件を継承）、0012（課金をタスク側へ移設）、0016（データ供給源） | P1・P4・P5 |
 | [ADR-0021](./0021-nix-managed-python-env.md) | backend Python 環境の Nix フルマネージド化（.venv 廃止） | Accepted | 開発プロセス / 品質 | 関連: 0017（uv 非管理前提を更新）、0014（依存固定・Renovate manager）、0007（Nix devshell 規約） | P7・P3・P6 |
+| [ADR-0022](./0022-remove-blog-integration.md) | ブログ連携機能の撤去 | Accepted | プロダクト / 機能整理 | 手本: 0008（撤去の流儀）。関連: 0010（Agent コンテキストの入力縮小）、0016 | P6・P1 |
 
 ## テーマ別の決定系統
 
