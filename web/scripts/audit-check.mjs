@@ -14,6 +14,9 @@
 //   ここに無い High / Critical advisory が新たに出た場合は従来どおり CI を落とす。
 //   allowlist は「個別の GHSA を理由付きで明示許容する」ためだけに使う。
 //   `--force` での一括無視はしない（.claude/rules/security.md）。
+//   reviewBy は "YYYY-MM-DD (説明)" 形式で必須。**期限は機械的に強制**され、
+//   期限切れ・不正日付のエントリは fail-closed（CI を落とす）。見直し忘れによる
+//   恒久的な握り潰しを防ぐため、期限を延ばすか脆弱パッケージ更新で対応する。
 
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -102,12 +105,48 @@ for (const vuln of Object.values(audit.vulnerabilities ?? {})) {
   }
 }
 
+// reviewBy 文字列（"YYYY-MM-DD (説明)" 形式）の先頭から UTC 日付を取り出す。
+// 先頭が YYYY-MM-DD で始まらない、または暦上あり得ない日付なら null を返す。
+function parseReviewByDate(reviewBy) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})\b/.exec((reviewBy ?? "").trim());
+  if (!m) return null;
+  const [, y, mo, d] = m.map(Number);
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  // ロールオーバー（例: 2026-13-40）を弾く。構築後に同じ y/m/d へ戻るかで妥当性を判定。
+  if (
+    date.getUTCFullYear() !== y ||
+    date.getUTCMonth() !== mo - 1 ||
+    date.getUTCDate() !== d
+  ) {
+    return null;
+  }
+  return date;
+}
+
+// 実行時刻の UTC 日付（0 時）。reviewBy 期限との比較に使う。
+const todayUtc = new Date();
+todayUtc.setUTCHours(0, 0, 0, 0);
+
 const blocking = [];
 const allowed = [];
+const expired = []; // allowlist にあるが reviewBy 期限切れ・不正で fail-closed するもの
 for (const adv of advisories.values()) {
   if (!BLOCKING_SEVERITIES.has(adv.severity)) continue; // high/critical のみゲート対象
-  if (ALLOWLIST[adv.id]) allowed.push(adv);
-  else blocking.push(adv);
+  const meta = ALLOWLIST[adv.id];
+  if (!meta) {
+    blocking.push(adv);
+    continue;
+  }
+  // allowlist は reviewBy 期限内のみ有効。期限切れ・不正日付は「見直し忘れ」による
+  // 恒久的な握り潰しを防ぐため fail-closed（ブロック扱い）にする。
+  const reviewByDate = parseReviewByDate(meta.reviewBy);
+  if (reviewByDate === null) {
+    expired.push({ adv, reason: `reviewBy が不正（YYYY-MM-DD で始まらない）: ${meta.reviewBy}` });
+  } else if (reviewByDate < todayUtc) {
+    expired.push({ adv, reason: `reviewBy (${meta.reviewBy}) の期限を過ぎている` });
+  } else {
+    allowed.push(adv);
+  }
 }
 
 if (allowed.length > 0) {
@@ -120,6 +159,14 @@ if (allowed.length > 0) {
   }
 }
 
+if (expired.length > 0) {
+  console.error("\nallowlist の期限切れ/不正エントリを検出しました（fail-closed）:");
+  for (const { adv, reason } of expired) {
+    console.error(`  - ${adv.id} [${adv.severity}] ${adv.title}`);
+    console.error(`    ${reason}。エントリを見直す（期限延長 or 削除）か脆弱パッケージを更新してください。`);
+  }
+}
+
 if (blocking.length > 0) {
   console.error("\n未許容の High/Critical advisory を検出しました:");
   for (const adv of blocking) {
@@ -129,6 +176,9 @@ if (blocking.length > 0) {
   console.error(
     "\nallowlist で無視せず、脆弱なパッケージを更新してください (.claude/rules/security.md)。",
   );
+}
+
+if (blocking.length > 0 || expired.length > 0) {
   process.exit(1);
 }
 
