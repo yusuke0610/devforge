@@ -162,26 +162,3 @@ export type ExperienceTarget = Schemas["ExperienceTarget"];
 
 /** 選択可能な LLM モデルのエイリアス。backend `schemas/agent.py:AgentModelAlias`（ADR-0012）。 */
 export type AgentModelAlias = NonNullable<AgentChatRequest["model"]>;
-
-// ── 課金（billing.py / ADR-0012）─────────────────────────────────────────
-
-/** クレジット残高。backend `schemas/billing.py:CreditBalanceResponse`。 */
-export type CreditBalanceResponse = Schemas["CreditBalanceResponse"];
-
-/** クレジット台帳エントリ。backend `schemas/billing.py:CreditTransactionResponse`。 */
-export type CreditTransactionResponse = Schemas["CreditTransactionResponse"];
-
-/** モデル別の使用量サマリ。backend `schemas/billing.py:AgentUsageSummaryEntry`。 */
-export type AgentUsageSummaryEntry = Schemas["AgentUsageSummaryEntry"];
-
-/** 購入可能なクレジットパック。backend `schemas/billing.py:CreditPackResponse`。 */
-export type CreditPackResponse = Schemas["CreditPackResponse"];
-
-/** モデル別の標準消費レート（回数目安用）。backend `schemas/billing.py:ModelRateEntry`。 */
-export type ModelRateEntry = Schemas["ModelRateEntry"];
-
-/** クレジット購入の Checkout セッション作成リクエスト。backend `schemas/billing.py:CheckoutSessionRequest`。 */
-export type CheckoutSessionRequest = Schemas["CheckoutSessionRequest"];
-
-/** Stripe Checkout 決済ページの URL。backend `schemas/billing.py:CheckoutSessionResponse`。 */
-export type CheckoutSessionResponse = Schemas["CheckoutSessionResponse"];

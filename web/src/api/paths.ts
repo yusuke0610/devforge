@@ -33,14 +33,6 @@ export const PATHS = {
     resumeDraftStatus: "/api/agent/resume-draft/status",
     resumeDraftPdf: "/api/agent/resume-draft/pdf",
   },
-  billing: {
-    balance: "/api/billing/balance",
-    transactions: "/api/billing/transactions",
-    usageSummary: "/api/billing/usage-summary",
-    packs: "/api/billing/packs",
-    modelRates: "/api/billing/model-rates",
-    checkout: "/api/billing/checkout",
-  },
   resumes: {
     base: "/api/resumes",
     latest: "/api/resumes/latest",

@@ -14,9 +14,6 @@ locals {
     # （least privilege）。apply で当該シークレットが destroy される点に注意。
     # OpenAI のみ GCP に存在せず API キーを継続使用（注入は enable_extra_llm_providers が true の環境のみ）
     "openai-api-key",
-    # 決済（Stripe Checkout / ADR-0012 Phase 2）の API キーと Webhook 署名シークレット
-    "stripe-secret-key",
-    "stripe-webhook-secret",
     # 棚卸し TODO: "field-encryption-key"（FIELD_ENCRYPTION_KEY / Fernet 鍵）は
     # このリストから除外し対応する Secret Manager シークレットを削除すること。
     # 削除前に全環境（dev/stg/prod）の Cloud Run 設定から環境変数を外すこと。
@@ -28,8 +25,6 @@ locals {
     JWT_PUBLIC_KEY        = "jwt-public-key"
     INTERNAL_SECRET       = "internal-secret"
     TURSO_AUTH_TOKEN      = "turso-auth-token"
-    STRIPE_SECRET_KEY     = "stripe-secret-key"
-    STRIPE_WEBHOOK_SECRET = "stripe-webhook-secret"
   }
   github_secret_env = var.enable_github_oauth ? {
     GITHUB_CLIENT_ID     = "github-client-id"

@@ -43,7 +43,7 @@ class OllamaClient(LLMClient):
         """Ollama /api/chat に JSON Schema 形式の format を付与して呼び出し、応答テキストを返す。
 
         model_id（Anthropic 用の実モデル ID）は使わず、ローカル設定（OLLAMA_MODEL）の
-        モデルを使う。トークン使用量は返せないため 0 とする（ローカルは無料扱い / ADR-0012）。
+        モデルを使う。トークン使用量は返せないため 0 とする（ローカルは無料扱い）。
         """
         payload = {
             "model": self._model,

@@ -52,9 +52,6 @@ services:
       OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS}
       # Agent の日次利用上限（#521 / ADR-0023）。未設定なら backend 既定値（50）
       AGENT_DAILY_LIMIT: ${AGENT_DAILY_LIMIT}
-      # 決済（Stripe Checkout / ADR-0012 Phase 2）。未設定なら購入機能は無効
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
       LOG_LEVEL: ${LOG_LEVEL}
       LOG_FORMAT: ${LOG_FORMAT}
       APP_VERSION: ${APP_VERSION}

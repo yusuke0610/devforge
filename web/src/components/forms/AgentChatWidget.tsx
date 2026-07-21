@@ -13,11 +13,9 @@ import type { ExperienceTarget, ProjectTarget } from "../../api/types";
 import { AGENT_MESSAGES } from "../../constants/messages";
 import { useAgentChat, type AgentChatEntry } from "../../hooks/career/useAgentChat";
 import { useAppSelector } from "../../store";
-import { useCreditBalanceContext } from "../billing/creditBalanceContext";
 import type { CareerFormState } from "../../payloadBuilders";
 import { useMessageToast, useToast } from "../ui/toast";
 import { applyAgentOperations, type AgentScope } from "../../utils/agentOperations";
-import { getModelOption } from "../../constants/agentModels";
 import styles from "./AgentChatWidget.module.css";
 
 type Props = {
@@ -107,12 +105,7 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
   /** ドラッグでリサイズされた寸法。null の間は CSS のデフォルトサイズに従う */
   const [panelSize, setPanelSize] = useState<{ width: number; height: number } | null>(null);
   const { entries, sending, error, send, markApplied, clearError } = useAgentChat();
-  // モデル・残高はともにサイドバーで表示・切り替えする（ADR-0012）。ウィジェットは
-  // 有料モデル消費後にサイドバーの残高を最新化するため refresh のみ利用する
-  // 有料判定の正本は agentModels.ts の isPaid（sonnet / gpt / gemini-pro）。
-  // ここでハードコードすると ADR-0013 のマルチプロバイダ追加でドリフトするため getModelOption に委ねる。
-  const isPaidModel = getModelOption(model).isPaid;
-  const { refresh: refreshBalance } = useCreditBalanceContext();
+  // モデルはサイドバーで表示・切り替えする。abuse 防止は日次レート制限（ADR-0023 で課金撤去）。
   const { showSuccess } = useToast();
   useMessageToast(error, "error");
 
@@ -146,20 +139,8 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
   const handleSend = () => {
     if (!canSend) return;
     clearError();
-    void sendAndRefreshBalance(scope, getTarget(), prompt.trim());
+    void send(form, scope, getTarget(), prompt.trim(), model);
     setPrompt("");
-  };
-
-  /** 送信後、有料モデルなら残高を最新化する（消費は実トークン量で事後確定するため）。 */
-  const sendAndRefreshBalance = async (
-    sendScope: AgentScope,
-    target: ProjectTarget | ExperienceTarget | null,
-    text: string,
-  ) => {
-    await send(form, sendScope, target, text, model);
-    if (isPaidModel) {
-      void refreshBalance();
-    }
   };
 
   // パネル左上のハンドルをドラッグしてリサイズする。パネルは右下固定なので
@@ -306,7 +287,7 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
                 onSelect={(suggestion) => {
                   if (sending) return;
                   clearError();
-                  void sendAndRefreshBalance(entry.scope, entry.target, suggestion);
+                  void send(form, entry.scope, entry.target, suggestion, model);
                 }}
               />
             )}

@@ -104,13 +104,6 @@ def test_resume_draft_run_requires_github_login(client: TestClient) -> None:
     assert res.status_code == 403
 
 
-def test_resume_draft_run_requires_credits_for_paid_model(client: TestClient) -> None:
-    """有料モデルは残高 0 だと enqueue 前に 402。"""
-    headers = auth_header(client, github_id=1)
-    res = client.post("/api/agent/resume-draft/run", json={"model": "sonnet"}, headers=headers)
-    assert res.status_code == 402
-
-
 def test_resume_draft_run_conflict_without_link_cache(client: TestClient) -> None:
     """連携未実行は 409（GitHub 連携の実行を促す）。"""
     headers = auth_header(client, github_id=1)

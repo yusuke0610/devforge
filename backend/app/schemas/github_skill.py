@@ -99,7 +99,7 @@ class SkillDisplayProposeRequest(BaseModel):
     提案対象スキルはサーバーが連携結果から決めるため、クライアントは使用モデルのみ指定する。
     """
 
-    # 使用モデル。既定は無料枠の haiku（課金契約はチャットと共通 / ADR-0012）
+    # 使用モデル。既定は haiku（ADR-0023 で課金撤去済み・全モデル無料）
     model: AgentModelAlias = "haiku"
 
 

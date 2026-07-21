@@ -68,7 +68,7 @@ class GoogleClient(LLMClient):
             raise wrap_api_error("Google", exc) from exc
 
         text = require_text("Google", response.text)
-        # usage はクレジット課金（ADR-0012）の根拠となるため実測値をそのまま返す
+        # usage は観測用（トークン計上）のため実測値をそのまま返す
         usage = response.usage_metadata
         return LLMResult(
             text=text,
