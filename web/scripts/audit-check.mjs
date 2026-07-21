@@ -24,6 +24,15 @@ const frontendDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // 許容する advisory。GHSA ID をキーに、理由と見直し期限を残す。
 // 恒久対応 (vite 8 / Rolldown 移行) 完了時にエントリを削除すること。
 const ALLOWLIST = {
+  "GHSA-52cp-r559-cp3m": {
+    reason:
+      "js-yaml の YAML merge-key チェーンによる二次的 CPU 消費 (DoS)。" +
+      "openapi-typescript(dev 依存) → @redocly/openapi-core 経由の推移的依存で、" +
+      "自前 backend の OpenAPI スキーマ (信頼済み) を codegen する時だけ使用。" +
+      "本番バンドル非到達・攻撃者制御の YAML を parse しない。@redocly/openapi-core は" +
+      "全バージョンが脆弱な js-yaml に依存し npm audit fix でも解消不可のため時限的に許容。",
+    reviewBy: "2026-09-30 (openapi-typescript / @redocly の js-yaml>4.2.0 対応を待つ)",
+  },
   "GHSA-gv7w-rqvm-qjhr": {
     reason:
       "esbuild の Deno モジュール install-time RCE (NPM_CONFIG_REGISTRY 経由)。" +
