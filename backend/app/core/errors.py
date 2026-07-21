@@ -37,6 +37,8 @@ class ErrorCode(str, Enum):
     # Agent（LLM チャット / ADR-0010）
     AGENT_LLM_ERROR = "AGENT_LLM_ERROR"
     AGENT_PARSE_ERROR = "AGENT_PARSE_ERROR"
+    # Agent の日次利用上限（#521 / ADR-0023）
+    AGENT_DAILY_LIMIT_EXCEEDED = "AGENT_DAILY_LIMIT_EXCEEDED"
     # 課金（プリペイドクレジット / ADR-0012）
     INSUFFICIENT_CREDITS = "INSUFFICIENT_CREDITS"
     # 決済（Stripe Checkout / ADR-0012 Phase 2）

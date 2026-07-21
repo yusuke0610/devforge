@@ -47,6 +47,10 @@ export const ERROR_CONFIG: Record<
     message: "AI の応答を解釈できませんでした",
     recovery: { label: "もう一度試す", fn: null },
   },
+  AGENT_DAILY_LIMIT_EXCEEDED: {
+    message: "本日の AI 利用回数の上限に達しました",
+    recovery: null,
+  },
   INSUFFICIENT_CREDITS: {
     // fn は null（自動切替はしない）。ユーザー自身がモデル選択で切り替える手動アクション
     message: "クレジット残高が不足しています",

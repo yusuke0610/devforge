@@ -1,5 +1,6 @@
 """SQLAlchemy モデル。"""
 
+from .agent_usage import AgentDailyUsage
 from .billing import AgentUsageLog, CreditTransaction
 from .cache import GitHubLinkCache, ResumeDraftCache
 from .master_data import MQualification, MTechnologyStack
@@ -24,6 +25,7 @@ from .skill import (
 from .user import User
 
 __all__ = [
+    "AgentDailyUsage",
     "AgentUsageLog",
     "CreditTransaction",
     "GitHubLinkCache",

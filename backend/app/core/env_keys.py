@@ -127,6 +127,11 @@ OLLAMA_MODEL = "OLLAMA_MODEL"
 # ローカル Ollama 呼び出しの HTTP タイムアウト秒数（既定 300。ローカル開発専用）
 OLLAMA_TIMEOUT_SECONDS = "OLLAMA_TIMEOUT_SECONDS"
 
+# Agent エンドポイントのユーザ単位日次リクエスト上限（#521 / ADR-0023）。
+# プリペイド課金の残高チェックに代わる abuse 防止。未設定時は既定値
+# （services/agent/rate_limit.py の DEFAULT_AGENT_DAILY_LIMIT）を使う。
+AGENT_DAILY_LIMIT = "AGENT_DAILY_LIMIT"
+
 # --- 決済（Stripe Checkout / ADR-0012 Phase 2） ---
 
 # 本番（Cloud Run）では Secret Manager から注入する。ログ出力禁止

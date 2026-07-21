@@ -74,6 +74,7 @@ testpaths = ["tests"]
 [tool.mutmut]
 source_paths = ["app"]
 only_mutate = [
+    "app/services/agent/rate_limit.py",                   # Agent 日次レート制限判定（#521）
     "app/services/billing/pricing.py",                    # 課金レート表
     "app/services/billing/credit_service.py",             # クレジット計算・残高
     "app/services/intelligence/skills/*",                 # スキル推論（aggregator/linguist/パーサ群）

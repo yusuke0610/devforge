@@ -28,6 +28,7 @@ from ..services.agent.chat_service import (
 )
 from ..services.agent.context_builder import build_reference_context
 from ..services.agent.llm.base import LLMError
+from ..services.agent.rate_limit import AgentRateLimitExceededError, enforce_daily_limit
 from ..services.agent.resume_draft.context import (
     ResumeDraftNoRepositoriesError,
     ResumeDraftSourceUnavailableError,
@@ -42,6 +43,24 @@ from .download_utils import stream_pdf
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
+
+
+def _enforce_agent_daily_limit(db: Session, user_id: str) -> None:
+    """Agent の日次利用上限を確認する（#521 / ADR-0023）。
+
+    プリペイド課金（残高）に代わる abuse 防止。今日（JST）のカウントを原子的に増やし、
+    上限超過なら 429 を返す。拒否時もカウントは確定させ、連続試行を含めて数える。
+    """
+    try:
+        enforce_daily_limit(db, user_id)
+        db.commit()
+    except AgentRateLimitExceededError:
+        db.commit()
+        raise_app_error(
+            status_code=429,
+            code=ErrorCode.AGENT_DAILY_LIMIT_EXCEEDED,
+            message=get_error("agent.daily_limit_exceeded"),
+        )
 
 
 def _record_usage_after_llm(
@@ -66,6 +85,8 @@ async def agent_chat(
     （クレジット消費・使用ログの記録は除く / ADR-0012）。
     ユーザーが確認して「適用」した時点で既存の保存 API が呼ばれる。
     """
+    # 日次利用上限（abuse 防止 / #521・ADR-0023）を LLM 呼び出し前に確認する
+    _enforce_agent_daily_limit(db, user.id)
     # 有料モデル（sonnet）は LLM を呼ぶ前に残高をチェックする。実コストは応答後に
     # 確定するため事後減算とし、チェック通過後の負残高は許容する（ADR-0012）
     try:
@@ -136,6 +157,8 @@ async def start_resume_draft(
     確定した職務経歴書（``resumes``）とは別物で、そちらには書き込まない。
     課金は生成タスク側で確定する（残高の事前チェックのみ本エンドポイントで行う / ADR-0012）。
     """
+    # 日次利用上限（abuse 防止 / #521・ADR-0023）を生成開始前に確認する
+    _enforce_agent_daily_limit(db, user.id)
     # 有料モデルは生成を開始する前に残高をチェックする（チャットと同一契約 / ADR-0012）
     try:
         credit_service.ensure_can_use_model(db, user.id, body.model)

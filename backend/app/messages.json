@@ -63,6 +63,7 @@
     "agent": {
       "llm_failed": "AI の応答取得に失敗しました。しばらくしてからもう一度お試しください。",
       "parse_failed": "AI の応答を解釈できませんでした。もう一度お試しください。",
+      "daily_limit_exceeded": "本日の AI 利用回数の上限に達しました。明日また利用できます。",
       "target_required": "このスコープでは対象の指定が必要です。",
       "target_not_found": "指定された対象が見つかりません。",
       "draft_link_required": "経歴書ドラフトの生成に必要な GitHub 連携データがありません。GitHub 連携を実行してから再度お試しください。",
