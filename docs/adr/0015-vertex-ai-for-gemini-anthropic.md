@@ -62,4 +62,4 @@ Cloud Run の SA には `roles/aiplatform.user` が既に付与済みで、IAM �
 
 ---
 
-2026-07-22: 機能整理（#517）でプリペイド課金・マルチプロバイダを撤去し Haiku 無料一本化 + レート制限へ縮退したため、[ADR-0023](0023-remove-billing-multiprovider.md) で Superseded とした。Gemini/OpenAI のマルチプロバイダ部分は撤去するが、**Anthropic を Vertex AI(ADC) で叩く中核判断（学習除外 + アジア圏データ所在）は ADR-0023 が継承する**。
+2026-07-21: 機能整理（#517）でプリペイド課金・マルチプロバイダを撤去し Haiku 無料一本化 + レート制限へ縮退したため、[ADR-0023](0023-remove-billing-multiprovider.md) で Superseded とした。Gemini/OpenAI のマルチプロバイダ部分は撤去するが、**Anthropic を Vertex AI(ADC) で叩く中核判断（学習除外 + アジア圏データ所在）は ADR-0023 が継承する**。

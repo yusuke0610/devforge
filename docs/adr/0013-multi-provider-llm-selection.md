@@ -71,4 +71,4 @@ ADR-0010 の原則は維持する（切替キーがグローバル env → alias
 
 ---
 
-2026-07-22: 機能整理（#517）でプリペイド課金・マルチプロバイダを撤去し Haiku 無料一本化 + レート制限へ縮退したため、[ADR-0023](0023-remove-billing-multiprovider.md) で Superseded とした。
+2026-07-21: 機能整理（#517）でプリペイド課金・マルチプロバイダを撤去し Haiku 無料一本化 + レート制限へ縮退したため、[ADR-0023](0023-remove-billing-multiprovider.md) で Superseded とした。
