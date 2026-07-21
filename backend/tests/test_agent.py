@@ -144,6 +144,27 @@ def _llm_json(field: str, value: str, message: str = "改善案です。") -> st
     )
 
 
+def test_chat_daily_rate_limit_returns_429(client: TestClient, monkeypatch) -> None:
+    """日次上限（#521）: 上限到達後の /agent/chat は 429 + AGENT_DAILY_LIMIT_EXCEEDED を返す。"""
+    from app.core import env_keys
+
+    monkeypatch.setenv(env_keys.AGENT_DAILY_LIMIT, "1")
+    _mock_llm(monkeypatch, response=_llm_json("career_summary", "改善された職務要約。"))
+    headers = auth_header(client, "rate-limited-user")
+    payload = {
+        "scope": "career_summary",
+        "prompt": "職務要約を改善してください",
+        "resume": _resume_payload(),
+    }
+
+    first = client.post("/api/agent/chat", json=payload, headers=headers)
+    assert first.status_code == 200
+
+    second = client.post("/api/agent/chat", json=payload, headers=headers)
+    assert second.status_code == 429
+    assert second.json()["code"] == "AGENT_DAILY_LIMIT_EXCEEDED"
+
+
 def test_chat_career_summary_success(client: TestClient, monkeypatch) -> None:
     """正常系: career_summary スコープで operations が返る。"""
     _mock_llm(monkeypatch, response=_llm_json("career_summary", "改善された職務要約。"))

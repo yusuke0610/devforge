@@ -136,6 +136,7 @@ REST API エンドポイント一覧と、バックエンド／フロントエ�
 | `OLLAMA_BASE_URL` | ローカル Ollama のベース URL（既定: `http://localhost:11434`） |
 | `OLLAMA_MODEL` | ローカル Ollama のモデル名（既定: `llama3.2`） |
 | `OLLAMA_TIMEOUT_SECONDS` | ローカル Ollama 呼び出しの HTTP タイムアウト秒数（既定: `300`） |
+| `AGENT_DAILY_LIMIT` | Agent エンドポイント（`/agent/chat`・`/agent/resume-draft/run`）のユーザ単位日次リクエスト上限（#521・ADR-0023。未設定時の既定: `50`）。本番は未設定＝既定値で運用 |
 
 ### 決済（Stripe Checkout / ADR-0012 Phase 2）
 
