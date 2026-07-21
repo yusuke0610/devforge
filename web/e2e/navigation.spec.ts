@@ -21,7 +21,6 @@ test.describe("認証済みユーザーのナビゲーション", () => {
     await expect(
       page.getByRole("link", { name: "GitHub連携", exact: true }),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "ブログ連携" })).toBeVisible();
   });
 
   test("通知ベルがサイドバーに表示される", async ({ page }) => {
@@ -34,7 +33,7 @@ test.describe("認証済みユーザーのナビゲーション", () => {
     await page.goto("/career");
     await waitForAuthenticatedLayout(page);
 
-    await page.getByRole("link", { name: "ブログ連携" }).click();
-    await expect(page).toHaveURL(/\/blog/);
+    await page.getByRole("link", { name: "GitHub連携", exact: true }).click();
+    await expect(page).toHaveURL(/\/github_link/);
   });
 });

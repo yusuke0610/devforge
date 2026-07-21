@@ -14,7 +14,6 @@ severity フィールドにより Cloud Logging のログレベルとして自�
   status      : str  - "running" | "completed" | "failed"
   duration_ms : int  - 処理時間（ミリ秒）
   operation   : str  - 計測対象の操作名（metrics.py が付与）
-  platform    : str  - "qiita" | "zenn" | "note" 等
   error_type  : str  - 例外クラス名
   http_status : int  - HTTP ステータスコード
   error_id    : str  - エラー追跡 ID
@@ -47,7 +46,6 @@ _STRUCTURED_KEYS = frozenset(
         "status",
         "duration_ms",
         "operation",
-        "platform",
         "model",
         "error_type",
         "http_status",

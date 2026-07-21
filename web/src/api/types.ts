@@ -126,14 +126,6 @@ export type MasterItem = Schemas["MasterItem"];
 /** 技術スタックマスタ項目。backend `schemas/master_data.py:TechStackMasterItem`。 */
 export type TechStackMasterItem = Schemas["TechStackMasterItem"];
 
-// ── ブログ連携（blog.py）──────────────────────────────────────────────────
-
-/** ブログ連携アカウント。backend `schemas/blog.py:BlogAccountResponse`。 */
-export type BlogAccountResponse = Schemas["BlogAccountResponse"];
-
-/** ブログ記事。backend `schemas/blog.py:BlogArticleResponse`。 */
-export type BlogArticleResponse = Schemas["BlogArticleResponse"];
-
 // ── 通知（routers/notifications.py）───────────────────────────────────────
 
 /** 通知 1 件。backend `routers/notifications.py:NotificationResponse`。 */

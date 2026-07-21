@@ -6,7 +6,7 @@ import { useToast, type ToastVariant } from "./toastContext";
 /**
  * 文字列メッセージの state を監視し、非 null になるたびトーストを出す表示層ブリッジ。
  *
- * 各フック（useDocumentForm / usePdfActions / useBlogAccountManager 等）は従来通り
+ * 各フック（useDocumentForm / usePdfActions 等）は従来通り
  * error / success 文字列を保持し続ける。本ブリッジはそれをトーストへ橋渡しするだけの薄いアダプタで、
  * フック側を Provider に依存させずユニットテスト可能なまま保つ。
  *

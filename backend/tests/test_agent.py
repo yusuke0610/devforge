@@ -821,7 +821,7 @@ def test_parse_response_experience_discards_over_limit() -> None:
     assert result.operations[0].field == "description"
 
 
-# --- Phase 2: GitHub/ブログ参照コンテキスト連携のテスト ---
+# --- Phase 2: GitHub 参照コンテキスト連携のテスト ---
 
 
 def _github_cache_result(languages: dict | None = None, calendars: list | None = None) -> dict:
@@ -844,15 +844,14 @@ def _github_cache_result(languages: dict | None = None, calendars: list | None =
     }
 
 
-def test_chat_career_summary_includes_github_and_blog_context(
+def test_chat_career_summary_includes_github_context(
     client: TestClient, monkeypatch, db_session
 ) -> None:
-    """Phase 2: career_summary スコープのプロンプトに github_context / blog_context が含まれる。"""
+    """Phase 2: career_summary スコープのプロンプトに github_context が含まれる。"""
     from app.models import GitHubLinkCache
-    from app.models.blog import BlogAccount, BlogArticle
     from app.repositories import UserRepository
 
-    # ユーザーを作成し、GitHubLinkCache と BlogArticle を投入する
+    # ユーザーを作成し、GitHubLinkCache を投入する
     repo = UserRepository(db_session)
     if not repo.get_by_username("ctxuser"):
         repo.create("ctxuser", email="ctxuser@example.com")
@@ -866,18 +865,6 @@ def test_chat_career_summary_includes_github_and_blog_context(
         result=_github_cache_result(),
     )
     db_session.add(cache)
-
-    account = BlogAccount(user_id=user.id, platform="zenn", username="ctxuser")
-    db_session.add(account)
-    db_session.flush()
-    article = BlogArticle(
-        account_id=account.id,
-        external_id="a1",
-        title="Pythonの非同期処理入門",
-        url="https://zenn.dev/ctxuser/a1",
-        likes_count=10,
-    )
-    db_session.add(article)
     db_session.commit()
 
     fake = _mock_llm(monkeypatch, response=_llm_json("career_summary", "改善版"))
@@ -895,13 +882,12 @@ def test_chat_career_summary_includes_github_and_blog_context(
     assert fake.received_messages is not None
     user_prompt = fake.received_messages[-1]["content"]
     assert "github_context" in user_prompt
-    assert "blog_context" in user_prompt
 
 
 def test_chat_project_scope_has_no_reference_context(
     client: TestClient, monkeypatch, db_session
 ) -> None:
-    """Phase 2: project スコープのプロンプトには github/blog コンテキストが付与されない。"""
+    """Phase 2: project スコープのプロンプトには github コンテキストが付与されない。"""
     from app.models import GitHubLinkCache
     from app.repositories import UserRepository
 
@@ -936,7 +922,6 @@ def test_chat_project_scope_has_no_reference_context(
     assert fake.received_messages is not None
     user_prompt = fake.received_messages[-1]["content"]
     assert "github_context" not in user_prompt
-    assert "blog_context" not in user_prompt
 
 
 def test_chat_no_github_cache_still_returns_200(client: TestClient, monkeypatch) -> None:

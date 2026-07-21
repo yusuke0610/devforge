@@ -1,7 +1,7 @@
 """DevForge Agent（LLM チャット）エンドポイント（ADR-0010）。
 
 外部 LLM API を呼ぶ高コスト endpoint のため rate limit を付与する。
-career_summary / self_pr スコープでは GitHub/ブログ分析サマリーを参照情報として付与する（DB は読み取りのみ）。
+career_summary / self_pr スコープでは GitHub 分析サマリーを参照情報として付与する（DB は読み取りのみ）。
 Agent のレスポンス（operations）はフロントの state にのみ適用され、DB は更新しない。
 """
 
@@ -61,7 +61,7 @@ async def agent_chat(
 ) -> AgentChatResponse:
     """選択スコープの内容とプロンプトをもとに、職務経歴書への差分 operations を返す。
 
-    career_summary / self_pr スコープでは GitHub・ブログ分析サマリーを参照情報として付与する。
+    career_summary / self_pr スコープでは GitHub 分析サマリーを参照情報として付与する。
     レスポンスはフロントの state にのみ適用され、DB は更新しない
     （クレジット消費・使用ログの記録は除く / ADR-0012）。
     ユーザーが確認して「適用」した時点で既存の保存 API が呼ばれる。

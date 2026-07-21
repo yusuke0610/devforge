@@ -4,10 +4,7 @@ user A のリソースが user B からは見えない・操作できないこ�
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
-
 from app.models import (
-    BlogAccount,
     GitHubLinkCache,
     Notification,
     Resume,
@@ -71,59 +68,6 @@ class TestIDOR:
         assert user_a is not None
         remaining = db_session.scalar(select(Resume).where(Resume.user_id == user_a.id))
         assert remaining is not None
-
-    def test_blog_account_delete_does_not_touch_other_user_data(
-        self, client: TestClient, db_session
-    ) -> None:
-        user_a = ensure_user(db_session, "idor-blog-del-a")
-        account = BlogAccount(user_id=user_a.id, platform="zenn", username="user-a")
-        db_session.add(account)
-        db_session.commit()
-        account_id = account.id
-        headers_b = auth_header(client, "idor-blog-del-b")
-        resp = client.delete(f"/api/blog/accounts/{account_id}", headers=headers_b)
-        assert resp.status_code == 404
-        remaining = db_session.scalar(select(BlogAccount).where(BlogAccount.id == account_id))
-        assert remaining is not None
-
-    def test_blog_account_patch_does_not_touch_other_user_data(
-        self, client: TestClient, db_session
-    ) -> None:
-        user_a = ensure_user(db_session, "idor-blog-patch-a")
-        account = BlogAccount(user_id=user_a.id, platform="qiita", username="user-a")
-        db_session.add(account)
-        db_session.commit()
-        headers_b = auth_header(client, "idor-blog-patch-b")
-        # 早期 404 のため verify_user_exists には到達しないが、念のためモック
-        with patch(
-            "app.services.blog.account_service.verify_user_exists",
-            new_callable=AsyncMock,
-            return_value=True,
-        ):
-            resp = client.patch(
-                "/api/blog/accounts/qiita",
-                json={"username": "intruder"},
-                headers=headers_b,
-            )
-        assert resp.status_code == 404
-        unchanged = db_session.scalar(
-            select(BlogAccount).where(
-                BlogAccount.user_id == user_a.id, BlogAccount.platform == "qiita"
-            )
-        )
-        assert unchanged.username == "user-a"
-
-    def test_blog_account_sync_returns_404_for_other_user(
-        self, client: TestClient, db_session
-    ) -> None:
-        user_a = ensure_user(db_session, "idor-blog-sync-a")
-        account = BlogAccount(user_id=user_a.id, platform="zenn", username="user-a")
-        db_session.add(account)
-        db_session.commit()
-        account_id = account.id
-        headers_b = auth_header(client, "idor-blog-sync-b")
-        resp = client.post(f"/api/blog/accounts/{account_id}/sync", headers=headers_b)
-        assert resp.status_code == 404
 
     def test_intelligence_cache_does_not_leak_to_other_user(
         self, client: TestClient, db_session

@@ -1,7 +1,7 @@
 # DevForge
 
 キャリア関連ドキュメント（職務経歴書）の作成・管理。
-GitHub活動分析、ブログ連携による発信力を集計
+GitHub活動分析による技術力の可視化と
 キャリアインテリジェンスを提供するWebアプリケーションです。
 
 ## ドキュメント
@@ -35,11 +35,6 @@ GitHub活動分析、ブログ連携による発信力を集計
 - GitHub OAuthログインしたユーザーのリポジトリを取得し、使用技術を可視化
 - 言語構成・フレームワーク・DevTools・インフラツールを依存関係から検出
 - バックグラウンド非同期処理（202 Accepted → ステータスポーリング方式）
-
-### ブログ連携
-- **Zenn** / **note** のアカウント連携・記事同期
-- 記事メトリクス（タイトル、URL、公開日、いいね数、タグ）の一覧管理
-- **ブログスコアリング**: 投稿頻度・反応数・技術記事比率等をもとにスコアを算出
 
 ### 通知
 - GitHub連携などのバックグラウンドタスクの成功/失敗をサイドバーの通知ベルで通知
@@ -83,8 +78,6 @@ graph TB
     end
 
     subgraph "外部サービス"
-        ZennAPI["Zenn API"]
-        NoteRSS["note RSS"]
         Stripe["Stripe<br/>Checkout / Webhook"]
     end
 
@@ -135,8 +128,6 @@ graph TB
     CloudRun -->|"libsql HTTPS"| TursoDB
     CloudRun -->|"シークレット取得"| Secrets
     CloudRun -->|"リポジトリ分析"| GitHubAPI
-    CloudRun -->|"記事取得"| ZennAPI
-    CloudRun -->|"記事取得"| NoteRSS
     CloudRun -->|"AI 改善提案"| Anthropic
     CloudRun -->|"AI 改善提案"| OpenAI
     CloudRun -->|"AI 改善提案"| Google

@@ -22,7 +22,7 @@ import styles from "../App.module.css";
  *
  * - 認証済み (`user` 非 null): 全ナビゲーションを活性化し、フッターに通知ベル + ユーザーメニュー。
  *   レイアウトルートとして使う場合は `children` を渡さず `<Outlet />` を描画する。
- * - 未認証 (`user` === null): 職務経歴書のお試し入力のみ可能。GitHub連携 / ブログ連携は
+ * - 未認証 (`user` === null): 職務経歴書のお試し入力のみ可能。GitHub連携は
  *   表示するが、押下するとログイン促進モーダルを開く。フッターはユーザーメニュー（ログインモード）で、
  *   トリガーが「ログイン」、メニューにダークモード / ログイン / Issue報告 / 著作権表示を出す
  *   （通知ベルは出さない）。
@@ -165,27 +165,6 @@ export function SidebarLayout({
                 title={AUTH_PROMPT_MESSAGES.LOGIN_REQUIRED_HINT}
               >
                 {UI_MESSAGES.NAV_GITHUB_LINK}
-              </button>
-            )}
-
-            {/* ブログ連携: 未認証は押下でログインを促す。 */}
-            {isAuthenticated ? (
-              <NavLink
-                to="/blog"
-                className={({ isActive }) =>
-                  `${styles.sidebarItem} ${isActive ? styles.active : ""}`
-                }
-              >
-                {UI_MESSAGES.NAV_BLOG_LINK}
-              </NavLink>
-            ) : (
-              <button
-                type="button"
-                className={styles.sidebarItem}
-                onClick={requestLogin}
-                title={AUTH_PROMPT_MESSAGES.LOGIN_REQUIRED_HINT}
-              >
-                {UI_MESSAGES.NAV_BLOG_LINK}
               </button>
             )}
           </nav>

@@ -72,8 +72,6 @@ from app.core.security.auth import create_access_token, create_refresh_token  # 
 from app.db import Base, get_db  # noqa: E402
 from app.main import app, limiter  # noqa: E402
 from app.models import (  # noqa: F401,E402 — ensure models registered
-    BlogAccount,
-    BlogArticle,
     GitHubLinkCache,
     MQualification,
     MTechnologyStack,

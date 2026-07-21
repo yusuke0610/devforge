@@ -32,19 +32,6 @@ REST API エンドポイント一覧と、バックエンド／フロントエ�
 - `GET /api/github-link/cache/status`: 連携タスクのステータスをポーリング（軽量）
 - `GET /api/github-link/progress`: 連携中の進捗ステップ取得
 
-### ブログ連携
-- `GET /api/blog/accounts`: 連携アカウント一覧
-- `POST /api/blog/accounts`: アカウント追加（Zenn / note、レート: 10/分）
-- `PATCH /api/blog/accounts/{platform}`: 連携アカウントの username 更新(同期状態リセット、レート: 10/分)
-- `DELETE /api/blog/accounts/{account_id}`: アカウント削除
-- `GET /api/blog/articles`: 記事一覧（プラットフォームでフィルタ可）
-- `POST /api/blog/accounts/{account_id}/sync`: 外部プラットフォームから記事同期（レート: 10/分）
-- `GET /api/blog/score`: ブログスコア（投稿頻度・反応数・技術記事比率等）を算出
-- `GET /api/blog/summary-cache`: キャッシュされたAI要約を取得
-- `GET /api/blog/summary-cache/status`: AI要約タスクのステータスをポーリング（軽量）
-- `POST /api/blog/summarize`: ブログAI要約を生成（202 非同期、レート: 5/分）
-- `POST /api/blog/summarize/retry`: 失敗した要約タスクの再実行（202 非同期）
-
 ### AIキャリアパス分析
 - `POST /api/career-analysis/generate`: キャリアパス分析を開始（職務経歴書必須、202 非同期、レート: 5/分）
 - `POST /api/career-analysis/{id}/retry`: 失敗した分析の再実行（202 非同期）

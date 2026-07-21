@@ -55,12 +55,6 @@ export const FALLBACK_MESSAGES = {
   ANALYSIS: "分析に失敗しました",
   ANALYSIS_DELETE: "削除に失敗しました",
   ANALYSIS_RERUN: "再実行に失敗しました",
-  BLOG_FETCH: "データの取得に失敗しました",
-  BLOG_SYNC: "記事の同期に失敗しました。「同期」ボタンで再試行してください。",
-  BLOG_LINK: "アカウントの連携に失敗しました",
-  BLOG_SYNC_SIMPLE: "同期に失敗しました",
-  BLOG_UNLINK: "アカウントの解除に失敗しました",
-  BLOG_USERNAME_UPDATE: "usernameの更新に失敗しました",
   DOWNLOAD: "ダウンロードに失敗しました",
   PREVIEW_FETCH: "プレビューの取得に失敗しました",
   AUTH_CHECK: "ログイン状態の確認に失敗しました。",
@@ -80,12 +74,8 @@ export const FALLBACK_MESSAGES = {
 /**
  * 操作成功時にユーザーへ表示する文言（frontend 完結）。
  * backend を経由しない「保存しました」「連携しました」等の success トーストに使う。
- * 動的に件数を埋め込むものは下部の関数（blogSyncSuccessMessage 等）を使う。
  */
 export const SUCCESS_MESSAGES = {
-  BLOG_LINKED: "アカウントを連携しました",
-  BLOG_UNLINKED: "アカウントを解除しました",
-  BLOG_USERNAME_UPDATED: "usernameを更新しました。再同期してください。",
   CAREER_SAVED: "職務経歴書を保存しました。PDF出力できます。",
   CAREER_PDF_DOWNLOADED: "職務経歴書PDFをダウンロードしました。",
 } as const;
@@ -129,7 +119,6 @@ export const UI_MESSAGES = {
   // サイドバーのナビゲーション項目
   NAV_CAREER: "職務経歴書",
   NAV_GITHUB_LINK: "GitHub連携",
-  NAV_BLOG_LINK: "ブログ連携",
   // GitHub連携サブパネル
   GITHUB_LINK_OPTIONS: "GitHub連携オプション",
   GITHUB_LINK_RUN: "連携実行",
@@ -317,20 +306,6 @@ export function downloadFailureMessage(filename: string): string {
   return `${FALLBACK_MESSAGES.DOWNLOAD}: ${filename}`;
 }
 
-/** ブログ連携直後の自動同期成功文言（取得件数・合計件数を埋め込む）。 */
-export function blogLinkedSyncSuccessMessage(synced: number, total: number): string {
-  return `${synced}件の記事を取得しました（合計: ${total}件）`;
-}
-
-/** ブログ手動同期の成功文言（新規取得件数・合計件数を埋め込む）。 */
-export function blogSyncSuccessMessage(synced: number, total: number): string {
-  return `${synced}件の新しい記事を取得しました（合計: ${total}件）`;
-}
-
-/** username 更新直後の自動同期成功文言（取得件数・合計件数を埋め込む）。 */
-export function blogUsernameUpdatedSyncSuccessMessage(synced: number, total: number): string {
-  return `usernameを更新し、${synced}件の記事を取得しました（合計: ${total}件）`;
-}
 
 /** 入力モーダルの文字数カウント表示（空白を除いた文字数）。 */
 export function charCountLabel(count: number): string {

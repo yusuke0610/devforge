@@ -7,7 +7,7 @@ import { setupAuth, waitForAuthenticatedLayout } from "./helpers/auth";
  * シナリオ:
  * 1. 職務経歴書を開く → 🔴 なし
  * 2. 氏名を編集 → 氏名横と保存ボタン横に 🔴
- * 3. ブログ連携タブへ遷移して職務経歴書に戻る → 🔴 が維持されている（Redux 保持）
+ * 3. GitHub 連携タブへ遷移して職務経歴書に戻る → 🔴 が維持されている（Redux 保持）
  * 4. 保存（PUT /api/resumes/{id}）→ baseline 更新で 🔴 が全消失
  */
 
@@ -67,9 +67,27 @@ async function setupResumeApi(page: Page) {
     await route.fallback();
   });
 
-  // ブログ連携ページ用モック（タブ遷移先で連携アカウント空を返す）
-  await page.route("**/api/blog/accounts", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
+  // GitHub 連携ページ用モック（タブ遷移先。未連携状態を返してマウントを通す）
+  await page.route("**/api/github-link/cache", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ status: "not_linked", result: null }),
+    }),
+  );
+  await page.route("**/api/github-link/cache/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ status: "not_linked" }),
+    }),
+  );
+  await page.route("**/api/github-link/skills", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ skills: [] }),
+    }),
   );
 }
 
@@ -221,9 +239,9 @@ test.describe("職務経歴書 未保存マーク", () => {
     const dirtyCountAfterEdit = await page.getByTestId("dirty-dot").count();
     expect(dirtyCountAfterEdit).toBeGreaterThanOrEqual(1);
 
-    // 3. ブログ連携タブへ遷移
-    await page.getByRole("link", { name: "ブログ連携" }).click();
-    await expect(page).toHaveURL(/\/blog/);
+    // 3. GitHub 連携タブへ遷移
+    await page.getByRole("link", { name: "GitHub連携", exact: true }).click();
+    await expect(page).toHaveURL(/\/github_link/);
 
     // 職務経歴書に戻る
     await page.getByRole("link", { name: "職務経歴書" }).click();

@@ -32,7 +32,6 @@ from .routers import (  # noqa: E402
     agent_router,
     auth_router,
     billing_router,
-    blog_router,
     github_link_router,
     health_router,
     internal_router,
@@ -213,7 +212,6 @@ app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(resumes_router)
 app.include_router(github_link_router)
-app.include_router(blog_router)
 app.include_router(master_data_router)
 app.include_router(notifications_router)
 app.include_router(internal_router)

@@ -34,7 +34,6 @@ backend/app/
 │   └── seeds/
 ├── routers/             # FastAPI エンドポイント
 │   ├── auth/            # 認証関連（endpoints, github_auth, oauth_flow, token_manager）
-│   ├── blog/            # ブログ連携（accounts, score, sync）
 │   ├── download_utils.py
 │   ├── health.py
 │   ├── github_link.py
@@ -43,18 +42,18 @@ backend/app/
 │   ├── notifications.py
 │   └── resumes.py
 ├── models/              # SQLAlchemy 2.0 宣言的マッピング
-│   ├── user.py / blog.py / cache.py
+│   ├── user.py / cache.py
 │   ├── master_data.py / notification.py / resume.py
 ├── schemas/             # Pydantic リクエスト/レスポンススキーマ
-│   ├── auth.py / blog.py / github_link.py
+│   ├── auth.py / github_link.py
 │   ├── master_data.py / resume.py / shared.py
 ├── repositories/        # データアクセス層
-│   ├── base.py / user.py / blog.py
+│   ├── base.py / user.py
 │   ├── master_data.py / notification.py / resume.py
 ├── services/
 │   ├── agent/                   # DevForge Agent（LLM チャット / ADR-0010・0012・0013）
 │   │   ├── chat_service.py      # コンテキスト組み立て → LLM → operations 検証
-│   │   ├── context_builder.py   # GitHub/ブログ参照コンテキスト取得（DB 読み取り専用）
+│   │   ├── context_builder.py   # GitHub 参照コンテキスト取得（DB 読み取り専用）
 │   │   ├── model_catalog.py     # エイリアス→provider/実モデル ID/課金レート（SSoT / ADR-0012・0013）
 │   │   ├── output_schema.py     # 構造化出力スキーマ（機械制約の正本）
 │   │   ├── llm/                 # LLM プロバイダ抽象（失敗は raise / ADR-0013）
@@ -67,12 +66,6 @@ backend/app/
 │   │       ├── mapper.py        # ルールベース純関数（骨格 payload 構築）
 │   │       ├── output_schema.py # ドラフト用 LLM 構造化出力スキーマ
 │   │       └── draft_service.py # LLM 1 コール → パース → 骨格へ自然文マージ
-│   ├── blog/                    # ブログ収集・技術記事判定・スコア算出
-│   │   ├── account_service.py
-│   │   ├── collector.py
-│   │   ├── scorer.py
-│   │   ├── sync_service.py
-│   │   └── tech_keywords.json
 │   ├── intelligence/            # GitHub 連携パイプライン（決定論的・ルールベース）
 │   │   ├── pipeline.py
 │   │   ├── github_collector.py
@@ -109,7 +102,7 @@ backend/app/
 
 ## 主要モジュールのポイント
 
-- **routers/auth/ と routers/blog/**: いずれもパッケージ化されている。auth は `endpoints` / `github_auth` / `oauth_flow` / `token_manager`、blog は `accounts` / `score` / `sync` に責務分割
+- **routers/auth/**: パッケージ化されている。auth は `endpoints` / `github_auth` / `oauth_flow` / `token_manager` に責務分割
 - **services/tasks/**: Cloud Tasks（本番）と BackgroundTasks（ローカル）を共通の `execute_task` でディスパッチ。状態遷移（`processing` / `completed` / `dead_letter` / `retrying`）は worker が担う。現在登録されているタスクは `GITHUB_LINK` の 1 種類のみだが、`AsyncTaskCacheService` / `TaskHandler` は新規タスク追加の拡張ポイントとして汎用化してある（インライン化しない）
   - **タスクハンドラの「黙って return」は禁止**: 失敗パスでは `NonRetryableError` / `RetryableError` を `raise` し、`dead_letter` / `retrying` 遷移と通知発行を worker に任せる。早期 return すると呼び出し側に completed として観測されてしまう
 - **services/intelligence/**: GitHub 連携 → スキル推論パイプライン。`github_link_service` → `github_collector`（収集）→ `skills/aggregate_skills`（ADR-0016 の 3 層スキル検出）→ `pipeline.aggregate_intelligence`（dashboard 表示用サマリ）が live 経路。旧 `skill_extractor` / `skill_taxonomy`（自前辞書）は ADR-0016 基盤へ移行完了済みで撤去。LLM は使わず決定論的（ルールベース）に処理する（intelligence モジュールは LLM を使わない。LLM は services/agent/ のみ / ADR-0010）

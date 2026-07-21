@@ -68,15 +68,6 @@ export const PATHS = {
     readAll: "/api/notifications/read-all",
     read: (notificationId: string) => `/api/notifications/${notificationId}/read`,
   },
-  blog: {
-    accounts: "/api/blog/accounts",
-    accountByPlatform: (platform: string) => `/api/blog/accounts/${platform}`,
-    accountById: (id: string) => `/api/blog/accounts/${id}`,
-    accountSync: (accountId: string) => `/api/blog/accounts/${accountId}/sync`,
-    articles: (platform?: string) =>
-      platform ? `/api/blog/articles?platform=${platform}` : "/api/blog/articles",
-    score: "/api/blog/score",
-  },
   aiResume: {
     generate: "/api/ai-resume/generate",
     snapshots: "/api/ai-resume/snapshots",

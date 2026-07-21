@@ -2,7 +2,7 @@
 
 フロントが編集中フォームをリクエストに載せて送り、レスポンスの operations は
 フロントの state にのみ適用される（DB を更新しない原則 / ADR-0010）。
-参照データ（GitHub・ブログ分析サマリー）は router が context_builder 経由で読み取って渡す。
+参照データ（GitHub 分析サマリー）は router が context_builder 経由で読み取って渡す。
 本モジュールは DB に触れない。
 """
 
@@ -124,7 +124,7 @@ _MAX_RETRY_ERROR_LENGTH = 500
 def _build_context(request: AgentChatRequest, reference: dict | None = None) -> str:
     """スコープに応じて LLM に渡すコンテキスト文字列を組み立てる。
 
-    reference には router が context_builder 経由で取得した GitHub/ブログ参照データを渡す。
+    reference には router が context_builder 経由で取得した GitHub 参照データを渡す。
     career_summary / self_pr スコープの場合のみ参照データをコンテキストに含める。
     """
     resume = request.resume
@@ -263,7 +263,7 @@ async def run_agent_chat(
     """Agent チャットを実行し、レスポンスと実トークン使用量を返す。
 
     Args:
-        reference: GitHub/ブログ参照コンテキスト（career_summary / self_pr スコープのみ有効）。
+        reference: GitHub 参照コンテキスト（career_summary / self_pr スコープのみ有効）。
                    router が context_builder 経由で取得して渡す。None の場合は省略される。
 
     Raises:

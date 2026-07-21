@@ -17,14 +17,6 @@
       "csrf_token_invalid": "CSRFトークンが無効です。",
       "rate_limited": "ログイン試行回数の上限に達しました。15分後に再度お試しください。"
     },
-    "blog": {
-      "account_not_found": "指定されたアカウントが見つかりません。ユーザー名を確認してください。",
-      "account_link_not_found": "アカウントが見つかりません。",
-      "account_check_failed": "アカウントの確認に失敗しました。しばらくしてから再度お試しください。",
-      "sync_failed": "記事の同期に失敗しました。しばらくしてから再度お試しください。",
-      "platform_not_supported": "サポートされていないプラットフォームです。",
-      "account_already_registered": "このアカウントは既に登録されています。"
-    },
     "document": {
       "not_found": "{document}が見つかりません。",
       "already_exists": "{document}は既に存在します。",
@@ -106,11 +98,6 @@
     "document": {
       "saved": "{document}を保存しました。",
       "deleted": "{document}を削除しました。"
-    },
-    "blog": {
-      "account_added": "ブログアカウントを連携しました。",
-      "account_removed": "ブログアカウントの連携を解除しました。",
-      "sync_complete": "記事の同期が完了しました。{count}件の記事を取得しました。"
     },
     "github_link": {
       "link_complete": "GitHub連携が完了しました。",
