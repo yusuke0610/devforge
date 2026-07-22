@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AgentModelAlias, ExperienceTarget, ProjectTarget } from "../../api/types";
+import type { ExperienceTarget, ProjectTarget } from "../../api/types";
 import type { CareerFormState } from "../../payloadBuilders";
 import type { AgentScope } from "../../utils/agentOperations";
 import { useAgentChat } from "./useAgentChat";
@@ -27,17 +27,16 @@ type ChatHook = { current: ReturnType<typeof useAgentChat> };
 
 /**
  * 送信の共通 arrange（act + send のラップ）。各テストでスコープ・対象・プロンプトだけ差し替える。
- * model 省略時はフックのデフォルト（haiku）に委ねる。
+ * モデルは Claude Haiku 固定（ADR-0023 でマルチプロバイダ・モデル選択を撤去）。
  */
 async function sendChat(
   result: ChatHook,
   scope: AgentScope,
   target: ProjectTarget | ExperienceTarget | null,
   prompt: string,
-  model?: AgentModelAlias,
 ) {
   await act(async () => {
-    await result.current.send(form, scope, target, prompt, model);
+    await result.current.send(form, scope, target, prompt);
   });
 }
 
@@ -243,22 +242,13 @@ describe("useAgentChat", () => {
     expect(lastCall.history[0]).toEqual({ role: "user", text: "依頼2" });
   });
 
-  it("model 未指定の送信では haiku（無料）を送る", async () => {
+  it("送信では常に haiku を送る（モデルは Haiku 固定 / ADR-0023）", async () => {
     postAgentChatMock.mockResolvedValue({ message: "提案です", operations: [] });
     const { result } = renderHook(() => useAgentChat());
 
     await sendChat(result, "self_pr", null, "改善して");
 
     expect(postAgentChatMock).toHaveBeenCalledWith(expect.objectContaining({ model: "haiku" }));
-  });
-
-  it("sonnet 指定の送信では model=sonnet を送る（有料モデル / ADR-0012）", async () => {
-    postAgentChatMock.mockResolvedValue({ message: "提案です", operations: [] });
-    const { result } = renderHook(() => useAgentChat());
-
-    await sendChat(result, "self_pr", null, "改善して", "sonnet");
-
-    expect(postAgentChatMock).toHaveBeenCalledWith(expect.objectContaining({ model: "sonnet" }));
   });
 
   it("experience スコープでは target を送る", async () => {

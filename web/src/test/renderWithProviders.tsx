@@ -7,7 +7,6 @@ import { render, type RenderOptions } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter, type MemoryRouterProps } from "react-router-dom";
 import { configureStore } from "@reduxjs/toolkit";
-import agentModelReducer from "../store/agentModelSlice";
 import formCacheReducer from "../store/formCacheSlice";
 import { ToastProvider } from "../components/ui/toast";
 
@@ -20,10 +19,9 @@ export function renderWithProviders(
   ui: ReactElement,
   { initialEntries = ["/"], ...options }: Options = {},
 ) {
-  // 実 store（store/index.ts）と同じ slice 構成に揃える（agentModel は
-  // GitHubLinkDashboard 等が useAppSelector で参照するため欠けると落ちる）
+  // 実 store（store/index.ts）と同じ slice 構成に揃える
   const store = configureStore({
-    reducer: { formCache: formCacheReducer, agentModel: agentModelReducer },
+    reducer: { formCache: formCacheReducer },
   });
 
   function Wrapper({ children }: { children: React.ReactNode }) {

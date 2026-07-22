@@ -21,7 +21,6 @@ import {
 } from "../../constants/messages";
 import { useAsyncTaskPage } from "../../hooks/useAsyncTaskPage";
 import { useResumeDraftPdf } from "../../hooks/useResumeDraftPdf";
-import { useAppSelector } from "../../store";
 import { PdfPreviewModal } from "../forms/PdfPreviewModal";
 import { ContributionHeatmap } from "./ContributionHeatmap";
 import { LanguageBar } from "./LanguageBar";
@@ -63,9 +62,8 @@ export function GitHubLinkDashboard() {
   // 連携実行・ポーリング失敗のエラー（AppErrorState）をトーストで通知する（回復アクション付き・手動クローズ）。
   useAppErrorToast(error);
 
-  // 経歴書ドラフト PDF 生成（ADR-0018）。モデルはユーザーメニューで選択中のグローバル設定を使う
-  const agentModel = useAppSelector((state) => state.agentModel.model);
-  const draft = useResumeDraftPdf(agentModel);
+  // 経歴書ドラフト PDF 生成（ADR-0018）。モデルは Claude Haiku 固定（ADR-0023）
+  const draft = useResumeDraftPdf();
   useAppErrorToast(draft.error);
 
   /**
@@ -172,7 +170,7 @@ export function GitHubLinkDashboard() {
             )}
 
             {/* スキル一覧 + 表示名の human-in-the-loop 確定（ADR-0016 D11） */}
-            <SkillDisplaySection model={agentModel} />
+            <SkillDisplaySection />
 
             {/* 経歴書ドラフト PDF 生成（ADR-0018） */}
             <div className={styles.section}>

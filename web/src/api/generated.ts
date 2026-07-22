@@ -730,9 +730,9 @@ export interface components {
             /**
              * Model
              * @default haiku
-             * @enum {string}
+             * @constant
              */
-            model: "haiku" | "sonnet" | "gemini-flash" | "gemini-pro" | "gpt-mini" | "gpt";
+            model: "haiku";
             /** Prompt */
             prompt: string;
             resume: components["schemas"]["AgentResumeContext"];
@@ -1420,9 +1420,9 @@ export interface components {
             /**
              * Model
              * @default haiku
-             * @enum {string}
+             * @constant
              */
-            model: "haiku" | "sonnet" | "gemini-flash" | "gemini-pro" | "gpt-mini" | "gpt";
+            model: "haiku";
         };
         /** ResumeQualificationItem */
         ResumeQualificationItem: {
@@ -1536,9 +1536,9 @@ export interface components {
             /**
              * Model
              * @default haiku
-             * @enum {string}
+             * @constant
              */
-            model: "haiku" | "sonnet" | "gemini-flash" | "gemini-pro" | "gpt-mini" | "gpt";
+            model: "haiku";
         };
         /**
          * SkillDisplayProposeResponse

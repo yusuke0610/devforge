@@ -30,7 +30,6 @@ module "devforge_stack" {
   cors_origins               = var.cors_origins
   callback_base_url          = var.callback_base_url
   enable_github_oauth        = var.enable_github_oauth
-  enable_extra_llm_providers = var.enable_extra_llm_providers
 
   alert_email = var.alert_email
 

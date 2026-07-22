@@ -21,10 +21,10 @@ class OllamaClient(LLMClient):
 
     ``format`` に JSON Schema を渡して構造化出力（文法制約）を強制する。
     ただし llama.cpp の JSON Schema → GBNF 文法変換は ``maxLength`` / ``maxItems``
-    を解釈できず ``failed to parse grammar`` で 400 を返すため、Gemini/OpenAI と同様に
-    ``to_portable_schema`` で数値制約を除去し ``oneOf`` を ``enum`` へ畳んだ移植スキーマを渡す。
+    を解釈できず ``failed to parse grammar`` で 400 を返すため、``to_portable_schema`` で
+    数値制約を除去し ``oneOf`` を ``enum`` へ畳んだ移植スキーマを渡す。
     許可 field 名（enum）と構造は文法レベルで保証されるが、文字数上限の実強制は
-    呼び出し側（``chat_service._parse_response`` の破棄ロジック）が担う（二重防衛 / ADR-0013）。
+    呼び出し側（``chat_service._parse_response`` の破棄ロジック）が担う（二重防衛 / ADR-0010）。
     """
 
     def __init__(self) -> None:

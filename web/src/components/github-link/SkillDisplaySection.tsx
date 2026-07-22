@@ -9,7 +9,6 @@ import {
   isResettableGroup,
   type DisplaySkillGroup,
 } from "../../utils/skillDisplay";
-import type { AgentModelAlias } from "../../api/types";
 import dash from "./GitHubLinkDashboard.module.css";
 import styles from "./SkillDisplaySection.module.css";
 
@@ -19,9 +18,9 @@ import styles from "./SkillDisplaySection.module.css";
  * 一覧はグループ化して実効表示名（確定 > 機械 > canonical）で表示する。「AIに提案してもらう」で
  * agent の提案を受け取り、表示名を編集して確定する。確定は独立 Layer 3 に保存され再連携でも残る。
  *
- * @param model 提案に使う LLM モデル（ユーザーメニューのグローバル設定）
+ * 提案に使うモデルは Claude Haiku 固定（ADR-0023 でマルチプロバイダ・モデル選択を撤去）。
  */
-export function SkillDisplaySection({ model }: { model: AgentModelAlias }) {
+export function SkillDisplaySection() {
   const {
     groups,
     loading,
@@ -35,7 +34,7 @@ export function SkillDisplaySection({ model }: { model: AgentModelAlias }) {
     discardProposal,
     confirm,
     reset,
-  } = useGitHubSkills(model);
+  } = useGitHubSkills();
 
   // 「解除中...」は押されたグループのボタンにだけ出す（global resetting は全ボタンの
   // 無効化に使い、ローカルキーで対象グループを区別する / #496）

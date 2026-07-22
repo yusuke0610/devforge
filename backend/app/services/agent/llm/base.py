@@ -85,7 +85,7 @@ def require_api_key(value: str, label: str) -> str:
 
 
 def require_gcp_project(value: str) -> str:
-    """Vertex AI クライアント（Gemini / Anthropic）の GCP プロジェクト ID を検証する。
+    """Vertex AI クライアント（Anthropic）の GCP プロジェクト ID を検証する。
 
     Vertex 経由のプロバイダは API キーの代わりに SA(ADC) + プロジェクト ID で認証する
     （ADR-0015）。空なら LLMError、非空ならそのまま返す。ローカルは LLM_LOCAL_OLLAMA で

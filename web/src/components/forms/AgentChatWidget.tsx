@@ -12,7 +12,6 @@ import { useCallback, useMemo, useState } from "react";
 import type { ExperienceTarget, ProjectTarget } from "../../api/types";
 import { AGENT_MESSAGES } from "../../constants/messages";
 import { useAgentChat, type AgentChatEntry } from "../../hooks/career/useAgentChat";
-import { useAppSelector } from "../../store";
 import type { CareerFormState } from "../../payloadBuilders";
 import { useMessageToast, useToast } from "../ui/toast";
 import { applyAgentOperations, type AgentScope } from "../../utils/agentOperations";
@@ -97,15 +96,13 @@ function buildExperienceOptions(form: CareerFormState): ExperienceOption[] {
 export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }: Props) {
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState<AgentScope>("career_summary");
-  // 使用モデルはグローバル設定（サイドバー表示 / UserMenu で切り替え）。ここでは読むだけ
-  const model = useAppSelector((state) => state.agentModel.model);
   const [projectTargetIndex, setProjectTargetIndex] = useState(0);
   const [experienceTargetIndex, setExperienceTargetIndex] = useState(0);
   const [prompt, setPrompt] = useState("");
   /** ドラッグでリサイズされた寸法。null の間は CSS のデフォルトサイズに従う */
   const [panelSize, setPanelSize] = useState<{ width: number; height: number } | null>(null);
   const { entries, sending, error, send, markApplied, clearError } = useAgentChat();
-  // モデルはサイドバーで表示・切り替えする。abuse 防止は日次レート制限（ADR-0023 で課金撤去）。
+  // モデルは Claude Haiku 固定。abuse 防止は日次レート制限（ADR-0023 で課金撤去）。
   const { showSuccess } = useToast();
   useMessageToast(error, "error");
 
@@ -139,7 +136,7 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
   const handleSend = () => {
     if (!canSend) return;
     clearError();
-    void send(form, scope, getTarget(), prompt.trim(), model);
+    void send(form, scope, getTarget(), prompt.trim());
     setPrompt("");
   };
 
@@ -287,7 +284,7 @@ export function AgentChatWidget({ form, onApply, isAuthenticated, requestLogin }
                 onSelect={(suggestion) => {
                   if (sending) return;
                   clearError();
-                  void send(form, entry.scope, entry.target, suggestion, model);
+                  void send(form, entry.scope, entry.target, suggestion);
                 }}
               />
             )}

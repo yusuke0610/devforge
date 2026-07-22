@@ -337,20 +337,3 @@ export const AGENT_MESSAGES = {
   EMPTY_STATE: "編集対象を選んで、改善したい内容を AI に依頼してください。反映後も保存するまで DB は変更されません。",
   LOGIN_REQUIRED: "devforge Agent を使うにはログインが必要です。",
 } as const;
-
-/** AI モデル選択の UI 文言。製品名（Haiku / Sonnet）は constants/agentModels.ts。 */
-export const AGENT_MODEL_MESSAGES = {
-  SIDEBAR_LABEL: "使用モデル",
-  MENU_ITEM: "AI モデルを切り替え",
-  MODAL_TITLE: "AI モデルを選択",
-  MODAL_DESCRIPTION:
-    "依頼の精度に合わせて選べます。設定はこの端末に保存され、すべての AI 機能で使われます。",
-  CLOSE_LABEL: "閉じる",
-  CURRENT_BADGE: "選択中",
-  HAIKU_TAGLINE: "高速・標準精度。日常の依頼に。",
-  SONNET_TAGLINE: "高精度。重要な仕上げや複雑な依頼に。",
-  GEMINI_FLASH_TAGLINE: "高速・標準精度。日本語も自然。",
-  GEMINI_PRO_TAGLINE: "高精度。長文構成や難しい依頼に。",
-  GPT_MINI_TAGLINE: "高速・標準精度。構造化出力が得意。",
-  GPT_TAGLINE: "高精度・厳格な構造化出力。仕上げに。",
-} as const;

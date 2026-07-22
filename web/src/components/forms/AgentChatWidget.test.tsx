@@ -1,13 +1,8 @@
-import { configureStore } from "@reduxjs/toolkit";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AgentModelAlias } from "../../api/types";
 import { AGENT_MESSAGES } from "../../constants/messages";
 import { createInitialCareerForm } from "../../formMappers";
-import agentModelReducer from "../../store/agentModelSlice";
-import formCacheReducer from "../../store/formCacheSlice";
 import { ToastProvider } from "../ui/toast";
 import { AgentChatWidget } from "./AgentChatWidget";
 
@@ -24,25 +19,16 @@ vi.mock("../../hooks/career/useAgentChat", () => ({
   }),
 }));
 
-function makeStore(model: AgentModelAlias) {
-  return configureStore({
-    reducer: { agentModel: agentModelReducer, formCache: formCacheReducer },
-    preloadedState: { agentModel: { model } },
-  });
-}
-
-function renderWidget(model: AgentModelAlias) {
+function renderWidget() {
   render(
-    <Provider store={makeStore(model)}>
-      <ToastProvider>
-        <AgentChatWidget
-          form={createInitialCareerForm()}
-          onApply={vi.fn()}
-          isAuthenticated={true}
-          requestLogin={vi.fn()}
-        />
-      </ToastProvider>
-    </Provider>,
+    <ToastProvider>
+      <AgentChatWidget
+        form={createInitialCareerForm()}
+        onApply={vi.fn()}
+        isAuthenticated={true}
+        requestLogin={vi.fn()}
+      />
+    </ToastProvider>,
   );
 }
 
@@ -61,15 +47,14 @@ beforeEach(() => {
 });
 
 describe("AgentChatWidget の送信", () => {
-  it("依頼文を入力して送信すると選択中モデルで send が呼ばれる", async () => {
-    renderWidget("haiku");
+  it("依頼文を入力して送信すると send が呼ばれる", async () => {
+    renderWidget();
 
     openAndSend("自己PRを改善して");
 
     await waitFor(() => expect(sendMock).toHaveBeenCalledTimes(1));
-    // send(form, scope, target, text, model) の順で選択中モデルが渡る
+    // send(form, scope, target, text) の順で依頼文が渡る（モデルは Haiku 固定 / ADR-0023）
     const call = sendMock.mock.calls[0];
     expect(call[3]).toBe("自己PRを改善して");
-    expect(call[4]).toBe("haiku");
   });
 });

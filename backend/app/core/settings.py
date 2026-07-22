@@ -183,16 +183,11 @@ def use_local_ollama() -> bool:
 
 
 def get_gcp_project_id() -> str:
-    """Vertex AI（Gemini / Anthropic）が使う GCP プロジェクト ID を取得する（ADR-0015）。
+    """Anthropic を叩く Vertex AI が使う GCP プロジェクト ID を取得する（ADR-0015/0023）。
 
     Cloud Tasks と同じ ``GCP_PROJECT_ID`` を再利用する。Cloud Run へは infra が注入する。
     """
     return os.getenv(env_keys.GCP_PROJECT_ID, "").strip()
-
-
-def get_vertex_location() -> str:
-    """Gemini を叩く Vertex AI のロケーションを取得する（既定: asia-northeast1 / ADR-0015）。"""
-    return os.getenv(env_keys.VERTEX_LOCATION, "asia-northeast1").strip()
 
 
 def get_vertex_anthropic_location() -> str:
@@ -201,11 +196,6 @@ def get_vertex_anthropic_location() -> str:
     Claude は Tokyo（asia-northeast1）で提供されないため、最寄りの Singapore を既定にする。
     """
     return os.getenv(env_keys.VERTEX_ANTHROPIC_LOCATION, "asia-southeast1").strip()
-
-
-def get_openai_api_key() -> str:
-    """OpenAI API キーを取得する。値はログに含めないこと。"""
-    return os.getenv(env_keys.OPENAI_API_KEY, "").strip()
 
 
 def get_ollama_base_url() -> str:

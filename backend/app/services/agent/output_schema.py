@@ -86,21 +86,18 @@ def build_tool_definition(input_schema: dict) -> dict:
 
 
 def to_portable_schema(schema: dict, *, drop_additional_properties: bool = False) -> dict:
-    """build_output_schema の出力を、Gemini/OpenAI の構造化出力に通る形へ変換する（ADR-0013）。
+    """build_output_schema の出力を、Ollama の構造化出力（``format``）に通る形へ変換する。
 
-    Gemini ``response_schema`` / OpenAI strict ``response_format`` / Ollama ``format``
-    （llama.cpp の GBNF 文法変換）は ``oneOf`` / ``const`` / ``maxLength`` / ``maxItems``
-    といった JSON Schema キーワードを受け付けないか挙動が不安定なため、以下に正規化する:
+    Ollama ``format``（llama.cpp の GBNF 文法変換）は ``oneOf`` / ``const`` / ``maxLength`` /
+    ``maxItems`` といった JSON Schema キーワードで文法変換が壊れるため、以下に正規化する:
 
     - operations.items の ``oneOf`` 分岐 → ``field`` を許可値の ``enum`` に畳んだ単一オブジェクト
     - ``maxLength`` / ``maxItems`` を除去（上限の実強制は chat_service._parse_response が担う / 二重防衛）
 
-    ``additionalProperties`` の扱いはプロバイダで非対称:
-    - OpenAI strict は ``additionalProperties: false`` が必須 → 残す（drop_additional_properties=False）
-    - Gemini ``response_schema`` は ``additionalProperties`` 非対応 → 除去する（drop_additional_properties=True）
+    ``drop_additional_properties`` は ``additionalProperties`` を除去するオプション（既定 False）。
 
     Anthropic（tool use）は oneOf/const/maxLength を解釈できるため元スキーマをそのまま使い、
-    本関数は通さない。Ollama（format）は数値制約で文法変換が壊れるため本関数を通す。
+    本関数は通さない。本番は Anthropic のみ・本関数はローカル開発の Ollama 経路専用（ADR-0023）。
     """
     strip_keys = {"maxLength", "maxItems"}
     if drop_additional_properties:

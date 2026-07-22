@@ -46,7 +46,7 @@ describe("useGitHubSkills", () => {
   it("マウント時にスキルを取得しグループ化する（success）", async () => {
     getGitHubSkillsMock.mockResolvedValue({ skills: [skill({ canonical_name: "react" })] });
 
-    const { result } = renderHook(() => useGitHubSkills("haiku"));
+    const { result } = renderHook(() => useGitHubSkills());
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.skills).toHaveLength(1);
@@ -57,7 +57,7 @@ describe("useGitHubSkills", () => {
   it("取得失敗時は error にメッセージが入る（error）", async () => {
     getGitHubSkillsMock.mockRejectedValue("network down");
 
-    const { result } = renderHook(() => useGitHubSkills("haiku"));
+    const { result } = renderHook(() => useGitHubSkills());
 
     await waitFor(() => expect(result.current.error).not.toBeNull());
     expect(result.current.skills).toHaveLength(0);
@@ -74,7 +74,7 @@ describe("useGitHubSkills", () => {
       ],
     });
 
-    const { result } = renderHook(() => useGitHubSkills("haiku"));
+    const { result } = renderHook(() => useGitHubSkills());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
@@ -100,7 +100,7 @@ describe("useGitHubSkills", () => {
       skills: [skill({ confirmed_display_name: "React" })],
     });
 
-    const { result } = renderHook(() => useGitHubSkills("haiku"));
+    const { result } = renderHook(() => useGitHubSkills());
     await waitFor(() => expect(result.current.loading).toBe(false));
     await act(async () => {
       await result.current.propose();
@@ -128,7 +128,7 @@ describe("useGitHubSkills", () => {
       ],
     });
 
-    const { result } = renderHook(() => useGitHubSkills("haiku"));
+    const { result } = renderHook(() => useGitHubSkills());
     await waitFor(() => expect(result.current.loading).toBe(false));
     await act(async () => {
       await result.current.propose();
@@ -149,7 +149,7 @@ describe("useGitHubSkills", () => {
       skills: [skill({ confirmed_display_name: null, group_id: null })],
     });
 
-    const { result } = renderHook(() => useGitHubSkills("haiku"));
+    const { result } = renderHook(() => useGitHubSkills());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
@@ -172,7 +172,7 @@ describe("useGitHubSkills", () => {
     });
     resetSkillDisplayDecisionsMock.mockRejectedValue("boom");
 
-    const { result } = renderHook(() => useGitHubSkills("haiku"));
+    const { result } = renderHook(() => useGitHubSkills());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
