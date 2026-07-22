@@ -101,6 +101,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/resume-import/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Resume Pdf
+         * @description 手持ちの PDF 経歴書を構造化抽出し、フォーム注入用 payload を返す（ADR-0024）。
+         *
+         *     テキスト埋め込み PDF のみ対応（スキャン PDF は 422 で案内）。抽出は Claude Haiku で
+         *     行い、DB は更新しない（ADR-0010）。結果はフロントがフォーム state へ注入 → ユーザー
+         *     確認 → 既存の保存 API を呼ぶ。abuse 防止は日次レート制限（#521 / ADR-0023）。
+         */
+        post: operations["import_resume_pdf_api_agent_resume_import_pdf_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/github-link/cache": {
         parameters: {
             query?: never;
@@ -931,6 +955,11 @@ export interface components {
              */
             pushed_at: string;
         };
+        /** Body_import_resume_pdf_api_agent_resume_import_pdf_post */
+        Body_import_resume_pdf_api_agent_resume_import_pdf_post: {
+            /** File */
+            file: string;
+        };
         /**
          * CachedGitHubLinkResponse
          * @description DB に保存された連携結果を返す。
@@ -1423,6 +1452,68 @@ export interface components {
              * @constant
              */
             model: "haiku";
+        };
+        /**
+         * ResumeImportExperience
+         * @description PDF から抽出した職歴 1 件（フラット / ADR-0024 v1）。
+         *
+         *     フォーム注入用のため全フィールド任意（欠落は空文字）。深いネスト（clients /
+         *     projects / periods / technology_stacks）は v1 では抽出せず、ユーザーがフォームで追記する。
+         */
+        ResumeImportExperience: {
+            /**
+             * Business Description
+             * @default
+             */
+            business_description: string;
+            /**
+             * Company
+             * @default
+             */
+            company: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * End Date
+             * @default
+             */
+            end_date: string;
+            /**
+             * Start Date
+             * @default
+             */
+            start_date: string;
+        };
+        /**
+         * ResumeImportResponse
+         * @description 手持ち PDF 経歴書の抽出結果（ADR-0024）。
+         *
+         *     Resume 互換のフォーム注入用 payload。保存契約（schemas/resume.py の strict な
+         *     バリデーション）とは分離し、抽出できた分だけを返す（全フィールド任意・欠落は空）。
+         *     DB は更新せず、フロントがフォーム state へ注入 → ユーザー確認 → 既存の保存 API を呼ぶ。
+         *     email 等の未抽出フィールドはフォームでユーザーが補完する。
+         */
+        ResumeImportResponse: {
+            /**
+             * Career Summary
+             * @default
+             */
+            career_summary: string;
+            /** Experiences */
+            experiences?: components["schemas"]["ResumeImportExperience"][];
+            /**
+             * Full Name
+             * @default
+             */
+            full_name: string;
+            /**
+             * Self Pr
+             * @default
+             */
+            self_pr: string;
         };
         /** ResumeQualificationItem */
         ResumeQualificationItem: {
@@ -1926,6 +2017,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaskStatusResponse"];
+                };
+            };
+        };
+    };
+    import_resume_pdf_api_agent_resume_import_pdf_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_resume_pdf_api_agent_resume_import_pdf_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeImportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

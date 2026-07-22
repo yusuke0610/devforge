@@ -168,3 +168,32 @@ class AgentChatResponse(BaseModel):
     message: str
     operations: list[AgentOperation] = Field(default_factory=list)
     suggestions: list[str] = Field(default_factory=list)
+
+
+class ResumeImportExperience(BaseModel):
+    """PDF から抽出した職歴 1 件（フラット / ADR-0024 v1）。
+
+    フォーム注入用のため全フィールド任意（欠落は空文字）。深いネスト（clients /
+    projects / periods / technology_stacks）は v1 では抽出せず、ユーザーがフォームで追記する。
+    """
+
+    company: str = ""
+    business_description: str = ""
+    start_date: str = ""
+    end_date: str = ""
+    description: str = ""
+
+
+class ResumeImportResponse(BaseModel):
+    """手持ち PDF 経歴書の抽出結果（ADR-0024）。
+
+    Resume 互換のフォーム注入用 payload。保存契約（schemas/resume.py の strict な
+    バリデーション）とは分離し、抽出できた分だけを返す（全フィールド任意・欠落は空）。
+    DB は更新せず、フロントがフォーム state へ注入 → ユーザー確認 → 既存の保存 API を呼ぶ。
+    email 等の未抽出フィールドはフォームでユーザーが補完する。
+    """
+
+    full_name: str = ""
+    career_summary: str = ""
+    self_pr: str = ""
+    experiences: list[ResumeImportExperience] = Field(default_factory=list)
