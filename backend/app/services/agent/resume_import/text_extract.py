@@ -9,7 +9,7 @@ import logging
 from io import BytesIO
 
 from pypdf import PdfReader
-from pypdf.errors import PdfReadError
+from pypdf.errors import PyPdfError
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +73,11 @@ def extract_pdf_text(data: bytes) -> str:
     try:
         reader = PdfReader(BytesIO(data))
         pages_text = [page.extract_text() or "" for page in reader.pages]
-    except (PdfReadError, ValueError, OSError) as exc:
-        # 破損 PDF・構造不正。個人情報は載せずに型のみログ
+    except (PyPdfError, ValueError, OSError, KeyError, RecursionError) as exc:
+        # 破損 PDF・構造不正。pypdf は PdfReadError（PyPdfError 派生）だけでなく、
+        # 必須キー欠落（KeyError: /Root・/Pages）や深いネスト（RecursionError）を
+        # 組み込み例外のまま送出することがあるため、それらも 422 へ倒す（500 漏れ防止）。
+        # 個人情報は載せずに型のみログ。
         logger.warning("PDF の読み取りに失敗: %s", type(exc).__name__)
         raise PdfExtractionError("PDF を読み取れませんでした") from exc
 

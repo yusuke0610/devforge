@@ -100,3 +100,20 @@ def test_extract_pdf_text_raises_scanned_for_textless_pdf() -> None:
     pdf = _make_pdf("<p>&nbsp;</p>")
     with pytest.raises(ScannedPdfError):
         extract_pdf_text(pdf)
+
+
+@pytest.mark.parametrize("raised", [KeyError("/Root"), RecursionError()])
+def test_extract_pdf_text_wraps_builtin_parser_errors(monkeypatch, raised) -> None:
+    """pypdf が組み込み例外（KeyError / RecursionError）を漏らしても PdfExtractionError に倒す。
+
+    マジックバイトは有効だが構造が壊れた PDF で pypdf が PdfReadError 以外を送出しても、
+    500 に漏らさず 422（PdfExtractionError）へマップすることを保証する。
+    """
+    from app.services.agent.resume_import import text_extract
+
+    def _raise(*_args, _exc=raised, **_kwargs):
+        raise _exc
+
+    monkeypatch.setattr(text_extract, "PdfReader", _raise)
+    with pytest.raises(PdfExtractionError):
+        extract_pdf_text(b"%PDF-1.7\n" + b"x" * 100)
