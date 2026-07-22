@@ -7,7 +7,7 @@ Agent のレスポンス（operations）はフロントの state にのみ適用
 
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -18,7 +18,12 @@ from ..core.security.dependencies import limiter
 from ..db import get_db
 from ..models import User
 from ..repositories.resume_draft import ResumeDraftCacheRepository
-from ..schemas.agent import AgentChatRequest, AgentChatResponse, ResumeDraftRequest
+from ..schemas.agent import (
+    AgentChatRequest,
+    AgentChatResponse,
+    ResumeDraftRequest,
+    ResumeImportResponse,
+)
 from ..schemas.shared import TaskAcceptedResponse, TaskStatusResponse
 from ..services.agent import chat_service
 from ..services.agent.chat_service import (
@@ -32,6 +37,12 @@ from ..services.agent.resume_draft.context import (
     ResumeDraftNoRepositoriesError,
     ResumeDraftSourceUnavailableError,
     build_draft_source,
+)
+from ..services.agent.resume_import.import_service import run_resume_import
+from ..services.agent.resume_import.text_extract import (
+    PdfExtractionError,
+    ScannedPdfError,
+    extract_pdf_text,
 )
 from ..services.pdf.generators.resume_generator import build_resume_pdf
 from ..services.tasks import AsyncTaskCacheService, TaskType
@@ -203,3 +214,66 @@ def download_resume_draft_pdf(
         )
     pdf_bytes = build_resume_pdf(cache.result)
     return stream_pdf(pdf_bytes, "career-resume-draft.pdf")
+
+
+# 手持ち PDF 経歴書のアップロード上限（ADR-0024 / #527）。経歴書 PDF は通常数 MB 以内。
+_MAX_PDF_UPLOAD_BYTES = 10 * 1024 * 1024
+
+
+@router.post("/resume-import/pdf", response_model=ResumeImportResponse)
+@limiter.limit("5/minute")
+async def import_resume_pdf(
+    request: Request,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ResumeImportResponse:
+    """手持ちの PDF 経歴書を構造化抽出し、フォーム注入用 payload を返す（ADR-0024）。
+
+    テキスト埋め込み PDF のみ対応（スキャン PDF は 422 で案内）。抽出は Claude Haiku で
+    行い、DB は更新しない（ADR-0010）。結果はフロントがフォーム state へ注入 → ユーザー
+    確認 → 既存の保存 API を呼ぶ。abuse 防止は日次レート制限（#521 / ADR-0023）。
+    """
+    _enforce_agent_daily_limit(db, user.id)
+
+    data = await file.read()
+    if len(data) > _MAX_PDF_UPLOAD_BYTES:
+        raise_app_error(
+            status_code=422,
+            code=ErrorCode.VALIDATION_ERROR,
+            message=get_error("agent.import_too_large"),
+        )
+
+    # テキスト抽出。非 PDF / 破損 / スキャン（テキスト非埋め込み）は明示的に 422 で倒す
+    # （旧設計の空文字握りつぶしの再発防止 / ADR-0004→0008→0024）
+    try:
+        text = extract_pdf_text(data)
+    except ScannedPdfError:
+        raise_app_error(
+            status_code=422,
+            code=ErrorCode.VALIDATION_ERROR,
+            message=get_error("agent.import_scanned_pdf"),
+        )
+    except PdfExtractionError:
+        raise_app_error(
+            status_code=422,
+            code=ErrorCode.VALIDATION_ERROR,
+            message=get_error("agent.import_invalid_pdf"),
+        )
+
+    # 構造化抽出（Claude Haiku 固定 / ADR-0023）。失敗契約はチャット・ドラフトと同一
+    try:
+        result = await run_resume_import("haiku", text)
+    except LLMError:
+        raise_app_error(
+            status_code=502,
+            code=ErrorCode.AGENT_LLM_ERROR,
+            message=get_error("agent.llm_failed"),
+        )
+    except AgentResponseParseError:
+        raise_app_error(
+            status_code=502,
+            code=ErrorCode.AGENT_PARSE_ERROR,
+            message=get_error("agent.parse_failed"),
+        )
+    return ResumeImportResponse.model_validate(result.payload)

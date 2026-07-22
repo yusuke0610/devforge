@@ -71,7 +71,10 @@
       "draft_pdf_failed": "経歴書ドラフトの PDF 生成に失敗しました。もう一度お試しください。",
       "draft_not_ready": "経歴書ドラフトの生成が完了していません。生成を実行してからダウンロードしてください。",
       "skill_display_no_skills": "表示名を提案できるスキルがありません。先に GitHub 連携を実行してください。",
-      "skill_display_invalid_identity": "確定対象に連携結果に存在しないスキルが含まれています。"
+      "skill_display_invalid_identity": "確定対象に連携結果に存在しないスキルが含まれています。",
+      "import_invalid_pdf": "PDF を読み取れませんでした。ファイルが壊れていないか確認して、もう一度お試しください。",
+      "import_scanned_pdf": "テキストを含む PDF のみ対応しています。スキャン画像の PDF は読み取れないため、お手数ですが手入力をお願いします。",
+      "import_too_large": "ファイルサイズが大きすぎます。10MB 以下の PDF をアップロードしてください。"
     }
   },
   "notification": {
