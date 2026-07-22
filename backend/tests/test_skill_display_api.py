@@ -1,6 +1,6 @@
 """スキル表示名の human-in-the-loop 提案・確定 API のテスト（ADR-0016 D11）。
 
-DB はモックせず実 SQLite セッションに当てる。LLM のみモックする。propose の 402/502、
+DB はモックせず実 SQLite セッションに当てる。LLM のみモックする。propose の 502、
 confirm の authz、確定の反映、連携の洗い替えに対する確定の耐性を検証する。
 """
 
@@ -141,17 +141,6 @@ def test_propose_404_when_only_languages(client) -> None:
         "/api/github-link/skills/display-names/propose", json={"model": "haiku"}, headers=headers
     )
     assert resp.status_code == 404
-
-
-def test_propose_402_for_paid_model_without_credits(client) -> None:
-    """有料モデルは残高 0 だと LLM を呼ぶ前に 402。"""
-    headers = auth_header(client, "disp_paid")
-    uid = _user_id(client, "disp_paid")
-    GitHubSkillRepository(client._db_session, uid).replace_for_user(_detected())
-    resp = client.post(
-        "/api/github-link/skills/display-names/propose", json={"model": "sonnet"}, headers=headers
-    )
-    assert resp.status_code == 402
 
 
 def test_propose_502_on_llm_error(client, monkeypatch) -> None:

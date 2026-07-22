@@ -37,8 +37,8 @@
 - backend/app が `os.getenv("XXX")` 等の文字列リテラルで env を参照していないか
   （本モジュールの定数経由を機械強制する）。
 
-`.github/workflows/ci.yml` は検証対象外（実 API を CI から呼ばないため。
-OPENAI_API_KEY のコメント参照）。`docs/api.md` の環境変数表は手動同期のまま。
+`.github/workflows/ci.yml` は検証対象外（実 API を CI から呼ばないため）。
+`docs/api.md` の環境変数表は手動同期のまま。
 
 ## 関連ドキュメント
 
@@ -104,24 +104,16 @@ UPSTASH_REDIS_TOKEN = "UPSTASH_REDIS_TOKEN"
 LOG_FORMAT = "LOG_FORMAT"
 LOG_LEVEL = "LOG_LEVEL"
 
-# --- LLM（DevForge Agent / ADR-0010・ADR-0013・ADR-0015） ---
+# --- LLM（DevForge Agent / ADR-0010・ADR-0023） ---
 
-# ローカル Ollama 上書き（"1"/"true"/"yes" で有効）。選択モデルに関わらず全リクエストを
+# ローカル Ollama 上書き（"1"/"true"/"yes" で有効）。全リクエストを
 # ローカル Ollama に通す無料パス。本番（Cloud Run）では未設定＝無効。
-# プロバイダ選択はモデルエイリアスに紐づくため、グローバルな LLM_PROVIDER は廃止（ADR-0013）
 LLM_LOCAL_OLLAMA = "LLM_LOCAL_OLLAMA"
-# Gemini / Anthropic は Vertex AI（Cloud Run の SA → ADC）経由で叩く（ADR-0015）。
+# Anthropic（Claude Haiku）は Vertex AI（Cloud Run の SA → ADC）経由で叩く（ADR-0015/0023）。
 # 認証は SA + GCP_PROJECT_ID（Cloud Tasks と共用）で行い、API キーは持たない。
-# ロケーションは provider 別: Gemini=asia-northeast1、Claude=asia-southeast1（Tokyo に
-# Claude が無いため）。infra（cloud_run）が plaintext env として注入する。
-VERTEX_LOCATION = "VERTEX_LOCATION"
+# ロケーションは asia-southeast1（Claude が Tokyo で提供されないため Singapore）。
+# infra（cloud_run）が plaintext env として注入する。
 VERTEX_ANTHROPIC_LOCATION = "VERTEX_ANTHROPIC_LOCATION"
-# OpenAI のみ GCP に存在しないため API キーを継続使用（ADR-0015）。
-# 本番（Cloud Run）では Secret Manager から注入する。ログ出力禁止。
-# 注: OPENAI_API_KEY はテストがプロバイダを _FakeLLM でモックするため CI
-# （.github/workflows/ci.yml）には注入不要。env_keys の 5 箇所同期のうち ci.yml
-# だけは意図的に対象外とする（実 API を CI から呼ばないため）。
-OPENAI_API_KEY = "OPENAI_API_KEY"
 OLLAMA_BASE_URL = "OLLAMA_BASE_URL"
 OLLAMA_MODEL = "OLLAMA_MODEL"
 # ローカル Ollama 呼び出しの HTTP タイムアウト秒数（既定 300。ローカル開発専用）
@@ -131,13 +123,6 @@ OLLAMA_TIMEOUT_SECONDS = "OLLAMA_TIMEOUT_SECONDS"
 # プリペイド課金の残高チェックに代わる abuse 防止。未設定時は既定値
 # （services/agent/rate_limit.py の DEFAULT_AGENT_DAILY_LIMIT）を使う。
 AGENT_DAILY_LIMIT = "AGENT_DAILY_LIMIT"
-
-# --- 決済（Stripe Checkout / ADR-0012 Phase 2） ---
-
-# 本番（Cloud Run）では Secret Manager から注入する。ログ出力禁止
-STRIPE_SECRET_KEY = "STRIPE_SECRET_KEY"
-# Webhook 署名検証用シークレット（whsec_...）。ログ出力禁止
-STRIPE_WEBHOOK_SECRET = "STRIPE_WEBHOOK_SECRET"
 
 # --- アプリ起動制御 ---
 

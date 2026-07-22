@@ -24,7 +24,6 @@ from ..services.agent import chat_service
 from ..services.agent.chat_service import (
     AgentResponseParseError,
     AgentTargetNotFoundError,
-    AgentUsage,
 )
 from ..services.agent.context_builder import build_reference_context
 from ..services.agent.llm.base import LLMError
@@ -34,8 +33,6 @@ from ..services.agent.resume_draft.context import (
     ResumeDraftSourceUnavailableError,
     build_draft_source,
 )
-from ..services.billing import credit_service
-from ..services.billing.credit_service import InsufficientCreditsError
 from ..services.pdf.generators.resume_generator import build_resume_pdf
 from ..services.tasks import AsyncTaskCacheService, TaskType
 from .download_utils import stream_pdf
@@ -63,13 +60,6 @@ def _enforce_agent_daily_limit(db: Session, user_id: str) -> None:
         )
 
 
-def _record_usage_after_llm(
-    db: Session, user_id: str, usage: AgentUsage, *, description: str | None = None
-) -> None:
-    """LLM 応答後のクレジット消費・使用ログ記録（billing の共通後処理へ委譲）。"""
-    credit_service.record_usage_after_llm(db, user_id, usage, description=description)
-
-
 @router.post("/chat", response_model=AgentChatResponse)
 @limiter.limit("10/minute")
 async def agent_chat(
@@ -81,22 +71,12 @@ async def agent_chat(
     """選択スコープの内容とプロンプトをもとに、職務経歴書への差分 operations を返す。
 
     career_summary / self_pr スコープでは GitHub 分析サマリーを参照情報として付与する。
-    レスポンスはフロントの state にのみ適用され、DB は更新しない
-    （クレジット消費・使用ログの記録は除く / ADR-0012）。
+    レスポンスはフロントの state にのみ適用され、DB は更新しない（ADR-0010）。
     ユーザーが確認して「適用」した時点で既存の保存 API が呼ばれる。
+    abuse 防止は日次レート制限で行う（ADR-0023 で課金を撤去）。
     """
     # 日次利用上限（abuse 防止 / #521・ADR-0023）を LLM 呼び出し前に確認する
     _enforce_agent_daily_limit(db, user.id)
-    # 有料モデル（sonnet）は LLM を呼ぶ前に残高をチェックする。実コストは応答後に
-    # 確定するため事後減算とし、チェック通過後の負残高は許容する（ADR-0012）
-    try:
-        credit_service.ensure_can_use_model(db, user.id, body.model)
-    except InsufficientCreditsError:
-        raise_app_error(
-            status_code=402,
-            code=ErrorCode.INSUFFICIENT_CREDITS,
-            message=get_error("billing.insufficient_credits"),
-        )
     try:
         reference = build_reference_context(db, user.id, body.scope)
         result = await chat_service.run_agent_chat(body, reference)
@@ -106,37 +86,18 @@ async def agent_chat(
             code=ErrorCode.VALIDATION_ERROR,
             message=get_error("agent.target_not_found"),
         )
-    except LLMError as exc:
-        # リトライ呼び出しが失敗した場合、1 回目分の消費済みトークンを課金してから
-        # 502 を返す（課金漏れを防ぐ / ADR-0012）。課金記録自体の失敗はログに残し、
-        # 本来の LLM 失敗（502）を優先して返す
-        if exc.usage is not None:
-            try:
-                _record_usage_after_llm(db, user.id, exc.usage)
-            except Exception:
-                logger.error("LLM 失敗時のクレジット消費記録に失敗", exc_info=True)
+    except LLMError:
         raise_app_error(
             status_code=502,
             code=ErrorCode.AGENT_LLM_ERROR,
             message=get_error("agent.llm_failed"),
         )
-    except AgentResponseParseError as exc:
-        # リトライ後も失敗。消費済みトークン（リトライ含む API 原価）があれば課金を
-        # 確定してから 502 を返す（課金漏れを防ぐ / ADR-0012）。課金記録自体の失敗は
-        # ログに残し、本来のパース失敗（502）を優先して返す
-        if exc.usage is not None:
-            try:
-                _record_usage_after_llm(db, user.id, exc.usage)
-            except Exception:
-                logger.error("パース失敗時のクレジット消費記録に失敗", exc_info=True)
+    except AgentResponseParseError:
         raise_app_error(
             status_code=502,
             code=ErrorCode.AGENT_PARSE_ERROR,
             message=get_error("agent.parse_failed"),
         )
-    # 実トークン量に基づくクレジット消費 + 使用ログ記録（haiku はログのみ）。
-    # 記録失敗は応答を返さず 500 にする（課金漏れを黙って通さない / ADR-0012）
-    _record_usage_after_llm(db, user.id, result.usage)
     return result.response
 
 
@@ -155,19 +116,10 @@ async def start_resume_draft(
     （職務要約・自己PR・プロジェクト説明）だけを LLM で生成する。生成物（payload）は
     ``resume_draft_cache`` に保存され、``GET /resume-draft/pdf`` でダウンロードできる。
     確定した職務経歴書（``resumes``）とは別物で、そちらには書き込まない。
-    課金は生成タスク側で確定する（残高の事前チェックのみ本エンドポイントで行う / ADR-0012）。
+    abuse 防止は日次レート制限で行う（ADR-0023 で課金を撤去）。
     """
     # 日次利用上限（abuse 防止 / #521・ADR-0023）を生成開始前に確認する
     _enforce_agent_daily_limit(db, user.id)
-    # 有料モデルは生成を開始する前に残高をチェックする（チャットと同一契約 / ADR-0012）
-    try:
-        credit_service.ensure_can_use_model(db, user.id, body.model)
-    except InsufficientCreditsError:
-        raise_app_error(
-            status_code=402,
-            code=ErrorCode.INSUFFICIENT_CREDITS,
-            message=get_error("billing.insufficient_credits"),
-        )
     # 連携キャッシュ + スキル証跡の読み取り（SELECT のみ）で事前検証し、409 を即時に返す。
     # 0 件（NoRepositories）は再連携で回復しないため別導線を案内する（サブクラスを先に catch）
     try:

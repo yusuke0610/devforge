@@ -18,16 +18,9 @@ from ..core.messages import get_error
 
 AgentScope = Literal["project", "career_summary", "self_pr", "experience"]
 
-# 選択可能な LLM モデルのエイリアス（ADR-0012 / ADR-0013）。実モデル ID・プロバイダ・
-# 課金レートは services/agent/model_catalog.py の MODEL_CATALOG が正本（キー集合を一致させる）
-AgentModelAlias = Literal[
-    "haiku",  # Anthropic Claude Haiku（無料枠）
-    "sonnet",  # Anthropic Claude Sonnet
-    "gemini-flash",  # Google Gemini 2.5 Flash（廉価）
-    "gemini-pro",  # Google Gemini 2.5 Pro（高品質）
-    "gpt-mini",  # OpenAI GPT 廉価（gpt-4o-mini 系）
-    "gpt",  # OpenAI GPT 高級（GPT-4.1/5 系）
-]
+# 使用する LLM モデルのエイリアス。ADR-0023 で Haiku 無料一本化へ縮退したため haiku のみ。
+# 実モデル ID は services/agent/model_catalog.py の MODEL_CATALOG が正本（キー集合を一致させる）。
+AgentModelAlias = Literal["haiku"]
 
 
 class AgentTechnologyStack(BaseModel):
@@ -116,7 +109,7 @@ class AgentChatRequest(BaseModel):
 
     scope: AgentScope
     prompt: str = Field(min_length=1, max_length=2000)
-    # 使用モデル。haiku は無料・使い放題、sonnet は有料（クレジット消費 / ADR-0012）。
+    # 使用モデル。ADR-0023 で課金を撤去したため全モデル無料（マルチプロバイダは #523 で縮退予定）。
     # デフォルト haiku で既存クライアントと後方互換
     model: AgentModelAlias = "haiku"
     resume: AgentResumeContext
@@ -144,7 +137,7 @@ class ResumeDraftRequest(BaseModel):
     クライアントが指定するのは使用モデルのみ。
     """
 
-    # 使用モデル。既定は無料枠の haiku（ADR-0012 の課金契約はチャットと共通）
+    # 使用モデル。既定は haiku（ADR-0023 で課金撤去済み・全モデル無料）
     model: AgentModelAlias = "haiku"
 
 

@@ -33,7 +33,7 @@ describe("useResumeDraftPdf", () => {
   it("generate 成功で previewUrl がセットされる", async () => {
     mockFetch.mockResolvedValueOnce("blob:http://localhost/draft-pdf");
 
-    const { result } = renderHook(() => useResumeDraftPdf("haiku"));
+    const { result } = renderHook(() => useResumeDraftPdf());
     await act(async () => {
       await result.current.generate();
     });
@@ -41,7 +41,7 @@ describe("useResumeDraftPdf", () => {
     await waitFor(() =>
       expect(result.current.previewUrl).toBe("blob:http://localhost/draft-pdf"),
     );
-    expect(mockStart).toHaveBeenCalledWith("haiku");
+    expect(mockStart).toHaveBeenCalledWith();
     expect(result.current.error).toBeNull();
     expect(result.current.generating).toBe(false);
   });
@@ -53,7 +53,7 @@ describe("useResumeDraftPdf", () => {
       () => new Promise<string>((resolve) => (resolveFetch = resolve)),
     );
 
-    const { result } = renderHook(() => useResumeDraftPdf("haiku"));
+    const { result } = renderHook(() => useResumeDraftPdf());
     await act(async () => {
       await result.current.generate();
     });
@@ -76,7 +76,7 @@ describe("useResumeDraftPdf", () => {
       }),
     );
 
-    const { result } = renderHook(() => useResumeDraftPdf("haiku"));
+    const { result } = renderHook(() => useResumeDraftPdf());
     await act(async () => {
       await result.current.generate();
     });
@@ -96,7 +96,7 @@ describe("useResumeDraftPdf", () => {
       error_code: "AGENT_LLM_ERROR",
     });
 
-    const { result } = renderHook(() => useResumeDraftPdf("haiku"));
+    const { result } = renderHook(() => useResumeDraftPdf());
     await act(async () => {
       await result.current.generate();
     });
@@ -114,7 +114,7 @@ describe("useResumeDraftPdf", () => {
     mockStatus.mockResolvedValue({ status: "completed" }); // 以降のポーリング
     mockFetch.mockResolvedValueOnce("blob:http://localhost/resumed");
 
-    const { result } = renderHook(() => useResumeDraftPdf("haiku"));
+    const { result } = renderHook(() => useResumeDraftPdf());
 
     await waitFor(() =>
       expect(result.current.previewUrl).toBe("blob:http://localhost/resumed"),
@@ -128,7 +128,7 @@ describe("useResumeDraftPdf", () => {
     const revokeSpy = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
     mockFetch.mockResolvedValueOnce("blob:http://localhost/to-revoke");
 
-    const { result } = renderHook(() => useResumeDraftPdf("haiku"));
+    const { result } = renderHook(() => useResumeDraftPdf());
     await act(async () => {
       await result.current.generate();
     });
@@ -147,7 +147,7 @@ describe("useResumeDraftPdf", () => {
     const revokeSpy = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
     mockFetch.mockResolvedValueOnce("blob:http://localhost/on-unmount");
 
-    const { result, unmount } = renderHook(() => useResumeDraftPdf("haiku"));
+    const { result, unmount } = renderHook(() => useResumeDraftPdf());
     await act(async () => {
       await result.current.generate();
     });

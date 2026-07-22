@@ -1,22 +1,12 @@
-import { configureStore } from "@reduxjs/toolkit";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AgentModelAlias } from "../../api/types";
 import { AGENT_MESSAGES } from "../../constants/messages";
 import { createInitialCareerForm } from "../../formMappers";
-import agentModelReducer from "../../store/agentModelSlice";
-import formCacheReducer from "../../store/formCacheSlice";
-import {
-  CreditBalanceContext,
-  type CreditBalanceContextValue,
-} from "../billing/creditBalanceContext";
 import { ToastProvider } from "../ui/toast";
 import { AgentChatWidget } from "./AgentChatWidget";
 
-// useAgentChat はネットワークを伴うため send をモックし、ウィジェット側の
-// 「有料モデルなら送信後に残高を再取得する」配線だけを検証対象にする。
+// useAgentChat はネットワークを伴うため send をモックし、ウィジェットの送信配線を検証する。
 const { sendMock } = vi.hoisted(() => ({ sendMock: vi.fn() }));
 vi.mock("../../hooks/career/useAgentChat", () => ({
   useAgentChat: () => ({
@@ -29,36 +19,17 @@ vi.mock("../../hooks/career/useAgentChat", () => ({
   }),
 }));
 
-function makeStore(model: AgentModelAlias) {
-  return configureStore({
-    reducer: { agentModel: agentModelReducer, formCache: formCacheReducer },
-    preloadedState: { agentModel: { model } },
-  });
-}
-
-function renderWidget(model: AgentModelAlias) {
-  const refresh = vi.fn().mockResolvedValue(undefined);
-  const balanceValue: CreditBalanceContextValue = {
-    balance: 1000,
-    loading: false,
-    error: null,
-    refresh,
-  };
+function renderWidget() {
   render(
-    <Provider store={makeStore(model)}>
-      <CreditBalanceContext.Provider value={balanceValue}>
-        <ToastProvider>
-          <AgentChatWidget
-            form={createInitialCareerForm()}
-            onApply={vi.fn()}
-            isAuthenticated={true}
-            requestLogin={vi.fn()}
-          />
-        </ToastProvider>
-      </CreditBalanceContext.Provider>
-    </Provider>,
+    <ToastProvider>
+      <AgentChatWidget
+        form={createInitialCareerForm()}
+        onApply={vi.fn()}
+        isAuthenticated={true}
+        requestLogin={vi.fn()}
+      />
+    </ToastProvider>,
   );
-  return { refresh };
 }
 
 /** パネルを開いて依頼文を入力し、送信ボタンを押すまでの操作。 */
@@ -75,31 +46,15 @@ beforeEach(() => {
   sendMock.mockResolvedValue(undefined);
 });
 
-describe("AgentChatWidget の残高再取得", () => {
-  it("有料モデル（gemini-pro）で送信すると送信後に残高を再取得する", async () => {
-    const { refresh } = renderWidget("gemini-pro");
+describe("AgentChatWidget の送信", () => {
+  it("依頼文を入力して送信すると send が呼ばれる", async () => {
+    renderWidget();
 
     openAndSend("自己PRを改善して");
 
     await waitFor(() => expect(sendMock).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
-  });
-
-  it("有料モデル（gpt）でも送信後に残高を再取得する", async () => {
-    const { refresh } = renderWidget("gpt");
-
-    openAndSend("職務要約を整えて");
-
-    await waitFor(() => expect(sendMock).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
-  });
-
-  it("無料モデル（haiku）では残高を再取得しない", async () => {
-    const { refresh } = renderWidget("haiku");
-
-    openAndSend("自己PRを改善して");
-
-    await waitFor(() => expect(sendMock).toHaveBeenCalledTimes(1));
-    expect(refresh).not.toHaveBeenCalled();
+    // send(form, scope, target, text) の順で依頼文が渡る（モデルは Haiku 固定 / ADR-0023）
+    const call = sendMock.mock.calls[0];
+    expect(call[3]).toBe("自己PRを改善して");
   });
 });

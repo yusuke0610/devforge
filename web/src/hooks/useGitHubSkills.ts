@@ -7,11 +7,7 @@ import {
   resetSkillDisplayDecisions,
 } from "../api/githubLink";
 import { toAppError, type AppErrorState } from "../api";
-import type {
-  AgentModelAlias,
-  GitHubSkillItem,
-  SkillIdentityRef,
-} from "../api/types";
+import type { GitHubSkillItem, SkillIdentityRef } from "../api/types";
 import { FALLBACK_MESSAGES } from "../constants/messages";
 import {
   buildDisplayDecisions,
@@ -31,9 +27,9 @@ import {
  * 決定論的な変換（表示名解決・グループ化・提案→確定ペイロード）は utils/skillDisplay に
  * 切り出し、本フックは API 呼び出しと状態管理（loading / success / error）に専念する。
  *
- * @param model 提案に使う LLM モデル（ユーザーメニューのグローバル設定を渡す）
+ * 提案に使うモデルは Claude Haiku 固定（ADR-0023 でマルチプロバイダ・モデル選択を撤去）。
  */
-export function useGitHubSkills(model: AgentModelAlias) {
+export function useGitHubSkills() {
   const [skills, setSkills] = useState<GitHubSkillItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<AppErrorState | null>(null);
@@ -65,7 +61,7 @@ export function useGitHubSkills(model: AgentModelAlias) {
     setError(null);
     setProposing(true);
     try {
-      const res = await proposeSkillDisplayNames({ model });
+      const res = await proposeSkillDisplayNames({ model: "haiku" });
       setProposal(
         (res.groups ?? []).map((group) => ({
           displayName: group.display_name,
@@ -78,7 +74,7 @@ export function useGitHubSkills(model: AgentModelAlias) {
     } finally {
       setProposing(false);
     }
-  }, [model]);
+  }, []);
 
   /** レビュー中の 1 グループの表示名を編集する。 */
   const updateProposalName = useCallback((index: number, displayName: string) => {

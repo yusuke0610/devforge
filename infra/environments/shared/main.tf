@@ -27,10 +27,9 @@ module "devforge_stack" {
   region                         = var.region
   deployer_service_account_email = var.deployer_service_account_email
 
-  cors_origins               = var.cors_origins
-  callback_base_url          = var.callback_base_url
-  enable_github_oauth        = var.enable_github_oauth
-  enable_extra_llm_providers = var.enable_extra_llm_providers
+  cors_origins        = var.cors_origins
+  callback_base_url   = var.callback_base_url
+  enable_github_oauth = var.enable_github_oauth
 
   alert_email = var.alert_email
 

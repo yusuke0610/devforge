@@ -57,17 +57,7 @@ REST API エンドポイント一覧と、バックエンド／フロントエ�
 - `POST /api/notifications/read-all`: 全て既読
 
 ### Agent（LLM チャット / ADR-0010）
-- `POST /api/agent/chat`: 選択スコープ（`project` / `experience` / `career_summary` / `self_pr`）の内容とプロンプトをもとに、職務経歴書への差分 operations を返す。DB は更新せず、適用はフロント側でユーザー確認後に既存保存 API を呼ぶ。rate limit 10/min。`model` はマルチプロバイダ（ADR-0013）から選択可能 — 無料: `haiku` / `gemini-flash` / `gpt-mini`、有料（クレジット消費）: `sonnet` / `gemini-pro` / `gpt`。プロバイダはモデルエイリアスに紐づいて切り替わる。有料モデルで残高不足の場合は 402 `INSUFFICIENT_CREDITS`（ADR-0012）
-
-### 課金（プリペイドクレジット / ADR-0012）
-- `GET /api/billing/balance`: ログインユーザーのクレジット残高
-- `GET /api/billing/transactions`: クレジット台帳履歴（付与・消費、新しい順）
-- `GET /api/billing/packs`: 購入可能なクレジットパック一覧（`pricing.py` が正本）
-- `GET /api/billing/model-rates`: モデル別の標準消費レート（回数目安用）
-- `GET /api/billing/usage-summary`: ログインユーザーのモデル別利用実績サマリ
-- `POST /api/billing/checkout`: クレジット購入の Stripe Checkout セッションを作成し決済ページ URL を返す（Phase 2・要ログイン・rate limit）
-- `POST /api/billing/webhook`: Stripe Webhook（`checkout.session.completed`）でクレジットを付与（Phase 2・`Stripe-Signature` 署名検証必須・認証ガード無し）
-- `POST /api/billing/admin/grant`: ユーザーへのクレジット付与（管理者・`ADMIN_TOKEN` Bearer 認証）
+- `POST /api/agent/chat`: 選択スコープ（`project` / `experience` / `career_summary` / `self_pr`）の内容とプロンプトをもとに、職務経歴書への差分 operations を返す。DB は更新せず、適用はフロント側でユーザー確認後に既存保存 API を呼ぶ。rate limit 10/min に加え、ユーザ単位の日次上限（`AGENT_DAILY_LIMIT`）で abuse を防ぐ（超過は 429 `AGENT_DAILY_LIMIT_EXCEEDED` / ADR-0023 で課金は撤去）。モデルは Claude Haiku 固定（本番 Vertex AI(ADC)、ローカルは Ollama。ADR-0023 でマルチプロバイダ撤去）
 
 ### 内部 API（Cloud Tasks コールバック専用）
 - `POST /internal/tasks/{task_type}`: Cloud Tasks からのタスク実行リクエストを受け付ける。`TASK_RUNNER=cloud_tasks` の場合は `X-CloudTasks-QueueName` ヘッダで検証
@@ -129,21 +119,12 @@ REST API エンドポイント一覧と、バックエンド／フロントエ�
 
 | 変数 | 用途 |
 |---|---|
-| `LLM_LOCAL_OLLAMA` | ローカル Ollama 上書き（`1`/`true`/`yes` で有効）。選択モデルに関わらず全リクエストを Ollama に通す無料パス。本番は未設定＝無効（ADR-0013） |
-| `VERTEX_LOCATION` | Gemini を叩く Vertex AI のロケーション（ADR-0015。既定: `asia-northeast1`）。認証は SA→ADC で `GCP_PROJECT_ID` を共用。API キー不要 |
+| `LLM_LOCAL_OLLAMA` | ローカル Ollama 上書き（`1`/`true`/`yes` で有効）。全リクエストを Ollama に通す無料パス。本番は未設定＝無効（ADR-0023） |
 | `VERTEX_ANTHROPIC_LOCATION` | Claude を叩く Vertex AI のロケーション（ADR-0015。既定: `asia-southeast1`。Tokyo 未提供のため Singapore）。regional endpoint は global 比 +10% 課金 |
-| `OPENAI_API_KEY` | OpenAI API キー（ADR-0013/0015。GCP に存在しないため唯一キー継続。`enable_extra_llm_providers=true` の環境で Secret Manager `openai-api-key` から注入） |
 | `OLLAMA_BASE_URL` | ローカル Ollama のベース URL（既定: `http://localhost:11434`） |
 | `OLLAMA_MODEL` | ローカル Ollama のモデル名（既定: `llama3.2`） |
 | `OLLAMA_TIMEOUT_SECONDS` | ローカル Ollama 呼び出しの HTTP タイムアウト秒数（既定: `300`） |
 | `AGENT_DAILY_LIMIT` | Agent エンドポイント（`/agent/chat`・`/agent/resume-draft/run`）のユーザ単位日次リクエスト上限（#521・ADR-0023。未設定時の既定: `50`）。本番は未設定＝既定値で運用 |
-
-### 決済（Stripe Checkout / ADR-0012 Phase 2）
-
-| 変数 | 用途 |
-|---|---|
-| `STRIPE_SECRET_KEY` | Stripe シークレットキー（本番は Secret Manager `stripe-secret-key` から注入）。未設定なら購入機能は無効（`/api/billing/checkout` が 503） |
-| `STRIPE_WEBHOOK_SECRET` | Stripe Webhook 署名シークレット（`whsec_...`、本番は Secret Manager `stripe-webhook-secret` から注入）。`/api/billing/webhook` の署名検証に必須 |
 
 ### 運用・ロギング
 

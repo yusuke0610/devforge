@@ -6,7 +6,6 @@ import {
   startResumeDraft,
 } from "../api/agent";
 import { toAppError, type AppErrorState } from "../api";
-import type { AgentModelAlias } from "../api/types";
 import { FALLBACK_MESSAGES } from "../constants/messages";
 import { isInProgressStatus } from "../utils/taskStatus";
 import { useTaskPolling } from "./useTaskPolling";
@@ -22,9 +21,9 @@ import { useTaskPolling } from "./useTaskPolling";
  * 生成物（payload）はサーバーに保存されるが、previewUrl（Blob URL）は本フックの
  * ライフサイクルで管理する（リーク防止のため再生成・アンマウントで revoke する）。
  *
- * @param model 使用モデル（ユーザーメニューで選択中のグローバル設定を渡す）
+ * モデルは Claude Haiku 固定（ADR-0023 でマルチプロバイダ・モデル選択を撤去）。
  */
-export function useResumeDraftPdf(model: AgentModelAlias) {
+export function useResumeDraftPdf() {
   const [generating, setGenerating] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<AppErrorState | null>(null);
@@ -95,10 +94,10 @@ export function useResumeDraftPdf(model: AgentModelAlias) {
     setGenerating(true);
     setError(null);
     try {
-      await startResumeDraft(model);
+      await startResumeDraft();
       startPolling();
     } catch (e) {
-      // 409（連携データ不足）/ 402（残高不足）等は backend の message / action をそのまま表示する
+      // 409（連携データ不足）等は backend の message / action をそのまま表示する
       setError(toAppError(e, FALLBACK_MESSAGES.RESUME_DRAFT));
       setGenerating(false);
     }

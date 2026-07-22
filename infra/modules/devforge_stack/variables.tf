@@ -59,12 +59,6 @@ variable "enable_github_oauth" {
   default     = false
 }
 
-variable "enable_extra_llm_providers" {
-  description = "Gemini / OpenAI API キーを Cloud Run に注入するか（ADR-0013）。false なら未注入でデプロイ可能。"
-  type        = bool
-  default     = false
-}
-
 # --- 外部サービス: 監視 ---
 
 variable "alert_email" {

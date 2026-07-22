@@ -25,14 +25,7 @@ dependencies = [
     "pytest==9.1.1",
     "PyJWT[crypto]==2.13.0",
     "httpx==0.28.1",
-    # マルチプロバイダ LLM（ADR-0013）。Gemini = google-genai、GPT = openai。
-    # Gemini / Anthropic は Vertex AI（SA→ADC）経由（ADR-0015）。anthropic[vertex] の
-    # extra が ADC 用の google-auth を引き込む。google-genai は vertexai=True で Vertex 対応。
     "anthropic[vertex]==0.117.0",
-    "google-genai==2.12.1",
-    "openai==2.46.0",
-    # Stripe Checkout / Webhook 署名検証（ADR-0012 Phase 2）。公式ライブラリを使う
-    "stripe==15.3.1",
     "PyGithub==2.9.1",
     "slowapi==0.1.10",
     "ruff==0.15.22",
@@ -75,8 +68,6 @@ testpaths = ["tests"]
 source_paths = ["app"]
 only_mutate = [
     "app/services/agent/rate_limit.py",                   # Agent 日次レート制限判定（#521）
-    "app/services/billing/pricing.py",                    # 課金レート表
-    "app/services/billing/credit_service.py",             # クレジット計算・残高
     "app/services/intelligence/skills/*",                 # スキル推論（aggregator/linguist/パーサ群）
     "app/services/intelligence/github/repo_analyzer.py",  # リポジトリ解析
     "app/services/intelligence/github/contributions.py",  # コントリビューション集計

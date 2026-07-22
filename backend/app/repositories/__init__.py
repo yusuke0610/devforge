@@ -1,7 +1,6 @@
 """Repository 層。"""
 
 from .base import BaseMasterRepository, SingleUserDocumentRepository
-from .billing import BillingRepository
 from .github_link import GitHubLinkCacheRepository
 from .master_data import MQualificationRepository, MTechnologyStackRepository
 from .resume import ResumeRepository
@@ -10,7 +9,6 @@ from .user import UserRepository
 
 __all__ = [
     "BaseMasterRepository",
-    "BillingRepository",
     "GitHubLinkCacheRepository",
     "GitHubSkillRepository",
     "MQualificationRepository",

@@ -9,39 +9,24 @@ locals {
     "jwt-public-key",
     "internal-secret",
     "turso-auth-token",
-    # Gemini / Anthropic は Vertex AI（SA→ADC）へ移行済み（ADR-0015）。注入廃止に伴い
-    # anthropic-api-key / google-api-key のシークレットコンテナと secretAccessor も削除した
-    # （least privilege）。apply で当該シークレットが destroy される点に注意。
-    # OpenAI のみ GCP に存在せず API キーを継続使用（注入は enable_extra_llm_providers が true の環境のみ）
-    "openai-api-key",
-    # 決済（Stripe Checkout / ADR-0012 Phase 2）の API キーと Webhook 署名シークレット
-    "stripe-secret-key",
-    "stripe-webhook-secret",
+    # Anthropic（Claude Haiku）は Vertex AI（SA→ADC）経由でキー注入不要（ADR-0015/0023）。
+    # OpenAI / Gemini はマルチプロバイダ撤去（ADR-0023）でシークレットも削除した。
     # 棚卸し TODO: "field-encryption-key"（FIELD_ENCRYPTION_KEY / Fernet 鍵）は
     # このリストから除外し対応する Secret Manager シークレットを削除すること。
     # 削除前に全環境（dev/stg/prod）の Cloud Run 設定から環境変数を外すこと。
   ]
   required_secret_env = {
-    FIELD_ENCRYPTION_KEY  = "field-encryption-key"
-    ADMIN_TOKEN           = "admin-token"
-    JWT_PRIVATE_KEY       = "jwt-private-key"
-    JWT_PUBLIC_KEY        = "jwt-public-key"
-    INTERNAL_SECRET       = "internal-secret"
-    TURSO_AUTH_TOKEN      = "turso-auth-token"
-    STRIPE_SECRET_KEY     = "stripe-secret-key"
-    STRIPE_WEBHOOK_SECRET = "stripe-webhook-secret"
+    FIELD_ENCRYPTION_KEY = "field-encryption-key"
+    ADMIN_TOKEN          = "admin-token"
+    JWT_PRIVATE_KEY      = "jwt-private-key"
+    JWT_PUBLIC_KEY       = "jwt-public-key"
+    INTERNAL_SECRET      = "internal-secret"
+    TURSO_AUTH_TOKEN     = "turso-auth-token"
   }
   github_secret_env = var.enable_github_oauth ? {
     GITHUB_CLIENT_ID     = "github-client-id"
     GITHUB_CLIENT_SECRET = "github-client-secret"
   } : {}
-  # マルチプロバイダ LLM。Gemini / Anthropic は Vertex AI（SA→ADC）経由のためキー注入は
-  # 不要になり（ADR-0015）、本マップは OpenAI キーのみを gate する。有効時のみ注入し、
-  # 無効なら secret version 未投入でも Cloud Run が起動できる
-  llm_secret_env = var.enable_extra_llm_providers ? {
-    OPENAI_API_KEY = "openai-api-key"
-  } : {}
-
   # 初回 apply 時のブートストラップ用イメージ。
   # AR にアプリイメージが push される前でも Cloud Run リソース作成を成立させるための公開 hello イメージ。
   # 以後は ignore_changes により CI のデプロイが image を上書きする。
@@ -112,12 +97,8 @@ resource "google_cloud_run_v2_service" "app" {
         name  = "GCP_PROJECT_ID"
         value = var.project_id
       }
-      # Vertex AI（SA→ADC）の provider 別ロケーション（ADR-0015）。
-      # Gemini=Tokyo、Claude は Tokyo 未提供のため Singapore。GCP_PROJECT_ID を共用。
-      env {
-        name  = "VERTEX_LOCATION"
-        value = var.vertex_location
-      }
+      # Anthropic（Claude Haiku）を叩く Vertex AI（SA→ADC）のロケーション（ADR-0015/0023）。
+      # Claude は Tokyo 未提供のため Singapore。GCP_PROJECT_ID を共用。
       env {
         name  = "VERTEX_ANTHROPIC_LOCATION"
         value = var.vertex_anthropic_location
@@ -174,19 +155,6 @@ resource "google_cloud_run_v2_service" "app" {
 
       dynamic "env" {
         for_each = local.github_secret_env
-        content {
-          name = env.key
-          value_source {
-            secret_key_ref {
-              secret  = google_secret_manager_secret.app[env.value].secret_id
-              version = "latest"
-            }
-          }
-        }
-      }
-
-      dynamic "env" {
-        for_each = local.llm_secret_env
         content {
           name = env.key
           value_source {
