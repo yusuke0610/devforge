@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
-  AGENT_MODEL_MESSAGES,
   AUTH_PROMPT_MESSAGES,
   EXTERNAL_LINKS,
   UI_MESSAGES,
@@ -24,7 +23,6 @@ export function UserMenu({
   onToggleTheme,
   onLogout,
   onLogin,
-  onOpenModelSelect,
 }: {
   isAuthenticated: boolean;
   username: string | null;
@@ -32,8 +30,6 @@ export function UserMenu({
   onToggleTheme: () => void;
   onLogout: () => void;
   onLogin: () => void;
-  /** AI モデル選択モーダルを開く（認証済みのみ表示）。 */
-  onOpenModelSelect?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -62,22 +58,6 @@ export function UserMenu({
             </span>
           </button>
           <div className={styles.separator} />
-          {/* AI モデル切り替えは認証済みのみ（モデル選択はログインユーザーの設定 / ADR-0012）。 */}
-          {isAuthenticated && onOpenModelSelect && (
-            <button
-              type="button"
-              className={styles.menuItem}
-              onClick={() => {
-                setOpen(false);
-                onOpenModelSelect();
-              }}
-            >
-              <span className={styles.menuItemLabel}>{AGENT_MODEL_MESSAGES.MENU_ITEM}</span>
-            </button>
-          )}
-          {onOpenModelSelect && isAuthenticated && (
-            <div className={styles.separator} />
-          )}
           {/* 未認証ではログインはトリガー側のボタンに集約するため、メニューには出さない。 */}
           {isAuthenticated && (
             <>

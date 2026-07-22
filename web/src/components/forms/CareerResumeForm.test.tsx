@@ -6,7 +6,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { CareerResumeForm } from "./CareerResumeForm";
 import { LoginPromptContext } from "../auth/loginPromptContext";
 import { ToastProvider } from "../ui/toast";
-import agentModelReducer from "../../store/agentModelSlice";
 import formCacheReducer from "../../store/formCacheSlice";
 import { UI_MESSAGES, VALIDATION_MESSAGES } from "../../constants/messages";
 
@@ -24,7 +23,7 @@ vi.mock("../../api/master-data", () => ({
 /** formCache だけを持つ最小ストアを作る。 */
 function makeStore() {
   return configureStore({
-    reducer: { formCache: formCacheReducer, agentModel: agentModelReducer },
+    reducer: { formCache: formCacheReducer },
   });
 }
 

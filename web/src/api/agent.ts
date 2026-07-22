@@ -5,7 +5,6 @@ import { PATHS } from "./paths";
 import type {
   AgentChatRequest,
   AgentChatResponse,
-  AgentModelAlias,
   TaskAcceptedResponse,
   TaskStatusResponse,
 } from "./types";
@@ -24,12 +23,13 @@ export function postAgentChat(payload: AgentChatRequest): Promise<AgentChatRespo
 /**
  * GitHub 連携データからの経歴書ドラフト生成をバックグラウンドで開始する（202 非同期 / ADR-0018）。
  * 生成物は resume_draft_cache に保存され、完了後に {@link fetchResumeDraftPdfBlobUrl} で取得する。
- * 失敗時は ApiError（409 = 連携データ不足 / 402 = 残高不足）を送出する。
+ * 失敗時は ApiError（409 = 連携データ不足）を送出する。
+ * モデルは Claude Haiku 固定（ADR-0023 でマルチプロバイダ・モデル選択を撤去）。
  */
-export function startResumeDraft(model: AgentModelAlias): Promise<TaskAcceptedResponse> {
+export function startResumeDraft(): Promise<TaskAcceptedResponse> {
   return request<TaskAcceptedResponse>(PATHS.agent.resumeDraftRun, {
     method: "POST",
-    body: JSON.stringify({ model }),
+    body: JSON.stringify({ model: "haiku" }),
   });
 }
 

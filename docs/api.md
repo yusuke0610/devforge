@@ -57,7 +57,7 @@ REST API エンドポイント一覧と、バックエンド／フロントエ�
 - `POST /api/notifications/read-all`: 全て既読
 
 ### Agent（LLM チャット / ADR-0010）
-- `POST /api/agent/chat`: 選択スコープ（`project` / `experience` / `career_summary` / `self_pr`）の内容とプロンプトをもとに、職務経歴書への差分 operations を返す。DB は更新せず、適用はフロント側でユーザー確認後に既存保存 API を呼ぶ。rate limit 10/min に加え、ユーザ単位の日次上限（`AGENT_DAILY_LIMIT`）で abuse を防ぐ（超過は 429 `AGENT_DAILY_LIMIT_EXCEEDED` / ADR-0023 で課金は撤去）。`model` はモデルエイリアスから選択可能（マルチプロバイダは #523 で Haiku + Ollama へ縮退予定）
+- `POST /api/agent/chat`: 選択スコープ（`project` / `experience` / `career_summary` / `self_pr`）の内容とプロンプトをもとに、職務経歴書への差分 operations を返す。DB は更新せず、適用はフロント側でユーザー確認後に既存保存 API を呼ぶ。rate limit 10/min に加え、ユーザ単位の日次上限（`AGENT_DAILY_LIMIT`）で abuse を防ぐ（超過は 429 `AGENT_DAILY_LIMIT_EXCEEDED` / ADR-0023 で課金は撤去）。モデルは Claude Haiku 固定（本番 Vertex AI(ADC)、ローカルは Ollama。ADR-0023 でマルチプロバイダ撤去）
 
 ### 内部 API（Cloud Tasks コールバック専用）
 - `POST /internal/tasks/{task_type}`: Cloud Tasks からのタスク実行リクエストを受け付ける。`TASK_RUNNER=cloud_tasks` の場合は `X-CloudTasks-QueueName` ヘッダで検証
@@ -119,10 +119,8 @@ REST API エンドポイント一覧と、バックエンド／フロントエ�
 
 | 変数 | 用途 |
 |---|---|
-| `LLM_LOCAL_OLLAMA` | ローカル Ollama 上書き（`1`/`true`/`yes` で有効）。選択モデルに関わらず全リクエストを Ollama に通す無料パス。本番は未設定＝無効（ADR-0013） |
-| `VERTEX_LOCATION` | Gemini を叩く Vertex AI のロケーション（ADR-0015。既定: `asia-northeast1`）。認証は SA→ADC で `GCP_PROJECT_ID` を共用。API キー不要 |
+| `LLM_LOCAL_OLLAMA` | ローカル Ollama 上書き（`1`/`true`/`yes` で有効）。全リクエストを Ollama に通す無料パス。本番は未設定＝無効（ADR-0023） |
 | `VERTEX_ANTHROPIC_LOCATION` | Claude を叩く Vertex AI のロケーション（ADR-0015。既定: `asia-southeast1`。Tokyo 未提供のため Singapore）。regional endpoint は global 比 +10% 課金 |
-| `OPENAI_API_KEY` | OpenAI API キー（ADR-0013/0015。GCP に存在しないため唯一キー継続。`enable_extra_llm_providers=true` の環境で Secret Manager `openai-api-key` から注入） |
 | `OLLAMA_BASE_URL` | ローカル Ollama のベース URL（既定: `http://localhost:11434`） |
 | `OLLAMA_MODEL` | ローカル Ollama のモデル名（既定: `llama3.2`） |
 | `OLLAMA_TIMEOUT_SECONDS` | ローカル Ollama 呼び出しの HTTP タイムアウト秒数（既定: `300`） |

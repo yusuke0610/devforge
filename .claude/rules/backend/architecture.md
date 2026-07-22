@@ -54,12 +54,12 @@ backend/app/
 │   ├── agent/                   # DevForge Agent（LLM チャット / ADR-0010・0012・0013）
 │   │   ├── chat_service.py      # コンテキスト組み立て → LLM → operations 検証
 │   │   ├── context_builder.py   # GitHub 参照コンテキスト取得（DB 読み取り専用）
-│   │   ├── model_catalog.py     # エイリアス→provider/実モデル ID/課金レート（SSoT / ADR-0012・0013）
+│   │   ├── model_catalog.py     # エイリアス→provider/実モデル ID（SSoT / Haiku 固定・ADR-0023）
 │   │   ├── output_schema.py     # 構造化出力スキーマ（機械制約の正本）
-│   │   ├── llm/                 # LLM プロバイダ抽象（失敗は raise / ADR-0013）
+│   │   ├── llm/                 # LLM プロバイダ抽象（失敗は raise / ADR-0023: Anthropic + Ollama）
 │   │   │   ├── base.py          # LLMClient 抽象・LLMError・共通ヘルパ
-│   │   │   ├── factory.py       # get_llm_client(provider) で分岐
-│   │   │   ├── anthropic_client.py / openai_client.py / google_client.py
+│   │   │   ├── factory.py       # get_llm_client(provider) で分岐（Anthropic + Ollama の 2 択）
+│   │   │   ├── anthropic_client.py # Claude Haiku（本番 / Vertex AI(ADC)）
 │   │   │   └── ollama_client.py # ローカル開発用（LLM_LOCAL_OLLAMA）
 │   │   └── resume_draft/        # GitHub 連携データ → 経歴書ドラフト生成（ADR-0018）
 │   │       ├── context.py       # DB 読み取り専用（連携キャッシュ + スキル証跡 → DraftSource）

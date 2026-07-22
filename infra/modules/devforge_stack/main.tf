@@ -77,7 +77,6 @@ module "cloud_run" {
   stack_name                  = local.stack_name
   service_account_email       = module.service_account.email
   enable_github_oauth         = var.enable_github_oauth
-  enable_extra_llm_providers  = var.enable_extra_llm_providers
   turso_database_url          = module.turso.database_url
   cors_origins                = var.cors_origins
   callback_base_url           = var.callback_base_url

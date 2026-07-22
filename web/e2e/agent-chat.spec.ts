@@ -38,15 +38,6 @@ async function setupResumeApi(page: Page) {
   );
 }
 
-/** UserMenu → モデル選択モーダル経由で使用モデルを切り替える（ADR-0012）。 */
-async function selectModel(page: Page, modelName: "Haiku" | "Sonnet") {
-  await page.getByRole("button", { name: "e2e-test-user" }).click();
-  await page.getByRole("button", { name: "AI モデルを切り替え" }).click();
-  const dialog = page.getByRole("dialog");
-  // modelName はリテラル union（"Haiku" | "Sonnet"）。部分一致で対象ボタンを特定する
-  await dialog.getByRole("button", { name: modelName, exact: false }).click();
-}
-
 test.describe("Agent チャットウィジェット", () => {
   test.beforeEach(async ({ page }) => {
     await setupAuth(page);
@@ -101,31 +92,19 @@ test.describe("Agent チャットウィジェット", () => {
     await expect(page.getByRole("button", { name: "フォームに反映" })).toHaveCount(0);
   });
 
-  test("使用モデルはサイドバーに表示され、UserMenu のモーダルで Sonnet に切り替えられる", async ({
-    page,
-  }) => {
+  test("チャット送信ではモデル Haiku 固定で送られる（ADR-0023）", async ({ page }) => {
     let chatRequestBody: Record<string, unknown> | null = null;
     await page.route("**/api/agent/chat", async (route) => {
       chatRequestBody = JSON.parse(route.request().postData() ?? "{}");
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ message: "高精度モデルの提案です。", operations: [] }),
+        body: JSON.stringify({ message: "提案です。", operations: [] }),
       });
     });
 
     await page.goto("/career");
     await waitForAuthenticatedLayout(page);
-
-    const sidebar = page.locator("aside").first();
-    // 使用モデルはサイドバーに常時表示される（既定は Haiku）
-    await expect(sidebar.getByText("使用モデル")).toBeVisible();
-    await expect(sidebar.getByText("Haiku")).toBeVisible();
-
-    // UserMenu → モデル選択モーダル → Sonnet カードで切り替え
-    // 使用モデル値を厳密一致で確認する
-    await selectModel(page, "Sonnet");
-    await expect(sidebar.getByText("Sonnet 4.6", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "devforge Agent" }).click();
     await page
@@ -133,8 +112,9 @@ test.describe("Agent チャットウィジェット", () => {
       .fill("プロらしい文章にして");
     await page.getByRole("button", { name: "送信", exact: true }).click();
 
-    await expect(page.getByText("高精度モデルの提案です。")).toBeVisible();
-    expect(chatRequestBody).toMatchObject({ model: "sonnet" });
+    await expect(page.getByText("提案です。")).toBeVisible();
+    // モデル選択 UI は撤去され、常に Haiku を送る
+    expect(chatRequestBody).toMatchObject({ model: "haiku" });
   });
 
   test("LLM 失敗（502）はエラートーストで通知される", async ({ page }) => {

@@ -31,11 +31,9 @@ backend/
 │       ├── output_schema.py       # tool use スキーマ（機械制約の正本）
 │       ├── llm/
 │       │   ├── base.py            # LLMClient 抽象・LLMError
-│       │   ├── anthropic_client.py
-│       │   ├── google_client.py   # Gemini（ADR-0013）
-│       │   ├── openai_client.py   # GPT（ADR-0013）
-│       │   ├── ollama_client.py
-│       │   └── factory.py         # get_llm_client(provider) で分岐（ADR-0013）
+│       │   ├── anthropic_client.py # Claude Haiku（本番 / Vertex AI(ADC)）
+│       │   ├── ollama_client.py   # ローカル開発（LLM_LOCAL_OLLAMA）
+│       │   └── factory.py         # get_llm_client(provider) で分岐（ADR-0023: Anthropic + Ollama の 2 択）
 │       └── resume_draft/          # 経歴書ドラフト生成（ADR-0018・0020。下記「resume_draft」節）
 │           ├── context.py         # DB 読み取り専用（連携キャッシュ + スキル証跡 → DraftSource）
 │           ├── mapper.py          # ルールベース純関数（骨格 payload 構築）
@@ -81,18 +79,26 @@ GitHub 連携データから経歴書ドラフト payload を組み立てて PDF
 - **degrade 方針**: 個別プロジェクトの説明文が欠落・上限超過した場合のみ repo description の
   定型文へフォールバック（切り詰めはしない）。career_summary / self_pr の欠落はパース失敗扱い。
 
-## プロバイダ抽象（ADR-0013）
+## プロバイダ抽象（ADR-0023 で Haiku 一本化）
 
-- プロバイダ選択は **モデルエイリアスの属性**（`model_catalog.ModelSpec.provider`）に紐づき、
-  リクエスト単位で切り替わる。グローバルな `LLM_PROVIDER` は廃止。
-- **プロバイダ切替は `factory.get_llm_client(provider)` の 1 箇所**に集約する（この原則は維持）。
-  `LLM_LOCAL_OLLAMA=1` の時だけ provider を無視してローカル Ollama に通す（dev 無料パス）。
-- **構造化出力は 3 方式とも `output_schema.py` 由来**: Anthropic = tool use（`build_tool_definition`）/
-  Gemini = `response_schema` / OpenAI = strict `response_format`。後者 2 つは `oneOf`/`const`/`maxLength`
-  を受け付けないため `to_portable_schema` で `field` を enum 化・上限除去した移植スキーマを渡す。
+ADR-0013 のマルチプロバイダ（Anthropic / Gemini / OpenAI）は **ADR-0023 で撤去**し、
+本番は Claude Haiku 固定・ローカル開発は Ollama の 2 択に縮退した。
+
+- **本番プロバイダは Anthropic のみ**。`model_catalog` は `haiku` の 1 エントリ、
+  `schemas/agent.py:AgentModelAlias` は `Literal["haiku"]`。モデル選択機構は撤去済み。
+- **プロバイダ切替は `factory.get_llm_client(provider)` の 1 箇所**に集約する（この原則は維持。
+  切替先が Anthropic + Ollama の 2 択に減っただけ）。`LLM_LOCAL_OLLAMA=1` の時だけ provider を
+  無視してローカル Ollama に通す（dev 無料パス / ADR-0010）。
+- **Anthropic は Vertex AI(ADC) 経由を維持**（ADR-0015 の PII ガバナンスを単一プロバイダでも継続 /
+  ADR-0023）。`anthropic[vertex]` / `VERTEX_ANTHROPIC_LOCATION` / `GCP_PROJECT_ID` は残す。
+  `ANTHROPIC_API_KEY` 直キー方式には戻さない（データ所在地を失うため）。
+- **構造化出力**: Anthropic = tool use（`build_tool_definition`）で `oneOf`/`const`/`maxLength` を
+  そのまま解釈できるため元スキーマを使う。Ollama（`format` / llama.cpp GBNF）は数値制約で
+  文法変換が壊れるため `to_portable_schema` で `field` を enum 化・上限除去した移植スキーマを渡す。
   上限の実強制は従来どおり `_parse_response` が担う（二重防衛）。
-- 新プロバイダ・新モデルを足すときは `model_catalog`（provider + 実 ID + レート）と
-  `schemas/agent.py:AgentModelAlias` を**両方**更新する（drift チェックが落ちる）。
+- モデル・プロバイダを再導入する場合は ADR-0023 を `Superseded` にした上で新規 ADR を起票し、
+  ADR-0013 の provider 抽象を git 履歴から再評価する（`model_catalog` と `AgentModelAlias` を
+  両方更新する drift チェックの前提も復活させる）。
 
 ## 制約の責務分離（最重要）
 
@@ -112,7 +118,8 @@ GitHub 連携データから経歴書ドラフト payload を組み立てて PDF
 - `output_schema.py` の `SCOPE_FIELDS` と異なる上限を `agent.py` の Pydantic フィールドに設定する  
   → `test_scope_limits_match_resume_schema` が drift を検出するが、そもそも揃えること
 - プロンプトへの制約追記で問題を解決しようとする  
-  → 機械検証可能なものはスキーマへ、精度問題はモデル昇格（Haiku → Sonnet / Opus / Fable 等、より高性能なモデル）を先に検討する
+  → 機械検証可能なものはスキーマへ寄せる。精度問題はまずプロンプト（品質基準・few-shot）で対処する
+  （ADR-0023 で Haiku 固定・上位モデルへの昇格パスは撤去済み。再導入は新規 ADR 起票が前提）
 
 ## スコープと許可フィールド（正本: `output_schema.py`）
 

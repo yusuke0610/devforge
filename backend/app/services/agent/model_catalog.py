@@ -1,11 +1,8 @@
-"""Agent で選択可能な LLM モデルのカタログ（SSoT）。
+"""Agent で使用する LLM モデルのカタログ（SSoT）。
 
-クライアントはエイリアス（"haiku" / "sonnet" 等）のみを指定し、実モデル ID は
-本モジュールでマップする。任意のモデル文字列をクライアントから受け付けない
-（コスト爆発・未検証モデルの注入を防ぐ）。
-
-ADR-0023 で課金を撤去したため、クレジットレート・is_free は持たない。
-プロバイダ選択（ADR-0013）は #523 でさらに Haiku + Ollama へ縮退予定。
+ADR-0023 で Haiku 無料一本化へ縮退したため、モデルは haiku のみ。実モデル ID は
+本モジュールでマップする（任意のモデル文字列をクライアントから受け付けない）。
+ローカル開発は `LLM_LOCAL_OLLAMA` で Ollama に通す（ADR-0010 の dev/prod 分離）。
 """
 
 from dataclasses import dataclass
@@ -13,18 +10,16 @@ from typing import get_args
 
 from ...schemas.agent import AgentModelAlias
 
-# LLM プロバイダ識別子（factory.get_llm_client の分岐キー / ADR-0013）
+# LLM プロバイダ識別子（factory.get_llm_client の分岐キー）。本番は Anthropic のみ。
 PROVIDER_ANTHROPIC = "anthropic"
-PROVIDER_GOOGLE = "google"
-PROVIDER_OPENAI = "openai"
-_VALID_PROVIDERS = frozenset({PROVIDER_ANTHROPIC, PROVIDER_GOOGLE, PROVIDER_OPENAI})
+_VALID_PROVIDERS = frozenset({PROVIDER_ANTHROPIC})
 
 
 @dataclass(frozen=True)
 class ModelSpec:
     """エイリアス 1 件分のモデル定義。"""
 
-    # 担当プロバイダ（factory がこの値でクライアントを選ぶ / ADR-0013）
+    # 担当プロバイダ（factory がこの値でクライアントを選ぶ）
     provider: str
     # 各プロバイダ API に渡す実モデル ID
     model_id: str
@@ -35,29 +30,9 @@ class ModelSpec:
 MODEL_CATALOG: dict[str, ModelSpec] = {
     "haiku": ModelSpec(
         provider=PROVIDER_ANTHROPIC,
-        # Vertex AI の Anthropic model id は版指定が要る（@日付）。Sonnet 4.6 は版指定
-        # 不要だが Haiku 4.5 は @20251001 が必須（ADR-0015 / Vertex Model Garden 正本）
+        # Vertex AI の Anthropic model id は版指定が要る（@日付）。
+        # Haiku 4.5 は @20251001 が必須（ADR-0015 / Vertex Model Garden 正本）
         model_id="claude-haiku-4-5@20251001",
-    ),
-    "sonnet": ModelSpec(
-        provider=PROVIDER_ANTHROPIC,
-        model_id="claude-sonnet-4-6",
-    ),
-    "gemini-flash": ModelSpec(
-        provider=PROVIDER_GOOGLE,
-        model_id="gemini-2.5-flash",
-    ),
-    "gemini-pro": ModelSpec(
-        provider=PROVIDER_GOOGLE,
-        model_id="gemini-2.5-pro",
-    ),
-    "gpt-mini": ModelSpec(
-        provider=PROVIDER_OPENAI,
-        model_id="gpt-4o-mini",
-    ),
-    "gpt": ModelSpec(
-        provider=PROVIDER_OPENAI,
-        model_id="gpt-4.1",
     ),
 }
 

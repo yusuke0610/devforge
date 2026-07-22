@@ -18,16 +18,9 @@ from ..core.messages import get_error
 
 AgentScope = Literal["project", "career_summary", "self_pr", "experience"]
 
-# 選択可能な LLM モデルのエイリアス（ADR-0012 / ADR-0013）。実モデル ID・プロバイダ・
-# モデル定義は services/agent/model_catalog.py の MODEL_CATALOG が正本（キー集合を一致させる）
-AgentModelAlias = Literal[
-    "haiku",  # Anthropic Claude Haiku（無料枠）
-    "sonnet",  # Anthropic Claude Sonnet
-    "gemini-flash",  # Google Gemini 2.5 Flash（廉価）
-    "gemini-pro",  # Google Gemini 2.5 Pro（高品質）
-    "gpt-mini",  # OpenAI GPT 廉価（gpt-4o-mini 系）
-    "gpt",  # OpenAI GPT 高級（GPT-4.1/5 系）
-]
+# 使用する LLM モデルのエイリアス。ADR-0023 で Haiku 無料一本化へ縮退したため haiku のみ。
+# 実モデル ID は services/agent/model_catalog.py の MODEL_CATALOG が正本（キー集合を一致させる）。
+AgentModelAlias = Literal["haiku"]
 
 
 class AgentTechnologyStack(BaseModel):
