@@ -14,6 +14,7 @@
  */
 import type { ResumeImportResponse } from "../api/types";
 import { blankCareerExperience } from "../constants";
+import { mapCareerResumeToForm, type ResumeFormSource } from "../formMappers";
 import type { CareerExperienceForm, CareerFormState } from "../payloadBuilders";
 
 type ImportExperience = NonNullable<ResumeImportResponse["experiences"]>[number];
@@ -76,5 +77,31 @@ export function applyResumeImportToForm(
       extractedExperiences.length > 0
         ? extractedExperiences.map(toExperienceForm)
         : current.experiences,
+  };
+}
+
+/**
+ * 経歴書ドラフト/保存済み経歴書の payload をキャリアフォームへ注入する（#524 共通ルール / ADR-0025）。
+ *
+ * `mapCareerResumeToForm` で全体を写した上で、payload が提供しない・空のフィールドは現フォーム値を
+ * 保持する（PDF インポートの {@link applyResumeImportToForm} と同じ「欠落は既存値保持」不変条件）。
+ * ドラフト payload は email と資格（qualifications）を提供しないため、素の全置換だと現フォームの
+ * email をユーザーの意図に反して空で消してしまう。それを防ぐ。
+ * career_summary / self_pr / experiences / full_name / github_url は生成が提供するため上書きする。
+ */
+export function applyResumeDraftToForm(
+  current: CareerFormState,
+  payload: ResumeFormSource,
+): CareerFormState {
+  const mapped = mapCareerResumeToForm(payload);
+  const draftHasQualifications = mapped.qualifications.some(
+    (q) => q.name.trim() || q.acquired_date.trim(),
+  );
+  return {
+    ...mapped,
+    // payload に無い/空のフィールドは現フォーム値を保持する
+    email: mapped.email.trim() ? mapped.email : current.email,
+    github_url: mapped.github_url.trim() ? mapped.github_url : current.github_url,
+    qualifications: draftHasQualifications ? mapped.qualifications : current.qualifications,
   };
 }

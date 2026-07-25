@@ -23,7 +23,7 @@ import { useImportPanelLayout } from "../../hooks/career/useImportPanelLayout";
 import { useResumeImportAssist } from "../../hooks/career/useResumeImportAssist";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
 import { clearCareerDraft, loadCareerDraft, saveCareerDraft } from "../../utils/careerDraft";
-import { hasCareerFormContent } from "../../utils/resumeImport";
+import { applyResumeDraftToForm, hasCareerFormContent } from "../../utils/resumeImport";
 import { buildCareerPayload } from "../../payloadBuilders";
 import { useCareerFormValidationFocus } from "../../hooks/career/useCareerFormValidationFocus";
 import { useQualifications, useTechnologyStacks } from "../../hooks/useMasterData";
@@ -202,7 +202,8 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
   // 定義済みの位置で宣言する必要があるためここに置く。
   const applyDraftPayload = useCallback(
     (payload: ResumeDraftResultResponse) => {
-      setFormAndClearFocus(() => mapCareerResumeToForm(payload));
+      // #524 共通ルール: payload が提供しない email / 資格は現フォーム値を保持する（ADR-0025）
+      setFormAndClearFocus((prev) => applyResumeDraftToForm(prev, payload));
       showSuccess(RESUME_DRAFT_MESSAGES.APPLIED_TOAST);
     },
     [setFormAndClearFocus, showSuccess],
