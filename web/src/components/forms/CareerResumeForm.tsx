@@ -1,4 +1,5 @@
 import { CSSProperties, useCallback, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { useCareerFormModals } from "../../hooks/career/useCareerFormModals";
 
@@ -8,7 +9,13 @@ import {
   getLatestCareerResume,
   updateCareerResume,
 } from "../../api";
-import { AUTH_PROMPT_MESSAGES, SUCCESS_MESSAGES, UI_MESSAGES } from "../../constants/messages";
+import {
+  AUTH_PROMPT_MESSAGES,
+  RESUME_DRAFT_MESSAGES,
+  SUCCESS_MESSAGES,
+  UI_MESSAGES,
+} from "../../constants/messages";
+import type { ResumeDraftResultResponse } from "../../api/types";
 import { createInitialCareerForm, mapCareerResumeToForm } from "../../formMappers";
 import { useCareerDirty } from "../../hooks/career/useCareerDirty";
 import { useCareerDraftRestore } from "../../hooks/career/useCareerDraftRestore";
@@ -21,7 +28,7 @@ import { buildCareerPayload } from "../../payloadBuilders";
 import { useCareerFormValidationFocus } from "../../hooks/career/useCareerFormValidationFocus";
 import { useQualifications, useTechnologyStacks } from "../../hooks/useMasterData";
 import { useCareerExportActions } from "../../hooks/career/useCareerExportActions";
-import { useMessageToast } from "../ui/toast";
+import { useMessageToast, useToast } from "../ui/toast";
 import { AgentChatWidget } from "./AgentChatWidget";
 import { ResumeImportPanel } from "./ResumeImportPanel";
 import shared from "../../styles/shared.module.css";
@@ -133,6 +140,15 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
   // 適用される）を防ぐ。入力・抽出後は内容が入るため自然に消える。
   const showImportPanel = !loading && !resumeId && !hasCareerFormContent(form);
 
+  // GitHub 連携画面から「フォームに反映」で渡されたドラフト payload（ADR-0025 / #525）。
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { showSuccess } = useToast();
+  const draftPayload = (location.state as { resumeDraftPayload?: ResumeDraftResultResponse } | null)
+    ?.resumeDraftPayload;
+  const [pendingDraft, setPendingDraft] = useState<ResumeDraftResultResponse | null>(null);
+  const appliedDraftRef = useRef(false);
+
   /** Skeleton 表示・入力ロックの統合フラグ */
   const formLocked = loading;
 
@@ -182,6 +198,29 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
     openMarkdownField: setEditingField,
   });
 
+  // ドラフト payload をフォームへ注入する（DB 非更新 / ADR-0025）。setFormAndClearFocus が
+  // 定義済みの位置で宣言する必要があるためここに置く。
+  const applyDraftPayload = useCallback(
+    (payload: ResumeDraftResultResponse) => {
+      setFormAndClearFocus(() => mapCareerResumeToForm(payload));
+      showSuccess(RESUME_DRAFT_MESSAGES.APPLIED_TOAST);
+    },
+    [setFormAndClearFocus, showSuccess],
+  );
+
+  useEffect(() => {
+    // loadLatest 完了前は待つ（既存経歴書との競合防止 / #528 と同じ論点）。1 度だけ適用する。
+    if (!draftPayload || loading || appliedDraftRef.current) return;
+    appliedDraftRef.current = true;
+    // router state を消す（リロード・再レンダリングでの再注入を防ぐ）
+    navigate(location.pathname, { replace: true, state: null });
+    if (hasCareerFormContent(form)) {
+      setPendingDraft(draftPayload);
+    } else {
+      applyDraftPayload(draftPayload);
+    }
+  }, [draftPayload, loading, form, navigate, location.pathname, applyDraftPayload]);
+
   return (
     <>
       {showDeleteConfirm && (
@@ -194,6 +233,18 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
         />
       )}
       {previewUrl && <PdfPreviewModal previewUrl={previewUrl} onClose={closePreview} />}
+      {/* ドラフト流し込みの上書き確認（入力途中データがある場合 / ADR-0025 / #525） */}
+      {pendingDraft && (
+        <ConfirmDialog
+          message={RESUME_DRAFT_MESSAGES.OVERWRITE_CONFIRM}
+          confirmLabel={RESUME_DRAFT_MESSAGES.OVERWRITE_CONFIRM_LABEL}
+          onConfirm={() => {
+            applyDraftPayload(pendingDraft);
+            setPendingDraft(null);
+          }}
+          onCancel={() => setPendingDraft(null)}
+        />
+      )}
       {/* AI アシスタント（ADR-0010）。operations はフォーム state にのみ反映され、保存は既存の保存ボタンで行う */}
       <AgentChatWidget
         form={form}

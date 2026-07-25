@@ -22,6 +22,7 @@ from ..schemas.agent import (
     AgentChatRequest,
     AgentChatResponse,
     ResumeDraftRequest,
+    ResumeDraftResultResponse,
     ResumeImportResponse,
 )
 from ..schemas.shared import TaskAcceptedResponse, TaskStatusResponse
@@ -214,6 +215,28 @@ def download_resume_draft_pdf(
         )
     pdf_bytes = build_resume_pdf(cache.result)
     return stream_pdf(pdf_bytes, "career-resume-draft.pdf")
+
+
+@router.get("/resume-draft/result", response_model=ResumeDraftResultResponse)
+def get_resume_draft_result(
+    user: User = Depends(require_github_user),
+    db: Session = Depends(get_db),
+) -> ResumeDraftResultResponse:
+    """完了済みの経歴書ドラフトの生成 payload を JSON で返す（ADR-0025 / #525）。
+
+    生成タスクが保存した payload（Resume 互換）をそのまま返す。web はこれをフォーム state へ
+    注入し、ユーザー確認後に既存の保存 API を呼ぶ（DB 非更新 / ADR-0010）。PDF プレビュー/DL の
+    ``/resume-draft/pdf`` とは用途が異なるため別エンドポイントに分ける。未完了・結果なしは 409。
+    """
+    cache = ResumeDraftCacheRepository(db).get_by_user(user.id)
+    if not cache or cache.status != "completed" or not cache.result:
+        raise_app_error(
+            status_code=409,
+            code=ErrorCode.VALIDATION_ERROR,
+            message=get_error("agent.draft_not_ready"),
+            action="経歴書ドラフトの生成が完了してから再度お試しください",
+        )
+    return ResumeDraftResultResponse.model_validate(cache.result)
 
 
 # 手持ち PDF 経歴書のアップロード上限（ADR-0024 / #527）。経歴書 PDF は通常数 MB 以内。

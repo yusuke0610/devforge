@@ -7,7 +7,14 @@ import {
   blankResumeQualification,
 } from "./constants";
 import type { CareerFormState } from "./payloadBuilders";
-import type { ResumeResponse } from "./api/types";
+import type { ResumeDraftResultResponse, ResumeResponse } from "./api/types";
+
+/**
+ * フォーム注入の入力型（#524 汎用化 / ADR-0025）。`mapCareerResumeToForm` は保存済み経歴書
+ * （ResumeResponse）と、ドラフト生成 payload（ResumeDraftResultResponse）の両方を受け取る。
+ * マッパーは created_at / updated_at を参照しないため、timestamps を除いた共通形で受ける。
+ */
+export type ResumeFormSource = Omit<ResumeResponse, "created_at" | "updated_at"> | ResumeDraftResultResponse;
 
 export function createInitialCareerForm(): CareerFormState {
   return {
@@ -23,7 +30,7 @@ export function createInitialCareerForm(): CareerFormState {
 
 // 生成型（ResumeResponse）では list 系フィールドが optional（backend の default_factory 由来、
 // team も optional）なため、配列アクセスは `?? []`、team は `?.` で null 安全化する（ADR-0007 論点B）。
-export function mapCareerResumeToForm(response: ResumeResponse): CareerFormState {
+export function mapCareerResumeToForm(response: ResumeFormSource): CareerFormState {
   const experiences = response.experiences ?? [];
   const qualifications = response.qualifications ?? [];
   return {

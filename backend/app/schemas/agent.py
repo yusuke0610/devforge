@@ -15,6 +15,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..core.messages import get_error
+from .resume import Experience, ResumeQualificationItem
 
 AgentScope = Literal["project", "career_summary", "self_pr", "experience"]
 
@@ -197,3 +198,22 @@ class ResumeImportResponse(BaseModel):
     career_summary: str = ""
     self_pr: str = ""
     experiences: list[ResumeImportExperience] = Field(default_factory=list)
+
+
+class ResumeDraftResultResponse(BaseModel):
+    """経歴書ドラフトの生成 payload をフォーム注入用に返す（ADR-0025 / #525）。
+
+    ``resume_draft_cache.result``（Resume 互換の生成 payload）をそのまま返す。保存契約
+    （``schemas/resume.py`` の ResumeBase の strict 検証。email 必須等）とは分離し、生成に
+    含まれないフィールド（email が空など）を許容する緩い schema。experiences / qualifications
+    は保存契約と同じ入れ子モデルを再利用し、web は既存の form マッパーで注入する。
+    DB は更新せず、フロントがフォーム state へ注入 → ユーザー確認 → 既存の保存 API を呼ぶ。
+    """
+
+    full_name: str = ""
+    email: str = ""
+    github_url: str = ""
+    career_summary: str = ""
+    self_pr: str = ""
+    experiences: list[Experience] = Field(default_factory=list)
+    qualifications: list[ResumeQualificationItem] = Field(default_factory=list)

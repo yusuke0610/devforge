@@ -219,6 +219,44 @@ def test_resume_draft_pdf_download_conflict_while_processing(client: TestClient)
     assert res.status_code == 409
 
 
+# ── payload 取得（GET /result / ADR-0025・#525）──────────────────────────
+
+
+def test_resume_draft_result_success(client: TestClient) -> None:
+    """完了済みキャッシュの payload が JSON で返る（フォーム注入用 / ADR-0025）。"""
+    headers = auth_header(client, github_id=1)
+    user = client._db_session.query(User).filter_by(username="testuser").one()
+    client._db_session.add(
+        ResumeDraftCache(user_id=user.id, status="completed", result=_draft_payload())
+    )
+    client._db_session.commit()
+
+    res = client.get("/api/agent/resume-draft/result", headers=headers)
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["full_name"] == "testuser"
+    assert body["career_summary"] == "生成された職務要約。"
+    assert body["self_pr"] == "生成された自己PR。"
+    # experiences が深い構造（clients → projects）を保って返る
+    assert len(body["experiences"]) == 1
+    assert body["experiences"][0]["clients"][0]["projects"][0]["name"] == "app"
+
+
+def test_resume_draft_result_not_ready(client: TestClient) -> None:
+    """未生成（キャッシュ無し）の payload 取得は 409。"""
+    headers = auth_header(client, github_id=1)
+    res = client.get("/api/agent/resume-draft/result", headers=headers)
+    assert res.status_code == 409
+
+
+def test_resume_draft_result_requires_github_login(client: TestClient) -> None:
+    """GitHub 未連携ユーザーの payload 取得は 403。"""
+    headers = auth_header(client)
+    res = client.get("/api/agent/resume-draft/result", headers=headers)
+    assert res.status_code == 403
+
+
 def test_github_link_response_backward_compat_without_repos() -> None:
     """旧形式キャッシュ JSON（repos 無し）が GitHubLinkResponse として検証できる。"""
     legacy = {
