@@ -4,7 +4,7 @@ import type { ResumeImportResponse } from "../../api/types";
 import { RESUME_IMPORT_MESSAGES } from "../../constants/messages";
 import { useResumeImport } from "../../hooks/useResumeImport";
 import type { CareerFormState } from "../../payloadBuilders";
-import { applyResumeImportToForm } from "../../utils/resumeImport";
+import { applyResumeImportToForm, hasCareerFormContent } from "../../utils/resumeImport";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { InlineSpinner } from "../ui/InlineSpinner";
 import { useAppErrorToast, useToast } from "../ui/toast";
@@ -18,16 +18,6 @@ type Props = {
   isAuthenticated: boolean;
   requestLogin: () => void;
 };
-
-/** フォームに意味のある入力があるか（上書き確認の要否判定）。 */
-function hasMeaningfulInput(form: CareerFormState): boolean {
-  return Boolean(
-    form.full_name.trim() ||
-      form.career_summary.trim() ||
-      form.self_pr.trim() ||
-      form.experiences.some((e) => e.company.trim() || e.description.trim()),
-  );
-}
 
 /**
  * 手持ち PDF 経歴書のアップロード → 抽出 → フォーム反映の導線（ADR-0024 / #528）。
@@ -50,6 +40,8 @@ export function ResumeImportPanel({ form, onApply, isAuthenticated, requestLogin
   };
 
   const handleFile = async (file: File) => {
+    // 抽出中は新規アップロードを受け付けない（応答の順序逆転による誤反映を防止）
+    if (importing) return;
     clearError();
     const isPdf =
       file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
@@ -58,8 +50,8 @@ export function ResumeImportPanel({ form, onApply, isAuthenticated, requestLogin
       return;
     }
     const payload = await importPdf(file);
-    if (!payload) return; // 失敗時は useMessageToast がエラーを表示済み
-    if (hasMeaningfulInput(form)) {
+    if (!payload) return; // 失敗時は useAppErrorToast がエラーを表示済み
+    if (hasCareerFormContent(form)) {
       setPending(payload);
     } else {
       applyPayload(payload);
@@ -67,6 +59,8 @@ export function ResumeImportPanel({ form, onApply, isAuthenticated, requestLogin
   };
 
   const openFileDialog = () => {
+    // 抽出中の再選択を防ぐ（応答の順序逆転による誤反映を防止）
+    if (importing) return;
     if (!isAuthenticated) {
       requestLogin();
       return;

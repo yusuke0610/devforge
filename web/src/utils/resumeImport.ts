@@ -18,6 +18,28 @@ import type { CareerExperienceForm, CareerFormState } from "../payloadBuilders";
 
 type ImportExperience = NonNullable<ResumeImportResponse["experiences"]>[number];
 
+/**
+ * キャリアフォームにユーザーの意味のある入力があるかを判定する（全編集フィールド横断）。
+ *
+ * PDF 自動入力パネルの表示可否（空フォームのみ）と、上書き確認の要否の両方で使う単一述語。
+ * 空フォームは experiences / qualifications に blank 要素を 1 件持つため、配列長ではなく
+ * 各フィールドの中身（trim 後の非空）で判定する。
+ */
+export function hasCareerFormContent(form: CareerFormState): boolean {
+  return Boolean(
+    form.full_name.trim() ||
+      form.email.trim() ||
+      form.github_url.trim() ||
+      form.career_summary.trim() ||
+      form.self_pr.trim() ||
+      form.experiences.some(
+        (e) =>
+          e.company.trim() || e.business_description.trim() || e.description.trim(),
+      ) ||
+      form.qualifications.some((q) => q.name.trim() || q.acquired_date.trim()),
+  );
+}
+
 /** 抽出値が非空（空白のみでない）ならそれを、そうでなければ現行値を返す。 */
 function pick(extracted: string | undefined, current: string): string {
   return (extracted ?? "").trim() ? (extracted as string) : current;

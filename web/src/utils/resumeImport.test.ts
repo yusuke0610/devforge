@@ -4,7 +4,7 @@ import { blankCareerExperience } from "../constants";
 import { createInitialCareerForm } from "../formMappers";
 import type { CareerFormState } from "../payloadBuilders";
 import type { ResumeImportResponse } from "../api/types";
-import { applyResumeImportToForm } from "./resumeImport";
+import { applyResumeImportToForm, hasCareerFormContent } from "./resumeImport";
 
 /** 抽出 payload のひな型（テストで一部だけ差し替える）。 */
 function importPayload(overrides: Partial<ResumeImportResponse> = {}): ResumeImportResponse {
@@ -16,6 +16,29 @@ function importPayload(overrides: Partial<ResumeImportResponse> = {}): ResumeImp
     ...overrides,
   };
 }
+
+describe("hasCareerFormContent", () => {
+  it("初期（空）フォームは false", () => {
+    expect(hasCareerFormContent(createInitialCareerForm())).toBe(false);
+  });
+
+  it("email / github_url など任意の編集フィールドに入力があれば true", () => {
+    expect(
+      hasCareerFormContent({ ...createInitialCareerForm(), email: "a@example.com" }),
+    ).toBe(true);
+    expect(
+      hasCareerFormContent({ ...createInitialCareerForm(), github_url: "https://github.com/x" }),
+    ).toBe(true);
+  });
+
+  it("experiences / qualifications の中身があれば true（blank の配列長では判定しない）", () => {
+    const withExp: CareerFormState = {
+      ...createInitialCareerForm(),
+      experiences: [{ ...blankCareerExperience, company: "会社" }],
+    };
+    expect(hasCareerFormContent(withExp)).toBe(true);
+  });
+});
 
 describe("applyResumeImportToForm", () => {
   it("抽出された非空の見出しフィールドを現フォームに上書きする", () => {

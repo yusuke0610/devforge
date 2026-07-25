@@ -16,6 +16,7 @@ import { useImportPanelLayout } from "../../hooks/career/useImportPanelLayout";
 import { useResumeImportAssist } from "../../hooks/career/useResumeImportAssist";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
 import { clearCareerDraft, loadCareerDraft, saveCareerDraft } from "../../utils/careerDraft";
+import { hasCareerFormContent } from "../../utils/resumeImport";
 import { buildCareerPayload } from "../../payloadBuilders";
 import { useCareerFormValidationFocus } from "../../hooks/career/useCareerFormValidationFocus";
 import { useQualifications, useTechnologyStacks } from "../../hooks/useMasterData";
@@ -126,13 +127,11 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
   /** 未保存マーク（🔴）の表示判定に使う dirty マップ */
   const dirty = useCareerDirty(form, baseline);
 
-  // 空フォーム（新規ユーザ）のときだけ PDF 自動入力の導線を出す（ADR-0024 / #528）。
-  // 入力・抽出後は内容が入るため自然に消える。既存経歴書のユーザには出さない。
-  const isFormEmpty =
-    !form.full_name.trim() &&
-    !form.career_summary.trim() &&
-    !form.self_pr.trim() &&
-    !form.experiences.some((e) => e.company.trim() || e.description.trim());
+  // PDF 自動入力の導線は「保存済み経歴書が無く、ロード完了済みで、フォームが空」のときだけ出す
+  // （ADR-0024 / #528）。認証ユーザは loadLatest 完了前に空フォームが見えるため、!loading &&
+  // !resumeId でガードして既存経歴書との競合（インポートがロード結果で上書きされる/既存に
+  // 適用される）を防ぐ。入力・抽出後は内容が入るため自然に消える。
+  const showImportPanel = !loading && !resumeId && !hasCareerFormContent(form);
 
   /** Skeleton 表示・入力ロックの統合フラグ */
   const formLocked = loading;
@@ -245,7 +244,7 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
                 {validationError && <p className={shared.error}>{validationError}</p>}
 
                 {/* 空フォームの新規ユーザ向け: 手持ち PDF から自動入力（ADR-0024 / #528） */}
-                {isFormEmpty && (
+                {showImportPanel && (
                   <ResumeImportPanel
                     form={form}
                     onApply={setFormAndClearFocus}
