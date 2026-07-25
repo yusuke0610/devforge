@@ -22,6 +22,7 @@ import { useQualifications, useTechnologyStacks } from "../../hooks/useMasterDat
 import { useCareerExportActions } from "../../hooks/career/useCareerExportActions";
 import { useMessageToast } from "../ui/toast";
 import { AgentChatWidget } from "./AgentChatWidget";
+import { ResumeImportPanel } from "./ResumeImportPanel";
 import shared from "../../styles/shared.module.css";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { useLoginPrompt } from "../auth/loginPromptContext";
@@ -124,6 +125,14 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
 
   /** 未保存マーク（🔴）の表示判定に使う dirty マップ */
   const dirty = useCareerDirty(form, baseline);
+
+  // 空フォーム（新規ユーザ）のときだけ PDF 自動入力の導線を出す（ADR-0024 / #528）。
+  // 入力・抽出後は内容が入るため自然に消える。既存経歴書のユーザには出さない。
+  const isFormEmpty =
+    !form.full_name.trim() &&
+    !form.career_summary.trim() &&
+    !form.self_pr.trim() &&
+    !form.experiences.some((e) => e.company.trim() || e.description.trim());
 
   /** Skeleton 表示・入力ロックの統合フラグ */
   const formLocked = loading;
@@ -234,6 +243,16 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
               {/* 左: 入力フォーム（選択中フィールドは緑枠 = import-assign-form の :focus CSS） */}
               <div className={`${shared.form} import-assign-form ${layout.formCol}`}>
                 {validationError && <p className={shared.error}>{validationError}</p>}
+
+                {/* 空フォームの新規ユーザ向け: 手持ち PDF から自動入力（ADR-0024 / #528） */}
+                {isFormEmpty && (
+                  <ResumeImportPanel
+                    form={form}
+                    onApply={setFormAndClearFocus}
+                    isAuthenticated={isAuthenticated}
+                    requestLogin={requestLogin}
+                  />
+                )}
 
                 {/* 基本情報: 氏名・連絡先・職務要約 */}
                 <CareerBasicInfoSection

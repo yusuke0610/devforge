@@ -5,6 +5,7 @@ import { PATHS } from "./paths";
 import type {
   AgentChatRequest,
   AgentChatResponse,
+  ResumeImportResponse,
   TaskAcceptedResponse,
   TaskStatusResponse,
 } from "./types";
@@ -50,4 +51,18 @@ export function fetchResumeDraftPdfBlobUrl(): Promise<string> {
     { method: "GET" },
     FALLBACK_MESSAGES.RESUME_DRAFT,
   );
+}
+
+/**
+ * 手持ちの PDF 経歴書をアップロードして構造化抽出する（ADR-0024 / #527）。
+ * テキスト埋め込み PDF のみ対応。DB は更新されず、抽出結果（Resume 互換 payload）を返す。
+ * 失敗時は ApiError（422 = 非対応/破損 PDF・サイズ超過 / 502 = 抽出失敗 / 429 = レート上限）を送出する。
+ */
+export function importResumePdf(file: File): Promise<ResumeImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return request<ResumeImportResponse>(PATHS.agent.resumeImportPdf, {
+    method: "POST",
+    body: formData,
+  });
 }

@@ -145,6 +145,9 @@ export type AgentChatRequest = Schemas["AgentChatRequest"];
 /** Agent チャットのレスポンス。backend `schemas/agent.py:AgentChatResponse`。 */
 export type AgentChatResponse = Schemas["AgentChatResponse"];
 
+/** PDF 経歴書の抽出結果。backend `schemas/agent.py:ResumeImportResponse`（ADR-0024）。 */
+export type ResumeImportResponse = Schemas["ResumeImportResponse"];
+
 /** resume state へ適用する差分。backend `schemas/agent.py:AgentOperation`。 */
 export type AgentOperation = Schemas["AgentOperation"];
 

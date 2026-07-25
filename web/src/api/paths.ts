@@ -32,6 +32,7 @@ export const PATHS = {
     resumeDraftRun: "/api/agent/resume-draft/run",
     resumeDraftStatus: "/api/agent/resume-draft/status",
     resumeDraftPdf: "/api/agent/resume-draft/pdf",
+    resumeImportPdf: "/api/agent/resume-import/pdf",
   },
   resumes: {
     base: "/api/resumes",
