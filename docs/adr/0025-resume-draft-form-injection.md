@@ -35,6 +35,14 @@ ADR-0018 のドラフト生成は、生成物を **PDF でしか返さない**�
 
 ドラフト payload は深い Resume 構造（experiences → clients → projects）で、PDF インポート（ADR-0024）のフラット payload より広い。既存の `mapCareerResumeToForm`（`ResumeResponse → CareerFormState` の全構造マッピング）を注入に再利用し、#524 を「Resume 互換 payload → CareerFormState」の共有経路として満たす。空判定 `hasCareerFormContent`（ADR-0024）も共用する。
 
+### マージ規則（#524 共通・欠落は既存値保持）
+
+**注入は「payload の非空フィールドで現フォームを上書きし、payload が提供しない/空のフィールドは現フォーム値を保持する」ルールに統一する**（ADR-0024 の PDF インポートと同一。`applyResumeImportToForm` と挙動を揃える）。
+
+- ドラフト payload は **email と資格（qualifications）を提供しない**（生成は GitHub 由来で、確実な email が無く資格は空）。そのため `mapCareerResumeToForm` の素の全置換をそのまま使うと、現フォームの email を空で上書きしてユーザーの入力を消してしまう。
+- したがってドラフト注入は、`mapCareerResumeToForm` で写した結果に対し **email / 資格が payload 側で空・未提供なら現フォーム値を保持する**オーバーレイを掛ける（`career_summary` / `self_pr` / `experiences` / `full_name` / `github_url` は生成が提供するため上書きする）。
+- この規則により PDF インポート（#524）とドラフト（#525）の注入セマンティクスが一致し、「反映でユーザーの既存データを不用意に消さない」不変条件を共通化する。実装は `applyResumeImportToForm` と対になる形で `utils/resumeImport` に集約する。
+
 ## 代替案
 
 - **`/resume-draft/pdf` にフォーマットパラメータを足す**: 1 エンドポイントで PDF/JSON を出し分けると Content-Type とレスポンス型が条件分岐し、OpenAPI 生成物も複雑化する。用途が違うため別エンドポイントに分けて却下。

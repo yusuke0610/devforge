@@ -26,7 +26,7 @@
 | [ADR-0022](./0022-remove-blog-integration.md) | ブログ連携機能の撤去 | プロダクト / 機能整理 | 経歴書へ還流せずスコアが逆効果になり得るブログ連携（テーブル 3 つ・router / service / web 一式）を全量撤去 |
 | [ADR-0023](./0023-remove-billing-multiprovider.md) | プリペイド課金・マルチプロバイダの撤去と Haiku 無料一本化 | LLM / Agent | 課金の壁を撤去し Haiku 無料一本化 + ユーザ単位レート制限へ縮退。Anthropic は Vertex(ADC) 維持、Gemini/OpenAI/Stripe を撤去 |
 | [ADR-0024](./0024-pdf-resume-import.md) | 手持ち PDF 経歴書のフォーム流し込み（AI 抽出の再導入） | LLM / Agent | 空フォーム離脱の解消。テキスト埋め込み PDF を pypdf 抽出 + Haiku 構造化で Resume 互換 payload に。同期・DB 非更新でフォーム注入（#524）へ渡す。ADR-0004→0008 で撤去した AI 抽出を ADR-0010 の不変条件で再導入 |
-| [ADR-0025](./0025-resume-draft-form-injection.md) | 経歴書ドラフトのフォーム流し込み（payload の JSON 公開） | LLM / Agent | ドラフトの「手で転記」を解消。生成 payload を `GET /resume-draft/result` で JSON 公開し、#524 の注入機構でフォームへ流し込む。生成設計（0018/0020）は変えず出力の返し方だけ拡張・DB 非更新 |
+| [ADR-0025](./0025-resume-draft-form-injection.md) | 経歴書ドラフトのフォーム流し込み（payload の JSON 公開） | LLM / Agent | ドラフトの「手で転記」を解消。生成 payload を `GET /api/agent/resume-draft/result` で JSON 公開し、#524 の注入機構でフォームへ流し込む。生成設計（0018/0020）は変えず出力の返し方だけ拡張・DB 非更新 |
 
 ## 全 ADR 一覧
 
