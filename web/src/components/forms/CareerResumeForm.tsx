@@ -16,12 +16,14 @@ import { useImportPanelLayout } from "../../hooks/career/useImportPanelLayout";
 import { useResumeImportAssist } from "../../hooks/career/useResumeImportAssist";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
 import { clearCareerDraft, loadCareerDraft, saveCareerDraft } from "../../utils/careerDraft";
+import { hasCareerFormContent } from "../../utils/resumeImport";
 import { buildCareerPayload } from "../../payloadBuilders";
 import { useCareerFormValidationFocus } from "../../hooks/career/useCareerFormValidationFocus";
 import { useQualifications, useTechnologyStacks } from "../../hooks/useMasterData";
 import { useCareerExportActions } from "../../hooks/career/useCareerExportActions";
 import { useMessageToast } from "../ui/toast";
 import { AgentChatWidget } from "./AgentChatWidget";
+import { ResumeImportPanel } from "./ResumeImportPanel";
 import shared from "../../styles/shared.module.css";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { useLoginPrompt } from "../auth/loginPromptContext";
@@ -124,6 +126,12 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
 
   /** 未保存マーク（🔴）の表示判定に使う dirty マップ */
   const dirty = useCareerDirty(form, baseline);
+
+  // PDF 自動入力の導線は「保存済み経歴書が無く、ロード完了済みで、フォームが空」のときだけ出す
+  // （ADR-0024 / #528）。認証ユーザは loadLatest 完了前に空フォームが見えるため、!loading &&
+  // !resumeId でガードして既存経歴書との競合（インポートがロード結果で上書きされる/既存に
+  // 適用される）を防ぐ。入力・抽出後は内容が入るため自然に消える。
+  const showImportPanel = !loading && !resumeId && !hasCareerFormContent(form);
 
   /** Skeleton 表示・入力ロックの統合フラグ */
   const formLocked = loading;
@@ -234,6 +242,16 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
               {/* 左: 入力フォーム（選択中フィールドは緑枠 = import-assign-form の :focus CSS） */}
               <div className={`${shared.form} import-assign-form ${layout.formCol}`}>
                 {validationError && <p className={shared.error}>{validationError}</p>}
+
+                {/* 空フォームの新規ユーザ向け: 手持ち PDF から自動入力（ADR-0024 / #528） */}
+                {showImportPanel && (
+                  <ResumeImportPanel
+                    form={form}
+                    onApply={setFormAndClearFocus}
+                    isAuthenticated={isAuthenticated}
+                    requestLogin={requestLogin}
+                  />
+                )}
 
                 {/* 基本情報: 氏名・連絡先・職務要約 */}
                 <CareerBasicInfoSection

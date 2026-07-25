@@ -133,8 +133,12 @@ export async function request<T>(
   _isRetry = false,
 ): Promise<T> {
   const method = (options.method ?? "GET").toUpperCase();
+  // FormData（multipart アップロード）のときは Content-Type を指定しない。
+  // ブラウザが boundary 付きの multipart/form-data を自動設定するため、明示すると壊れる。
+  const isFormData =
+    typeof FormData !== "undefined" && options.body instanceof FormData;
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...((options.headers as Record<string, string>) ?? {}),
   };
 

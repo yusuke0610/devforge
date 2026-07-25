@@ -62,6 +62,7 @@ export const FALLBACK_MESSAGES = {
   GITHUB_LINK: "連携に失敗しました",
   AGENT_CHAT: "AI への送信に失敗しました",
   RESUME_DRAFT: "経歴書ドラフトの生成に失敗しました",
+  RESUME_IMPORT: "PDF の読み取りに失敗しました",
   SKILL_FETCH: "スキルの取得に失敗しました",
   SKILL_DISPLAY_PROPOSE: "表示名の提案に失敗しました",
   SKILL_DISPLAY_CONFIRM: "表示名の確定に失敗しました",
@@ -196,6 +197,29 @@ export const RESUME_DRAFT_MESSAGES = {
   HINT: "連携したリポジトリの情報から、AI が経歴書のたたき台（PDF）を作成します。生成はバックグラウンドで実行され、完了すると通知でお知らせします。使用モデルはユーザーメニューで変更できます。",
   /** 生成物が職務経歴書として保存されない旨の注意書き。 */
   NOT_SAVED_NOTE: "生成した内容は職務経歴書として保存されません。必要な部分は職務経歴書フォームへ転記してください。",
+} as const;
+
+/** 手持ち PDF 経歴書のフォーム流し込み（ADR-0024）の UI 文言。 */
+export const RESUME_IMPORT_MESSAGES = {
+  /** パネル見出し。 */
+  HEADING: "PDF から自動入力",
+  /** 機能説明。 */
+  HINT: "手持ちの職務経歴書 PDF を読み込むと、氏名・職務要約・自己PR・職歴をフォームに反映します。内容を確認して保存してください（保存するまで DB は更新されません）。テキストを含む PDF のみ対応です。",
+  /** アップロード導線のラベル。 */
+  UPLOAD_LABEL: "PDF を選択",
+  /** ドラッグ&ドロップ領域のヒント。 */
+  DROP_HINT: "PDF をここにドラッグ&ドロップ、またはクリックして選択",
+  /** アップロード/抽出中のラベル。 */
+  IMPORTING: "PDF を読み込み中...",
+  /** クライアント側の拡張子事前チェック。 */
+  INVALID_FILE: "PDF ファイルを選択してください。",
+  /** 上書き確認（入力途中データがある場合）。 */
+  OVERWRITE_CONFIRM:
+    "現在の入力内容の一部を、PDF から読み取った内容で上書きします。よろしいですか？（空欄は現在の値を保持します）",
+  /** 上書き確認の実行ボタン。 */
+  OVERWRITE_CONFIRM_LABEL: "上書きして反映",
+  /** 反映成功のトースト。 */
+  APPLIED_TOAST: "PDF の内容をフォームに反映しました。内容を確認して保存してください。",
 } as const;
 
 /** スキル表示名の human-in-the-loop 確定（ADR-0016 D11）の UI 文言。 */

@@ -11,7 +11,6 @@
     "src/payloadBuilders.ts",
     "src/hooks/**/*.ts",
     "src/store/*Slice.ts",
-    "src/constants/agentModels.ts",
     "!src/**/*.test.ts",
     "!src/**/*.test.tsx",
     "!src/**/*.d.ts",
