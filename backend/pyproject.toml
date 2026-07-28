@@ -10,7 +10,7 @@ description = "DevForge backend (FastAPI)"
 # （renovate.json5 の allowedVersions "<3.14" と同期）
 requires-python = "==3.13.*"
 dependencies = [
-    "fastapi==0.139.2",
+    "fastapi==0.140.7",
     # starlette は fastapi の推移的依存だが、PYSEC-2026-161（Host ヘッダ未検証による認証バイパス）
     # 対策で明示固定する。さらに CVE-2026-54282 / CVE-2026-54283 対策で 1.3.1 へ更新
     "starlette==1.3.1",
