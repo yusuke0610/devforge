@@ -1,14 +1,33 @@
-"""LLM クライアントの抽象基底クラスと共通例外。"""
+"""LLM クライアントの抽象基底クラスと共通例外。
+
+``AgentUsage`` / ``AgentResponseParseError`` は本来 LLM 呼び出し結果の解釈（response
+parsing）に属する概念だが、chat_service / resume_draft / resume_import / skill_display の
+4 モジュールが共通のリトライヘルパー（``llm/retry.py``）経由でこれらを扱うため、
+双方向 import（chat_service → llm.retry → chat_service）を避ける目的でここに置く
+（chat_service.py は後方互換のため re-export する）。
+"""
 
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from ..chat_service import AgentUsage
+from ....schemas.agent import AgentModelAlias
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class AgentUsage:
+    """LLM 呼び出し 1 回分の実トークン使用量（リトライ分を含む合算）。
+
+    ADR-0023 で課金を撤去したため現在は消費されないが、将来の観測・計測用に
+    トークン計上インフラとして温存する。呼び出し元（chat_service /
+    resume_draft / resume_import / skill_display）は DB に触れない原則を維持する。
+    """
+
+    model: AgentModelAlias
+    input_tokens: int
+    output_tokens: int
 
 
 class LLMError(Exception):
@@ -22,7 +41,19 @@ class LLMError(Exception):
     ADR-0012）。通常の発生時（消費前の失敗）は ``None``。
     """
 
-    def __init__(self, message: str = "", *, usage: "AgentUsage | None" = None) -> None:
+    def __init__(self, message: str = "", *, usage: AgentUsage | None = None) -> None:
+        super().__init__(message)
+        self.usage = usage
+
+
+class AgentResponseParseError(Exception):
+    """LLM 応答の JSON パースまたはスキーマ検証に失敗。
+
+    リトライ後も失敗した場合、確定済みの使用量を ``usage`` に載せて呼び出し元（router）へ
+    伝播する（観測用。ADR-0023 で課金は撤去）。パース前段（リトライ未到達）の失敗では ``usage`` は None。
+    """
+
+    def __init__(self, message: str, *, usage: AgentUsage | None = None) -> None:
         super().__init__(message)
         self.usage = usage
 

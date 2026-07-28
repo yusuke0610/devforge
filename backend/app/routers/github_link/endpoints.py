@@ -41,7 +41,6 @@ from ...schemas.github_skill import (
 from ...schemas.shared import TaskAcceptedResponse, TaskStatusResponse
 from ...services.agent.chat_service import AgentResponseParseError
 from ...services.agent.llm.base import LLMError
-from ...services.agent.rate_limit import AgentRateLimitExceededError, enforce_daily_limit
 from ...services.agent.skill_display import (
     MAX_SKILLS_PER_PROPOSAL,
     SkillForProposal,
@@ -50,6 +49,7 @@ from ...services.agent.skill_display import (
 from ...services.intelligence.github_link_service import get_or_create_github_link_cache
 from ...services.intelligence.skills.types import SKILL_KIND_LANGUAGE
 from ...services.tasks import AsyncTaskCacheService, TaskType
+from .._shared import enforce_agent_daily_limit
 from ._responses import to_skill_item
 
 logger = logging.getLogger(__name__)
@@ -154,16 +154,7 @@ async def propose_skill_display_names_endpoint(
     ユーザ単位の日次レート制限で abuse を防ぐ（ADR-0023 で課金を撤去した代替）。
     """
     # 日次利用上限（abuse 防止 / #521・ADR-0023）を LLM 呼び出し前に確認する
-    try:
-        enforce_daily_limit(db, user.id)
-        db.commit()
-    except AgentRateLimitExceededError:
-        db.commit()
-        raise_app_error(
-            status_code=429,
-            code=ErrorCode.AGENT_DAILY_LIMIT_EXCEEDED,
-            message=get_error("agent.daily_limit_exceeded"),
-        )
+    enforce_agent_daily_limit(db, user.id)
 
     skills = GitHubSkillRepository(db, user.id).list_for_user()
     # language は Linguist の canonical / 表示補正で十分に読めるため提案対象外とする。

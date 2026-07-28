@@ -93,8 +93,11 @@ export function useAuthSession() {
         };
         sessionStorage.setItem("auth_user", JSON.stringify(authUser));
         setUser(authUser);
-      } catch {
+      } catch (error) {
+        // 401（未ログイン）は getCurrentUser 内部で null 応答として処理済みのため、
+        // ここに到達するのはネットワーク断・5xx 等の異常系のみ。ログを残す。
         if (!active) return;
+        logger.warn("セッション復元（/auth/me）に失敗しました", error);
       } finally {
         if (active) {
           setAuthLoading(false);

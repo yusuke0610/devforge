@@ -3,8 +3,9 @@
 agent は表示名・畳み込みグループを **提案するだけ**で、確定・永続化はしない（D8 / P4）。
 本モジュールは DB に触れない（DB 読み取りは router → repository 経由）。LLM 呼び出しの
 失敗契約（LLMError / AgentResponseParseError に usage を載せ課金漏れを防ぐ・リトライ 1 回）は
-チャット / ドラフトと同一。入出力（スキル一覧 / グループ提案）が異なるため共通化しない
-（Rule of Three / .claude/rules/common/duplication.md）。
+チャット / ドラフトと同一。呼び出しの流れ（call → parse → retry → usage 合算）自体は
+``llm/retry.py`` の共通ヘルパーに集約済み。入出力（スキル一覧 / グループ提案）は
+モジュール固有のため、パース処理はこのファイルに残す。
 """
 
 import json
@@ -15,9 +16,10 @@ from pathlib import Path
 from pydantic import BaseModel, Field, ValidationError
 
 from ....schemas.agent import AgentModelAlias
-from ..chat_service import AgentResponseParseError, AgentUsage
-from ..llm.base import LLMError
+from .._utils import strip_code_fence
+from ..llm.base import AgentResponseParseError, AgentUsage
 from ..llm.factory import get_llm_client
+from ..llm.retry import generate_with_retry
 from ..model_catalog import get_model_spec
 from .output_schema import MAX_DISPLAY_NAME_LENGTH, build_skill_display_output_schema
 
@@ -27,9 +29,6 @@ logger = logging.getLogger(__name__)
 # （スキル一覧・許可 token）は user メッセージの JSON とスキーマの enum に載せ、md は静的に保つ
 _PROMPTS_DIR = Path(__file__).resolve().parents[3] / "prompts"
 _SYSTEM_PROMPT = (_PROMPTS_DIR / "agent_skill_display.md").read_text(encoding="utf-8")
-
-# リトライ時に LLM へフィードバックするエラー文の上限（chat_service / draft_service と同じ趣旨）
-_MAX_RETRY_ERROR_LENGTH = 500
 
 # 1 回の提案で LLM に渡すスキルの上限（送信トークン・構造化出力 enum サイズを抑える）。
 # 大量スキル（実測 180 件超）を 1 ショットで投げると入力が肥大し、モデルが巨大 enum の
@@ -131,11 +130,7 @@ def _parse_proposal(
     - display_name の空・上限超過は当該グループを破棄（切り詰めない / ADR-0010 踏襲）。
     - メンバーが 1 件も残らないグループは破棄。
     """
-    text = raw.strip()
-    # Ollama 等 tool use ではないローカル実装のコードフェンス耐性（chat_service と同じ）
-    if text.startswith("```"):
-        text = text.strip("`")
-        text = text.removeprefix("json").strip()
+    text = strip_code_fence(raw)
     try:
         data = json.loads(text)
         parsed = _ProposalOutput.model_validate(data)
@@ -200,52 +195,14 @@ async def propose_skill_display_names(
         len(user_prompt),
     )
 
-    # リトライしても 1 回目の API 原価は発生しているため、使用量は合算で課金する（ADR-0012）
-    input_tokens = 0
-    output_tokens = 0
-
-    def _usage() -> AgentUsage:
-        return AgentUsage(model=model, input_tokens=input_tokens, output_tokens=output_tokens)
-
-    async def _generate_and_account(call_messages: list[dict[str, str]], *, label: str):
-        nonlocal input_tokens, output_tokens
-        call_result = await client.generate(
-            _SYSTEM_PROMPT, call_messages, output_schema, spec.model_id
-        )
-        input_tokens += call_result.input_tokens
-        output_tokens += call_result.output_tokens
-        logger.debug("表示名提案 LLM %s応答（パース前）: len=%d", label, len(call_result.text))
-        return call_result
-
-    result = await _generate_and_account(messages, label="生")
-    try:
-        groups = _parse_proposal(result.text, identity_by_token)
-        return SkillDisplayProposalResult(groups=groups, usage=_usage())
-    except AgentResponseParseError as exc:
-        # 出力契約違反は 1 回だけリトライ（違反内容をフィードバックして再生成 / ADR-0010）
-        logger.warning("表示名提案 LLM 応答が出力契約に違反したためリトライ: %s", type(exc).__name__)
-        retry_messages = [
-            *messages,
-            {"role": "assistant", "content": result.text},
-            {
-                "role": "user",
-                "content": (
-                    "直前の応答は出力契約に違反しています。"
-                    f"違反内容: {str(exc)[:_MAX_RETRY_ERROR_LENGTH]}\n"
-                    "契約に従って同じ依頼への応答を再生成してください。"
-                ),
-            },
-        ]
-
-    try:
-        result = await _generate_and_account(retry_messages, label="リトライ")
-    except LLMError as retry_exc:
-        # 1 回目の API 原価は発生済み。使用量を載せて router 側で課金を確定させる（ADR-0012）
-        retry_exc.usage = _usage()
-        raise
-    try:
-        groups = _parse_proposal(result.text, identity_by_token)
-    except AgentResponseParseError as retry_exc:
-        # 2 回目も失敗。合算使用量を載せて伝播する（課金漏れ防止 / ADR-0012）
-        raise AgentResponseParseError(str(retry_exc), usage=_usage()) from retry_exc
-    return SkillDisplayProposalResult(groups=groups, usage=_usage())
+    groups, usage = await generate_with_retry(
+        client=client,
+        system_prompt=_SYSTEM_PROMPT,
+        messages=messages,
+        output_schema=output_schema,
+        model_id=spec.model_id,
+        model=model,
+        parse=lambda raw: _parse_proposal(raw, identity_by_token),
+        log_label="表示名提案",
+    )
+    return SkillDisplayProposalResult(groups=groups, usage=usage)

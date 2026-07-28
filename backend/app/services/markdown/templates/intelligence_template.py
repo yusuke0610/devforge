@@ -1,5 +1,0 @@
-TITLE = "# GitHub連携レポート"
-SECTION_OVERVIEW = "## 概要"
-SECTION_AI_SUMMARY = "## AI要約"
-SECTION_CAREER_PREDICTION = "## キャリア予測"
-SECTION_CAREER_SIMULATION = "## キャリアパスシミュレーション"

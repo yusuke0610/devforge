@@ -33,7 +33,6 @@ from ..services.agent.chat_service import (
 )
 from ..services.agent.context_builder import build_reference_context
 from ..services.agent.llm.base import LLMError
-from ..services.agent.rate_limit import AgentRateLimitExceededError, enforce_daily_limit
 from ..services.agent.resume_draft.context import (
     ResumeDraftNoRepositoriesError,
     ResumeDraftSourceUnavailableError,
@@ -47,29 +46,12 @@ from ..services.agent.resume_import.text_extract import (
 )
 from ..services.pdf.generators.resume_generator import build_resume_pdf
 from ..services.tasks import AsyncTaskCacheService, TaskType
+from ._shared import enforce_agent_daily_limit
 from .download_utils import stream_pdf
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
-
-
-def _enforce_agent_daily_limit(db: Session, user_id: str) -> None:
-    """Agent の日次利用上限を確認する（#521 / ADR-0023）。
-
-    プリペイド課金（残高）に代わる abuse 防止。今日（JST）のカウントを原子的に増やし、
-    上限超過なら 429 を返す。拒否時もカウントは確定させ、連続試行を含めて数える。
-    """
-    try:
-        enforce_daily_limit(db, user_id)
-        db.commit()
-    except AgentRateLimitExceededError:
-        db.commit()
-        raise_app_error(
-            status_code=429,
-            code=ErrorCode.AGENT_DAILY_LIMIT_EXCEEDED,
-            message=get_error("agent.daily_limit_exceeded"),
-        )
 
 
 @router.post("/chat", response_model=AgentChatResponse)
@@ -88,7 +70,7 @@ async def agent_chat(
     abuse 防止は日次レート制限で行う（ADR-0023 で課金を撤去）。
     """
     # 日次利用上限（abuse 防止 / #521・ADR-0023）を LLM 呼び出し前に確認する
-    _enforce_agent_daily_limit(db, user.id)
+    enforce_agent_daily_limit(db, user.id)
     try:
         reference = build_reference_context(db, user.id, body.scope)
         result = await chat_service.run_agent_chat(body, reference)
@@ -131,7 +113,7 @@ async def start_resume_draft(
     abuse 防止は日次レート制限で行う（ADR-0023 で課金を撤去）。
     """
     # 日次利用上限（abuse 防止 / #521・ADR-0023）を生成開始前に確認する
-    _enforce_agent_daily_limit(db, user.id)
+    enforce_agent_daily_limit(db, user.id)
     # 連携キャッシュ + スキル証跡の読み取り（SELECT のみ）で事前検証し、409 を即時に返す。
     # 0 件（NoRepositories）は再連携で回復しないため別導線を案内する（サブクラスを先に catch）
     try:
@@ -257,7 +239,7 @@ async def import_resume_pdf(
     行い、DB は更新しない（ADR-0010）。結果はフロントがフォーム state へ注入 → ユーザー
     確認 → 既存の保存 API を呼ぶ。abuse 防止は日次レート制限（#521 / ADR-0023）。
     """
-    _enforce_agent_daily_limit(db, user.id)
+    enforce_agent_daily_limit(db, user.id)
 
     data = await file.read()
     if len(data) > _MAX_PDF_UPLOAD_BYTES:
