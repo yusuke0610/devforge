@@ -188,4 +188,21 @@ describe("applyResumeDraftToForm", () => {
     expect(result.qualifications).toHaveLength(1);
     expect(result.qualifications[0].name).toBe("基本情報技術者");
   });
+
+  it("preserve-if-empty は全フィールドに一様（生成が空なら career_summary も現フォーム保持）", () => {
+    // 特定フィールドの無条件上書きをしないことの回帰テスト（#552 レビュー / ADR-0025）。
+    const current: CareerFormState = {
+      ...createInitialCareerForm(),
+      career_summary: "既存の要約",
+      self_pr: "既存の自己PR",
+    };
+    const result = applyResumeDraftToForm(
+      current,
+      draftPayload({ career_summary: "", self_pr: "   " }),
+    );
+    expect(result.career_summary).toBe("既存の要約");
+    expect(result.self_pr).toBe("既存の自己PR");
+    // 生成が提供する full_name は上書きされる
+    expect(result.full_name).toBe("ドラフト 太郎");
+  });
 });
