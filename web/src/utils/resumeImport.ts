@@ -14,6 +14,7 @@
  */
 import type { ResumeImportResponse } from "../api/types";
 import { blankCareerExperience } from "../constants";
+import { mapCareerResumeToForm, type ResumeFormSource } from "../formMappers";
 import type { CareerExperienceForm, CareerFormState } from "../payloadBuilders";
 
 type ImportExperience = NonNullable<ResumeImportResponse["experiences"]>[number];
@@ -76,5 +77,41 @@ export function applyResumeImportToForm(
       extractedExperiences.length > 0
         ? extractedExperiences.map(toExperienceForm)
         : current.experiences,
+  };
+}
+
+/**
+ * 経歴書ドラフト/保存済み経歴書の payload をキャリアフォームへ注入する（#524 共通ルール / ADR-0025）。
+ *
+ * `mapCareerResumeToForm` で全体を写した上で、**全フィールドに一様に preserve-if-empty を適用する**
+ * （PDF インポートの {@link applyResumeImportToForm} と同じ「欠落/空は既存値保持」不変条件）。
+ * スカラーは値が非空なら上書き・空なら現フォーム保持、配列は中身の有無で置換/維持する。特定
+ * フィールドを無条件に上書きしないため、生成が想定外に空を返してもユーザーの入力を消さない。
+ * 実際のドラフトは full_name / career_summary / self_pr / experiences / github_url を常に提供する
+ * ため上書きされ、email と資格は提供しない（空）ため現フォーム値が残る（ADR-0025）。
+ */
+export function applyResumeDraftToForm(
+  current: CareerFormState,
+  payload: ResumeFormSource,
+): CareerFormState {
+  const mapped = mapCareerResumeToForm(payload);
+  // 全フィールドに一様の preserve-if-empty を適用する（フィールド名で固定分岐しない）。
+  // スカラーは値が非空なら上書き・空なら現フォーム保持。配列は中身の有無で置換/維持。
+  const pick = (mappedValue: string, currentValue: string): string =>
+    mappedValue.trim() ? mappedValue : currentValue;
+  const mappedHasExperiences = mapped.experiences.some(
+    (e) => e.company.trim() || e.business_description.trim() || e.description.trim(),
+  );
+  const mappedHasQualifications = mapped.qualifications.some(
+    (q) => q.name.trim() || q.acquired_date.trim(),
+  );
+  return {
+    full_name: pick(mapped.full_name, current.full_name),
+    email: pick(mapped.email, current.email),
+    github_url: pick(mapped.github_url, current.github_url),
+    career_summary: pick(mapped.career_summary, current.career_summary),
+    self_pr: pick(mapped.self_pr, current.self_pr),
+    experiences: mappedHasExperiences ? mapped.experiences : current.experiences,
+    qualifications: mappedHasQualifications ? mapped.qualifications : current.qualifications,
   };
 }

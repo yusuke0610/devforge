@@ -5,6 +5,7 @@ import { PATHS } from "./paths";
 import type {
   AgentChatRequest,
   AgentChatResponse,
+  ResumeDraftResultResponse,
   ResumeImportResponse,
   TaskAcceptedResponse,
   TaskStatusResponse,
@@ -39,6 +40,14 @@ export function startResumeDraft(): Promise<TaskAcceptedResponse> {
  */
 export function getResumeDraftStatus(): Promise<TaskStatusResponse> {
   return request<TaskStatusResponse>(PATHS.agent.resumeDraftStatus);
+}
+
+/**
+ * 完了済みの経歴書ドラフトの生成 payload を JSON で取得する（ADR-0025 / #525）。
+ * フォーム流し込み用。未完了・結果なしの場合は ApiError（409）を送出する。DB は更新されない。
+ */
+export function getResumeDraftResult(): Promise<ResumeDraftResultResponse> {
+  return request<ResumeDraftResultResponse>(PATHS.agent.resumeDraftResult);
 }
 
 /**

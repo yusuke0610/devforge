@@ -55,6 +55,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/resume-draft/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Resume Draft Result
+         * @description 完了済みの経歴書ドラフトの生成 payload を JSON で返す（ADR-0025 / #525）。
+         *
+         *     生成タスクが保存した payload（Resume 互換）をそのまま返す。web はこれをフォーム state へ
+         *     注入し、ユーザー確認後に既存の保存 API を呼ぶ（DB 非更新 / ADR-0010）。PDF プレビュー/DL の
+         *     ``/resume-draft/pdf`` とは用途が異なるため別エンドポイントに分ける。未完了・結果なしは 409。
+         */
+        get: operations["get_resume_draft_result_api_agent_resume_draft_result_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/resume-draft/run": {
         parameters: {
             query?: never;
@@ -1454,6 +1478,47 @@ export interface components {
             model: "haiku";
         };
         /**
+         * ResumeDraftResultResponse
+         * @description 経歴書ドラフトの生成 payload をフォーム注入用に返す（ADR-0025 / #525）。
+         *
+         *     ``resume_draft_cache.result``（Resume 互換の生成 payload）をそのまま返す。保存契約
+         *     （``schemas/resume.py`` の ResumeBase の strict 検証。email 必須等）とは分離し、生成に
+         *     含まれないフィールド（email が空など）を許容する緩い schema。experiences / qualifications
+         *     は保存契約と同じ入れ子モデルを再利用し、web は既存の form マッパーで注入する。
+         *     DB は更新せず、フロントがフォーム state へ注入 → ユーザー確認 → 既存の保存 API を呼ぶ。
+         */
+        ResumeDraftResultResponse: {
+            /**
+             * Career Summary
+             * @default
+             */
+            career_summary: string;
+            /**
+             * Email
+             * @default
+             */
+            email: string;
+            /** Experiences */
+            experiences?: components["schemas"]["Experience"][];
+            /**
+             * Full Name
+             * @default
+             */
+            full_name: string;
+            /**
+             * Github Url
+             * @default
+             */
+            github_url: string;
+            /** Qualifications */
+            qualifications?: components["schemas"]["ResumeQualificationItem"][];
+            /**
+             * Self Pr
+             * @default
+             */
+            self_pr: string;
+        };
+        /**
          * ResumeImportExperience
          * @description PDF から抽出した職歴 1 件（フラット / ADR-0024 v1）。
          *
@@ -1964,6 +2029,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_resume_draft_result_api_agent_resume_draft_result_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeDraftResultResponse"];
                 };
             };
         };

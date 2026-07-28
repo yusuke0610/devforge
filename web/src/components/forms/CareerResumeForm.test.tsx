@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
+import { MemoryRouter } from "react-router-dom";
 import { configureStore } from "@reduxjs/toolkit";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -32,11 +33,13 @@ function renderAnonymousForm() {
   const requestLogin = vi.fn();
   render(
     <Provider store={makeStore()}>
-      <LoginPromptContext.Provider value={requestLogin}>
-        <ToastProvider>
-          <CareerResumeForm isAuthenticated={false} />
-        </ToastProvider>
-      </LoginPromptContext.Provider>
+      <MemoryRouter>
+        <LoginPromptContext.Provider value={requestLogin}>
+          <ToastProvider>
+            <CareerResumeForm isAuthenticated={false} />
+          </ToastProvider>
+        </LoginPromptContext.Provider>
+      </MemoryRouter>
     </Provider>,
   );
   return { requestLogin };

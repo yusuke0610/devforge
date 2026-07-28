@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   runGitHubLink,
   getGitHubLinkCache,
   getGitHubLinkCacheStatus,
   getGitHubLinkProgress,
   toAppError,
+  type AppErrorState,
   type GitHubLinkResponse,
 } from "../../api";
+import { getResumeDraftResult } from "../../api/agent";
 import { InlineSpinner } from "../ui/InlineSpinner";
 import { AsyncTaskLoading } from "../ui/AsyncTaskLoading";
 import { useAppErrorToast } from "../ui/toast";
@@ -65,6 +67,26 @@ export function GitHubLinkDashboard() {
   // 経歴書ドラフト PDF 生成（ADR-0018）。モデルは Claude Haiku 固定（ADR-0023）
   const draft = useResumeDraftPdf();
   useAppErrorToast(draft.error);
+
+  // ドラフトを職務経歴書フォームへ流し込む（ADR-0025 / #525）。payload を取得して
+  // /career へ router state で渡し、CareerResumeForm 側が注入（上書き確認）する。DB 非更新。
+  const navigate = useNavigate();
+  const [applyingDraft, setApplyingDraft] = useState(false);
+  const [applyDraftError, setApplyDraftError] = useState<AppErrorState | null>(null);
+  useAppErrorToast(applyDraftError);
+
+  const handleApplyDraftToForm = async () => {
+    setApplyingDraft(true);
+    setApplyDraftError(null);
+    try {
+      const payload = await getResumeDraftResult();
+      navigate("/career", { state: { resumeDraftPayload: payload } });
+    } catch (e) {
+      setApplyDraftError(toAppError(e, FALLBACK_MESSAGES.RESUME_DRAFT));
+    } finally {
+      setApplyingDraft(false);
+    }
+  };
 
   /**
    * GitHub 連携を実行する（非同期バックグラウンド）。
@@ -203,7 +225,23 @@ export function GitHubLinkDashboard() {
       </div>
       <div className={shared.pageBody}>{renderBody()}</div>
       {draft.previewUrl && (
-        <PdfPreviewModal previewUrl={draft.previewUrl} onClose={draft.closePreview} />
+        <PdfPreviewModal
+          previewUrl={draft.previewUrl}
+          onClose={draft.closePreview}
+          headerAction={
+            // 生成済みドラフトを職務経歴書フォームへ流し込む（ADR-0025 / #525）。
+            // 反映後はフォームで確認して保存する（DB 非更新 / ADR-0010）。
+            <button
+              type="button"
+              onClick={() => void handleApplyDraftToForm()}
+              disabled={applyingDraft}
+            >
+              {applyingDraft
+                ? RESUME_DRAFT_MESSAGES.APPLYING_TO_FORM
+                : RESUME_DRAFT_MESSAGES.APPLY_TO_FORM}
+            </button>
+          }
+        />
       )}
     </>
   );

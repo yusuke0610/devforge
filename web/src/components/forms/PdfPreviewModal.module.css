@@ -27,6 +27,12 @@
   font-weight: 700;
 }
 
+.previewHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .previewFrame {
   flex: 1;
   border: none;

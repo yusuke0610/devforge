@@ -3,8 +3,12 @@ import { describe, expect, it } from "vitest";
 import { blankCareerExperience } from "../constants";
 import { createInitialCareerForm } from "../formMappers";
 import type { CareerFormState } from "../payloadBuilders";
-import type { ResumeImportResponse } from "../api/types";
-import { applyResumeImportToForm, hasCareerFormContent } from "./resumeImport";
+import type { ResumeDraftResultResponse, ResumeImportResponse } from "../api/types";
+import {
+  applyResumeDraftToForm,
+  applyResumeImportToForm,
+  hasCareerFormContent,
+} from "./resumeImport";
 
 /** 抽出 payload のひな型（テストで一部だけ差し替える）。 */
 function importPayload(overrides: Partial<ResumeImportResponse> = {}): ResumeImportResponse {
@@ -130,5 +134,75 @@ describe("applyResumeImportToForm", () => {
     const result = applyResumeImportToForm(current, importPayload({ full_name: "太郎" }));
     expect(result.experiences).toHaveLength(1);
     expect(result.experiences[0].company).toBe("既存カンパニー");
+  });
+});
+
+describe("applyResumeDraftToForm", () => {
+  function draftPayload(overrides: Partial<ResumeDraftResultResponse> = {}): ResumeDraftResultResponse {
+    return {
+      full_name: "ドラフト 太郎",
+      email: "",
+      github_url: "https://github.com/draft",
+      career_summary: "生成した要約",
+      self_pr: "生成した自己PR",
+      experiences: [
+        {
+          company: "株式会社ドラフト",
+          business_description: "自社開発",
+          start_date: "2020-04",
+          end_date: "",
+          is_current: true,
+          clients: [],
+        },
+      ] as unknown as ResumeDraftResultResponse["experiences"],
+      qualifications: [],
+      ...overrides,
+    };
+  }
+
+  it("生成が提供するフィールドは上書きする", () => {
+    const current = createInitialCareerForm();
+    const result = applyResumeDraftToForm(current, draftPayload());
+    expect(result.full_name).toBe("ドラフト 太郎");
+    expect(result.career_summary).toBe("生成した要約");
+    expect(result.self_pr).toBe("生成した自己PR");
+    expect(result.experiences[0].company).toBe("株式会社ドラフト");
+    expect(result.github_url).toBe("https://github.com/draft");
+  });
+
+  it("生成が提供しない email は現フォーム値を保持する（#524 共通ルール）", () => {
+    const current: CareerFormState = {
+      ...createInitialCareerForm(),
+      email: "keep@example.com",
+    };
+    const result = applyResumeDraftToForm(current, draftPayload({ email: "" }));
+    expect(result.email).toBe("keep@example.com");
+  });
+
+  it("生成が資格を提供しない場合は現フォームの資格を保持する", () => {
+    const current: CareerFormState = {
+      ...createInitialCareerForm(),
+      qualifications: [{ name: "基本情報技術者", acquired_date: "2019-04" }],
+    };
+    const result = applyResumeDraftToForm(current, draftPayload({ qualifications: [] }));
+    expect(result.qualifications).toHaveLength(1);
+    expect(result.qualifications[0].name).toBe("基本情報技術者");
+  });
+
+  it("preserve-if-empty は全フィールドに一様（生成が空なら career_summary も現フォーム保持）", () => {
+    // 特定フィールドの無条件上書きをしないことの回帰テスト（#552 レビュー / ADR-0025）。
+    const current: CareerFormState = {
+      ...createInitialCareerForm(),
+      career_summary: "既存の要約",
+      self_pr: "既存の自己PR",
+    };
+    const result = applyResumeDraftToForm(
+      current,
+      draftPayload({ career_summary: "", self_pr: "   " }),
+    );
+    expect(result.career_summary).toBe("既存の要約");
+    expect(result.self_pr).toBe("既存の自己PR");
+    // 生成が提供する full_name は上書きされる
+    expect(result.full_name).toBe("ドラフト 太郎");
   });
 });
