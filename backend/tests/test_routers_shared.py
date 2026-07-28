@@ -25,8 +25,9 @@ def _make_user(db_session, username: str):
     return user
 
 
-def test_enforce_agent_daily_limit_allows_under_limit(db_session) -> None:
+def test_enforce_agent_daily_limit_allows_under_limit(db_session, monkeypatch) -> None:
     """上限未満なら例外を出さずに正常終了する。"""
+    monkeypatch.setenv(env_keys.AGENT_DAILY_LIMIT, "2")
     user = _make_user(db_session, "shared-rl-under")
 
     enforce_agent_daily_limit(db_session, user.id)  # raise しないこと

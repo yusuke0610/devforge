@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from ....schemas.agent import AgentModelAlias
 from .._utils import strip_code_fence
-from ..chat_service import AgentResponseParseError, AgentUsage
+from ..llm.base import AgentResponseParseError, AgentUsage
 from ..llm.factory import get_llm_client
 from ..llm.retry import generate_with_retry
 from ..model_catalog import get_model_spec
