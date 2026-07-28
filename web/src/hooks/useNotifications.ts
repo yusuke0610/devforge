@@ -7,6 +7,7 @@ import {
   markAllAsRead,
   type Notification,
 } from "../api/notifications";
+import { logger } from "../utils/logger";
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -25,8 +26,10 @@ export function useNotifications() {
     try {
       const { count } = await getUnreadCount();
       setUnreadCount(count);
-    } catch {
-      // ポーリングエラーはサイレントに無視する
+    } catch (error) {
+      // ポーリングエラーは UI をブロックしないためサイレントに無視するが、
+      // 障害調査のためログだけは残す。
+      logger.warn("未読通知件数の取得に失敗しました", error);
     }
   }, []);
 
@@ -37,8 +40,9 @@ export function useNotifications() {
       // パネルを開く時点では未読のみを表示する（既読は非表示）
       setNotifications(data.filter((n) => !n.is_read));
       setUnreadCount(data.filter((n) => !n.is_read).length);
-    } catch {
-      // エラーは無視
+    } catch (error) {
+      // パネル表示中のエラーは通知一覧を空のまま維持するが、ログは残す。
+      logger.warn("通知一覧の取得に失敗しました", error);
     } finally {
       setIsLoading(false);
     }
@@ -71,8 +75,9 @@ export function useNotifications() {
         prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
-    } catch {
-      // エラーは無視
+    } catch (error) {
+      // 既読化に失敗しても UI 上は据え置くが、ログは残す。
+      logger.warn("通知の既読化に失敗しました", error);
     }
   }, []);
 
@@ -81,8 +86,9 @@ export function useNotifications() {
       await markAllAsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
       setUnreadCount(0);
-    } catch {
-      // エラーは無視
+    } catch (error) {
+      // 一括既読化に失敗しても UI 上は据え置くが、ログは残す。
+      logger.warn("通知の一括既読化に失敗しました", error);
     }
   }, []);
 

@@ -2,9 +2,10 @@
 
 本モジュールは DB に触れない（DB 読み取りは router → context.py 経由のみ）。
 LLM 呼び出しの失敗契約（LLMError / AgentResponseParseError に usage〈観測用〉を載せる・
-リトライは 1 回のみ）はチャット（chat_service）と同一。ADR-0023 で課金は撤去。呼び出しの流れも同じ形だが、
-入出力（骨格 payload / ドラフト出力スキーマ）が異なるため現時点では共通化しない
-（Rule of Three / .claude/rules/common/duplication.md）。
+リトライは 1 回のみ）はチャット（chat_service）と同一。ADR-0023 で課金は撤去。呼び出しの流れ
+（call → parse → retry → usage 合算）自体は ``llm/retry.py`` の共通ヘルパーに集約済み。
+入出力（骨格 payload / ドラフト出力スキーマ）はモジュール固有のため、パース処理と
+パース後のマージ（``_merge_output``）はこのファイルに残す。
 """
 
 import json
@@ -16,9 +17,10 @@ from pathlib import Path
 from pydantic import BaseModel, Field, ValidationError
 
 from ....schemas.agent import AgentModelAlias
+from .._utils import strip_code_fence
 from ..chat_service import AgentResponseParseError, AgentUsage
-from ..llm.base import LLMError
 from ..llm.factory import get_llm_client
+from ..llm.retry import generate_with_retry
 from ..model_catalog import get_model_spec
 from .context import DraftSource
 from .mapper import build_skeleton, select_repos
@@ -36,9 +38,6 @@ logger = logging.getLogger(__name__)
 # user メッセージの JSON とスキーマの enum に載せる
 _PROMPTS_DIR = Path(__file__).resolve().parents[3] / "prompts"
 _SYSTEM_PROMPT = (_PROMPTS_DIR / "agent_resume_draft.md").read_text(encoding="utf-8")
-
-# リトライ時に LLM へフィードバックするエラー文の上限（chat_service と同じ趣旨）
-_MAX_RETRY_ERROR_LENGTH = 500
 
 
 @dataclass(frozen=True)
@@ -94,11 +93,7 @@ def _parse_draft(raw: str, allowed_names: set[str]) -> _DraftOutput:
     （許可外・重複・上限超過の 1 件を破棄しても、骨格側の repo description
     フォールバックで経歴書として成立するため）。
     """
-    text = raw.strip()
-    # Ollama など tool use ではないローカル実装のコードフェンス耐性（chat_service と同じ）
-    if text.startswith("```"):
-        text = text.strip("`")
-        text = text.removeprefix("json").strip()
+    text = strip_code_fence(raw)
     try:
         data = json.loads(text)
         parsed = _DraftOutput.model_validate(data)
@@ -182,54 +177,14 @@ async def run_resume_draft(
         len(user_prompt),
     )
 
-    # リトライしても 1 回目の API 原価は発生しているため、使用量は合算で記録する（観測用 / ADR-0023 で課金撤去）
-    input_tokens = 0
-    output_tokens = 0
-
-    def _usage() -> AgentUsage:
-        return AgentUsage(model=model, input_tokens=input_tokens, output_tokens=output_tokens)
-
-    async def _generate_and_account(call_messages: list[dict[str, str]], *, label: str):
-        nonlocal input_tokens, output_tokens
-        call_result = await client.generate(
-            _SYSTEM_PROMPT, call_messages, output_schema, spec.model_id
-        )
-        input_tokens += call_result.input_tokens
-        output_tokens += call_result.output_tokens
-        logger.debug("ドラフト LLM %s応答（パース前）: len=%d", label, len(call_result.text))
-        return call_result
-
-    result = await _generate_and_account(messages, label="生")
-    try:
-        output = _parse_draft(result.text, set(allowed_names))
-        return ResumeDraftResult(
-            payload=_merge_output(skeleton, selected, output), usage=_usage()
-        )
-    except AgentResponseParseError as exc:
-        # 出力契約違反は 1 回だけリトライ（違反内容をフィードバックして再生成 / ADR-0010）
-        logger.warning("ドラフト LLM 応答が出力契約に違反したためリトライ: %s", type(exc).__name__)
-        retry_messages = [
-            *messages,
-            {"role": "assistant", "content": result.text},
-            {
-                "role": "user",
-                "content": (
-                    "直前の応答は出力契約に違反しています。"
-                    f"違反内容: {str(exc)[:_MAX_RETRY_ERROR_LENGTH]}\n"
-                    "契約に従って同じ依頼への応答を再生成してください。"
-                ),
-            },
-        ]
-
-    try:
-        result = await _generate_and_account(retry_messages, label="リトライ")
-    except LLMError as retry_exc:
-        # 1 回目の API 原価は発生済み。使用量（観測用）を載せて伝播する（ADR-0023 で課金撤去）
-        retry_exc.usage = _usage()
-        raise
-    try:
-        output = _parse_draft(result.text, set(allowed_names))
-    except AgentResponseParseError as retry_exc:
-        # 2 回目も失敗。合算使用量（観測用）を載せて伝播する（ADR-0023 で課金撤去）
-        raise AgentResponseParseError(str(retry_exc), usage=_usage()) from retry_exc
-    return ResumeDraftResult(payload=_merge_output(skeleton, selected, output), usage=_usage())
+    output, usage = await generate_with_retry(
+        client=client,
+        system_prompt=_SYSTEM_PROMPT,
+        messages=messages,
+        output_schema=output_schema,
+        model_id=spec.model_id,
+        model=model,
+        parse=lambda raw: _parse_draft(raw, set(allowed_names)),
+        log_label="ドラフト",
+    )
+    return ResumeDraftResult(payload=_merge_output(skeleton, selected, output), usage=usage)

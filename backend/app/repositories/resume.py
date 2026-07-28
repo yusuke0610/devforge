@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Any
 
 from sqlalchemy.orm import selectinload
@@ -113,28 +114,27 @@ class ResumeRepository(SingleUserDocumentRepository):
     @staticmethod
     def _project_sort_key(proj: dict[str, Any]) -> tuple:
         """複数期間を持つプロジェクトを sort_by_period_desc と同じ降順ロジックでソートする。"""
-        from datetime import date as _date
 
-        def _parse(val: object) -> _date | None:
+        def _parse(val: object) -> date | None:
             if val is None:
                 return None
-            if isinstance(val, _date):
+            if isinstance(val, date):
                 return val
             if isinstance(val, str) and val:
                 if len(val) == 7 and val[4] == "-":
-                    return _date.fromisoformat(f"{val}-01")
-                return _date.fromisoformat(val)
+                    return date.fromisoformat(f"{val}-01")
+                return date.fromisoformat(val)
             return None
 
         periods = proj.get("periods", [])
         is_any_current = any(p.get("is_current") for p in periods)
         starts = [_parse(p.get("start_date")) for p in periods]
-        effective_start = max((s for s in starts if s), default=_date.min)
+        effective_start = max((s for s in starts if s), default=date.min)
         if is_any_current:
-            return (0, _date.max - effective_start)
+            return (0, date.max - effective_start)
         ends = [_parse(p.get("end_date")) for p in periods if p.get("end_date")]
-        effective_end = max((e for e in ends if e), default=_date.min)
-        return (1, _date.max - effective_end, _date.max - effective_start)
+        effective_end = max((e for e in ends if e), default=date.min)
+        return (1, date.max - effective_end, date.max - effective_start)
 
     def _build_project_row(self, index: int, payload: dict[str, Any]) -> ResumeProject:
         team = payload.get("team", {})

@@ -17,14 +17,15 @@ from ...schemas.agent import (
     AgentChatRequest,
     AgentChatResponse,
     AgentExperienceContext,
-    AgentModelAlias,
     AgentOperation,
     AgentProjectContext,
     ExperienceTarget,
     ProjectTarget,
 )
-from .llm.base import LLMError
+from ._utils import strip_code_fence
+from .llm.base import AgentResponseParseError, AgentUsage
 from .llm.factory import get_llm_client
+from .llm.retry import generate_with_retry
 from .model_catalog import get_model_spec
 from .output_schema import (
     MAX_SUGGESTION_LENGTH,
@@ -35,34 +36,19 @@ from .output_schema import (
 
 logger = logging.getLogger(__name__)
 
+# AgentResponseParseError / AgentUsage は llm/base.py が正本（llm/retry.py との循環 import を
+# 避けるため）。本モジュールからも従来どおり import できるよう re-export する。
+__all__ = [
+    "AgentChatResult",
+    "AgentResponseParseError",
+    "AgentTargetNotFoundError",
+    "AgentUsage",
+    "run_agent_chat",
+]
+
 
 class AgentTargetNotFoundError(Exception):
     """target のインデックスが resume コンテキストの範囲外。"""
-
-
-class AgentResponseParseError(Exception):
-    """LLM 応答の JSON パースまたはスキーマ検証に失敗。
-
-    リトライ後も失敗した場合、確定済みの使用量を ``usage`` に載せて呼び出し元（router）へ
-    伝播する（観測用。ADR-0023 で課金は撤去）。パース前段（リトライ未到達）の失敗では ``usage`` は None。
-    """
-
-    def __init__(self, message: str, *, usage: "AgentUsage | None" = None) -> None:
-        super().__init__(message)
-        self.usage = usage
-
-
-@dataclass(frozen=True)
-class AgentUsage:
-    """チャット 1 回分の実トークン使用量（リトライ分を含む合算）。
-
-    ADR-0023 で課金を撤去したため現在は消費されないが、将来の観測・計測用に
-    トークン計上インフラとして温存する。本モジュールは DB に触れない原則を維持する。
-    """
-
-    model: AgentModelAlias
-    input_tokens: int
-    output_tokens: int
 
 
 @dataclass(frozen=True)
@@ -72,17 +58,6 @@ class AgentChatResult:
     response: AgentChatResponse
     usage: AgentUsage
 
-
-def _make_usage(
-    request: AgentChatRequest, input_tokens: int, output_tokens: int
-) -> AgentUsage:
-    """リクエストのモデルと合算トークンから AgentUsage を組み立てる。
-
-    成功・失敗の各パスで同じ形の使用量を作る箇所を集約する（観測用 / ADR-0023 で課金撤去）。
-    """
-    return AgentUsage(
-        model=request.model, input_tokens=input_tokens, output_tokens=output_tokens
-    )
 
 # 許可外の field 名を返された時の正規化先。スコープ選択で編集対象は確定しているため、
 # 小型 LLM が「自己PR」等の field 名を返しても既定 field の提案として救済する。
@@ -114,10 +89,6 @@ _SCOPE_PROMPTS: dict[str, str] = {scope: _load_scope_prompt(scope) for scope in 
 
 # 構造化出力スキーマもスコープごとに静的なのでロード時に構築する
 _SCOPE_SCHEMAS: dict[str, dict] = {scope: build_output_schema(scope) for scope in SCOPE_FIELDS}
-
-# リトライ時に LLM へフィードバックするエラー文の上限（レジュメ本文を含む
-# ValidationError でリトライプロンプトが肥大化するのを防ぐ）
-_MAX_RETRY_ERROR_LENGTH = 500
 
 
 def _build_context(request: AgentChatRequest, reference: dict | None = None) -> str:
@@ -209,12 +180,7 @@ def _resolve_target_project(request: AgentChatRequest) -> AgentProjectContext:
 
 def _parse_response(raw: str, scope: str) -> AgentChatResponse:
     """LLM 応答をパースし、field の正規化と上限超過 operation の破棄を行って返す。"""
-    text = raw.strip()
-    # Ollama など tool use ではないローカル実装は、構造化出力指定後もコードフェンスを
-    # 付ける場合がある。JSON mode への依存ではなく、ローカル開発用の耐性として残す。
-    if text.startswith("```"):
-        text = text.strip("`")
-        text = text.removeprefix("json").strip()
+    text = strip_code_fence(raw)
     try:
         data = json.loads(text)
         parsed = AgentChatResponse.model_validate(data)
@@ -297,66 +263,14 @@ async def run_agent_chat(
     client = get_llm_client(spec.provider)
     output_schema = _SCOPE_SCHEMAS[request.scope]
 
-    # リトライしても 1 回目の API 原価は発生しているため、使用量は全呼び出しの合算で記録する（観測用）
-    input_tokens = 0
-    output_tokens = 0
-
-    async def _generate_and_account(call_messages: list[dict], *, label: str):
-        """LLM を呼び出し、合算トークンへ加算してから生応答を返す。
-
-        観測用（ADR-0023 で課金撤去）のため、初回・リトライの両方でトークン加算経路を
-        この 1 箇所に集約する。``client.generate`` が失敗した場合は加算前に例外が伝播し、
-        呼び出し元で確定済みの合算使用量を載せて再 raise する（使用量の二重計上を防ぐ）。
-        """
-        nonlocal input_tokens, output_tokens
-        call_result = await client.generate(
-            system_prompt, call_messages, output_schema, model_id
-        )
-        input_tokens += call_result.input_tokens
-        output_tokens += call_result.output_tokens
-        logger.debug("Agent LLM %s応答（パース前）: len=%d", label, len(call_result.text))
-        return call_result
-
-    # 1 回目の呼び出し。パースまで成功すればここで確定して返す。
-    result = await _generate_and_account(messages, label="生")
-    try:
-        response = _parse_response(result.text, request.scope)
-        return AgentChatResult(
-            response=response, usage=_make_usage(request, input_tokens, output_tokens)
-        )
-    except AgentResponseParseError as exc:
-        # スキーマ違反応答は 1 回だけリトライする。バリデーションエラーの内容を
-        # フィードバックして再生成させ、2 回目も失敗したらそのまま raise
-        # （router で 502 + AGENT_PARSE_ERROR にマッピングされる既存契約を維持）
-        logger.warning("LLM 応答が出力契約に違反したためリトライ: %s", type(exc).__name__)
-        retry_messages = [
-            *messages,
-            {"role": "assistant", "content": result.text},
-            {
-                "role": "user",
-                "content": (
-                    "直前の応答は出力契約に違反しています。"
-                    f"違反内容: {str(exc)[:_MAX_RETRY_ERROR_LENGTH]}\n"
-                    "契約に従って同じ依頼への応答を再生成してください。"
-                ),
-            },
-        ]
-
-    # リトライ呼び出し（1 回のみ）。以降は失敗時も合算使用量を載せて伝播する。
-    try:
-        result = await _generate_and_account(retry_messages, label="リトライ")
-    except LLMError as retry_exc:
-        # リトライ呼び出し自体が失敗。合算した使用量（観測用）を載せて伝播する（ADR-0023 で課金撤去）
-        retry_exc.usage = _make_usage(request, input_tokens, output_tokens)
-        raise
-    try:
-        response = _parse_response(result.text, request.scope)
-    except AgentResponseParseError as retry_exc:
-        # 2 回目も失敗。合算した使用量（観測用）を載せて伝播する（ADR-0023 で課金撤去）
-        raise AgentResponseParseError(
-            str(retry_exc),
-            usage=_make_usage(request, input_tokens, output_tokens),
-        ) from retry_exc
-    return AgentChatResult(
-        response=response, usage=_make_usage(request, input_tokens, output_tokens)
+    response, usage = await generate_with_retry(
+        client=client,
+        system_prompt=system_prompt,
+        messages=messages,
+        output_schema=output_schema,
+        model_id=model_id,
+        model=request.model,
+        parse=lambda raw: _parse_response(raw, request.scope),
+        log_label="Agent",
     )
+    return AgentChatResult(response=response, usage=usage)

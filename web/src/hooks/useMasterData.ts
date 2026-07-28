@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { getQualifications, getTechnologyStacks } from "../api";
 import type { MasterItem, TechStackMasterItem } from "../api/types";
+import { logger } from "../utils/logger";
 
 /** 汎用のキャッシュ付きデータ取得フック */
 function useCachedFetch<T>(
@@ -24,7 +25,9 @@ function useCachedFetch<T>(
         const data = await fetchFn();
         cache.current = data;
         if (active) setItems(data);
-      } catch {
+      } catch (error) {
+        // マスタ取得失敗時は空配列へ静かに劣化させるが、ログは残す。
+        logger.warn("マスタデータの取得に失敗しました", error);
         if (active) setItems([]);
       } finally {
         if (active) setLoading(false);

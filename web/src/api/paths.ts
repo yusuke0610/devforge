@@ -62,12 +62,4 @@ export const PATHS = {
     readAll: "/api/notifications/read-all",
     read: (notificationId: string) => `/api/notifications/${notificationId}/read`,
   },
-  aiResume: {
-    generate: "/api/ai-resume/generate",
-    snapshots: "/api/ai-resume/snapshots",
-    snapshotById: (id: number) => `/api/ai-resume/snapshots/${id}`,
-    snapshotFinalize: (id: number) => `/api/ai-resume/snapshots/${id}/finalize`,
-    snapshotPdf: (id: number) => `/api/ai-resume/snapshots/${id}/pdf`,
-    snapshotMarkdown: (id: number) => `/api/ai-resume/snapshots/${id}/markdown`,
-  },
 } as const;
