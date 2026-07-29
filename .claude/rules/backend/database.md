@@ -20,7 +20,7 @@ paths:
 - **FK 参照される親テーブルに `batch_alter_table` を使わない**: batch は「新テーブル作成 → 旧テーブル DROP → リネーム」で動くため、`users` のように子テーブルから FK 参照される親を batch で触ると、旧テーブル DROP 時に libSQL（`foreign_keys=ON`）で `FOREIGN KEY constraint failed` になる。標準 SQLite ドライバは `foreign_keys` がデフォルト OFF で通ってしまい差異を見落とすので注意。子テーブル（他から参照されない）の `drop_column` でのみ batch は安全
 - **マイグレーション／libsql ネイティブ経路は `make test-backend`（pytest）では通らないが、CI の `smoke-backend` ジョブで検証する**: pytest は `conftest.py` の `Base.metadata.create_all` でスキーマを作るため alembic を通らず、libsql ネイティブドライバの実行パスも踏まない。これを補うため CI は本番イメージを build → 実 libSQL を起動 → alembic 適用 → `/health`（DB 接続を検証）が 200 を返すことを確認する（`.github/workflows/ci.yml` の `smoke-backend`）。ローカルで個別に migration の upgrade/downgrade を確認したい場合は **実 libSQL に対して**行うこと:
   - offline SQL の事前確認: `nix develop --command bash -c "cd backend && TURSO_DATABASE_URL='file:///tmp/x.db' alembic upgrade <from>:<to> --sql"`
-  - 実適用: docker stack を起動（`make dev-build` / 本番 arch で再現したいときは `make dev-amd64-build`）し `docker compose logs api` で適用成功を確認する
+  - 実適用: `make dev-build` で docker stack を起動し `docker compose logs api` で適用成功を確認する（本番 arch = amd64 での検証は CI の `smoke-backend` ジョブが担う。ローカルでの amd64 エミュレーション実行環境は QEMU の seccomp 非互換のため廃止済み）
 - 失敗した `batch_alter_table` が残す `_alembic_tmp_<table>` テーブルは `turso db shell http://localhost:8080 "DROP TABLE IF EXISTS _alembic_tmp_<table>"` で掃除する
 
 ## Turso (libSQL) 接続方式
