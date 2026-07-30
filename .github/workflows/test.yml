@@ -2,6 +2,8 @@ name: Test
 
 # テスト/品質ゲートの再利用可能ワークフロー（ci.yml から workflow_call で呼ばれる）。
 # detect-changes の結果を inputs で受け取り、各ジョブの実行可否を制御する。
+# ただし lint-ssot（SSoT drift 検知）は docs / .claude の変更も検知対象に含むため、
+# inputs でゲートせず常に実行する。
 # deploy のゲート判定は deploy-gate ジョブが集約し、deploy_gate 出力として公開する。
 on:
   workflow_call:
@@ -16,13 +18,48 @@ on:
         required: true
     outputs:
       deploy_gate:
-        description: "deploy 可否のゲート（pass / fail）。test-web / test-backend / codegen-drift の結果のみで判定する"
+        description: "deploy 可否のゲート（pass / fail）。test-web / test-backend / codegen-drift / lint-ssot の結果のみで判定する"
         value: ${{ jobs.deploy-gate.outputs.status }}
 
 permissions:
   contents: read
 
 jobs:
+  # 領域跨ぎの SSoT drift 検知。bash/grep/comm/git のみに依存し nix も npm も要らないため、
+  # 数秒で終わる独立ジョブとして「常に」実行する（inputs.app でゲートしない）。
+  #
+  # 以前は test-backend の先頭ステップに同居していたが、そのジョブが `if: inputs.app` で
+  # ゲートされているため docs だけを変更した PR では丸ごと skip され、ADR 索引の drift を
+  # 検知できなかった（ADR-0026 の PR で発覚）。検知対象（docs/adr/**・.claude/**）と
+  # 実行条件（web/**・backend/**）がズレていたのが原因なので、ゲートから外して切り出す。
+  lint-ssot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # lint-tdd が base ブランチとの merge-base diff を必要とするため全履歴を取得する。
+          fetch-depth: 0
+          # 読み取り専用ジョブのため checkout の認証情報をディスクに残さない（サプライチェーン保護）。
+          persist-credentials: false
+
+      # env_keys.py↔docker-compose / errors.py↔errorCodes.ts の SSoT drift 検知。
+      # grep/sed/comm のみに依存する（ripgrep は使わない）。
+      - name: Lint SSoT (env names / error codes)
+        run: bash scripts/lint-env-keys.sh
+
+      # ADR 索引（docs/adr/README.md）↔ ADR ファイルの drift 検知。
+      # 一覧の複製（旧 CONTRIBUTING の表）が陳腐化した再発防止。bash/grep/comm のみ。
+      - name: Lint SSoT (ADR index)
+        run: bash scripts/lint-adr-index.sh
+
+      # TDD 対象（決定論的ロジック層 = mutmut/stryker スコープ）の実装変更に
+      # テスト差分が随伴しているかを検知（ADR-0019）。bash/git/awk/sed のみ。
+      - name: Lint SSoT (TDD test accompaniment)
+        run: bash scripts/lint-tdd.sh
+
   detect-duplication:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -149,26 +186,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          # lint-tdd が base ブランチとの merge-base diff を必要とするため全履歴を取得する。
-          fetch-depth: 0
           # 読み取り専用ジョブのため checkout の認証情報をディスクに残さない（サプライチェーン保護）。
           persist-credentials: false
-
-      # 領域跨ぎの SSoT drift 検知（env_keys.py↔docker-compose / errors.py↔errorCodes.ts）。
-      # grep/sed/comm のみに依存し（ripgrep は使わない）nix 非経由で直接実行する。
-      # 重い依存インストール前に置いて fail-fast にする。
-      - name: Lint SSoT (env names / error codes)
-        run: bash scripts/lint-env-keys.sh
-
-      # ADR 索引（docs/adr/README.md）↔ ADR ファイルの drift 検知。
-      # 一覧の複製（旧 CONTRIBUTING の表）が陳腐化した再発防止。bash/grep/comm のみ。
-      - name: Lint SSoT (ADR index)
-        run: bash scripts/lint-adr-index.sh
-
-      # TDD 対象（決定論的ロジック層 = mutmut/stryker スコープ）の実装変更に
-      # テスト差分が随伴しているかを検知（ADR-0019）。bash/git/awk/sed のみ。
-      - name: Lint SSoT (TDD test accompaniment)
-        run: bash scripts/lint-tdd.sh
 
       # dev と CI のビルド経路を Nix devshell（uv2nix build）へ一致させる（ADR-0021 Phase 2）。
       # WeasyPrint のネイティブライブラリ・Python 3.13・依存パッケージはすべて devshell が提供する。
@@ -342,7 +361,7 @@ jobs:
   deploy-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [test-web, test-backend, codegen-drift]
+    needs: [test-web, test-backend, codegen-drift, lint-ssot]
     if: always()
     outputs:
       status: ${{ steps.compute.outputs.status }}
@@ -352,12 +371,16 @@ jobs:
         id: compute
         run: |
           # success または skipped を pass とする（現行 deploy の if 条件と同義）
+          # lint-ssot は test-backend から切り出した SSoT drift 検知。同居していた頃は
+          # その失敗が test-backend の失敗としてゲートに効いていたため、ここに含めて
+          # ゲートの強さを維持する（切り出しでデプロイ条件を緩めない）。
           for r in "${{ needs.test-web.result }}" \
                    "${{ needs.test-backend.result }}" \
-                   "${{ needs.codegen-drift.result }}"; do
+                   "${{ needs.codegen-drift.result }}" \
+                   "${{ needs.lint-ssot.result }}"; do
             if [ "$r" != "success" ] && [ "$r" != "skipped" ]; then
               echo "status=fail" >> "$GITHUB_OUTPUT"
-              echo "deploy gate: fail (test-web=${{ needs.test-web.result }} / test-backend=${{ needs.test-backend.result }} / codegen-drift=${{ needs.codegen-drift.result }})"
+              echo "deploy gate: fail (test-web=${{ needs.test-web.result }} / test-backend=${{ needs.test-backend.result }} / codegen-drift=${{ needs.codegen-drift.result }} / lint-ssot=${{ needs.lint-ssot.result }})"
               exit 0
             fi
           done
