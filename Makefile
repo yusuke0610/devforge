@@ -13,6 +13,18 @@
 	infra-fmt infra-fmt-check infra-validate-dev infra-validate-stg infra-validate-prod infra-validate \
 	clean
 
+# ------------------------------------------------------------------ #
+# Nix devshell 実行ラッパー（ADR-0021）
+# ------------------------------------------------------------------ #
+# ホスト側に Python / Node / tofu 等は入っていない前提のため、開発ツールは
+# すべて devshell 経由で実行する。direnv（.envrc の use flake）を有効化して
+# いない環境でも make が通るように、素の実行はしないこと。
+#   $(NIX)      … 単一コマンドをそのまま実行する（例: tofu fmt / stripe listen）
+#   $(NIX_BASH) … シェル式を渡す（cd や && を含む場合。引数は " " で囲む）
+# docker / rm / find / bash のみに依存するスクリプトはラップ不要（各所のコメント参照）。
+NIX      := nix develop --command
+NIX_BASH := $(NIX) bash -c
+
 # デフォルトターゲット: ヘルプ表示
 help:
 	@echo "Usage: make <target>"
@@ -95,13 +107,13 @@ install-hooks:
 # Python 依存は Nix devshell（flake.nix の uv2nix build）が提供し、.venv は作らない（Phase 1）。
 # devshell を一度ビルドしておくことがセットアップに相当する。
 install-backend:
-	nix develop --command bash -c "python3 --version && echo 'backend 依存は Nix devshell が提供します（.venv 不要 / ADR-0021 Phase 1）'"
+	$(NIX_BASH) "python3 --version && echo 'backend 依存は Nix devshell が提供します（.venv 不要 / ADR-0021 Phase 1）'"
 
 install-web:
-	nix develop --command bash -c "cd web && npm ci"
+	$(NIX_BASH) "cd web && npm ci"
 
 generate-keys:
-	nix develop --command bash -c "cd backend && python scripts/generate_keys.py"
+	$(NIX_BASH) "cd backend && python scripts/generate_keys.py"
 
 # ------------------------------------------------------------------ #
 # ローカル開発
@@ -117,19 +129,19 @@ dev-down:
 	docker compose down
 
 stripe-webhook:
-	nix develop --command stripe listen --forward-to localhost:8000/api/billing/webhook
+	$(NIX) stripe listen --forward-to localhost:8000/api/billing/webhook
 
 dev-web:
-	nix develop --command bash -c "cd web && npm run dev"
+	$(NIX_BASH) "cd web && npm run dev"
 
 preview-web:
-	nix develop --command bash -c "cd web && CLOUD_RUN_URL='http://localhost:8000' npm run build && npx wrangler pages dev dist --port 8788"
+	$(NIX_BASH) "cd web && CLOUD_RUN_URL='http://localhost:8000' npm run build && npx wrangler pages dev dist --port 8788"
 
 dev-proxy:
-	cd web && npm run dev:all
+	$(NIX_BASH) "cd web && npm run dev:all"
 
 dev-proxy-only:
-	cd web && npm run dev:proxy
+	$(NIX_BASH) "cd web && npm run dev:proxy"
 
 # ------------------------------------------------------------------ #
 # テスト・リント
@@ -141,45 +153,45 @@ test: test-backend test-web
 
 # --cov は pyproject の addopts ではなくここで付与する（mutmut 干渉回避 / ADR-0017）
 test-backend:
-	nix develop --command bash -c "cd backend && python -m pytest -q --cov=app --cov-report=term-missing tests"
+	$(NIX_BASH) "cd backend && python -m pytest -q --cov=app --cov-report=term-missing tests"
 
 test-web:
-	nix develop --command bash -c "cd web && npm test"
+	$(NIX_BASH) "cd web && npm test"
 
 # ミューテーションテスト（ADR-0017）。フル実行は長時間かかるため通常 CI には含めず、
 # 週次の .github/workflows/mutation.yml で実行する。対象は pyproject [tool.mutmut] /
 # web/stryker.conf.json を参照。
 mutation-backend:
-	nix develop --command bash -c "cd backend && python -m mutmut run"
+	$(NIX_BASH) "cd backend && python -m mutmut run"
 
 mutation-web:
-	nix develop --command bash -c "cd web && npm run test:mutation"
+	$(NIX_BASH) "cd web && npm run test:mutation"
 
 lint: lint-backend typecheck-backend lint-web lint-web-messages lint-env-keys lint-adr-index lint-tdd
 
 lint-backend:
-	nix develop --command bash -c "cd backend && ruff check app tests alembic_migrations"
+	$(NIX_BASH) "cd backend && ruff check app tests alembic_migrations"
 
 # Backend 型チェック（pyright）。import 解決は devshell の python（uv2nix build 環境）を
 # --pythonpath で明示する（ADR-0021 Phase 1 で .venv 参照を撤廃）。
 # バージョンは CI（.github/workflows/test.yml）と揃えてピン留めする（drift 防止）。
 typecheck-backend:
-	nix develop --command bash -c "cd backend && uvx pyright@1.1.411 --pythonpath \"\$$(command -v python3)\" app tests alembic_migrations"
+	$(NIX_BASH) "cd backend && uvx pyright@1.1.411 --pythonpath \"\$$(command -v python3)\" app tests alembic_migrations"
 
 lint-web:
-	nix develop --command bash -c "cd web && npm run lint"
+	$(NIX_BASH) "cd web && npm run lint"
 
 # ts/tsx で setError/toast.error/alert にリテラル日本語を直接渡していないか検知。
 # ESLint は throw new Error の AST しか拾えないため、関数呼び出し系をここで補完する。
 lint-web-messages:
-	nix develop --command bash scripts/lint-web-messages.sh
+	$(NIX) bash scripts/lint-web-messages.sh
 
 # env 名 / エラーコードの SSoT drift を検知。
 # env_keys.py↔docker-compose.yml（双方向）/ cloud_run main.tf（逆方向）、
 # backend のリテラル env 参照禁止、errors.py↔errorCodes.ts の集合一致を検証する。
 # grep/sed/comm のみに依存（ripgrep 不要）。他 lint と揃えて nix wrap で実行する。
 lint-env-keys:
-	nix develop --command bash scripts/lint-env-keys.sh
+	$(NIX) bash scripts/lint-env-keys.sh
 
 # ADR 索引（docs/adr/README.md）↔ ADR ファイルの drift を検知。
 # 存在（双方向）・ステータス・見出し番号の突合。bash/grep/sed/comm のみに依存するため
@@ -194,14 +206,14 @@ lint-tdd:
 	bash scripts/lint-tdd.sh
 
 lint-fix:
-	nix develop --command bash -c "cd backend && ruff check --fix app tests alembic_migrations"
-	cd web && npm run lint:fix
+	$(NIX_BASH) "cd backend && ruff check --fix app tests alembic_migrations"
+	$(NIX_BASH) "cd web && npm run lint:fix"
 
 format:
-	cd web && npm run format
+	$(NIX_BASH) "cd web && npm run format"
 
 format-check:
-	cd web && npm run format:check
+	$(NIX_BASH) "cd web && npm run format:check"
 
 # ------------------------------------------------------------------ #
 # コード重複検知 (jscpd)
@@ -210,10 +222,10 @@ format-check:
 # jscpd は npx 経由で実行する（devShell の nodejs_22 を利用）。
 # 設定は .jscpd.json、出力は report/dupe/。Phase 1 は warn-only（threshold=0）。
 dupe-check:
-	nix develop --command bash -c "mkdir -p report/dupe && npx --yes jscpd@4 --config .jscpd.json"
+	$(NIX_BASH) "mkdir -p report/dupe && npx --yes jscpd@4 --config .jscpd.json"
 
 dupe-check-html:
-	nix develop --command bash -c "mkdir -p report/dupe && npx --yes jscpd@4 --config .jscpd.json"
+	$(NIX_BASH) "mkdir -p report/dupe && npx --yes jscpd@4 --config .jscpd.json"
 	@echo "HTML レポート: report/dupe/html/index.html"
 
 dupe-clean:
@@ -224,16 +236,16 @@ dupe-clean:
 # ------------------------------------------------------------------ #
 
 build-web:
-	cd web && npm run build
+	$(NIX_BASH) "cd web && npm run build"
 
 build-backend:
 	docker build ./backend -t devforge-api
 
 deploy-web:
-	nix develop --command bash -c "cd web && CLOUD_RUN_URL='$(CLOUD_RUN_URL)' npm run build && npm run deploy"
+	$(NIX_BASH) "cd web && CLOUD_RUN_URL='$(CLOUD_RUN_URL)' npm run build && npm run deploy"
 
 gen-redirects:
-	nix develop --command bash -c "cd web && CLOUD_RUN_URL='$(CLOUD_RUN_URL)' node scripts/gen-redirects.mjs"
+	$(NIX_BASH) "cd web && CLOUD_RUN_URL='$(CLOUD_RUN_URL)' node scripts/gen-redirects.mjs"
 
 # ------------------------------------------------------------------ #
 # OpenAPI 型コード生成 (ADR-0007)
@@ -244,7 +256,7 @@ gen-redirects:
 # web/src/api/generated.ts を再生成する。backend app の import に
 # WeasyPrint 等のネイティブ依存解決が必要なため Nix devshell 経由で実行する。
 codegen-types:
-	nix develop --command bash -c "set -e; cd backend && python scripts/export_openapi.py && cd ../web && node scripts/gen-types.mjs"
+	$(NIX_BASH) "set -e; cd backend && python scripts/export_openapi.py && cd ../web && node scripts/gen-types.mjs"
 
 # ------------------------------------------------------------------ #
 # 計測（AI フレンドリーさダッシュボード）
@@ -264,37 +276,37 @@ metrics-ai-friendliness:
 # から収集し THIRD_PARTY_LICENSES.md を再生成する。importlib.metadata を使うため
 # backend の依存がインストール済みの Nix devshell 経由で実行する。
 licenses:
-	nix develop --command bash -c "python3 scripts/gen-third-party-licenses.py"
+	$(NIX_BASH) "python3 scripts/gen-third-party-licenses.py"
 
 # ------------------------------------------------------------------ #
 # マイグレーション
 # ------------------------------------------------------------------ #
 
 migrate:
-	nix develop --command bash -c "cd backend && alembic upgrade head"
+	$(NIX_BASH) "cd backend && alembic upgrade head"
 
 migrate-create:
 	@if [ -z "$(MSG)" ]; then echo "エラー: MSG を指定してください (例: make migrate-create MSG=\"add user table\")"; exit 1; fi
-	nix develop --command bash -c "cd backend && alembic revision --autogenerate -m \"$(MSG)\""
+	$(NIX_BASH) "cd backend && alembic revision --autogenerate -m \"$(MSG)\""
 
 # ------------------------------------------------------------------ #
 # インフラ (OpenTofu)
 # ------------------------------------------------------------------ #
 
 infra-fmt:
-	nix develop --command tofu fmt -recursive infra
+	$(NIX) tofu fmt -recursive infra
 
 infra-fmt-check:
-	nix develop --command tofu fmt -check -recursive infra
+	$(NIX) tofu fmt -check -recursive infra
 
 infra-validate-dev:
-	nix develop --command bash -c "tofu -chdir=infra/environments/dev init -backend=false -input=false && tofu -chdir=infra/environments/dev validate"
+	$(NIX_BASH) "tofu -chdir=infra/environments/dev init -backend=false -input=false && tofu -chdir=infra/environments/dev validate"
 
 infra-validate-stg:
-	nix develop --command bash -c "tofu -chdir=infra/environments/stg init -backend=false -input=false && tofu -chdir=infra/environments/stg validate"
+	$(NIX_BASH) "tofu -chdir=infra/environments/stg init -backend=false -input=false && tofu -chdir=infra/environments/stg validate"
 
 infra-validate-prod:
-	nix develop --command bash -c "tofu -chdir=infra/environments/prod init -backend=false -input=false && tofu -chdir=infra/environments/prod validate"
+	$(NIX_BASH) "tofu -chdir=infra/environments/prod init -backend=false -input=false && tofu -chdir=infra/environments/prod validate"
 
 infra-validate: infra-validate-dev infra-validate-stg infra-validate-prod
 
