@@ -53,7 +53,7 @@ nix develop --command bash -c "cd web && npx vitest run src/<path>/<module>.test
 
 - 重複の抽出・命名の改善・分割を行う。判断基準と抽出先は `.claude/rules/common/duplication.md` に従う
 - リファクタ後に再度テストを回して green を維持していることを確認する
-- サイクル完了後は通常のフロー（`make ci` → stage）に合流する
+- サイクル完了後は通常のフロー（`make ci` → RV → stage）に合流する
 
 ## OK 基準との関係
 
