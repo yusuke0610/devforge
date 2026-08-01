@@ -66,7 +66,7 @@ error: opening lock file "~/.cache/nix/fetcher-locks/...lock": Operation not per
 - **過剰な抽象化を避ける**: PEP8 を守るな、PEP8 を理解した上で抽象化しろ。
 
 言語別の詳細ルールは `.claude/rules/{backend,web,infra}/` を参照。
-領域横断の共通ルール（DRY / 重複検知）は `.claude/rules/common/duplication.md` を参照。
+領域横断の共通ルール（DRY / 重複検知）は `.claude/rules/common/duplication.md`、差分レビューの観点は `.claude/rules/common/review.md` を参照。
 
 ## CI 確認ルール
 
@@ -107,6 +107,16 @@ nix develop --command bash -c "cd web && npm run test:e2e"
 
 CI 定義: `.github/workflows/ci.yml`
 
+## 実装後レビュー（RV）
+
+**実装・修正後は `stage` の前に `/RV` を回す。** `make ci` は lint / test しか見ないため、「設計として妥当か」「契約を壊していないか」を差分ベースで機械的に当てる工程を挟む。
+
+- 発火タイミング: `make ci` green の後、`stage` の前
+- High / Medium は自動修正し、指摘ゼロまたは 3 周で終了。**未解決の指摘が残ったらユーザー判断を仰いで停止する**（勝手に stage へ進まない）
+- **レビュー観点・重大度の正本: `.claude/rules/common/review.md`**（手順・レポート形式の正本は `.claude/skills/RV/SKILL.md`）
+- 既存観点で拾えなかった指摘が出たら、コードを直すだけでなく `review.md` に観点を 1 行追記する（PR レビューの指摘も同様）
+- `/code-review` は手動起動の重い検証として併用可（Claude からは起動できない）
+
 ## ミューテーションテスト・Slack 通知（ADR-0017）
 
 テストの検出力（弱い assertion / 実装なぞり）を週次のミューテーションテストで可視化し、CI 結果は用途別 Slack チャンネルへ通知する。詳細（ローカル実行・レポート確認・Secrets 登録手順）は `docs/development.md`「ミューテーションテスト」「Slack 通知」節が正本。
@@ -144,7 +154,7 @@ Secrets は未登録の間は通知が静かに skip される（CI は green �
 
 | 合言葉 | やること |
 |---|---|
-| **stage** | 実装 → `make ci` → `git add` まで。TDD 対象（`.claude/rules/common/tdd.md` の対象判定に該当）の変更は red→green→refactor を経てから stage に入る。作業開始時にブランチを切り損ねて `main` にいた場合はここで feature ブランチを `origin/main` 起点で切る（本来は「作業開始時のブランチ運用」で切る）。会話に「サマリ＋判断が必要な事案」を提示し、ユーザーのエディタ確認を待つ |
+| **stage** | 実装 → `make ci` → **RV ループ（`/RV`）** → `git add` まで。TDD 対象（`.claude/rules/common/tdd.md` の対象判定に該当）の変更は red→green→refactor を経てから stage に入る。作業開始時にブランチを切り損ねて `main` にいた場合はここで feature ブランチを `origin/main` 起点で切る（本来は「作業開始時のブランチ運用」で切る）。会話に「サマリ＋判断が必要な事案」を提示し、ユーザーのエディタ確認を待つ |
 | **commit** | コミットメッセージ案（**日本語**）を提示 → **ユーザー承認を待ってから** commit。承認は必須ゲート |
 | **pr** | `git fetch origin main` → `git log --oneline origin/main..HEAD` / `git diff --stat origin/main...HEAD` で**最新の main との差分を確認**（ローカルの古い `origin/main` 参照で誤認しないため）→ `git push` → `gh pr create`（**日本語**タイトル/本文、base = `main`）→ PR URL を返す |
 | **pr 後の追従** | PR 作成後、`gh pr checks` / `gh pr view --comments` で **CI と指摘を確認**。こけ・指摘があれば修正 → `make ci` → 同ブランチへ push を green かつ解消まで繰り返す。CI 修正は実装フェーズなので元のモデルで（Haiku のままにしない）。**ただし意思決定を要する指摘（設計・API/型契約・挙動変更）と diff 範囲を逸脱する指摘は、勝手に直さず指摘内容・対応案・影響範囲を提示して承認を待つ**。範囲内の機械的修正（lint / typo 等）は承認不要 |
@@ -160,6 +170,7 @@ Secrets は未登録の間は通知が静かに skip される（CI は green �
 - **依存 / 環境変数の追加**: 新パッケージ、env var 追加（`env_keys.py` の 4 箇所同期が要るもの）
 - **大量自動生成差分**: lockfile / OpenAPI 生成物など、レビュー対象外として切り分けたいもの
 - **未完 / TODO**: 一部を後回しにした場合
+- **RV で自動修正しなかった指摘**: 設計判断を伴うもの / 差分範囲を逸脱するもの（レポートパスと併せて提示）
 
 ## モデル切り替えルール（コスト最適化）
 
@@ -169,15 +180,16 @@ Claude Code は `/model` コマンドを自分では実行できないため、�
 | 作業フェーズ | 推奨モデル |
 |---|---|
 | コード修正・実装・調査・CI 修正 | セッション開始時の設定モデル（Sonnet / Opus / Fable 等） |
-| `make ci` pass 後の git 操作（add / commit / push / pr） | Haiku |
+| `make ci` pass + RV 完了後の git 操作（add / commit / push / pr） | Haiku |
 
 **案内タイミング**:
-1. `make ci` が green になり、git 操作フェーズに入る直前に「git 操作は `/model haiku` に切り替えると節約できます」と案内する
+1. `make ci` が green になり、**RV ループも完了して**git 操作フェーズに入る直前に「git 操作は `/model haiku` に切り替えると節約できます」と案内する
 2. `pr` 完了後に「実装作業に戻る場合は `/model <セッション開始時のモデル>` に戻してください」と案内する
 
 **制約**:
 - CI が落ちた場合の修正（実装フェーズ）は Haiku のまま行わない。修正は元のモデルで行い、再度 `make ci` を通してから Haiku に切り替える
-- `stage` 合言葉を受けた段階ではまだ `make ci` が残っている可能性があるため、CI 完了まで Haiku に切り替えない
+- `stage` 合言葉を受けた段階ではまだ `make ci` と RV ループが残っている可能性があるため、両方が終わるまで Haiku に切り替えない
+- RV ループ中の修正も実装フェーズ。Haiku のまま回さず、元のモデルで直してから git 操作フェーズに入る
 
 ## 失敗から学んだ知見
 
