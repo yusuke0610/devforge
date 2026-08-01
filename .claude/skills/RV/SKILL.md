@@ -27,9 +27,11 @@ PR 後の CodeRabbit まで指摘の発見が遅れるのを防ぐ。
 git diff origin/main...HEAD --stat   # コミット済み
 git diff --stat                      # 未コミット（unstaged）
 git diff --cached --stat             # stage 済み
+git status --porcelain | grep '^??'  # 未追跡（新規ファイル）
 ```
 
-- 上記 3 つの和集合を対象とする。`origin/main` が古いと差分を誤認するため、先に `git fetch origin main` する
+- 上記 4 つの和集合を対象とする。`origin/main` が古いと差分を誤認するため、先に `git fetch origin main` する
+- **未追跡ファイルの確認を省略しない**: RV は `git add` の前に走るため、新規追加したファイルは `git diff` 系のどれにも出てこない。新規ファイルこそレビュー価値が高いので、`git status` で拾って本文を読む
 - **差分が 1 件も無ければ「レビュー対象なし」とだけ返して即終了する**（レポートも作らない）
 - 対象が確定したらターミナルに 1 行で返す: `対象: N files / +X -Y lines`
 
@@ -63,7 +65,7 @@ git diff --cached --stat             # stage 済み
 
 - **(a)** High / Medium がゼロ → 正常終了
 - **(b)** Round 3 に到達 → 打ち切り
-- **(c)** 同一指摘が 2 周連続で解消しない → 打ち切り（修正が効いていないので機械的な再試行を止める）
+- **(c)** 同一の **High / Medium** 指摘が 2 周連続で解消しない → 打ち切り（修正が効いていないので機械的な再試行を止める）。Low は記録のみで意図的に残るため、判定に含めない
 
 (b) / (c) で終わった場合は、**未解決の指摘をレポート冒頭に列挙し、ユーザーの判断を仰いで停止する**。勝手に stage へ進まない。
 
