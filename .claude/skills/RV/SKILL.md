@@ -27,13 +27,15 @@ PR 後の CodeRabbit まで指摘の発見が遅れるのを防ぐ。
 git diff origin/main...HEAD --stat   # コミット済み
 git diff --stat                      # 未コミット（unstaged）
 git diff --cached --stat             # stage 済み
-git status --porcelain | grep '^??'  # 未追跡（新規ファイル）
+git ls-files --others --exclude-standard  # 未追跡（新規ファイル）
 ```
 
-- 上記 4 つの和集合を対象とする。`origin/main` が古いと差分を誤認するため、先に `git fetch origin main` する
-- **未追跡ファイルの確認を省略しない**: RV は `git add` の前に走るため、新規追加したファイルは `git diff` 系のどれにも出てこない。新規ファイルこそレビュー価値が高いので、`git status` で拾って本文を読む
+- 上記 3 つの差分と、未追跡ファイルの和集合を対象とする。`origin/main` が古いと差分を誤認するため、先に `git fetch origin main` する
+- **未追跡ファイルの確認を省略しない**: RV は `git add` の前に走るため、新規追加したファイルは `git diff` 系のどれにも出てこない。新規ファイルこそレビュー価値が高いので、必ず本文を読む
+  - `git status --porcelain` は使わない（新規ディレクトリを `?? path/` に畳んでしまい、中の個別ファイルが見えない）。`git ls-files --others --exclude-standard` はファイル単位で列挙し、gitignore 対象も除外する
+  - 未追跡ファイルは全行が新規なので、行数は `wc -l` で数えて `+X` に合算する
 - **差分が 1 件も無ければ「レビュー対象なし」とだけ返して即終了する**（レポートも作らない）
-- 対象が確定したらターミナルに 1 行で返す: `対象: N files / +X -Y lines`
+- 対象が確定したらターミナルに 1 行で返す: `対象: N files（うち新規 M）/ +X -Y lines`
 
 ## レビュー観点
 
@@ -95,7 +97,7 @@ Round 2 以降のレビューは、前 Round の修正で新たに壊れてい�
 ````markdown
 # 実装後レビュー（RV）
 
-- 対象: `origin/main...HEAD` + 未コミット差分（N files / +X -Y）
+- 対象: `origin/main...HEAD` + 未コミット差分 + 未追跡ファイル（N files（うち新規 M）/ +X -Y）
 - 開始: YYYY-MM-DD HH:MM
 - 終了理由: 指摘ゼロ / Round 3 到達 / 同一指摘が未解消
 
