@@ -2,12 +2,8 @@ project_id       = "devforge-prod-20260404"
 app_name         = "devforge"
 environment      = "prod"
 template_version = "v0.1.0"
-# フロントの配信元は Cloudflare Pages（cloudflare_pages_project.app）。use_custom_domain は
-# 未指定＝false のため、実 URL は <cloudflare_pages_project_name>.pages.dev になる。
-# カスタムドメイン（app.<zone>）へ移行する場合は use_custom_domain / cloudflare_zone_id と
-# 併せてここも変更すること（この 2 値は Cloud Run の CORS_ORIGINS / callback_base_url に入る）。
-cors_origins                   = "https://devforge.pages.dev"
-callback_base_url              = "https://devforge.pages.dev"
+# Cloud Run の CORS_ORIGINS / callback_base_url は、この Pages プロジェクト名から
+# shared/main.tf の local.frontend_url が導出する（https://<name>.pages.dev）。
 cloudflare_pages_project_name  = "devforge"
 cloudflare_subdomain           = "app"
 cloudflare_production_branch   = "main"
