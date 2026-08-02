@@ -20,6 +20,7 @@ from ....repositories.github_link import GitHubLinkCacheRepository
 from ....repositories.skill import GitHubSkillRepository
 from ....schemas.github_link import AnalyzedRepoSummary, GitHubLinkResponse
 from ...intelligence.skills.types import (
+    DEPENDENCY_KIND_DIRECT,
     SKILL_KIND_INFRA,
     SKILL_KIND_LANGUAGE,
     SKILL_KIND_PACKAGE,
@@ -37,8 +38,12 @@ _KIND_TO_CATEGORY: dict[str, str] = {
 # package スキルを技術スタックに採用する根拠の下限。manifest の間接依存
 # （dependency_kind が direct 以外かつ実 import 未確認）は「使った技術」とは
 # 言えないため経歴書には載せない
-_PACKAGE_DEPENDENCY_KIND_DIRECT = "direct"
 _PACKAGE_SIGNAL_ACTUAL_IMPORT = "actual_import"
+
+# ADR-0026 決定 4 で追加した選定シグナルの代表キー。スキーマ上は既定値を持つ
+# Optional なのでパースは通ってしまうが、シグナル無しの選定は品質を担保できない。
+# 生 JSON のキー有無で旧形式を判別し、"repos" 欠落と同じ 409 導線へ倒す。
+_SELECTION_SIGNAL_KEY = "language_bytes_total"
 
 
 class ResumeDraftSourceUnavailableError(Exception):
@@ -98,6 +103,15 @@ def build_draft_source(db: Session, user: User) -> DraftSource:
         raise ResumeDraftSourceUnavailableError(
             "連携キャッシュにリポジトリサマリがありません（旧形式）"
         )
+    # ADR-0026 決定 4 より前のキャッシュは選定シグナルを持たない。Pydantic は既定値で
+    # 通してしまうため、ここも生 JSON のキー有無で判別して再連携を促す。
+    if any(
+        isinstance(raw, dict) and _SELECTION_SIGNAL_KEY not in raw
+        for raw in cache.result["repos"] or []
+    ):
+        raise ResumeDraftSourceUnavailableError(
+            "連携キャッシュに選定シグナルがありません（旧形式）"
+        )
     try:
         result = GitHubLinkResponse.model_validate(cache.result)
     except ValidationError:
@@ -134,7 +148,7 @@ def _invert_skill_evidence(db: Session, user_id: str) -> dict[str, list[RepoTech
         name = skill.display_name or skill.canonical_name
         for evidence in skill.evidence:
             if skill.kind == SKILL_KIND_PACKAGE and not (
-                evidence.dependency_kind == _PACKAGE_DEPENDENCY_KIND_DIRECT
+                evidence.dependency_kind == DEPENDENCY_KIND_DIRECT
                 or evidence.signal_source == _PACKAGE_SIGNAL_ACTUAL_IMPORT
             ):
                 continue

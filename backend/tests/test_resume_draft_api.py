@@ -39,6 +39,12 @@ def _seed_link_data(db, username: str = "testuser", *, legacy: bool = False) -> 
                 "description": "タスク管理アプリ",
                 "created_at": "2024-01-01T00:00:00Z",
                 "pushed_at": "2026-06-01T00:00:00Z",
+                # ADR-0026 決定 4 の選定シグナル。欠けると旧形式扱いで 409 になる
+                "topics": ["python"],
+                "language_bytes_total": 1000,
+                "direct_dependency_count": 2,
+                "ecosystem_count": 1,
+                "has_infra": False,
             }
         ]
         skill = GitHubSkill(user_id=user.id, kind="language", canonical_name="Python")

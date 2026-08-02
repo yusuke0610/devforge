@@ -14,6 +14,10 @@ from dataclasses import dataclass
 #   build   : build-system 依存（pyproject build-system.requires 等）
 DEPENDENCY_KINDS = ("direct", "dev", "indirect", "peer", "build")
 
+# 「本番で直接使うと決めた依存」。実績スキルの採用基準（aggregator）と、リポジトリの
+# 依存の厚み（ADR-0026 決定 4 の選定シグナル）が同じ意味で参照するため定数化する。
+DEPENDENCY_KIND_DIRECT = "direct"
+
 # Layer 1 スキルの種別（D2）。
 SKILL_KIND_LANGUAGE = "language"
 SKILL_KIND_PACKAGE = "package"
