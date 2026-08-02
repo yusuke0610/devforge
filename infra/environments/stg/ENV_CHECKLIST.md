@@ -34,5 +34,5 @@
 - [ ] GitHub Secrets 登録
   - [ ] `GCP_SA_KEY_STG`（stgデプロイ用サービスアカウントキーJSON）
   - [ ] `VITE_API_BASE_URL_STG`（stg Cloud Run サービスURL）
-- [ ] Cloudflare Pages プロジェクト設定（`devforge` プロジェクト、stg ブランチを紐付け）
+- [ ] Cloudflare Pages プロジェクト設定（`devforge-stg` プロジェクト、`stg` ブランチを紐付け）
 - [ ] GitHub OAuth アプリ登録（stg用コールバックURL設定）

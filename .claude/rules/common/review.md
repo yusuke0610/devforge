@@ -45,6 +45,7 @@ PR 後の CodeRabbit 指摘対応・手動レビュー・`/code-review` の結�
 - ADR の新規作成・ステータス変更に対する `docs/adr/README.md` 索引の更新漏れ
 - **手順・フローを変えたら、それを記述している他の docs / rules も同じ差分で更新する**（RV 導入時に `rules/common/tdd.md` の「`make ci` → stage」と CLAUDE.md のモデル切り替えタイミングが drift した実例）
 - docs / rules に書いてある事実と差分の実装が矛盾していないか
+- **設定値を直したら、同じ値に言及している同一ファイル内の他の行も突合する**（手順書は表・チェックリスト・本文で同じ値を繰り返しがち。ENV_CHECKLIST の表だけ直して手順の行が古いままだった実例。PR #571 で CodeRabbit が検出）
 
 ### ルール違反
 

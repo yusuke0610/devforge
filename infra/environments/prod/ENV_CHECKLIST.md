@@ -34,6 +34,6 @@
 - [ ] GitHub Secrets 登録
   - [ ] `GCP_SA_KEY_PROD`（prodデプロイ用サービスアカウントキーJSON）
   - [ ] `VITE_API_BASE_URL_PROD`（prod Cloud Run サービスURL）
-- [ ] Cloudflare Pages プロジェクト設定（`devforge` プロジェクト、prod ブランチを紐付け）
+- [ ] Cloudflare Pages プロジェクト設定（`devforge` プロジェクト、`main` ブランチを紐付け）
 - [ ] GitHub OAuth アプリ登録（prod用コールバックURL設定）
 - [ ] prod デプロイ前に stg での動作確認を完了させること
