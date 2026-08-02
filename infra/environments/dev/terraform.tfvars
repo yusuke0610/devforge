@@ -1,9 +1,9 @@
-project_id                     = "devforge-dev-20260311"
-app_name                       = "devforge"
-environment                    = "dev"
-template_version               = "v0.1.0"
-cors_origins                   = "https://devforge-dev-20260311.web.app,https://devforge-dev-20260311.firebaseapp.com"
-callback_base_url              = "https://devforge-dev-20260311.web.app"
+project_id       = "devforge-dev-20260311"
+app_name         = "devforge"
+environment      = "dev"
+template_version = "v0.1.0"
+# Cloud Run の CORS_ORIGINS / callback_base_url は、この Pages プロジェクト名から
+# shared/main.tf の local.frontend_url が導出する（https://<name>.pages.dev）。
 cloudflare_pages_project_name  = "devforge-dev"
 cloudflare_subdomain           = "app-dev"
 cloudflare_production_branch   = "dev"

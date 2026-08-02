@@ -11,7 +11,7 @@
 | GCS_BUCKET_NAME | DBバックアップ用GCSバケット名 | `devforge-prod-db` | Cloud Run env |
 | GCS_DB_OBJECT | GCS上のDBオブジェクトパス | 例: `devforge/prod/db.sqlite` | Cloud Run env |
 | ADMIN_TOKEN | `/admin/backup` エンドポイント認証トークン | ⚠️ 環境別に生成が必要 | Secret Manager |
-| CORS_ORIGINS | 許可するCORSオリジン | `https://devforge.pages.dev` | Cloud Run env |
+| CORS_ORIGINS | 許可するCORSオリジン | `https://devforge.pages.dev`（`cloudflare_pages_project_name` から自動導出） | Cloud Run env（tofu が設定） |
 | COOKIE_SECURE | Secure Cookie フラグ | `true` | Cloud Run env |
 | COOKIE_SAMESITE | SameSite Cookie 属性 | `none` | Cloud Run env |
 
@@ -34,6 +34,6 @@
 - [ ] GitHub Secrets 登録
   - [ ] `GCP_SA_KEY_PROD`（prodデプロイ用サービスアカウントキーJSON）
   - [ ] `VITE_API_BASE_URL_PROD`（prod Cloud Run サービスURL）
-- [ ] Cloudflare Pages プロジェクト設定（`devforge` プロジェクト、prod ブランチを紐付け）
+- [ ] Cloudflare Pages プロジェクト設定（`devforge` プロジェクト、`main` ブランチを紐付け）
 - [ ] GitHub OAuth アプリ登録（prod用コールバックURL設定）
 - [ ] prod デプロイ前に stg での動作確認を完了させること

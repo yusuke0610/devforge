@@ -35,16 +35,8 @@ variable "template_version" {
   type        = string
 }
 
-variable "cors_origins" {
-  description = "Allowed CORS origins for the API."
-  type        = string
-}
-
-variable "callback_base_url" {
-  description = "OAuth callback base URL."
-  type        = string
-  default     = ""
-}
+# cors_origins / callback_base_url は変数ではなく main.tf の local.frontend_url で
+# cloudflare_pages_project_name から導出する（tfvars との二重管理を避けるため）。
 
 variable "cloudflare_api_token" {
   description = "Cloudflare API token injected via TF_VAR_cloudflare_api_token."

@@ -12,6 +12,23 @@ provider "turso" {
 }
 
 # --------------------------------------------------------------------
+# フロントエンドの配信 URL（CORS_ORIGINS / OAuth コールバックの導出元）
+#
+# 配信元は Cloudflare Pages（cloudflare_pages_project.app）。
+# cloudflare_use_custom_domain は全環境 false のため、実 URL は Pages の
+# デフォルトサブドメイン <cloudflare_pages_project_name>.pages.dev になる。
+# tfvars に URL をベタ書きすると Pages プロジェクト名との二重管理になり、
+# 改名時に CORS と OAuth コールバックが同時に壊れるため、ここで導出する。
+#
+# カスタムドメイン（app-dev.<zone> 等）へ移行する場合は、
+# cloudflare_use_custom_domain / cloudflare_zone_id の指定と併せて
+# この local を分岐させること（cloudflare_subdomain がホスト名側になる）。
+# --------------------------------------------------------------------
+locals {
+  frontend_url = "https://${var.cloudflare_pages_project_name}.pages.dev"
+}
+
+# --------------------------------------------------------------------
 # stack composition（全環境共通）
 # 各 module の呼び出しは ../../modules/devforge_stack に集約されている。
 # 環境差分は terraform.tfvars 経由（environment / Cloudflare Pages 設定 /
@@ -27,8 +44,8 @@ module "devforge_stack" {
   region                         = var.region
   deployer_service_account_email = var.deployer_service_account_email
 
-  cors_origins        = var.cors_origins
-  callback_base_url   = var.callback_base_url
+  cors_origins        = local.frontend_url
+  callback_base_url   = local.frontend_url
   enable_github_oauth = var.enable_github_oauth
 
   alert_email = var.alert_email
