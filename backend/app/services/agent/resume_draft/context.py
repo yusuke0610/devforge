@@ -40,10 +40,19 @@ _KIND_TO_CATEGORY: dict[str, str] = {
 # 言えないため経歴書には載せない
 _PACKAGE_SIGNAL_ACTUAL_IMPORT = "actual_import"
 
-# ADR-0026 決定 4 で追加した選定シグナルの代表キー。スキーマ上は既定値を持つ
-# Optional なのでパースは通ってしまうが、シグナル無しの選定は品質を担保できない。
-# 生 JSON のキー有無で旧形式を判別し、"repos" 欠落と同じ 409 導線へ倒す。
-_SELECTION_SIGNAL_KEY = "language_bytes_total"
+# ADR-0026 決定 4 で追加した選定シグナル。スキーマ上は既定値を持つ Optional なので
+# パースは通ってしまうが、シグナル欠落のまま選定すると品質を担保できない。生 JSON の
+# キー有無で旧形式を判別し、"repos" 欠落と同じ 409 導線へ倒す。
+# 代表キー 1 つでは「一部だけ持つキャッシュ」を見逃すため、全キーの存在を要求する。
+_SELECTION_SIGNAL_KEYS = frozenset(
+    {
+        "topics",
+        "language_bytes_total",
+        "direct_dependency_count",
+        "ecosystem_count",
+        "has_infra",
+    }
+)
 
 
 class ResumeDraftSourceUnavailableError(Exception):
@@ -106,7 +115,7 @@ def build_draft_source(db: Session, user: User) -> DraftSource:
     # ADR-0026 決定 4 より前のキャッシュは選定シグナルを持たない。Pydantic は既定値で
     # 通してしまうため、ここも生 JSON のキー有無で判別して再連携を促す。
     if any(
-        isinstance(raw, dict) and _SELECTION_SIGNAL_KEY not in raw
+        isinstance(raw, dict) and not _SELECTION_SIGNAL_KEYS.issubset(raw)
         for raw in cache.result["repos"] or []
     ):
         raise ResumeDraftSourceUnavailableError(

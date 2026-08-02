@@ -13,6 +13,7 @@ from app.models.skill import GitHubSkill, GitHubSkillEvidence
 from app.schemas.github_link import AnalyzedRepoSummary
 from app.schemas.resume import TechnologyStackItem
 from app.services.agent.resume_draft.context import (
+    _SELECTION_SIGNAL_KEYS,
     DraftSource,
     RepoTechnology,
     ResumeDraftNoRepositoriesError,
@@ -285,8 +286,7 @@ def test_build_draft_source_rejects_cache_without_selection_signals(db_session) 
     """
     user = _create_user(db_session)
     legacy = _repo_summary()
-    for key in ("topics", "language_bytes_total", "direct_dependency_count",
-                "ecosystem_count", "has_infra"):
+    for key in _SELECTION_SIGNAL_KEYS:
         del legacy[key]
     # スキーマは旧形式 JSON を既定値で受理する（後方互換）
     assert AnalyzedRepoSummary.model_validate(legacy).language_bytes_total == 0
@@ -299,6 +299,24 @@ def test_build_draft_source_rejects_cache_without_selection_signals(db_session) 
     with pytest.raises(ResumeDraftSourceUnavailableError) as exc:
         build_draft_source(db_session, user)
     assert not isinstance(exc.value, ResumeDraftNoRepositoriesError)
+
+
+@pytest.mark.parametrize("missing_key", sorted(_SELECTION_SIGNAL_KEYS))
+def test_build_draft_source_rejects_cache_missing_any_signal(db_session, missing_key) -> None:
+    """シグナルが 1 つでも欠けたキャッシュは旧形式として扱う。
+
+    代表キーだけを見ると「一部のシグナルだけ持つキャッシュ」を取りこぼし、
+    Pydantic の既定値で欠落を埋めたまま選定が走ってしまう。
+    """
+    user = _create_user(db_session)
+    partial = _repo_summary()
+    del partial[missing_key]
+    db_session.add(
+        GitHubLinkCache(user_id=user.id, status="completed", result=_cache_result(repos=[partial]))
+    )
+    db_session.commit()
+    with pytest.raises(ResumeDraftSourceUnavailableError):
+        build_draft_source(db_session, user)
 
 
 def test_build_draft_source_rejects_cache_with_partially_migrated_repos(db_session) -> None:
