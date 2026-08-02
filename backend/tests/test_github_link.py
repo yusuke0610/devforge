@@ -11,6 +11,10 @@ from app.services.intelligence.pipeline import (
 )
 from app.services.intelligence.response_mapper import map_pipeline_result
 from app.services.intelligence.skills import DetectedSkill
+from app.services.intelligence.skills.types import (
+    InfraResourceDeclaration,
+    PackageDeclaration,
+)
 
 from conftest import auth_header
 
@@ -36,6 +40,17 @@ def _make_repo(
         fork=False,
         stargazers_count=0,
         default_branch="main",
+    )
+
+
+def _intelligence_result() -> IntelligenceResult:
+    """map_pipeline_result に渡す最小の集計結果。"""
+    return IntelligenceResult(
+        username="testuser",
+        repos_analyzed=1,
+        unique_skills=1,
+        analyzed_at="2026-06-01T00:00:00",
+        languages={},
     )
 
 
@@ -83,6 +98,46 @@ def test_map_pipeline_result_includes_languages() -> None:
     # 撤去したフィールドはレスポンス schema に存在しない
     assert not hasattr(response, "detected_frameworks")
     assert response.contribution_calendars == []
+
+
+def test_map_pipeline_result_carries_selection_signals() -> None:
+    """RepoData の選定シグナルが AnalyzedRepoSummary へ写ること（ADR-0026 決定 4）。"""
+    repo = _make_repo(
+        name="app",
+        languages={"Python": 8000, "HCL": 2000},
+        topics=["fastapi", "tutorial"],
+    )
+    repo.package_declarations = [
+        PackageDeclaration(ecosystem="pypi", name="fastapi", dependency_kind="direct"),
+        PackageDeclaration(ecosystem="pypi", name="pytest", dependency_kind="dev"),
+        PackageDeclaration(ecosystem="npm", name="react", dependency_kind="direct"),
+    ]
+    repo.infra_declarations = [
+        InfraResourceDeclaration(tool="terraform", provider="google", resource_type="google_cloud_run_service")
+    ]
+
+    summary = map_pipeline_result(_intelligence_result(), repos=[repo]).repos[0]
+
+    assert summary.full_name == "testuser/app"
+    assert summary.topics == ["fastapi", "tutorial"]
+    assert summary.language_bytes_total == 10000
+    # dev 依存は厚みに数えない（direct のみ）
+    assert summary.direct_dependency_count == 2
+    assert summary.ecosystem_count == 2
+    assert summary.has_infra is True
+
+
+def test_map_pipeline_result_defaults_signals_without_declarations() -> None:
+    """宣言が無いリポジトリはシグナルが 0 / False になること。"""
+    summary = map_pipeline_result(
+        _intelligence_result(), repos=[_make_repo(name="empty", languages={}, topics=[])]
+    ).repos[0]
+
+    assert summary.topics == []
+    assert summary.language_bytes_total == 0
+    assert summary.direct_dependency_count == 0
+    assert summary.ecosystem_count == 0
+    assert summary.has_infra is False
 
 
 # ── aggregate_intelligence Tests（ADR-0016: 新基盤の検出スキルから集計）──────

@@ -13,6 +13,7 @@ from app.models.skill import GitHubSkill, GitHubSkillEvidence
 from app.schemas.github_link import AnalyzedRepoSummary
 from app.schemas.resume import TechnologyStackItem
 from app.services.agent.resume_draft.context import (
+    _SELECTION_SIGNAL_KEYS,
     DraftSource,
     RepoTechnology,
     ResumeDraftNoRepositoriesError,
@@ -213,6 +214,27 @@ def _cache_result(repos: list[dict] | None) -> dict:
     return result
 
 
+def _repo_summary(**overrides) -> dict:
+    """新形式（ADR-0026 決定 4）のリポジトリサマリ JSON を生成する。
+
+    選定シグナル（topics 以下）を含む。旧形式を再現したいテストは
+    ``_repo_summary()`` から当該キーを del して使う。
+    """
+    summary = {
+        "full_name": "octocat/app",
+        "description": "アプリ",
+        "created_at": "2024-01-01T00:00:00Z",
+        "pushed_at": "2026-06-01T00:00:00Z",
+        "topics": ["fastapi"],
+        "language_bytes_total": 12000,
+        "direct_dependency_count": 3,
+        "ecosystem_count": 1,
+        "has_infra": True,
+    }
+    summary.update(overrides)
+    return summary
+
+
 def _add_skill(db_session, user_id: str, *, kind: str, name: str, evidence: list[dict]) -> None:
     """スキル + 証跡を直接投入する。"""
     skill = GitHubSkill(user_id=user_id, kind=kind, canonical_name=name)
@@ -256,15 +278,88 @@ def test_build_draft_source_rejects_empty_repos_as_no_repositories(db_session) -
         build_draft_source(db_session, user)
 
 
+def test_build_draft_source_rejects_cache_without_selection_signals(db_session) -> None:
+    """ADR-0026 より前のキャッシュ（選定シグナル無し）は再連携が必要。
+
+    スキーマ側は既定値を持つのでパース自体は通ってしまう。生 JSON のキー有無で
+    判別して 409 導線に倒していることを確認する。
+    """
+    user = _create_user(db_session)
+    legacy = _repo_summary()
+    for key in _SELECTION_SIGNAL_KEYS:
+        del legacy[key]
+    # スキーマは旧形式 JSON を既定値で受理する（後方互換）
+    assert AnalyzedRepoSummary.model_validate(legacy).language_bytes_total == 0
+
+    db_session.add(
+        GitHubLinkCache(user_id=user.id, status="completed", result=_cache_result(repos=[legacy]))
+    )
+    db_session.commit()
+    # NoRepositories ではなく「再連携で回復する」側の例外になること
+    with pytest.raises(ResumeDraftSourceUnavailableError) as exc:
+        build_draft_source(db_session, user)
+    assert not isinstance(exc.value, ResumeDraftNoRepositoriesError)
+
+
+@pytest.mark.parametrize("missing_key", sorted(_SELECTION_SIGNAL_KEYS))
+def test_build_draft_source_rejects_cache_missing_any_signal(db_session, missing_key) -> None:
+    """シグナルが 1 つでも欠けたキャッシュは旧形式として扱う。
+
+    代表キーだけを見ると「一部のシグナルだけ持つキャッシュ」を取りこぼし、
+    Pydantic の既定値で欠落を埋めたまま選定が走ってしまう。
+    """
+    user = _create_user(db_session)
+    partial = _repo_summary()
+    del partial[missing_key]
+    db_session.add(
+        GitHubLinkCache(user_id=user.id, status="completed", result=_cache_result(repos=[partial]))
+    )
+    db_session.commit()
+    with pytest.raises(ResumeDraftSourceUnavailableError):
+        build_draft_source(db_session, user)
+
+
+def test_build_draft_source_rejects_cache_with_partially_migrated_repos(db_session) -> None:
+    """1 件でもシグナル無しが混ざれば旧形式として扱う（選定が偏るのを防ぐ）。"""
+    user = _create_user(db_session)
+    legacy = _repo_summary(full_name="octocat/legacy")
+    del legacy["language_bytes_total"]
+    db_session.add(
+        GitHubLinkCache(
+            user_id=user.id,
+            status="completed",
+            result=_cache_result(repos=[_repo_summary(), legacy]),
+        )
+    )
+    db_session.commit()
+    with pytest.raises(ResumeDraftSourceUnavailableError):
+        build_draft_source(db_session, user)
+
+
+def test_build_draft_source_keeps_selection_signals(db_session) -> None:
+    """新形式のシグナルが DraftSource までそのまま渡ること（#562 / #564 の入力）。"""
+    user = _create_user(db_session)
+    db_session.add(
+        GitHubLinkCache(
+            user_id=user.id,
+            status="completed",
+            result=_cache_result(repos=[_repo_summary()]),
+        )
+    )
+    db_session.commit()
+
+    repo = build_draft_source(db_session, user).repos[0]
+    assert repo.topics == ["fastapi"]
+    assert repo.language_bytes_total == 12000
+    assert repo.direct_dependency_count == 3
+    assert repo.ecosystem_count == 1
+    assert repo.has_infra is True
+
+
 def test_build_draft_source_inverts_skill_evidence(db_session) -> None:
     """スキル証跡が「リポ → 技術」に反転され、採用基準どおりフィルタされる。"""
     user = _create_user(db_session)
-    repo_summary = {
-        "full_name": "octocat/app",
-        "description": "アプリ",
-        "created_at": "2024-01-01T00:00:00Z",
-        "pushed_at": "2026-06-01T00:00:00Z",
-    }
+    repo_summary = _repo_summary()
     db_session.add(
         GitHubLinkCache(
             user_id=user.id, status="completed", result=_cache_result(repos=[repo_summary])
