@@ -30,7 +30,7 @@ dependencies = [
     "slowapi==0.1.10",
     "ruff==0.16.0",
     "autopep8==2.3.2",
-    "markdown==3.10.2",
+    "markdown==3.10.3",
     "weasyprint==69.0",
     # PDF 経歴書のテキスト抽出（ADR-0024 / #527）。純 Python・native 依存なし。
     "pypdf==6.14.2",
