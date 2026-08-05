@@ -21,6 +21,9 @@ const mockStart = vi.mocked(startResumeDraft);
 const mockStatus = vi.mocked(getResumeDraftStatus);
 const mockFetch = vi.mocked(fetchResumeDraftPdfBlobUrl);
 
+// ユーザーが採用したリポジトリ（ADR-0026 決定 2。generate の必須引数）
+const _SELECTED = ["octo/app"];
+
 describe("useResumeDraftPdf", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -35,13 +38,13 @@ describe("useResumeDraftPdf", () => {
 
     const { result } = renderHook(() => useResumeDraftPdf());
     await act(async () => {
-      await result.current.generate();
+      await result.current.generate(_SELECTED);
     });
 
     await waitFor(() =>
       expect(result.current.previewUrl).toBe("blob:http://localhost/draft-pdf"),
     );
-    expect(mockStart).toHaveBeenCalledWith();
+    expect(mockStart).toHaveBeenCalledWith(_SELECTED);
     expect(result.current.error).toBeNull();
     expect(result.current.generating).toBe(false);
   });
@@ -55,7 +58,7 @@ describe("useResumeDraftPdf", () => {
 
     const { result } = renderHook(() => useResumeDraftPdf());
     await act(async () => {
-      await result.current.generate();
+      await result.current.generate(_SELECTED);
     });
     // enqueue → ポーリング完了 → PDF 取得が pending の間は generating が true
     await waitFor(() => expect(result.current.generating).toBe(true));
@@ -78,7 +81,7 @@ describe("useResumeDraftPdf", () => {
 
     const { result } = renderHook(() => useResumeDraftPdf());
     await act(async () => {
-      await result.current.generate();
+      await result.current.generate(_SELECTED);
     });
 
     expect(result.current.previewUrl).toBeNull();
@@ -98,7 +101,7 @@ describe("useResumeDraftPdf", () => {
 
     const { result } = renderHook(() => useResumeDraftPdf());
     await act(async () => {
-      await result.current.generate();
+      await result.current.generate(_SELECTED);
     });
 
     await waitFor(() =>
@@ -130,7 +133,7 @@ describe("useResumeDraftPdf", () => {
 
     const { result } = renderHook(() => useResumeDraftPdf());
     await act(async () => {
-      await result.current.generate();
+      await result.current.generate(_SELECTED);
     });
     await waitFor(() => expect(result.current.previewUrl).not.toBeNull());
     act(() => {
@@ -149,7 +152,7 @@ describe("useResumeDraftPdf", () => {
 
     const { result, unmount } = renderHook(() => useResumeDraftPdf());
     await act(async () => {
-      await result.current.generate();
+      await result.current.generate(_SELECTED);
     });
     await waitFor(() => expect(result.current.previewUrl).not.toBeNull());
     unmount();

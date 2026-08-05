@@ -5,13 +5,15 @@ context（スキル証跡の反転・連携キャッシュの検証）は実 SQL
 （DB モック禁止 / .claude/rules/backend/test.md）。
 """
 
-from datetime import date
+import json
+from datetime import date, timedelta
 
 import pytest
 from app.models import GitHubLinkCache, User
 from app.models.skill import GitHubSkill, GitHubSkillEvidence
 from app.schemas.github_link import AnalyzedRepoSummary
-from app.schemas.resume import TechnologyStackItem
+from app.schemas.resume import Project, TechnologyStackItem
+from app.services.agent.resume_draft import mapper
 from app.services.agent.resume_draft.context import (
     _SELECTION_SIGNAL_KEYS,
     DraftSource,
@@ -21,14 +23,19 @@ from app.services.agent.resume_draft.context import (
     build_draft_source,
 )
 from app.services.agent.resume_draft.mapper import (
-    NOISE_REASON_LEARNING_TOPIC,
-    NOISE_REASON_SHORT_LIVED,
-    PLACEHOLDER_COMPANY,
+    MIN_DURATION_DAYS,
     PROJECT_LIMIT,
+    REASON_LEARNING_TOPIC,
+    REASON_SHORT_DURATION,
     STACK_LIMIT_PER_PROJECT,
+    UnknownRepositoryError,
+    build_candidates,
+    build_pdf_payload,
     build_skeleton,
-    evaluate_noise,
-    select_repos,
+    evaluate_default_selection,
+    rank_repos,
+    select_requested_repos,
+    selection_score,
 )
 
 _TODAY = date(2026, 7, 1)
@@ -36,11 +43,19 @@ _TODAY = date(2026, 7, 1)
 
 def _repo(full_name: str, *, description: str = "", created: str = "2023-01-15T00:00:00Z",
           pushed: str = "2026-06-01T00:00:00Z", topics: list[str] | None = None,
-          language_bytes: int = 0) -> AnalyzedRepoSummary:
+          language_bytes_total: int = 10_000, direct_dependency_count: int = 0,
+          ecosystem_count: int = 0, has_infra: bool = False) -> AnalyzedRepoSummary:
     """テスト用のリポジトリサマリを生成する。"""
     return AnalyzedRepoSummary(
-        full_name=full_name, description=description, created_at=created, pushed_at=pushed,
-        topics=topics or [], language_bytes_total=language_bytes,
+        full_name=full_name,
+        description=description,
+        created_at=created,
+        pushed_at=pushed,
+        topics=topics or [],
+        language_bytes_total=language_bytes_total,
+        direct_dependency_count=direct_dependency_count,
+        ecosystem_count=ecosystem_count,
+        has_infra=has_infra,
     )
 
 
@@ -55,172 +70,305 @@ def _source(repos: list, technologies: dict | None = None) -> DraftSource:
 
 
 # ---------------------------------------------------------------------------
-# select_repos: リポジトリ選定の決定論
+# rank_repos: リポジトリ順位付けの決定論
 # ---------------------------------------------------------------------------
 
 
-def test_select_repos_ranks_long_lived_over_recently_touched() -> None:
-    """第 1 キーは継続期間（ADR-0026 決定 3）。
+def test_rank_repos_prefers_long_running_over_recently_pushed() -> None:
+    """主キーは「継続期間 × 実装量」。直近 push だけの短命リポは上に来ない（ADR-0026 決定 3）。
 
-    「昨日 README を直しただけのチュートリアル」が「作り込んで完成させた本命」に
-    勝つのを防ぐ。直近性は主キーから外す。
+    昨日 README を直しただけのチュートリアル（継続 1 日）より、半年作り込んで
+    半年前に止まった本命（継続 180 日）が優先される。
     """
     source = _source(
         [
-            # 3 日で終わったが昨日 push（チュートリアル型）
-            _repo("o/tutorial", created="2026-06-25T00:00:00Z", pushed="2026-06-30T00:00:00Z"),
-            # 2 年継続。最終 push は半年前（本命型）
-            _repo("o/flagship", created="2024-01-01T00:00:00Z", pushed="2026-01-01T00:00:00Z"),
+            _repo(
+                "o/tutorial-yesterday",
+                created="2026-06-29T00:00:00Z",
+                pushed="2026-06-30T00:00:00Z",
+                language_bytes_total=50_000,
+            ),
+            _repo(
+                "o/real-project",
+                created="2024-06-01T00:00:00Z",
+                pushed="2024-11-28T00:00:00Z",
+                language_bytes_total=50_000,
+            ),
         ]
     )
-    assert [r.full_name for r in select_repos(source)] == ["o/flagship", "o/tutorial"]
+    assert [r.full_name for r in rank_repos(source)] == ["o/real-project", "o/tutorial-yesterday"]
 
 
-def test_select_repos_tiebreaks_by_language_bytes() -> None:
-    """継続期間が同じなら実装量（言語バイト合計）の降順。"""
+def test_rank_repos_prefers_larger_implementation_at_equal_duration() -> None:
+    """継続期間が同じなら実装量（言語バイト合計）の多い方が上。"""
     source = _source(
         [
-            _repo("o/small", language_bytes=100),
-            _repo("o/big", language_bytes=9000),
-            _repo("o/mid", language_bytes=3000),
+            _repo("o/small", language_bytes_total=1_000),
+            _repo("o/big", language_bytes_total=900_000),
         ]
     )
-    assert [r.full_name for r in select_repos(source)] == ["o/big", "o/mid", "o/small"]
+    assert [r.full_name for r in rank_repos(source)] == ["o/big", "o/small"]
 
 
-def test_select_repos_tiebreaks_by_pushed_at_after_bytes() -> None:
-    """継続期間・実装量が同じなら最終 push が新しい方が上位（直近性は第 3 キー）。"""
+def test_selection_score_counts_dependency_and_infra_signals() -> None:
+    """実装量には依存の厚み・エコシステム数・IaC 宣言もバイト相当で加算される。"""
+    plain = _repo("o/plain", language_bytes_total=10_000)
+    rich = _repo(
+        "o/rich",
+        language_bytes_total=10_000,
+        direct_dependency_count=20,
+        ecosystem_count=2,
+        has_infra=True,
+    )
+    assert selection_score(rich) > selection_score(plain)
+
+
+def test_rank_repos_tiebreaks_by_pushed_at_then_full_name() -> None:
+    """スコアが同点なら直近性（pushed_at 降順）、それも同じなら full_name 昇順。
+
+    直近性は主キーからタイブレークへ降格した（ADR-0026 決定 3）。
+    """
+    # 継続期間（ともに 181 日）と実装量を揃えてスコアを同点にする
     source = _source(
         [
-            # 継続 365 日・実装量 500 で揃え、push 日時だけ変える
-            _repo("o/stale", created="2025-01-01T00:00:00Z", pushed="2026-01-01T00:00:00Z",
-                  language_bytes=500),
-            _repo("o/fresh", created="2025-06-01T00:00:00Z", pushed="2026-06-01T00:00:00Z",
-                  language_bytes=500),
+            _repo("o/b-old", created="2025-01-01T00:00:00Z", pushed="2025-07-01T00:00:00Z"),
+            _repo("o/b-new", created="2025-02-01T00:00:00Z", pushed="2025-08-01T00:00:00Z"),
+            _repo("o/a-old", created="2025-01-01T00:00:00Z", pushed="2025-07-01T00:00:00Z"),
         ]
     )
-    assert [r.full_name for r in select_repos(source)] == ["o/fresh", "o/stale"]
+    assert [r.full_name for r in rank_repos(source)] == ["o/b-new", "o/a-old", "o/b-old"]
 
 
-def test_select_repos_is_totally_ordered_by_name() -> None:
-    """全キー同値でも full_name の辞書順で並びが一意に決まる（完全順序）。"""
-    repos = [_repo("o/c"), _repo("o/a"), _repo("o/b")]
-    assert [r.full_name for r in select_repos(_source(repos))] == ["o/a", "o/b", "o/c"]
-    # 入力順を変えても同じ並びになること（同一入力 → 同一出力の不変条件）
-    assert [r.full_name for r in select_repos(_source(list(reversed(repos))))] == [
-        "o/a", "o/b", "o/c",
+def test_rank_repos_is_a_total_order_independent_of_input_order() -> None:
+    """同一集合なら入力順に関わらず並びが一意に決まる（完全順序の不変条件）。"""
+    repos = [
+        _repo("o/a", created="2024-01-01T00:00:00Z", pushed="2024-07-01T00:00:00Z"),
+        _repo("o/b", created="2024-01-01T00:00:00Z", pushed="2024-07-01T00:00:00Z"),
+        _repo("o/c", created="2024-01-01T00:00:00Z", pushed="2024-07-01T00:00:00Z"),
+        _repo("o/d", created="2020-01-01T00:00:00Z", pushed="2026-01-01T00:00:00Z"),
     ]
+    expected = [r.full_name for r in rank_repos(_source(repos))]
+    assert [r.full_name for r in rank_repos(_source(list(reversed(repos))))] == expected
+    assert [r.full_name for r in rank_repos(_source([repos[2], repos[0], repos[3], repos[1]]))] == (
+        expected
+    )
 
 
-def test_select_repos_treats_invalid_dates_as_zero_duration() -> None:
-    """日付が不正・空でも例外にならず、継続期間 0 として下位に落ちる。"""
+def test_rank_repos_keeps_all_candidates() -> None:
+    """機械は候補を落とさない（ADR-0026 決定 2）。順位付けだけで件数は減らさない。"""
+    repos = [_repo(f"o/repo-{i}", language_bytes_total=(i + 1) * 1000) for i in range(8)]
+    assert len(rank_repos(_source(repos))) == 8
+
+
+def test_rank_repos_handles_invalid_dates_without_crashing() -> None:
+    """created_at / pushed_at が空・不正でも継続期間 0 として順位付けできる。"""
     source = _source(
         [
             _repo("o/broken", created="", pushed=""),
-            _repo("o/invalid", created="not-a-date", pushed="2026-06-01T00:00:00Z"),
-            _repo("o/valid", created="2025-01-01T00:00:00Z", pushed="2026-01-01T00:00:00Z"),
+            _repo("o/normal", created="2024-01-01T00:00:00Z", pushed="2025-01-01T00:00:00Z"),
         ]
     )
-    assert [r.full_name for r in select_repos(source)][0] == "o/valid"
+    assert [r.full_name for r in rank_repos(source)] == ["o/normal", "o/broken"]
 
 
-def test_select_repos_caps_at_project_limit() -> None:
-    """上限件数（PROJECT_LIMIT）で打ち切る。"""
-    repos = [
-        _repo(f"o/repo-{i}", created="2024-01-01T00:00:00Z",
-              pushed=f"2024-0{i + 1}-01T00:00:00Z")
-        for i in range(8)
-    ]
-    selected = select_repos(_source(repos))
+def test_rank_repos_head_is_capped_by_project_limit() -> None:
+    """生成に渡す件数は順位上位から上限件数（PROJECT_LIMIT）まで。"""
+    repos = [_repo(f"o/repo-{i}", language_bytes_total=(i + 1) * 1000) for i in range(8)]
+    source = _source(repos)
+    selected = rank_repos(source)[:PROJECT_LIMIT]
     assert len(selected) == PROJECT_LIMIT
-    # 継続期間が最も長いもの（最後に push されたもの）が先頭
-    assert selected[0].full_name == "o/repo-7"
+    # 実装量の多い順に上位が取られる
+    assert [r.full_name for r in selected] == [
+        "o/repo-7", "o/repo-6", "o/repo-5", "o/repo-4", "o/repo-3",
+    ]
 
 
 # ---------------------------------------------------------------------------
-# evaluate_noise: デフォルト非選択の判定（ADR-0026 決定 2・3）
-#
-# 機械は候補を落とさない。判定はデフォルト選択状態と理由表示にのみ影響させる。
+# build_candidates / select_requested_repos: 候補提示と人間の採用（ADR-0026 決定 2）
 # ---------------------------------------------------------------------------
 
 
-def test_evaluate_noise_flags_short_lived_repo() -> None:
-    """継続期間が閾値未満なら非選択 + 理由を返す。"""
-    repo = _repo("o/tutorial", created="2026-06-25T00:00:00Z", pushed="2026-06-30T00:00:00Z")
-    verdict = evaluate_noise(repo)
-    assert verdict.selected_by_default is False
-    assert NOISE_REASON_SHORT_LIVED in verdict.reasons
-
-
-def test_evaluate_noise_flags_learning_topics() -> None:
-    """topics に学習用途語があれば非選択 + 理由を返す。"""
-    repo = _repo("o/app", topics=["python", "tutorial"])
-    verdict = evaluate_noise(repo)
-    assert verdict.selected_by_default is False
-    assert NOISE_REASON_LEARNING_TOPIC in verdict.reasons
-
-
-def test_evaluate_noise_normalizes_topic_notation() -> None:
-    """topics は小文字化 + 区切り除去して完全一致で判定する。"""
-    # hands-on / Hands_On / HANDSON はいずれも学習用途語として扱う
-    for topic in ("hands-on", "Hands_On", "HANDSON"):
-        assert evaluate_noise(_repo("o/app", topics=[topic])).selected_by_default is False
-    # 部分一致では落とさない（本命が学習用途と誤判定されるのを防ぐ）
-    assert evaluate_noise(_repo("o/app", topics=["sample-api-server"])).selected_by_default
-
-
-def test_evaluate_noise_returns_all_applicable_reasons() -> None:
-    """複数該当なら理由を全て返す（順序も決定論）。"""
-    repo = _repo(
-        "o/study", created="2026-06-25T00:00:00Z", pushed="2026-06-30T00:00:00Z",
-        topics=["study"],
+def test_build_candidates_returns_every_repo_in_rank_order() -> None:
+    """入口フィルタを通った候補は全件返る。並びは rank_repos と一致する。"""
+    source = _source(
+        [
+            _repo("o/tutorial", created="2026-06-01T00:00:00Z", pushed="2026-06-02T00:00:00Z",
+                  topics=["tutorial"]),
+            _repo("o/real", created="2024-01-01T00:00:00Z", pushed="2025-01-01T00:00:00Z"),
+        ]
     )
-    verdict = evaluate_noise(repo)
-    assert verdict.reasons == (NOISE_REASON_SHORT_LIVED, NOISE_REASON_LEARNING_TOPIC)
+    candidates = build_candidates(source)
+    assert [c.full_name for c in candidates] == [r.full_name for r in rank_repos(source)]
+    assert len(candidates) == 2
 
 
-def test_evaluate_noise_selects_substantial_repo() -> None:
-    """閾値以上かつ学習用途語なしならデフォルト選択（理由は空）。"""
-    repo = _repo("o/flagship", created="2024-01-01T00:00:00Z", pushed="2026-01-01T00:00:00Z",
-                 topics=["fastapi"])
-    verdict = evaluate_noise(repo)
-    assert verdict.selected_by_default is True
+def test_build_candidates_carries_signals_and_default_selection() -> None:
+    """候補はシグナル（継続期間・実装量・IaC・技術スタック）と選択状態・理由を持つ。"""
+    source = _source(
+        [
+            _repo(
+                "o/real", description="タスク管理アプリ",
+                created="2024-01-01T00:00:00Z", pushed="2025-01-01T00:00:00Z",
+                language_bytes_total=12_000, has_infra=True,
+            )
+        ],
+        technologies={"o/real": [RepoTechnology("language", "Python", 0.9, language_bytes=12_000)]},
+    )
+    (candidate,) = build_candidates(source)
+
+    assert candidate.full_name == "o/real"
+    assert candidate.description == "タスク管理アプリ"
+    assert candidate.duration_days == 366
+    assert candidate.implementation_volume == 12_000 + mapper.INFRA_VOLUME_WEIGHT
+    assert candidate.has_infra is True
+    assert candidate.technology_stacks == [{"category": "language", "name": "Python"}]
+    assert candidate.default_selected is True
+    assert candidate.reasons == ()
+
+
+def test_build_candidates_marks_noise_without_dropping_it() -> None:
+    """ノイズ判定は候補から落とさず、デフォルト非選択 + 理由で表現する。"""
+    source = _source(
+        [_repo("o/tutorial", created="2026-06-01T00:00:00Z", pushed="2026-06-02T00:00:00Z",
+               topics=["tutorial"])]
+    )
+    (candidate,) = build_candidates(source)
+    assert candidate.default_selected is False
+    assert candidate.reasons == (REASON_SHORT_DURATION, REASON_LEARNING_TOPIC)
+
+
+def test_select_requested_repos_returns_rank_order_regardless_of_request_order() -> None:
+    """採用リポジトリは要求順ではなく順位順に解決する（生成物の並びを決定論に保つ）。"""
+    source = _source(
+        [
+            _repo("o/small", language_bytes_total=1_000),
+            _repo("o/big", language_bytes_total=900_000),
+        ]
+    )
+    selected = select_requested_repos(source, ["o/small", "o/big"])
+    assert [r.full_name for r in selected] == ["o/big", "o/small"]
+
+
+def test_select_requested_repos_deduplicates() -> None:
+    """同じリポジトリを重複指定しても 1 件に畳む。"""
+    source = _source([_repo("o/app")])
+    assert len(select_requested_repos(source, ["o/app", "o/app"])) == 1
+
+
+def test_select_requested_repos_rejects_unknown_repository() -> None:
+    """連携データに無いリポジトリの指定は拒否する（捏造リポの混入を防ぐ）。"""
+    source = _source([_repo("o/app")])
+    with pytest.raises(UnknownRepositoryError):
+        select_requested_repos(source, ["o/app", "o/ghost"])
+
+
+# ---------------------------------------------------------------------------
+# evaluate_default_selection: デフォルト選択状態とその理由（ADR-0026 決定 3）
+# ---------------------------------------------------------------------------
+
+
+def test_default_selection_selects_long_running_repo() -> None:
+    """継続期間が閾値以上で学習用途 topics も無ければデフォルト選択・理由なし。"""
+    repo = _repo(
+        "o/real", created="2024-01-01T00:00:00Z", pushed="2025-01-01T00:00:00Z",
+        topics=["fastapi", "resume"],
+    )
+    verdict = evaluate_default_selection(repo)
+    assert verdict.selected is True
     assert verdict.reasons == ()
 
 
-def test_evaluate_noise_threshold_is_inclusive_lower_bound() -> None:
-    """継続期間がちょうど閾値ならデフォルト選択（閾値「未満」が非選択）。"""
-    # threshold_days=30 に対し、継続 30 日 = 選択 / 29 日 = 非選択
-    exactly = _repo("o/exact", created="2026-06-01T00:00:00Z", pushed="2026-07-01T00:00:00Z")
-    just_under = _repo("o/under", created="2026-06-02T00:00:00Z", pushed="2026-07-01T00:00:00Z")
-    assert evaluate_noise(exactly, threshold_days=30).selected_by_default is True
-    assert evaluate_noise(just_under, threshold_days=30).selected_by_default is False
+def test_default_selection_flags_short_duration() -> None:
+    """継続期間が閾値未満ならデフォルト非選択 + 理由。"""
+    repo = _repo("o/quick", created="2026-06-01T00:00:00Z", pushed="2026-06-03T00:00:00Z")
+    verdict = evaluate_default_selection(repo)
+    assert verdict.selected is False
+    assert verdict.reasons == (REASON_SHORT_DURATION,)
 
 
-def test_evaluate_noise_counts_duration_with_time_component() -> None:
+def test_default_selection_duration_threshold_boundary() -> None:
+    """閾値ちょうどは選択、1 日足りなければ非選択（境界の固定）。"""
+    # 日付演算で組み立てる（MIN_DURATION_DAYS が 31 以上でも不正な日付にならないように）
+    created = date(2026, 1, 1)
+    exactly = _repo(
+        "o/exact", created=f"{created.isoformat()}T00:00:00Z",
+        pushed=f"{(created + timedelta(days=MIN_DURATION_DAYS)).isoformat()}T00:00:00Z",
+    )
+    one_short = _repo(
+        "o/short", created=f"{created.isoformat()}T00:00:00Z",
+        pushed=f"{(created + timedelta(days=MIN_DURATION_DAYS - 1)).isoformat()}T00:00:00Z",
+    )
+    assert evaluate_default_selection(exactly).selected is True
+    assert evaluate_default_selection(one_short).selected is False
+
+
+def test_default_selection_threshold_is_injectable() -> None:
+    """閾値はテストから注入できる（build_skeleton(today=...) と同じ流儀）。"""
+    repo = _repo("o/quick", created="2026-06-01T00:00:00Z", pushed="2026-06-03T00:00:00Z")
+    assert evaluate_default_selection(repo, min_duration_days=2).selected is True
+
+
+def test_default_selection_counts_duration_with_time_component() -> None:
     """継続期間は日付だけでなく時刻まで見て数える（閾値直下の取りこぼし防止）。"""
     # 日付だけ見ると 6/1 → 7/1 の 30 日だが、実際は 29 日 1 分しか継続していない
     just_under = _repo("o/under", created="2026-06-01T23:59:00Z", pushed="2026-07-01T00:00:00Z")
-    assert evaluate_noise(just_under, threshold_days=30).selected_by_default is False
+    assert evaluate_default_selection(just_under, min_duration_days=30).selected is False
 
 
-def test_evaluate_noise_handles_mixed_timezone_notation() -> None:
+def test_default_selection_handles_mixed_timezone_notation() -> None:
     """created_at と pushed_at でタイムゾーン表記が揺れても継続期間を数えられる。"""
     # オフセット無しは UTC とみなす（両者を aware に揃えないと減算自体が TypeError になる）
     repo = _repo("o/mixed", created="2026-06-01T00:00:00", pushed="2026-07-01T00:00:00Z")
-    assert evaluate_noise(repo, threshold_days=30).selected_by_default is True
+    assert evaluate_default_selection(repo, min_duration_days=30).selected is True
 
 
-def test_evaluate_noise_does_not_drop_candidates() -> None:
-    """ノイズ判定は select_repos の結果件数を変えない（機械は候補を落とさない）。"""
-    repos = [
-        _repo("o/tutorial", created="2026-06-25T00:00:00Z", pushed="2026-06-30T00:00:00Z",
-              topics=["tutorial"]),
-        _repo("o/flagship", created="2024-01-01T00:00:00Z", pushed="2026-01-01T00:00:00Z"),
-    ]
-    selected = select_repos(_source(repos))
-    assert len(selected) == 2
-    assert "o/tutorial" in [r.full_name for r in selected]
+@pytest.mark.parametrize(
+    "topic",
+    ["tutorial", "Tutorial", "TUTORIAL", "react-tutorial", "study_group", "hands-on", "Learning"],
+)
+def test_default_selection_flags_learning_topics(topic: str) -> None:
+    """学習用途 topics は大文字小文字・区切り文字を正規化して判定する。"""
+    repo = _repo(
+        "o/learn", created="2024-01-01T00:00:00Z", pushed="2025-01-01T00:00:00Z",
+        topics=[topic],
+    )
+    verdict = evaluate_default_selection(repo)
+    assert verdict.selected is False
+    assert verdict.reasons == (REASON_LEARNING_TOPIC,)
+
+
+@pytest.mark.parametrize("topic", ["resample", "samples-api-gateway-tools", "restudy"])
+def test_default_selection_does_not_match_topic_substrings(topic: str) -> None:
+    """語の一部に含まれるだけでは学習用途と判定しない（部分一致で誤爆させない）。
+
+    ``samples-api-gateway-tools`` は語 ``samples`` を含むため判定対象だが、
+    ``resample`` / ``restudy`` は別語なので対象外。
+    """
+    repo = _repo(
+        "o/app", created="2024-01-01T00:00:00Z", pushed="2025-01-01T00:00:00Z", topics=[topic],
+    )
+    expected_flagged = topic == "samples-api-gateway-tools"
+    assert evaluate_default_selection(repo).selected is not expected_flagged
+
+
+def test_default_selection_reports_all_reasons_in_stable_order() -> None:
+    """理由が複数該当する場合は決定論的な順序で全件返す。"""
+    repo = _repo(
+        "o/noise", created="2026-06-01T00:00:00Z", pushed="2026-06-03T00:00:00Z",
+        topics=["tutorial"],
+    )
+    verdict = evaluate_default_selection(repo)
+    assert verdict.selected is False
+    assert verdict.reasons == (REASON_SHORT_DURATION, REASON_LEARNING_TOPIC)
+
+
+def test_default_selection_does_not_drop_candidates_from_ranking() -> None:
+    """非選択判定は候補一覧から落とさない（ADR-0026 決定 2 の不変条件）。"""
+    noise = _repo("o/tutorial", created="2026-06-01T00:00:00Z", pushed="2026-06-02T00:00:00Z",
+                  topics=["tutorial"])
+    real = _repo("o/real", created="2024-01-01T00:00:00Z", pushed="2025-01-01T00:00:00Z")
+    ranked = rank_repos(_source([noise, real]))
+    assert {r.full_name for r in ranked} == {"o/tutorial", "o/real"}
 
 
 # ---------------------------------------------------------------------------
@@ -228,33 +376,51 @@ def test_evaluate_noise_does_not_drop_candidates() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_build_skeleton_top_level_and_placeholder_experience() -> None:
-    """トップレベルとプレースホルダ職歴（個人開発）が契約どおり組み立てられる。"""
+def test_build_skeleton_returns_projects_without_experiences() -> None:
+    """出力単位は project 明細のリスト。experience は生成しない（ADR-0026 決定 1）。"""
     source = _source(
         [
             _repo("o/first", created="2022-03-10T00:00:00Z"),
             _repo("o/second", created="2021-11-05T00:00:00Z"),
         ]
     )
-    selected = select_repos(source)
+    selected = rank_repos(source)[:PROJECT_LIMIT]
     payload = build_skeleton(source, selected, today=_TODAY)
 
     assert payload["full_name"] == "octocat"
     assert payload["email"] == "octo@example.com"
     assert payload["github_url"] == "https://github.com/octocat"
+    # career_summary / self_pr は experiences から独立した候補として返る（LLM が埋める）
     assert payload["career_summary"] == ""
     assert payload["self_pr"] == ""
-    assert payload["qualifications"] == []
+    # 会社・事業内容・在籍期間・顧客は GitHub から得られないため生成しない
+    assert "experiences" not in payload
+    assert len(payload["projects"]) == 2
 
-    (experience,) = payload["experiences"]
-    assert experience["company"] == PLACEHOLDER_COMPANY
-    assert experience["is_it_company"] is True
-    assert experience["is_current"] is True
-    assert experience["end_date"] == ""
-    # 選定リポの最古 created_at（YYYY-MM）を職歴の開始にする
-    assert experience["start_date"] == "2021-11"
-    (client,) = experience["clients"]
-    assert len(client["projects"]) == 2
+
+def test_build_skeleton_generates_no_placeholder_values() -> None:
+    """生成 payload にプレースホルダ文字列が一切含まれない（ADR-0026 決定 1 の完了条件）。"""
+    source = _source([_repo("o/app", description="タスク管理アプリ")])
+    payload = build_skeleton(source, rank_repos(source)[:PROJECT_LIMIT], today=_TODAY)
+
+    serialized = json.dumps(payload, ensure_ascii=False)
+    for placeholder in ("個人開発", "GitHub 上での個人開発活動", "開発（個人開発）"):
+        assert placeholder not in serialized
+    # 廃止した定数がモジュールに残っていないこと（再導入の抑止）
+    for removed in ("PLACEHOLDER_COMPANY", "PLACEHOLDER_BUSINESS_DESCRIPTION", "PLACEHOLDER_ROLE"):
+        assert not hasattr(mapper, removed)
+
+
+def test_build_skeleton_leaves_human_only_fields_empty() -> None:
+    """role / phases / team は生成しない（空 = 人間が埋める / ADR-0026 決定 1）。"""
+    source = _source([_repo("o/app", description="タスク管理アプリ")])
+    (project,) = build_skeleton(source, rank_repos(source)[:PROJECT_LIMIT], today=_TODAY)["projects"]
+
+    assert project["role"] == ""
+    assert project["phases"] == []
+    assert project["team"] == {"total": "", "members": []}
+    # 保存契約（schemas/resume.py）に収まること
+    Project.model_validate(project)
 
 
 def test_build_skeleton_project_period_current_boundary() -> None:
@@ -265,8 +431,8 @@ def test_build_skeleton_project_period_current_boundary() -> None:
             _repo("o/stale", created="2024-01-01T00:00:00Z", pushed="2026-03-01T00:00:00Z"),
         ]
     )
-    payload = build_skeleton(source, select_repos(source), today=_TODAY)
-    projects = {p["name"]: p for p in payload["experiences"][0]["clients"][0]["projects"]}
+    payload = build_skeleton(source, rank_repos(source)[:PROJECT_LIMIT], today=_TODAY)
+    projects = {p["name"]: p for p in payload["projects"]}
 
     active_period = projects["active"]["periods"][0]
     assert active_period == {"start_date": "2024-01", "end_date": "", "is_current": True}
@@ -278,21 +444,40 @@ def test_build_skeleton_project_period_current_boundary() -> None:
 def test_build_skeleton_skips_period_without_created_at() -> None:
     """created_at が空のリポは期間を出さない（不正な期間を捏造しない）。"""
     source = _source([_repo("o/no-date", created="", pushed="")])
-    payload = build_skeleton(source, select_repos(source), today=_TODAY)
-    (project,) = payload["experiences"][0]["clients"][0]["projects"]
+    payload = build_skeleton(source, rank_repos(source)[:PROJECT_LIMIT], today=_TODAY)
+    (project,) = payload["projects"]
     assert project["periods"] == []
-    # 職歴の開始も空になる
-    assert payload["experiences"][0]["start_date"] == ""
 
 
 def test_build_skeleton_description_falls_back_to_repo_description() -> None:
     """プロジェクト description は LLM マージ前のフォールバックとして repo description を持つ。"""
     source = _source([_repo("o/app", description="タスク管理アプリ")])
-    payload = build_skeleton(source, select_repos(source), today=_TODAY)
-    (project,) = payload["experiences"][0]["clients"][0]["projects"]
+    payload = build_skeleton(source, rank_repos(source)[:PROJECT_LIMIT], today=_TODAY)
+    (project,) = payload["projects"]
     assert project["description"] == "タスク管理アプリ"
-    assert project["team"] == {"total": "1", "members": [{"role": "開発", "count": 1}]}
-    assert project["phases"] == []
+
+
+def test_build_pdf_payload_wraps_projects_in_empty_experience() -> None:
+    """PDF レンダリング用に空の experience / client で包む（値は捏造しない）。"""
+    source = _source([_repo("o/app", description="タスク管理アプリ")])
+    draft = build_skeleton(source, rank_repos(source)[:PROJECT_LIMIT], today=_TODAY)
+
+    payload = build_pdf_payload(draft)
+    assert payload["career_summary"] == draft["career_summary"]
+    (experience,) = payload["experiences"]
+    assert experience["company"] == ""
+    assert experience["business_description"] == ""
+    (client,) = experience["clients"]
+    assert client["name"] == ""
+    assert [p["name"] for p in client["projects"]] == ["app"]
+    # 元のドラフトを破壊しない（同じ payload を PDF と JSON 双方で使うため）
+    assert "experiences" not in draft
+
+
+def test_build_pdf_payload_without_projects_has_no_experience() -> None:
+    """プロジェクトが 0 件なら空の職歴も作らない（空箱だけの PDF を出さない）。"""
+    payload = build_pdf_payload(build_skeleton(_source([]), [], today=_TODAY))
+    assert payload["experiences"] == []
 
 
 def test_build_skeleton_stacks_ordered_and_capped() -> None:
@@ -304,8 +489,8 @@ def test_build_skeleton_stacks_ordered_and_capped() -> None:
         RepoTechnology("language", "TypeScript", 0.9, language_bytes=9000),
     ] + [RepoTechnology("framework", f"lib-{i}", 0.5 - i * 0.01) for i in range(6)]
     source = _source([_repo("o/app")], technologies={"o/app": technologies})
-    payload = build_skeleton(source, select_repos(source), today=_TODAY)
-    (project,) = payload["experiences"][0]["clients"][0]["projects"]
+    payload = build_skeleton(source, rank_repos(source)[:PROJECT_LIMIT], today=_TODAY)
+    (project,) = payload["projects"]
 
     stacks = project["technology_stacks"]
     assert len(stacks) == STACK_LIMIT_PER_PROJECT

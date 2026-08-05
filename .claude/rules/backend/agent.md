@@ -34,31 +34,49 @@ backend/
 │       │   ├── anthropic_client.py # Claude Haiku（本番 / Vertex AI(ADC)）
 │       │   ├── ollama_client.py   # ローカル開発（LLM_LOCAL_OLLAMA）
 │       │   └── factory.py         # get_llm_client(provider) で分岐（ADR-0023: Anthropic + Ollama の 2 択）
-│       └── resume_draft/          # 経歴書ドラフト生成（ADR-0018・0020。下記「resume_draft」節）
+│       └── resume_draft/          # プロジェクト明細ドラフト生成（ADR-0018・0020・0026。下記「resume_draft」節）
 │           ├── context.py         # DB 読み取り専用（連携キャッシュ + スキル証跡 → DraftSource）
-│           ├── mapper.py          # ルールベース純関数（骨格 payload 構築）
+│           ├── mapper.py          # ルールベース純関数（順位付け・候補提示・採用解決・骨格構築）
 │           ├── output_schema.py   # ドラフト用構造化出力スキーマ（機械制約の正本）
 │           ├── draft_service.py   # LLM 1 コール → パース(リトライ1回) → 骨格へマージ（DB 非依存）
 │           └── run_task.py        # 非同期タスク本体（ADR-0020: LLM→PDF検証→課金→結果保存。DB 書き込みはここ）
 └── tests/
     ├── test_agent.py
     ├── test_agent_context_builder.py  # Phase 2: context_builder の単体テスト
-    ├── test_resume_draft_mapper.py    # ADR-0018: ルールベースマッピングの単体テスト
+    ├── test_resume_draft_mapper.py    # ADR-0018・0026: 選定・候補提示・骨格マッピングの単体テスト
     ├── test_resume_draft_service.py   # ADR-0018: draft_service（LLM モック）
     ├── test_resume_draft_api.py       # ADR-0020: enqueue/status/download の統合テスト
     └── test_worker/test_resume_draft.py  # ADR-0020: run_resume_draft_task（課金順序の不変条件）
 ```
 
-## resume_draft（経歴書ドラフト生成 / ADR-0018・0020）
+## resume_draft（経歴書ドラフト生成 / ADR-0018・0020・0026）
 
-GitHub 連携データから経歴書ドラフト payload を組み立てて PDF を生成する機能。**ADR-0020 で
+GitHub 連携データから**プロジェクト明細のドラフト**を組み立てる機能。**ADR-0020 で
 非同期タスク化**した（連携とは別の「ドラフト生成」ボタンで明示実行）。チャットとは別系統だが、
 **本ファイルの不変条件（制約の責務分離・リトライ 1 回・エラー契約・LLMError/usage の課金漏れ防止）を
 全て継承する**。
 
+**ADR-0026 で生成範囲を縮小した。以下の 3 点を崩さないこと:**
+
+- **出力単位は project（experience ではない）**: `build_skeleton` が返すのはプロジェクト明細の
+  リスト。会社・事業内容・在籍期間・顧客は GitHub に存在しないため生成しない。
+  `career_summary` / `self_pr` は projects から独立した**候補**として返す。
+- **プレースホルダを生成しない**: 「個人開発」等の固定値生成は撤去済み。`role` / `phases` /
+  `team` は空で返し、人間が埋める。**再導入しないこと**（`test_build_skeleton_generates_no_placeholder_values`
+  が定数の再出現も含めて検知する）。PDF レンダリング時だけ `build_pdf_payload` が空の
+  experience / client で包む（会社名・顧客名も空のまま）。
+- **選定は「候補提示 + 人間の採用」**: `rank_repos` は候補を落とさず順位付けだけを行い、
+  `evaluate_default_selection` はデフォルト選択状態と理由コードだけを返す。採否は
+  `GET /resume-draft/candidates` → ユーザー選択 → `repo_full_names` 指定で決まる。
+  **機械が閾値で候補を除外してはいけない**（価値判断を代行して本命を落とさないため）。
+- **LLM は採用分のみ実行**: `run_resume_draft(model, source, repo_full_names=...)` が
+  `select_requested_repos` で採用分だけに絞り、出力スキーマの enum もそれで縛る。
+  コストが選択数に比例する（P1）。
 - **構造はルールベース、自然文だけ LLM**: repo→プロジェクト骨格・技術スタック・期間は
   `mapper.py`（純関数）が決定論で写す。LLM が生成するのは career_summary / self_pr /
-  各プロジェクト description のみ。
+  各プロジェクト description のみ。選定スコアの式・重み・閾値・topics 語彙の**正本は
+  `mapper.py` の定数**（ADR に数値を複製しない）。`mapper.py` は mutmut の
+  `only_mutate` 対象なので、変更時は TDD 必須（`.claude/rules/common/tdd.md`）。
 - **出力スキーマは動的**: `repo_full_name` を選定リポジトリの enum で縛る（捏造リポの構造排除）。
   チャットの「プロンプトは静的・スキーマも静的」と異なりリクエストごとに構築するが、
   プロンプト md（`agent_resume_draft.md`）自体は静的を維持する（動的情報は user メッセージへ）。

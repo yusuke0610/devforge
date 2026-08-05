@@ -1,165 +1,259 @@
-"""ドラフト骨格のルールベースマッピング（決定論・純関数 / ADR-0018）。
+"""ドラフト骨格のルールベースマッピング（決定論・純関数 / ADR-0018・0026）。
 
-GitHub 連携データ（DraftSource）から、``build_resume_pdf(dict)`` が受け取れる
-経歴書 payload の骨格を組み立てる。自然文（career_summary / self_pr /
-プロジェクト description）は空または repo description のままにし、
-draft_service が LLM 出力をマージする。
+GitHub 連携データ（DraftSource）から、**プロジェクト明細のリスト**を組み立てる
+（ADR-0026 決定 1 で出力単位を experience から project へ縮小した）。自然文
+（career_summary / self_pr / プロジェクト description）は空または repo description の
+ままにし、draft_service が LLM 出力をマージする。PDF レンダリングに渡すときだけ
+``build_pdf_payload`` で Resume 互換の形へ包む。
 
-DB・LLM・時刻に依存しない（``today`` は引数で受ける）。捏造につながる値
-（担当工程・チーム規模の水増し等）はここでは生成しない。
+リポジトリの順位付け（``rank_repos``）とデフォルト選択判定
+（``evaluate_default_selection``）もここに置く。どちらも決定論的な純関数で、
+判定は候補を落とさずデフォルト選択状態と理由表示にのみ影響させる（ADR-0026 決定 2・3）。
+
+DB・LLM・時刻に依存しない（``today`` は引数で受ける）。GitHub から得られない値
+（会社・役割・担当工程・チーム規模）はここでは生成しない。
 """
 
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
+from ....schemas.agent import RESUME_DRAFT_SELECTION_LIMIT
 from .context import DraftSource, RepoTechnology
 
-# ドラフトに載せるプロジェクト（リポジトリ）数の上限。LLM 出力の有界化と
-# 同期エンドポイントのレイテンシ上限（ADR-0018）のための定数
-PROJECT_LIMIT = 5
+# 1 回の生成で採用できるリポジトリ数の上限。ADR-0026 決定 2 で「LLM 出力の有界化」から
+# 「1 回に選べる上限」へ意味が変わり、正本は schemas/agent.py（リクエスト検証側）へ移した
+PROJECT_LIMIT = RESUME_DRAFT_SELECTION_LIMIT
 # 1 プロジェクトに載せる技術スタック数の上限（経歴書としての可読性）
 STACK_LIMIT_PER_PROJECT = 8
 # 最終 push がこの日数以内なら「参画中」とみなす
 _CURRENT_THRESHOLD_DAYS = 90
 
-# 個人開発プレースホルダ（GitHub からは職歴が得られないため / ADR-0018）
-PLACEHOLDER_COMPANY = "個人開発"
-PLACEHOLDER_BUSINESS_DESCRIPTION = "GitHub 上での個人開発活動"
-PLACEHOLDER_ROLE = "開発（個人開発）"
-
 # 技術スタックの表示順（言語 → フレームワーク → IaC）
 _CATEGORY_ORDER: dict[str, int] = {"language": 0, "framework": 1, "iac": 2}
 
+# --- 選定スコアの重み（ADR-0026 決定 3。数値の正本はここ。ADR には複製しない） ---
+# 実装量は「言語バイト合計」を 1 バイト = 1 点の基準にし、以下をバイト相当へ換算して加算する。
+# 直接依存 1 件 = 小さめのモジュール 1 つ分、エコシステム 1 つ = 複数言語構成の証跡、
+# IaC 宣言 = インフラまで手を入れた証跡、という重み付け。
+DEPENDENCY_VOLUME_WEIGHT = 500
+ECOSYSTEM_VOLUME_WEIGHT = 2_000
+INFRA_VOLUME_WEIGHT = 5_000
 
-NOISE_REASON_SHORT_LIVED = "継続期間が短い"
-NOISE_REASON_LEARNING_TOPIC = "学習用途の topics"
+# 継続期間がこの日数未満なら「デフォルト非選択」にする（候補からは落とさない）
+MIN_DURATION_DAYS = 30
 
-# これ未満の継続期間はデフォルト非選択にする。チュートリアル・写経は数日〜数週で
-# 終わるため、1 ヶ月継続を「作り込んだ」の下限とする（ADR-0026 決定 3）
-_SHORT_LIVED_THRESHOLD_DAYS = 30
+# デフォルト非選択の理由コード（web の理由バッジ表示に使う安定キー）
+REASON_SHORT_DURATION = "short_duration"
+REASON_LEARNING_TOPIC = "learning_topic"
 
-# 学習用途を示す topics（正規化後の完全一致で判定する）
-_LEARNING_TOPICS = frozenset(
+# 学習用途を示す topics 語彙。突合は _normalize_topics が作る語トークンとの完全一致
+LEARNING_TOPICS = frozenset(
     {
-        "tutorial", "practice", "sample", "study", "learning", "handson",
-        "example", "demo", "playground", "boilerplate",
+        "tutorial", "tutorials",
+        "practice", "practices",
+        "sample", "samples",
+        "study", "studying",
+        "learn", "learning",
+        "handson",
+        "exercise", "exercises",
+        "training",
+        "playground",
+        "sandbox",
+        "demo", "demos",
     }
 )
 
 
 @dataclass(frozen=True)
-class NoiseVerdict:
-    """デフォルト選択状態と、非選択にした理由（ADR-0026 決定 2）。
+class DefaultSelection:
+    """デフォルト選択状態と、非選択にした理由コード。
 
-    **機械は候補を落とさない**。本判定は UI のデフォルト選択状態と理由表示にのみ
-    影響させ、``select_repos`` の結果からは除外しない。価値判断は人間が行う。
+    ``reasons`` は空タプルなら選択（理由バッジ無し）。判定結果はデフォルト選択状態と
+    理由表示にのみ影響させ、**候補一覧からは決して落とさない**（ADR-0026 決定 2）。
     """
 
-    selected_by_default: bool
-    # frozen の不変性を実際に担保するため tuple にする（list だと要素を書き換えられる）
+    selected: bool
     reasons: tuple[str, ...]
 
 
-def _normalize_topic(topic: str) -> str:
-    """topics を比較用に正規化する（小文字化 + 区切り除去）。
+def evaluate_default_selection(
+    repo, *, min_duration_days: int = MIN_DURATION_DAYS
+) -> DefaultSelection:
+    """リポジトリをデフォルト選択にするかを判定し、非選択なら理由を返す。
 
-    ``hands-on`` / ``Hands_On`` / ``HANDSON`` を同一視する。部分一致は採らない
-    （``sample-api-server`` のような本命を誤判定するため）。
-    """
-    return topic.lower().replace("-", "").replace("_", "")
+    判定は「継続期間が閾値未満」「topics に学習用途語を含む」の 2 つ。理由は
+    web が理由バッジに使う安定キーで返し、順序は決定論（判定順）にする。
 
-
-def evaluate_noise(repo, *, threshold_days: int = _SHORT_LIVED_THRESHOLD_DAYS) -> NoiseVerdict:
-    """デフォルト非選択にすべきリポジトリかを判定する（ADR-0026 決定 2・3）。
-
-    ``threshold_days`` はテストからの注入用（``build_skeleton(today=...)`` と同じ流儀）。
-    理由は判定順に積むため、同じ入力からは常に同じ並びで返る。
+    Args:
+        repo: 候補リポジトリ（``AnalyzedRepoSummary``）。
+        min_duration_days: 継続期間の閾値（テスト注入用。省略時は既定値）。
     """
     reasons: list[str] = []
-    if _active_days(repo) < threshold_days:
-        reasons.append(NOISE_REASON_SHORT_LIVED)
-    if any(_normalize_topic(topic) in _LEARNING_TOPICS for topic in repo.topics):
-        reasons.append(NOISE_REASON_LEARNING_TOPIC)
-    return NoiseVerdict(selected_by_default=not reasons, reasons=tuple(reasons))
+    if duration_days(repo) < min_duration_days:
+        reasons.append(REASON_SHORT_DURATION)
+    if _normalize_topics(repo.topics) & LEARNING_TOPICS:
+        reasons.append(REASON_LEARNING_TOPIC)
+    return DefaultSelection(selected=not reasons, reasons=tuple(reasons))
 
 
-def _to_utc_datetime(iso_datetime: str) -> datetime:
-    """ISO 8601 日時文字列を UTC の aware datetime にする（不正なら ValueError）。
+def _normalize_topics(topics: list[str]) -> set[str]:
+    """topics を突合用の語トークン集合へ正規化する。
 
-    created_at と pushed_at でタイムゾーン表記が揺れても減算できるよう、必ず
-    aware に揃える。オフセット無し表記は GitHub API の慣習に合わせて UTC とみなす。
+    小文字化し、英数字以外を区切りとして分割した各語に加えて、区切りを除去した
+    連結形も入れる（``hands-on`` → ``hands`` / ``on`` / ``handson``）。
+    突合は**語の完全一致**で行うため、``resample`` が ``sample`` に誤爆しない。
     """
-    parsed = datetime.fromisoformat(iso_datetime)
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+    tokens: set[str] = set()
+    for topic in topics:
+        words = [word for word in re.split(r"[^a-z0-9]+", topic.lower()) if word]
+        tokens.update(words)
+        if len(words) > 1:
+            tokens.add("".join(words))
+    return tokens
 
 
-def _active_days(repo) -> int:
-    """継続期間（created_at → pushed_at の日数）。不正・空の日付は 0 とする。
+def duration_days(repo) -> int:
+    """リポジトリの継続期間（``pushed_at`` − ``created_at``）を日数で返す。
 
-    チュートリアル・写経は数日で終わり、実プロジェクトは数ヶ月〜数年継続するため、
-    単一シグナルとしての判別力が最も高い（ADR-0026 決定 3）。
+    日付が空・不正・逆転している場合は 0 日として扱う（捏造しない）。
 
     日付部分だけを切り出すと「23:59 作成 → 翌月 1 日 00:00 push」の 29 日 1 分が
     30 日と数えられ、閾値ちょうどで選択側に倒れてしまう。時刻まで含めて減算し、
     満たした日数のみを数える（端数は切り捨て）。
     """
-    try:
-        created = _to_utc_datetime(repo.created_at)
-        pushed = _to_utc_datetime(repo.pushed_at)
-    except ValueError:
+    created = _parse_datetime(repo.created_at)
+    pushed = _parse_datetime(repo.pushed_at)
+    if created is None or pushed is None:
         return 0
     return max((pushed - created).days, 0)
 
 
-def select_repos(source: DraftSource, limit: int = PROJECT_LIMIT) -> list:
-    """ドラフトに載せるリポジトリを決定論的に選定する（ADR-0026 決定 3）。
+def implementation_volume(repo) -> int:
+    """リポジトリの実装量スコアを返す（言語バイト合計を基準にした加点）。
 
-    第 1 キー: 継続期間の降順（作り込んで続けたリポを優先）
-    第 2 キー: 言語バイト合計の降順（実装量の多いリポを優先）
-    第 3 キー: 最終 push 日時の降順（直近性はタイブレークへ降格）
-    最終タイブレーク: full_name の辞書順（決定論の担保）
+    言語バイト合計を 1 バイト = 1 点の基準にし、依存の厚み（直接依存数・
+    エコシステム数）と IaC 宣言を「バイト相当」へ換算して足し込む。
+    重みの正本はこのモジュールの定数（ADR には数値を複製しない / ADR-0026 決定 3）。
+    """
+    return (
+        max(repo.language_bytes_total, 0)
+        + max(repo.direct_dependency_count, 0) * DEPENDENCY_VOLUME_WEIGHT
+        + max(repo.ecosystem_count, 0) * ECOSYSTEM_VOLUME_WEIGHT
+        + (INFRA_VOLUME_WEIGHT if repo.has_infra else 0)
+    )
 
-    継続期間と実装量は重み付けせず段階比較する。積や重み付き和は係数の恣意性が
-    入り、「継続 1000 日 × 1KB」と「10 日 × 100KB」が並んでしまう。
+
+def selection_score(repo) -> int:
+    """選定の主キーとなるスコア「継続期間 × 実装量」を返す（ADR-0026 決定 3）。
+
+    チュートリアル・写経は数日で終わり、実プロジェクトは数ヶ月〜数年継続するため、
+    継続期間は単一シグナルとしての判別力が最も高い。実装量を掛け合わせることで
+    「長く放置されているだけの空リポ」が上位に来ないようにする。
+
+    両項に 1 の下駄を履かせるのは、片方が 0 でももう一方で比較できるようにするため
+    （継続 0 日の中では実装量の多い方が、実装量 0 の中では長く続いた方が上に来る）。
+    **整数演算のみで計算する**。float の丸めで同点判定がブレると完全順序が崩れるため。
+    """
+    return (duration_days(repo) + 1) * (implementation_volume(repo) + 1)
+
+
+def rank_repos(source: DraftSource) -> list:
+    """候補リポジトリを決定論的に順位付けする（件数は減らさない / ADR-0026 決定 2）。
+
+    第 1 キー: 選定スコア（継続期間 × 実装量）の降順
+    タイブレーク 1: 最終 push 日時の降順（直近性は主キーから降格）
+    タイブレーク 2: full_name の辞書順昇順（完全順序の担保）
+
+    同一入力からは常に同一の並びを返す（入力順に依存しない）。
     """
     # 安定ソートを重ねて「タイブレーク昇順 → 主キー群降順」を実現する
     repos = sorted(source.repos, key=lambda r: r.full_name)
-    repos = sorted(
-        repos,
-        key=lambda r: (_active_days(r), r.language_bytes_total, r.pushed_at),
-        reverse=True,
-    )
-    return repos[:limit]
+    return sorted(repos, key=lambda r: (selection_score(r), r.pushed_at), reverse=True)
+
+
+class UnknownRepositoryError(ValueError):
+    """採用指定に連携データへ存在しないリポジトリが含まれる。
+
+    router で 422 にマッピングする（捏造リポの構造混入を入口で止める）。
+    """
+
+
+@dataclass(frozen=True)
+class RepoCandidate:
+    """候補一覧 1 件（シグナル + デフォルト選択状態 + 非選択理由）。
+
+    ユーザーが採否を判断するための材料をまとめたもの。``reasons`` が空でなければ
+    デフォルト非選択で、web は理由バッジを出す。ユーザーは常に判定を覆せる。
+    """
+
+    full_name: str
+    description: str
+    duration_days: int
+    implementation_volume: int
+    has_infra: bool
+    technology_stacks: list[dict]
+    default_selected: bool
+    reasons: tuple[str, ...]
+
+
+def build_candidates(source: DraftSource) -> list[RepoCandidate]:
+    """採否をユーザーに判断させるための候補一覧を組み立てる（ADR-0026 決定 2）。
+
+    入口フィルタ（``github_collector._passes_filter``）を通ったリポジトリを**全件**返す。
+    ノイズ判定は除外ではなくデフォルト非選択 + 理由で表現する。並びは ``rank_repos``。
+    """
+    candidates = []
+    for repo in rank_repos(source):
+        verdict = evaluate_default_selection(repo)
+        candidates.append(
+            RepoCandidate(
+                full_name=repo.full_name,
+                description=repo.description,
+                duration_days=duration_days(repo),
+                implementation_volume=implementation_volume(repo),
+                has_infra=repo.has_infra,
+                technology_stacks=[
+                    {"category": tech.category, "name": tech.name}
+                    for tech in _select_stacks(source.repo_technologies.get(repo.full_name, []))
+                ],
+                default_selected=verdict.selected,
+                reasons=verdict.reasons,
+            )
+        )
+    return candidates
+
+
+def select_requested_repos(source: DraftSource, requested: list[str]) -> list:
+    """ユーザーが採用した ``full_name`` を連携データのリポジトリへ解決する。
+
+    重複指定は 1 件に畳み、並びは要求順ではなく ``rank_repos`` の順位順に揃える
+    （同じ選択からは常に同じ並びの生成物が出る）。
+
+    Raises:
+        UnknownRepositoryError: 連携データに存在しない ``full_name`` が含まれる場合。
+    """
+    wanted = set(requested)
+    known = {repo.full_name for repo in source.repos}
+    unknown = sorted(wanted - known)
+    if unknown:
+        raise UnknownRepositoryError(f"連携データに存在しないリポジトリ: {', '.join(unknown)}")
+    return [repo for repo in rank_repos(source) if repo.full_name in wanted]
 
 
 def build_skeleton(
     source: DraftSource, selected: list, *, today: date | None = None
 ) -> dict:
-    """選定リポジトリから経歴書 payload の骨格を組み立てる。
+    """採用リポジトリからドラフト payload の骨格を組み立てる（ADR-0026 決定 1）。
+
+    出力単位は**プロジェクト明細のリスト**。会社・事業内容・在籍期間・顧客
+    （experience の情報）は GitHub に存在しないため生成しない。
+    ``career_summary`` / ``self_pr`` は projects から独立した候補として持ち、
+    draft_service が LLM 出力をマージする。
 
     ``today`` は「参画中」判定の基準日。テストからの注入用で、省略時は当日。
     """
     reference_date = today or date.today()
-
-    projects = [
-        _build_project(repo, source.repo_technologies.get(repo.full_name, []), reference_date)
-        for repo in selected
-    ]
-
-    start_months = [
-        _year_month(repo.created_at) for repo in selected if _year_month(repo.created_at)
-    ]
-    experience = {
-        "company": PLACEHOLDER_COMPANY,
-        "business_description": PLACEHOLDER_BUSINESS_DESCRIPTION,
-        "is_it_company": True,
-        "start_date": min(start_months) if start_months else "",
-        "end_date": "",
-        "is_current": True,
-        "clients": [{"name": "", "is_vacation": False, "projects": projects}],
-    }
 
     return {
         "full_name": source.username,
@@ -167,9 +261,43 @@ def build_skeleton(
         "github_url": f"https://github.com/{source.username}",
         "career_summary": "",
         "self_pr": "",
-        "experiences": [experience],
-        "qualifications": [],
+        "projects": [
+            _build_project(repo, source.repo_technologies.get(repo.full_name, []), reference_date)
+            for repo in selected
+        ],
     }
+
+
+def build_pdf_payload(draft: dict) -> dict:
+    """ドラフトを ``build_resume_pdf`` が受け取れる Resume 互換 payload へ包む。
+
+    PDF は「プロジェクト明細のプレビュー」なので、projects を**空の**
+    experience / client 1 件で包むだけにする。会社名・事業内容・顧客名は
+    プレースホルダを入れず空のままにする（ADR-0026 決定 1 の徹底）。
+    projects が 0 件なら空箱すら作らない。
+
+    元の ``draft`` は書き換えない（同じ payload を PDF と JSON 注入の双方が使うため）。
+    """
+    projects = draft.get("projects") or []
+    experiences = (
+        [
+            {
+                "company": "",
+                "business_description": "",
+                "is_it_company": True,
+                "start_date": "",
+                "end_date": "",
+                "is_current": False,
+                "clients": [{"name": "", "is_vacation": False, "projects": projects}],
+            }
+        ]
+        if projects
+        else []
+    )
+    payload = {key: value for key, value in draft.items() if key != "projects"}
+    payload["experiences"] = experiences
+    payload["qualifications"] = []
+    return payload
 
 
 def _build_project(repo, technologies: list[RepoTechnology], reference_date: date) -> dict:
@@ -192,10 +320,11 @@ def _build_project(repo, technologies: list[RepoTechnology], reference_date: dat
         )
     return {
         "name": repo.full_name.split("/", 1)[-1],
-        "role": PLACEHOLDER_ROLE,
+        # role / phases / team は GitHub から得られないため生成しない（人間が埋める）
+        "role": "",
         "description": repo.description,
         "periods": periods,
-        "team": {"total": "1", "members": [{"role": "開発", "count": 1}]},
+        "team": {"total": "", "members": []},
         "phases": [],
         "technology_stacks": [
             {"category": tech.category, "name": tech.name}
@@ -223,8 +352,34 @@ def _year_month(iso_datetime: str) -> str:
 
 def _is_recently_pushed(pushed_at: str, reference_date: date) -> bool:
     """最終 push が基準日から閾値日数以内かどうか。"""
-    try:
-        pushed = date.fromisoformat(pushed_at[:10])
-    except ValueError:
+    pushed = _parse_date(pushed_at)
+    if pushed is None:
         return False
     return (reference_date - pushed).days <= _CURRENT_THRESHOLD_DAYS
+
+
+def _parse_date(iso_datetime: str) -> date | None:
+    """ISO 8601 日時文字列の日付部分を取り出す（空・不正は None）。
+
+    「参画中」判定は基準日（``date``）との比較なので日粒度でよい。継続期間の算出には
+    時刻成分が要るため ``_parse_datetime`` を使うこと。
+    """
+    try:
+        return date.fromisoformat(iso_datetime[:10])
+    except ValueError:
+        return None
+
+
+def _parse_datetime(iso_datetime: str) -> datetime | None:
+    """ISO 8601 日時文字列を UTC の aware datetime にする（空・不正は None）。
+
+    created_at と pushed_at でタイムゾーン表記が揺れても減算できるよう、必ず
+    aware に揃える。オフセット無し表記は GitHub API の慣習に合わせて UTC とみなす。
+    """
+    try:
+        parsed = datetime.fromisoformat(iso_datetime)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)

@@ -11,7 +11,7 @@ import { isInProgressStatus } from "../utils/taskStatus";
 import { useTaskPolling } from "./useTaskPolling";
 
 /**
- * 経歴書ドラフト PDF の生成とプレビュー状態を管理するフック（ADR-0018 / 非同期化）。
+ * 経歴書ドラフト PDF の生成とプレビュー状態を管理するフック（ADR-0018 / 0026）。
  *
  * 生成はサーバー側のバックグラウンドタスク（LLM 1 コール → PDF 生成）で、enqueue（202）→
  * ステータスポーリング → 完了後に PDF を取得してプレビュー、という流れ。画面を離れても
@@ -88,13 +88,18 @@ export function useResumeDraftPdf() {
     };
   }, [startPolling]);
 
-  /** ドラフト生成を開始する（enqueue → ポーリング → 完了で自動プレビュー）。 */
-  const generate = async () => {
+  /**
+   * ドラフト生成を開始する（enqueue → ポーリング → 完了で自動プレビュー）。
+   *
+   * 採用リポジトリはユーザーが候補一覧から選んだもの（ADR-0026 決定 2）。機械は
+   * 対象を確定させないため、呼び出し側が必ず選択結果を渡す。
+   */
+  const generate = async (repoFullNames: string[]) => {
     if (generating) return;
     setGenerating(true);
     setError(null);
     try {
-      await startResumeDraft();
+      await startResumeDraft(repoFullNames);
       startPolling();
     } catch (e) {
       // 409（連携データ不足）等は backend の message / action をそのまま表示する

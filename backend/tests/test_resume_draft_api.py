@@ -12,9 +12,10 @@
 from datetime import date
 
 from app.models import GitHubLinkCache, ResumeDraftCache, User
+from app.schemas.agent import RESUME_DRAFT_SELECTION_LIMIT
 from app.schemas.github_link import AnalyzedRepoSummary, GitHubLinkResponse
 from app.services.agent.resume_draft.context import DraftSource, RepoTechnology
-from app.services.agent.resume_draft.mapper import build_skeleton, select_repos
+from app.services.agent.resume_draft.mapper import PROJECT_LIMIT, build_skeleton, rank_repos
 from fastapi.testclient import TestClient
 
 from conftest import auth_header
@@ -78,11 +79,96 @@ def _draft_payload() -> dict:
             "octo/app": [RepoTechnology(category="language", name="Python", confidence=0.9, language_bytes=1000)]
         },
     )
-    selected = select_repos(source)
+    selected = rank_repos(source)[:PROJECT_LIMIT]
     payload = build_skeleton(source, selected, today=date(2026, 6, 15))
     payload["career_summary"] = "生成された職務要約。"
     payload["self_pr"] = "生成された自己PR。"
     return payload
+
+
+def _run_body(*, model: str = "haiku", repos: list[str] | None = None) -> dict:
+    """生成リクエストの body を組み立てる（採用リポジトリ指定は必須 / ADR-0026 決定 2）。"""
+    return {"model": model, "repo_full_names": repos if repos is not None else ["octo/app"]}
+
+
+# ── candidates（GET /candidates）─────────────────────────────────────────
+
+
+def test_resume_draft_candidates_returns_all_repositories(client: TestClient) -> None:
+    """連携済みなら候補が全件返り、シグナルと選択状態を持つ。"""
+    headers = auth_header(client, github_id=1)
+    _seed_link_data(client._db_session)
+
+    res = client.get("/api/agent/resume-draft/candidates", headers=headers)
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["selection_limit"] == RESUME_DRAFT_SELECTION_LIMIT
+    (candidate,) = body["candidates"]
+    assert candidate["full_name"] == "octo/app"
+    assert candidate["description"] == "タスク管理アプリ"
+    # 継続期間 2 年超 + 学習用途 topics なし → デフォルト採用
+    assert candidate["duration_days"] > 0
+    assert candidate["implementation_volume"] > 0
+    assert candidate["has_infra"] is False
+    assert candidate["technology_stacks"] == [{"category": "language", "name": "Python"}]
+    assert candidate["default_selected"] is True
+    assert candidate["reasons"] == []
+
+
+def test_resume_draft_candidates_keeps_noise_with_reasons(client: TestClient) -> None:
+    """ノイズ判定されたリポジトリも候補から落とさず、理由付きで非選択にする。"""
+    headers = auth_header(client, github_id=1)
+    user = client._db_session.query(User).filter_by(username="testuser").one()
+    client._db_session.add(
+        GitHubLinkCache(
+            user_id=user.id,
+            status="completed",
+            result={
+                "username": "testuser",
+                "repos_analyzed": 1,
+                "unique_skills": 0,
+                "analyzed_at": "2026-06-01T00:00:00",
+                "languages": {},
+                "repos": [
+                    {
+                        "full_name": "octo/tutorial",
+                        "description": "写経",
+                        "created_at": "2026-05-30T00:00:00Z",
+                        "pushed_at": "2026-06-01T00:00:00Z",
+                        "topics": ["tutorial"],
+                        "language_bytes_total": 100,
+                        "direct_dependency_count": 0,
+                        "ecosystem_count": 0,
+                        "has_infra": False,
+                    }
+                ],
+            },
+        )
+    )
+    client._db_session.commit()
+
+    res = client.get("/api/agent/resume-draft/candidates", headers=headers)
+
+    assert res.status_code == 200
+    (candidate,) = res.json()["candidates"]
+    assert candidate["full_name"] == "octo/tutorial"
+    assert candidate["default_selected"] is False
+    assert candidate["reasons"] == ["short_duration", "learning_topic"]
+
+
+def test_resume_draft_candidates_requires_github_login(client: TestClient) -> None:
+    """GitHub 未連携ユーザー（github_id 無し）は 403。"""
+    headers = auth_header(client)
+    res = client.get("/api/agent/resume-draft/candidates", headers=headers)
+    assert res.status_code == 403
+
+
+def test_resume_draft_candidates_conflict_without_link_cache(client: TestClient) -> None:
+    """連携未実行は 409（GitHub 連携の実行を促す）。"""
+    headers = auth_header(client, github_id=1)
+    res = client.get("/api/agent/resume-draft/candidates", headers=headers)
+    assert res.status_code == 409
 
 
 # ── enqueue（POST /run）──────────────────────────────────────────────────
@@ -93,7 +179,7 @@ def test_resume_draft_run_enqueues(client: TestClient) -> None:
     headers = auth_header(client, github_id=1)
     _seed_link_data(client._db_session)
 
-    res = client.post("/api/agent/resume-draft/run", json={"model": "haiku"}, headers=headers)
+    res = client.post("/api/agent/resume-draft/run", json=_run_body(), headers=headers)
 
     assert res.status_code == 202
     assert res.json()["status"] == "pending"
@@ -106,14 +192,14 @@ def test_resume_draft_run_enqueues(client: TestClient) -> None:
 def test_resume_draft_run_requires_github_login(client: TestClient) -> None:
     """GitHub 未連携ユーザー（github_id 無し）は 403。"""
     headers = auth_header(client)
-    res = client.post("/api/agent/resume-draft/run", json={"model": "haiku"}, headers=headers)
+    res = client.post("/api/agent/resume-draft/run", json=_run_body(), headers=headers)
     assert res.status_code == 403
 
 
 def test_resume_draft_run_conflict_without_link_cache(client: TestClient) -> None:
     """連携未実行は 409（GitHub 連携の実行を促す）。"""
     headers = auth_header(client, github_id=1)
-    res = client.post("/api/agent/resume-draft/run", json={"model": "haiku"}, headers=headers)
+    res = client.post("/api/agent/resume-draft/run", json=_run_body(), headers=headers)
     assert res.status_code == 409
 
 
@@ -121,7 +207,7 @@ def test_resume_draft_run_conflict_with_legacy_cache(client: TestClient) -> None
     """repos キーを持たない旧形式キャッシュは 409（再連携を促す）。"""
     headers = auth_header(client, github_id=1)
     _seed_link_data(client._db_session, legacy=True)
-    res = client.post("/api/agent/resume-draft/run", json={"model": "haiku"}, headers=headers)
+    res = client.post("/api/agent/resume-draft/run", json=_run_body(), headers=headers)
     assert res.status_code == 409
 
 
@@ -145,16 +231,49 @@ def test_resume_draft_run_conflict_with_zero_repositories(client: TestClient) ->
     )
     client._db_session.commit()
 
-    res = client.post("/api/agent/resume-draft/run", json={"model": "haiku"}, headers=headers)
+    res = client.post("/api/agent/resume-draft/run", json=_run_body(), headers=headers)
     assert res.status_code == 409
     assert "公開リポジトリ" in res.json()["message"]
+
+
+def test_resume_draft_run_rejects_empty_selection(client: TestClient) -> None:
+    """採用リポジトリ 0 件はスキーマ検証で 422（何も選ばずには生成しない）。"""
+    headers = auth_header(client, github_id=1)
+    _seed_link_data(client._db_session)
+    res = client.post(
+        "/api/agent/resume-draft/run", json=_run_body(repos=[]), headers=headers
+    )
+    assert res.status_code == 422
+
+
+def test_resume_draft_run_rejects_selection_over_limit(client: TestClient) -> None:
+    """上限（RESUME_DRAFT_SELECTION_LIMIT）を超える採用指定は 422。"""
+    headers = auth_header(client, github_id=1)
+    _seed_link_data(client._db_session)
+    over_limit = [f"octo/repo-{i}" for i in range(RESUME_DRAFT_SELECTION_LIMIT + 1)]
+    res = client.post(
+        "/api/agent/resume-draft/run", json=_run_body(repos=over_limit), headers=headers
+    )
+    assert res.status_code == 422
+
+
+def test_resume_draft_run_rejects_unknown_repository(client: TestClient) -> None:
+    """連携データに無いリポジトリの指定は 422（捏造リポの混入を入口で止める）。"""
+    headers = auth_header(client, github_id=1)
+    _seed_link_data(client._db_session)
+    res = client.post(
+        "/api/agent/resume-draft/run", json=_run_body(repos=["octo/ghost"]), headers=headers
+    )
+    assert res.status_code == 422
+    # キャッシュを作らずに弾く（生成タスクは起きない）
+    assert client._db_session.query(ResumeDraftCache).count() == 0
 
 
 def test_resume_draft_run_invalid_model_rejected(client: TestClient) -> None:
     """未知のモデルエイリアスはスキーマ検証で 422。"""
     headers = auth_header(client, github_id=1)
     res = client.post(
-        "/api/agent/resume-draft/run", json={"model": "gpt-999"}, headers=headers
+        "/api/agent/resume-draft/run", json=_run_body(model="gpt-999"), headers=headers
     )
     assert res.status_code == 422
 
@@ -244,9 +363,13 @@ def test_resume_draft_result_success(client: TestClient) -> None:
     assert body["full_name"] == "testuser"
     assert body["career_summary"] == "生成された職務要約。"
     assert body["self_pr"] == "生成された自己PR。"
-    # experiences が深い構造（clients → projects）を保って返る
-    assert len(body["experiences"]) == 1
-    assert body["experiences"][0]["clients"][0]["projects"][0]["name"] == "app"
+    # 出力単位は project 明細のリスト（ADR-0026 決定 1）。experience は返さない
+    assert "experiences" not in body
+    assert [p["name"] for p in body["projects"]] == ["app"]
+    # GitHub から得られない値は空のまま（プレースホルダを生成しない）
+    assert body["projects"][0]["role"] == ""
+    assert body["projects"][0]["phases"] == []
+    assert body["projects"][0]["team"] == {"total": "", "members": []}
 
 
 def test_resume_draft_result_not_ready(client: TestClient) -> None:

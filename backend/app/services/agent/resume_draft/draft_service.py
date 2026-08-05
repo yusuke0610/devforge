@@ -23,7 +23,7 @@ from ..llm.factory import get_llm_client
 from ..llm.retry import generate_with_retry
 from ..model_catalog import get_model_spec
 from .context import DraftSource
-from .mapper import build_skeleton, select_repos
+from .mapper import build_skeleton, select_requested_repos
 from .output_schema import (
     MAX_CAREER_SUMMARY_LENGTH,
     MAX_PROJECT_DESCRIPTION_LENGTH,
@@ -135,7 +135,7 @@ def _merge_output(skeleton: dict, selected: list, output: _DraftOutput) -> dict:
     skeleton["self_pr"] = output.self_pr
 
     by_name = {item.repo_full_name: item.description for item in output.project_descriptions}
-    projects = skeleton["experiences"][0]["clients"][0]["projects"]
+    projects = skeleton["projects"]
     for repo, project in zip(selected, projects):
         description = by_name.get(repo.full_name)
         if description is None:
@@ -146,20 +146,29 @@ def _merge_output(skeleton: dict, selected: list, output: _DraftOutput) -> dict:
 
 
 async def run_resume_draft(
-    model: AgentModelAlias, source: DraftSource, *, today: date | None = None
+    model: AgentModelAlias,
+    source: DraftSource,
+    *,
+    repo_full_names: list[str],
+    today: date | None = None,
 ) -> ResumeDraftResult:
     """経歴書ドラフト payload を生成し、観測用の実トークン使用量とともに返す。
+
+    LLM の説明文生成は**ユーザーが採用したリポジトリのみ**を対象にする
+    （コストが選択数に比例する / ADR-0026 決定 2・P1）。
 
     Args:
         model: モデルエイリアス（AgentModelAlias。router のスキーマで検証済み）。
         source: context.build_draft_source が組み立てた連携データ。
+        repo_full_names: ユーザーが採用したリポジトリの full_name。
         today: 「参画中」判定の基準日（テスト注入用。省略時は当日）。
 
     Raises:
+        UnknownRepositoryError: 採用指定に連携データ外のリポジトリが含まれる。
         AgentResponseParseError: LLM 応答が不正（リトライ後も失敗）。
         LLMError: LLM 呼び出しの失敗。
     """
-    selected = select_repos(source)
+    selected = select_requested_repos(source, repo_full_names)
     skeleton = build_skeleton(source, selected, today=today)
     allowed_names = [repo.full_name for repo in selected]
 

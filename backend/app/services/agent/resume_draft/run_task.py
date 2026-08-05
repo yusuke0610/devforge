@@ -29,6 +29,7 @@ from ..chat_service import AgentResponseParseError
 from ..llm.base import LLMError
 from .context import ResumeDraftSourceUnavailableError, build_draft_source
 from .draft_service import run_resume_draft
+from .mapper import UnknownRepositoryError, build_pdf_payload
 
 logger = get_logger(__name__)
 
@@ -50,7 +51,10 @@ async def run_resume_draft_task(session_factory: SessionFactory, payload: dict) 
     """
     user_id = payload.get("user_id")
     model = payload.get("model")
-    if not user_id or not model:
+    # 採用リポジトリ（ADR-0026 決定 2）。enqueue 側で 1 件以上を検証済みだが、
+    # 欠落した payload での実行は「機械が勝手に選ぶ」状態に戻るため二重で弾く
+    repo_full_names = payload.get("repo_full_names")
+    if not user_id or not model or not repo_full_names:
         message = "経歴書ドラフトタスクのペイロードが不正です"
         logger.error(message, extra={"payload_keys": list(payload.keys())})
         raise NonRetryableError(f"{message} (payload_keys={list(payload.keys())})")
@@ -89,7 +93,12 @@ async def run_resume_draft_task(session_factory: SessionFactory, payload: dict) 
 
     # ── フェーズB: LLM 生成 + PDF レンダリング検証（DB セッション無し）──────
     try:
-        result = await run_resume_draft(model, source)
+        result = await run_resume_draft(model, source, repo_full_names=repo_full_names)
+    except UnknownRepositoryError as exc:
+        # enqueue 後に連携をやり直して採用リポジトリが消えたケース。再連携が要るため
+        # リトライでは回復しない
+        logger.info("採用リポジトリが連携データに存在しない: %s", exc)
+        raise NonRetryableError(get_error("agent.draft_unknown_repositories")) from exc
     except LLMError as exc:
         raise NonRetryableError(get_error("agent.llm_failed")) from exc
     except AgentResponseParseError as exc:
@@ -97,8 +106,10 @@ async def run_resume_draft_task(session_factory: SessionFactory, payload: dict) 
 
     # PDF レンダリングを検証する。失敗した場合は課金せず dead_letter にする
     # （稀な実装/環境エラーでユーザーに課金しない不変条件 / 同期版 router と同一）。
+    # 保存する result.payload はプロジェクト明細のリスト（ADR-0026 決定 1）なので、
+    # レンダリング時だけ Resume 互換の形へ包む。
     try:
-        build_resume_pdf(result.payload)
+        build_resume_pdf(build_pdf_payload(result.payload))
     except Exception as exc:
         logger.error("経歴書ドラフト PDF のレンダリングに失敗", exc_info=True)
         raise NonRetryableError(get_error("agent.draft_pdf_failed")) from exc

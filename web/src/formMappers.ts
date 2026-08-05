@@ -7,14 +7,18 @@ import {
   blankResumeQualification,
 } from "./constants";
 import type { CareerFormState } from "./payloadBuilders";
-import type { ResumeDraftResultResponse, ResumeResponse } from "./api/types";
+import type { ResumeResponse } from "./api/types";
 
 /**
- * フォーム注入の入力型（#524 汎用化 / ADR-0025）。`mapCareerResumeToForm` は保存済み経歴書
- * （ResumeResponse）と、ドラフト生成 payload（ResumeDraftResultResponse）の両方を受け取る。
- * マッパーは created_at / updated_at を参照しないため、timestamps を除いた共通形で受ける。
+ * フォーム注入の入力型（#524 汎用化 / ADR-0025）。`mapCareerResumeToForm` が受け取るのは
+ * 保存済み経歴書（ResumeResponse）だが、マッパーは id / created_at / updated_at を
+ * 参照しないため、保存前（未採番）の payload も渡せるようこれらを除いた形で受ける。
+ *
+ * ADR-0026 でドラフト生成 payload はプロジェクト明細のリストへ縮小され、経歴書全体の
+ * 「置換」ではなく既存 experience への「追加」に変わったため、この union から外した
+ * （注入は `utils/resumeImport.ts` の `appendResumeDraftProjects` が担う）。
  */
-export type ResumeFormSource = Omit<ResumeResponse, "created_at" | "updated_at"> | ResumeDraftResultResponse;
+export type ResumeFormSource = Omit<ResumeResponse, "id" | "created_at" | "updated_at">;
 
 export function createInitialCareerForm(): CareerFormState {
   return {

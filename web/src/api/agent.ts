@@ -5,6 +5,7 @@ import { PATHS } from "./paths";
 import type {
   AgentChatRequest,
   AgentChatResponse,
+  ResumeDraftCandidatesResponse,
   ResumeDraftResultResponse,
   ResumeImportResponse,
   TaskAcceptedResponse,
@@ -23,15 +24,25 @@ export function postAgentChat(payload: AgentChatRequest): Promise<AgentChatRespo
 }
 
 /**
- * GitHub 連携データからの経歴書ドラフト生成をバックグラウンドで開始する（202 非同期 / ADR-0018）。
+ * ドラフトに載せる候補リポジトリの一覧を取得する（ADR-0026 決定 2）。
+ * 分析済みリポジトリが全件返り、シグナル・デフォルト選択状態・非選択理由を含む。
+ * 未連携・旧形式キャッシュの場合は ApiError（409）を送出する。
+ */
+export function getResumeDraftCandidates(): Promise<ResumeDraftCandidatesResponse> {
+  return request<ResumeDraftCandidatesResponse>(PATHS.agent.resumeDraftCandidates);
+}
+
+/**
+ * 採用リポジトリからの経歴書ドラフト生成をバックグラウンドで開始する（202 非同期 / ADR-0018・0026）。
+ * 採用するリポジトリはユーザーが {@link getResumeDraftCandidates} の候補から選ぶ（機械は確定させない）。
  * 生成物は resume_draft_cache に保存され、完了後に {@link fetchResumeDraftPdfBlobUrl} で取得する。
- * 失敗時は ApiError（409 = 連携データ不足）を送出する。
+ * 失敗時は ApiError（409 = 連携データ不足 / 422 = 選択 0 件・上限超過・未知リポジトリ）を送出する。
  * モデルは Claude Haiku 固定（ADR-0023 でマルチプロバイダ・モデル選択を撤去）。
  */
-export function startResumeDraft(): Promise<TaskAcceptedResponse> {
+export function startResumeDraft(repoFullNames: string[]): Promise<TaskAcceptedResponse> {
   return request<TaskAcceptedResponse>(PATHS.agent.resumeDraftRun, {
     method: "POST",
-    body: JSON.stringify({ model: "haiku" }),
+    body: JSON.stringify({ model: "haiku", repo_full_names: repoFullNames }),
   });
 }
 

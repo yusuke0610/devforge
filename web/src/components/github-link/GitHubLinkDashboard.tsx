@@ -17,15 +17,18 @@ import {
   FALLBACK_MESSAGES,
   GITHUB_LINK_MESSAGES,
   LOADING_MESSAGES,
+  RESUME_DRAFT_CANDIDATE_MESSAGES,
   RESUME_DRAFT_MESSAGES,
   UI_MESSAGES,
   yearLabel,
 } from "../../constants/messages";
 import { useAsyncTaskPage } from "../../hooks/useAsyncTaskPage";
+import { useResumeDraftCandidates } from "../../hooks/useResumeDraftCandidates";
 import { useResumeDraftPdf } from "../../hooks/useResumeDraftPdf";
 import { PdfPreviewModal } from "../forms/PdfPreviewModal";
 import { ContributionHeatmap } from "./ContributionHeatmap";
 import { LanguageBar } from "./LanguageBar";
+import { ResumeDraftCandidateList } from "./ResumeDraftCandidateList";
 import { SkillDisplaySection } from "./SkillDisplaySection";
 import shared from "../../styles/shared.module.css";
 import styles from "./GitHubLinkDashboard.module.css";
@@ -67,6 +70,12 @@ export function GitHubLinkDashboard() {
   // 経歴書ドラフト PDF 生成（ADR-0018）。モデルは Claude Haiku 固定（ADR-0023）
   const draft = useResumeDraftPdf();
   useAppErrorToast(draft.error);
+
+  // ドラフトに載せるリポジトリ候補（ADR-0026 決定 2）。採否はユーザーが決める。
+  // 連携結果がまだ無い間は取得しない（必ず 409 になる要求でエラーを出さない）。
+  // 分析時刻を鍵にして、再連携で結果が入れ替わったら候補も取り直す
+  const candidates = useResumeDraftCandidates(result?.analyzed_at ?? null);
+  useAppErrorToast(candidates.error);
 
   // ドラフトを職務経歴書フォームへ流し込む（ADR-0025 / #525）。payload を取得して
   // /career へ router state で渡し、CareerResumeForm 側が注入（上書き確認）する。DB 非更新。
@@ -194,15 +203,33 @@ export function GitHubLinkDashboard() {
             {/* スキル一覧 + 表示名の human-in-the-loop 確定（ADR-0016 D11） */}
             <SkillDisplaySection />
 
-            {/* 経歴書ドラフト PDF 生成（ADR-0018） */}
+            {/* 経歴書ドラフト PDF 生成（ADR-0018 / 0026） */}
             <div className={styles.section}>
               <h2>{RESUME_DRAFT_MESSAGES.HEADING}</h2>
               <p className={styles.summaryText}>{RESUME_DRAFT_MESSAGES.HINT}</p>
+
+              {/* 候補から採用するリポジトリを選ぶ（機械は確定させない / ADR-0026 決定 2） */}
+              <h3>{RESUME_DRAFT_CANDIDATE_MESSAGES.HEADING}</h3>
+              <p className={styles.summaryText}>{RESUME_DRAFT_CANDIDATE_MESSAGES.HINT}</p>
+              <ResumeDraftCandidateList
+                candidates={candidates.candidates}
+                selected={candidates.selected}
+                selectionLimit={candidates.selectionLimit}
+                loading={candidates.loading}
+                disabled={draft.generating}
+                onToggle={candidates.toggle}
+              />
+              {!candidates.loading && candidates.selected.length === 0 && (
+                <p className={styles.summaryText}>
+                  {RESUME_DRAFT_CANDIDATE_MESSAGES.NONE_SELECTED}
+                </p>
+              )}
+
               <button
                 type="button"
                 className={styles.downloadButton}
-                onClick={() => void draft.generate()}
-                disabled={draft.generating}
+                onClick={() => void draft.generate(candidates.selected)}
+                disabled={draft.generating || candidates.selected.length === 0}
               >
                 {draft.generating ? (
                   <InlineSpinner label={RESUME_DRAFT_MESSAGES.GENERATING} />

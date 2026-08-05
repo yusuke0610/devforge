@@ -53,6 +53,10 @@ def _draft_response() -> str:
     )
 
 
+# 採用リポジトリ（ADR-0026 決定 2）。タスク payload で必須になった
+_SELECTED = ["octo/app"]
+
+
 def _seed(db: Session, username: str = "draft-user", *, repos: bool = True):
     """ユーザー + 連携キャッシュ（+ スキル証跡）+ ドラフトキャッシュ(pending) を投入する。"""
     user = UserRepository(db).create(username, email=f"{username}@test.com")
@@ -103,7 +107,12 @@ def test_task_completes(db_session, session_factory, monkeypatch):
     user = _seed(db_session)
     monkeypatch.setattr(draft_service, "get_llm_client", lambda provider: _FakeLLM(_draft_response()))
 
-    _run(run_resume_draft_task(session_factory, {"user_id": user.id, "model": "haiku"}))
+    _run(
+        run_resume_draft_task(
+            session_factory,
+            {"user_id": user.id, "model": "haiku", "repo_full_names": _SELECTED},
+        )
+    )
 
     db_session.expire_all()
     draft = db_session.query(ResumeDraftCache).filter_by(user_id=user.id).one()
@@ -121,7 +130,12 @@ def test_task_parse_failure_raises(db_session, session_factory, monkeypatch):
     )
 
     with pytest.raises(NonRetryableError):
-        _run(run_resume_draft_task(session_factory, {"user_id": user.id, "model": "haiku"}))
+        _run(
+        run_resume_draft_task(
+            session_factory,
+            {"user_id": user.id, "model": "haiku", "repo_full_names": _SELECTED},
+        )
+    )
 
     db_session.expire_all()
     draft = db_session.query(ResumeDraftCache).filter_by(user_id=user.id).one()
@@ -140,7 +154,12 @@ def test_task_pdf_failure_raises(db_session, session_factory, monkeypatch):
     monkeypatch.setattr(run_task, "build_resume_pdf", _fail_pdf)
 
     with pytest.raises(NonRetryableError):
-        _run(run_resume_draft_task(session_factory, {"user_id": user.id, "model": "haiku"}))
+        _run(
+        run_resume_draft_task(
+            session_factory,
+            {"user_id": user.id, "model": "haiku", "repo_full_names": _SELECTED},
+        )
+    )
 
     db_session.expire_all()
     draft = db_session.query(ResumeDraftCache).filter_by(user_id=user.id).one()
@@ -152,7 +171,12 @@ def test_task_source_unavailable_raises_non_retryable(db_session, session_factor
     """分析対象リポジトリ 0 件は回復しないため NonRetryableError。"""
     user = _seed(db_session, "no-repos-user", repos=False)
     with pytest.raises(NonRetryableError):
-        _run(run_resume_draft_task(session_factory, {"user_id": user.id, "model": "haiku"}))
+        _run(
+        run_resume_draft_task(
+            session_factory,
+            {"user_id": user.id, "model": "haiku", "repo_full_names": _SELECTED},
+        )
+    )
 
 
 def test_task_skips_when_already_completed(db_session, session_factory, monkeypatch):
@@ -172,7 +196,12 @@ def test_task_skips_when_already_completed(db_session, session_factory, monkeypa
 
     monkeypatch.setattr(draft_service, "get_llm_client", _fail_llm)
 
-    _run(run_resume_draft_task(session_factory, {"user_id": user.id, "model": "haiku"}))
+    _run(
+        run_resume_draft_task(
+            session_factory,
+            {"user_id": user.id, "model": "haiku", "repo_full_names": _SELECTED},
+        )
+    )
 
     db_session.expire_all()
     # 既存の completed 結果は上書きされない（LLM 再実行なし）。
@@ -181,11 +210,34 @@ def test_task_skips_when_already_completed(db_session, session_factory, monkeypa
     assert draft.result["career_summary"] == "既存の結果。"
 
 
+def test_task_missing_repo_selection_raises_non_retryable(db_session, session_factory):
+    """採用リポジトリが payload に無い場合は NonRetryableError（機械が勝手に選ばない）。"""
+    user = _seed(db_session)
+    with pytest.raises(NonRetryableError):
+        _run(run_resume_draft_task(session_factory, {"user_id": user.id, "model": "haiku"}))
+
+
+def test_task_unknown_repo_selection_raises_non_retryable(db_session, session_factory):
+    """enqueue 後に連携が変わり採用リポジトリが消えた場合は NonRetryableError。"""
+    user = _seed(db_session)
+    with pytest.raises(NonRetryableError):
+        _run(
+            run_resume_draft_task(
+                session_factory,
+                {"user_id": user.id, "model": "haiku", "repo_full_names": ["octo/ghost"]},
+            )
+        )
+
+
 def test_task_missing_cache_raises_non_retryable(session_factory):
     """ドラフトキャッシュが無い場合は NonRetryableError（worker が dead_letter 化）。"""
     with pytest.raises(NonRetryableError):
         _run(
             run_resume_draft_task(
-                session_factory, {"user_id": "nonexistent-user-id", "model": "haiku"}
+                session_factory, {
+                    "user_id": "nonexistent-user-id",
+                    "model": "haiku",
+                    "repo_full_names": _SELECTED,
+                }
             )
         )

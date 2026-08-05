@@ -61,11 +61,12 @@ backend/app/
 │   │   │   ├── factory.py       # get_llm_client(provider) で分岐（Anthropic + Ollama の 2 択）
 │   │   │   ├── anthropic_client.py # Claude Haiku（本番 / Vertex AI(ADC)）
 │   │   │   └── ollama_client.py # ローカル開発用（LLM_LOCAL_OLLAMA）
-│   │   └── resume_draft/        # GitHub 連携データ → 経歴書ドラフト生成（ADR-0018）
+│   │   └── resume_draft/        # GitHub 連携データ → プロジェクト明細ドラフト（ADR-0018・0026）
 │   │       ├── context.py       # DB 読み取り専用（連携キャッシュ + スキル証跡 → DraftSource）
-│   │       ├── mapper.py        # ルールベース純関数（骨格 payload 構築）
+│   │       ├── mapper.py        # ルールベース純関数（順位付け・候補提示・採用解決・骨格構築）
 │   │       ├── output_schema.py # ドラフト用 LLM 構造化出力スキーマ
-│   │       └── draft_service.py # LLM 1 コール → パース → 骨格へ自然文マージ
+│   │       ├── draft_service.py # 採用分のみ LLM 1 コール → パース → 骨格へ自然文マージ
+│   │       └── run_task.py      # 非同期タスク本体（DB 書き込みはここ / ADR-0020）
 │   ├── intelligence/            # GitHub 連携パイプライン（決定論的・ルールベース）
 │   │   ├── pipeline.py
 │   │   ├── github_collector.py
@@ -80,7 +81,7 @@ backend/app/
 │   │       ├── manifests/       # エコシステム別 manifest パーサ（declare / plugin 型）
 │   │       └── imports/         # エコシステム別 import スキャナ（verify / plugin 型）
 │   ├── tasks/                   # 非同期タスク基盤（Cloud Tasks / ローカル）
-│   │   ├── base.py              # TaskType 定義（現状 GITHUB_LINK のみ）
+│   │   ├── base.py              # TaskType 定義（GITHUB_LINK / RESUME_DRAFT）
 │   │   ├── exceptions.py        # RetryableError / NonRetryableError
 │   │   ├── worker.py            # execute_task（状態遷移・通知）
 │   │   ├── dispatch_service.py  # AsyncTaskCacheService（状態遷移 + ディスパッチ）
@@ -89,7 +90,8 @@ backend/app/
 │   │   ├── local.py             # BackgroundTasks 直接実行
 │   │   └── handlers/            # タスク種別ごとのハンドラ
 │   │       ├── base.py          # TaskHandler 抽象基底クラス
-│   │       └── github_link.py
+│   │       ├── github_link.py
+│   │       └── resume_draft.py
 │   ├── markdown/                # Markdown 生成（generators / templates / utils）
 │   ├── pdf/                     # WeasyPrint による PDF 生成（generators / utils）
 │   ├── progress_service.py      # 進捗状態管理
@@ -103,6 +105,6 @@ backend/app/
 ## 主要モジュールのポイント
 
 - **routers/auth/**: パッケージ化されている。auth は `endpoints` / `github_auth` / `oauth_flow` / `token_manager` に責務分割
-- **services/tasks/**: Cloud Tasks（本番）と BackgroundTasks（ローカル）を共通の `execute_task` でディスパッチ。状態遷移（`processing` / `completed` / `dead_letter` / `retrying`）は worker が担う。現在登録されているタスクは `GITHUB_LINK` の 1 種類のみだが、`AsyncTaskCacheService` / `TaskHandler` は新規タスク追加の拡張ポイントとして汎用化してある（インライン化しない）
+- **services/tasks/**: Cloud Tasks（本番）と BackgroundTasks（ローカル）を共通の `execute_task` でディスパッチ。状態遷移（`processing` / `completed` / `dead_letter` / `retrying`）は worker が担う。現在登録されているタスクは `GITHUB_LINK` と `RESUME_DRAFT`（ADR-0020）の 2 種類。`AsyncTaskCacheService` / `TaskHandler` は新規タスク追加の拡張ポイントとして汎用化してある（インライン化しない）
   - **タスクハンドラの「黙って return」は禁止**: 失敗パスでは `NonRetryableError` / `RetryableError` を `raise` し、`dead_letter` / `retrying` 遷移と通知発行を worker に任せる。早期 return すると呼び出し側に completed として観測されてしまう
 - **services/intelligence/**: GitHub 連携 → スキル推論パイプライン。`github_link_service` → `github_collector`（収集）→ `skills/aggregate_skills`（ADR-0016 の 3 層スキル検出）→ `pipeline.aggregate_intelligence`（dashboard 表示用サマリ）が live 経路。旧 `skill_extractor` / `skill_taxonomy`（自前辞書）は ADR-0016 基盤へ移行完了済みで撤去。LLM は使わず決定論的（ルールベース）に処理する（intelligence モジュールは LLM を使わない。LLM は services/agent/ のみ / ADR-0010）
