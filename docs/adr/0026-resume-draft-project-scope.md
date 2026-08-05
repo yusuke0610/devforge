@@ -137,11 +137,25 @@ GitHub には職歴情報（会社・案件・役割・工程・チーム規模�
 
 - [ADR-0018](./0018-github-resume-draft-generation.md) / [ADR-0020](./0020-async-resume-draft-generation.md) / [ADR-0025](./0025-resume-draft-form-injection.md)（本 ADR が改訂する元設計）
 - [#517 機能整理・体験改善ロードマップ](https://github.com/yusuke0610/devforge/issues/517)（ADR-0024 / 0025 の親 issue。本 ADR はその後続）
-- 実装 issue:
-  - [#561](https://github.com/yusuke0610/devforge/issues/561) backend: 選定シグナルを `AnalyzedRepoSummary` へ永続化（決定 4）
+- 実装 issue（すべて実装済み）:
+  - [#561](https://github.com/yusuke0610/devforge/issues/561) backend: 選定シグナルを `AnalyzedRepoSummary` へ永続化（決定 4）— [#572](https://github.com/yusuke0610/devforge/pull/572)
   - [#562](https://github.com/yusuke0610/devforge/issues/562) backend: 選定順を「継続期間 × 実装量」へ変更しノイズ判定を付与（決定 3）
   - [#563](https://github.com/yusuke0610/devforge/issues/563) backend: 出力を project 明細へ縮小しプレースホルダ生成を廃止（決定 1）
   - [#564](https://github.com/yusuke0610/devforge/issues/564) backend: 候補一覧 API と選択付きドラフト生成（決定 2）
   - [#565](https://github.com/yusuke0610/devforge/issues/565) web: リポジトリ候補の選択 UI（決定 2 / 3）
   - [#566](https://github.com/yusuke0610/devforge/issues/566) web: ドラフト注入を「置換」から「追加」へ（決定 5）
   - [#567](https://github.com/yusuke0610/devforge/issues/567) docs: rules / docs への同期
+
+### 実装で確定した事項（ADR では固定しなかったもの）
+
+決定 3 で「ADR では固定しない」とした値の**正本は `backend/app/services/agent/resume_draft/mapper.py` の定数**。
+数値をここへ複製すると drift するため、参照先だけを記す。
+
+| 事項 | 正本 |
+|---|---|
+| 選定スコアの式（継続期間 × 実装量。整数演算のみ） | `mapper.selection_score` |
+| 実装量に含めるフィールドと重み | `mapper.implementation_volume` / `*_VOLUME_WEIGHT` |
+| 継続期間の閾値（デフォルト非選択の境界） | `mapper.MIN_DURATION_DAYS` |
+| topics の正規化規則と学習用途語彙 | `mapper._normalize_topics` / `mapper.LEARNING_TOPICS` |
+| 非選択の理由コード | `mapper.REASON_SHORT_DURATION` / `REASON_LEARNING_TOPIC` |
+| 1 回に選べる上限 | `backend/app/schemas/agent.py:RESUME_DRAFT_SELECTION_LIMIT` |

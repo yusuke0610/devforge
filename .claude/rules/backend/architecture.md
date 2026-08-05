@@ -61,11 +61,12 @@ backend/app/
 │   │   │   ├── factory.py       # get_llm_client(provider) で分岐（Anthropic + Ollama の 2 択）
 │   │   │   ├── anthropic_client.py # Claude Haiku（本番 / Vertex AI(ADC)）
 │   │   │   └── ollama_client.py # ローカル開発用（LLM_LOCAL_OLLAMA）
-│   │   └── resume_draft/        # GitHub 連携データ → 経歴書ドラフト生成（ADR-0018）
+│   │   └── resume_draft/        # GitHub 連携データ → プロジェクト明細ドラフト（ADR-0018・0026）
 │   │       ├── context.py       # DB 読み取り専用（連携キャッシュ + スキル証跡 → DraftSource）
-│   │       ├── mapper.py        # ルールベース純関数（骨格 payload 構築）
+│   │       ├── mapper.py        # ルールベース純関数（順位付け・候補提示・採用解決・骨格構築）
 │   │       ├── output_schema.py # ドラフト用 LLM 構造化出力スキーマ
-│   │       └── draft_service.py # LLM 1 コール → パース → 骨格へ自然文マージ
+│   │       ├── draft_service.py # 採用分のみ LLM 1 コール → パース → 骨格へ自然文マージ
+│   │       └── run_task.py      # 非同期タスク本体（DB 書き込みはここ / ADR-0020）
 │   ├── intelligence/            # GitHub 連携パイプライン（決定論的・ルールベース）
 │   │   ├── pipeline.py
 │   │   ├── github_collector.py

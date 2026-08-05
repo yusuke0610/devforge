@@ -59,6 +59,16 @@ REST API エンドポイント一覧と、バックエンド／フロントエ�
 ### Agent（LLM チャット / ADR-0010）
 - `POST /api/agent/chat`: 選択スコープ（`project` / `experience` / `career_summary` / `self_pr`）の内容とプロンプトをもとに、職務経歴書への差分 operations を返す。DB は更新せず、適用はフロント側でユーザー確認後に既存保存 API を呼ぶ。rate limit 10/min に加え、ユーザ単位の日次上限（`AGENT_DAILY_LIMIT`）で abuse を防ぐ（超過は 429 `AGENT_DAILY_LIMIT_EXCEEDED` / ADR-0023 で課金は撤去）。モデルは Claude Haiku 固定（本番 Vertex AI(ADC)、ローカルは Ollama。ADR-0023 でマルチプロバイダ撤去）
 
+### 経歴書ドラフト生成（ADR-0018 / 0020 / 0026）
+
+GitHub 連携データからプロジェクト明細のドラフトを作る導線。**採否はユーザーが決める**（機械は候補を落とさない / ADR-0026 決定 2）。生成物は `resume_draft_cache` にのみ保存し、確定した職務経歴書（`resumes`）には書き込まない。
+
+- `GET /api/agent/resume-draft/candidates`: ドラフトに載せる候補リポジトリを**全件**返す。1 件ごとにシグナル（継続期間・実装量・技術スタック・IaC 有無）と、デフォルト選択状態（`default_selected`）・非選択理由コード（`reasons`: `short_duration` / `learning_topic`）を持つ。ノイズ判定は候補からの除外ではなくデフォルト非選択で表現し、ユーザーが常に覆せる。未連携・旧形式キャッシュは 409（再連携導線）、分析対象 0 件は別メッセージの 409
+- `POST /api/agent/resume-draft/run`: 採用リポジトリ（`repo_full_names`。1 件以上・上限は `selection_limit`）を指定してドラフト生成を開始する（202）。LLM の説明文生成は採用分のみ（コストが選択数に比例 / ADR-0026 決定 2）。選択 0 件・上限超過・連携データに無いリポジトリ指定は 422。rate limit 5/min + 日次上限（`AGENT_DAILY_LIMIT`）
+- `GET /api/agent/resume-draft/status`: 生成タスクのステータス（ポーリング用）
+- `GET /api/agent/resume-draft/result`: 生成 payload を JSON で返す（フォーム注入用）。返すのは**プロジェクト明細のリスト**（`projects`）と、それとは独立した `career_summary` / `self_pr` の候補。会社・事業内容・在籍期間・顧客・役割・担当工程・チーム規模は GitHub から得られないため生成しない（ADR-0026 決定 1）。未完了・結果なしは 409
+- `GET /api/agent/resume-draft/pdf`: 生成済みドラフトを PDF で返す。保存 payload を Resume 互換の形へ包んでレンダリングする（包む experience / client は空でプレースホルダを入れない）
+
 ### 内部 API（Cloud Tasks コールバック専用）
 - `POST /internal/tasks/{task_type}`: Cloud Tasks からのタスク実行リクエストを受け付ける。`TASK_RUNNER=cloud_tasks` の場合は `X-CloudTasks-QueueName` ヘッダで検証
 
