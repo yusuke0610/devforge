@@ -201,14 +201,100 @@ export const RESUME_DRAFT_MESSAGES = {
   APPLY_TO_FORM: "この内容をフォームに反映",
   /** フォーム反映中のラベル。 */
   APPLYING_TO_FORM: "フォームに反映中...",
-  /** 入力途中データがある場合の上書き確認（フォーム側 / ADR-0025）。 */
-  OVERWRITE_CONFIRM:
-    "現在の入力内容を、生成した経歴書ドラフトの内容で上書きします。よろしいですか？",
-  /** 上書き確認の実行ボタン。 */
-  OVERWRITE_CONFIRM_LABEL: "上書きして反映",
   /** 反映成功のトースト。 */
-  APPLIED_TOAST: "ドラフトの内容をフォームに反映しました。内容を確認して保存してください。",
+  APPLIED_TOAST: "ドラフトの案件を職務経歴書に追加しました。内容を確認して保存してください。",
+  /** 追加ダイアログの見出し。 */
+  INJECT_HEADING: "ドラフトの案件を追加",
+  /** 追加ダイアログの説明（既存データを消さないことを明示する / ADR-0026 決定 5）。 */
+  INJECT_DESCRIPTION:
+    "選んだ職歴・取引先の案件一覧に追加します。既存の入力内容は書き換えません。",
+  /** 追加先の職歴セレクトのラベル。 */
+  INJECT_EXPERIENCE_LABEL: "追加先の職歴",
+  /** 追加先の取引先セレクトのラベル。 */
+  INJECT_CLIENT_LABEL: "追加先の取引先",
+  /** 職歴が 1 件も無いときの案内。 */
+  INJECT_NO_EXPERIENCE: "職歴がまだ無いため、新しい職歴と取引先を 1 件ずつ作って追加します。",
+  /** 追加される案件の一覧見出し。 */
+  INJECT_PROJECTS_HEADING: "追加する案件",
+  /** 追加実行ボタン。 */
+  INJECT_SUBMIT: "この内容で追加",
+  /** 会社名が未入力の職歴の表示名。 */
+  UNNAMED_EXPERIENCE: "（会社名未入力の職歴）",
+  /** 取引先名が未入力の取引先の表示名。 */
+  UNNAMED_CLIENT: "（取引先名未入力）",
+  /** 職務要約の候補見出し。 */
+  CAREER_SUMMARY_CANDIDATE: "職務要約の候補",
+  /** 自己PR の候補見出し。 */
+  SELF_PR_CANDIDATE: "自己PRの候補",
+  /** 候補をフォームへ反映するボタン（上書きになるため個別に選ばせる）。 */
+  APPLY_CANDIDATE: "この候補を反映",
+  /** 候補反映のトースト。 */
+  CANDIDATE_APPLIED_TOAST: "候補をフォームに反映しました。",
 } as const;
+
+/** 開発者向けの内部エラー（UI には出さない前提の不変条件違反）。 */
+export const INTERNAL_MESSAGES = {
+  /** ドラフト注入の追加先が未指定（職歴があるのに target が渡されていない）。 */
+  DRAFT_TARGET_REQUIRED: "ドラフトの追加先（職歴・取引先）が指定されていません",
+  /** ドラフト注入の追加先インデックスが範囲外。 */
+  DRAFT_TARGET_OUT_OF_RANGE: "ドラフトの追加先（職歴・取引先）が見つかりません",
+} as const;
+
+/** リポジトリ候補の選択 UI（ADR-0026 決定 2 / 3）の文言。 */
+export const RESUME_DRAFT_CANDIDATE_MESSAGES = {
+  /** 候補一覧の見出し。 */
+  HEADING: "ドラフトに載せるリポジトリ",
+  /** 候補一覧の説明（採否は本人が決めるという設計意図）。 */
+  HINT: "経歴書に載せる価値があるかはご本人にしか判断できません。おすすめの初期選択は付けていますが、自由に選び直してください。",
+  /** 読み込み中のラベル。 */
+  LOADING: "候補を読み込み中...",
+  /** 候補が 0 件のときの表示。 */
+  EMPTY: "ドラフトに載せられるリポジトリがありません。",
+  /** 継続期間シグナルのラベル。 */
+  DURATION_LABEL: "継続期間",
+  /** 実装量シグナルのラベル。 */
+  VOLUME_LABEL: "実装量",
+  /** IaC 宣言ありのバッジ。 */
+  HAS_INFRA_BADGE: "IaC あり",
+  /** デフォルト非選択の理由バッジ（backend の理由コードと対応）。 */
+  REASON_LABELS: {
+    short_duration: "継続期間が短い",
+    learning_topic: "学習用途の topics",
+  } as Record<string, string>,
+  /** 上限に達して追加選択できないときの補足。 */
+  LIMIT_REACHED: "選択できる上限に達しています。他のリポジトリを選ぶには、どれかの選択を外してください。",
+  /** 1 件も選ばずに生成しようとしたときの補足。 */
+  NONE_SELECTED: "リポジトリを 1 件以上選んでください。",
+} as const;
+
+/** 「N 件 / 上限 M 件」の選択状況ラベル。 */
+export function selectionCountLabel(selected: number, limit: number): string {
+  return `${selected} 件選択中（上限 ${limit} 件）`;
+}
+
+/** 継続期間（日数）を年・月・日の日本語ラベルにする。 */
+export function durationLabel(days: number): string {
+  if (days >= 365) {
+    const years = Math.floor(days / 365);
+    const months = Math.floor((days % 365) / 30);
+    return months > 0 ? `${years}年${months}ヶ月` : `${years}年`;
+  }
+  if (days >= 30) {
+    return `${Math.floor(days / 30)}ヶ月`;
+  }
+  return `${days}日`;
+}
+
+/** 実装量スコアを読みやすい概数（KB / MB 相当）にする。 */
+export function implementationVolumeLabel(volume: number): string {
+  if (volume >= 1_000_000) {
+    return `${(volume / 1_000_000).toFixed(1)} MB`;
+  }
+  if (volume >= 1_000) {
+    return `${Math.round(volume / 1_000)} KB`;
+  }
+  return `${volume} B`;
+}
 
 /** 手持ち PDF 経歴書のフォーム流し込み（ADR-0024）の UI 文言。 */
 export const RESUME_IMPORT_MESSAGES = {

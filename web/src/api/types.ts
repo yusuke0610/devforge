@@ -148,8 +148,14 @@ export type AgentChatResponse = Schemas["AgentChatResponse"];
 /** PDF 経歴書の抽出結果。backend `schemas/agent.py:ResumeImportResponse`（ADR-0024）。 */
 export type ResumeImportResponse = Schemas["ResumeImportResponse"];
 
-/** 経歴書ドラフトの生成 payload。backend `schemas/agent.py:ResumeDraftResultResponse`（ADR-0025）。 */
+/** 経歴書ドラフトの生成 payload。backend `schemas/agent.py:ResumeDraftResultResponse`（ADR-0025・0026）。 */
 export type ResumeDraftResultResponse = Schemas["ResumeDraftResultResponse"];
+
+/** ドラフト候補リポジトリ 1 件。backend `schemas/agent.py:ResumeDraftCandidateResponse`（ADR-0026）。 */
+export type ResumeDraftCandidateResponse = Schemas["ResumeDraftCandidateResponse"];
+
+/** ドラフト候補リポジトリの一覧。backend `schemas/agent.py:ResumeDraftCandidatesResponse`（ADR-0026）。 */
+export type ResumeDraftCandidatesResponse = Schemas["ResumeDraftCandidatesResponse"];
 
 /** resume state へ適用する差分。backend `schemas/agent.py:AgentOperation`。 */
 export type AgentOperation = Schemas["AgentOperation"];

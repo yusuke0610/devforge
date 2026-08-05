@@ -29,6 +29,7 @@ export const PATHS = {
   },
   agent: {
     chat: "/api/agent/chat",
+    resumeDraftCandidates: "/api/agent/resume-draft/candidates",
     resumeDraftRun: "/api/agent/resume-draft/run",
     resumeDraftStatus: "/api/agent/resume-draft/status",
     resumeDraftPdf: "/api/agent/resume-draft/pdf",

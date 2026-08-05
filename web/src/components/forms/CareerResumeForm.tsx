@@ -23,7 +23,11 @@ import { useImportPanelLayout } from "../../hooks/career/useImportPanelLayout";
 import { useResumeImportAssist } from "../../hooks/career/useResumeImportAssist";
 import { useDocumentForm } from "../../hooks/useDocumentForm";
 import { clearCareerDraft, loadCareerDraft, saveCareerDraft } from "../../utils/careerDraft";
-import { applyResumeDraftToForm, hasCareerFormContent } from "../../utils/resumeImport";
+import {
+  appendResumeDraftProjects,
+  hasCareerFormContent,
+  type DraftInjectionTarget,
+} from "../../utils/resumeImport";
 import { buildCareerPayload } from "../../payloadBuilders";
 import { useCareerFormValidationFocus } from "../../hooks/career/useCareerFormValidationFocus";
 import { useQualifications, useTechnologyStacks } from "../../hooks/useMasterData";
@@ -37,6 +41,7 @@ import { useLoginPrompt } from "../auth/loginPromptContext";
 import { MarkdownFieldModal } from "./MarkdownFieldModal";
 import { Skeleton } from "../ui/Skeleton";
 import { PdfPreviewModal } from "./PdfPreviewModal";
+import { ResumeDraftInjectDialog } from "./ResumeDraftInjectDialog";
 import { ResumeSourceTracePanel } from "./ResumeSourceTracePanel";
 import layout from "./CareerResumeForm.module.css";
 import { CareerFormToolbar } from "./sections/CareerFormToolbar";
@@ -198,29 +203,34 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
     openMarkdownField: setEditingField,
   });
 
-  // ドラフト payload をフォームへ注入する（DB 非更新 / ADR-0025）。setFormAndClearFocus が
-  // 定義済みの位置で宣言する必要があるためここに置く。
-  const applyDraftPayload = useCallback(
-    (payload: ResumeDraftResultResponse) => {
-      // #524 共通ルール: payload が提供しない email / 資格は現フォーム値を保持する（ADR-0025）
-      setFormAndClearFocus((prev) => applyResumeDraftToForm(prev, payload));
+  // ドラフトの案件を既存の職歴へ追加する（置換しない・DB 非更新 / ADR-0026 決定 5）。
+  // setFormAndClearFocus が定義済みの位置で宣言する必要があるためここに置く。
+  const appendDraftProjects = useCallback(
+    (payload: ResumeDraftResultResponse, target: DraftInjectionTarget | null) => {
+      setFormAndClearFocus((prev) => appendResumeDraftProjects(prev, payload, target));
       showSuccess(RESUME_DRAFT_MESSAGES.APPLIED_TOAST);
     },
     [setFormAndClearFocus, showSuccess],
   );
 
+  // 職務要約・自己PR は上書きになるため、候補としてユーザーが個別に反映する
+  const applyDraftCandidate = useCallback(
+    (field: "career_summary" | "self_pr", value: string) => {
+      setFormAndClearFocus((prev) => ({ ...prev, [field]: value }));
+      showSuccess(RESUME_DRAFT_MESSAGES.CANDIDATE_APPLIED_TOAST);
+    },
+    [setFormAndClearFocus, showSuccess],
+  );
+
   useEffect(() => {
-    // loadLatest 完了前は待つ（既存経歴書との競合防止 / #528 と同じ論点）。1 度だけ適用する。
+    // loadLatest 完了前は待つ（既存経歴書との競合防止 / #528 と同じ論点）。1 度だけ開く。
     if (!draftPayload || loading || appliedDraftRef.current) return;
     appliedDraftRef.current = true;
-    // router state を消す（リロード・再レンダリングでの再注入を防ぐ）
+    // router state を消す（リロード・再レンダリングでの再表示を防ぐ）
     navigate(location.pathname, { replace: true, state: null });
-    if (hasCareerFormContent(form)) {
-      setPendingDraft(draftPayload);
-    } else {
-      applyDraftPayload(draftPayload);
-    }
-  }, [draftPayload, loading, form, navigate, location.pathname, applyDraftPayload]);
+    // 追加先はユーザーが選ぶ（機械が推測しない）。上書き確認は不要になった（追加のみのため）
+    setPendingDraft(draftPayload);
+  }, [draftPayload, loading, navigate, location.pathname]);
 
   return (
     <>
@@ -234,16 +244,17 @@ export function CareerResumeForm({ isAuthenticated }: { isAuthenticated: boolean
         />
       )}
       {previewUrl && <PdfPreviewModal previewUrl={previewUrl} onClose={closePreview} />}
-      {/* ドラフト流し込みの上書き確認（入力途中データがある場合 / ADR-0025 / #525） */}
+      {/* ドラフトの案件追加（追加先の指定 + 職務要約・自己PR の候補提示 / ADR-0026 決定 5） */}
       {pendingDraft && (
-        <ConfirmDialog
-          message={RESUME_DRAFT_MESSAGES.OVERWRITE_CONFIRM}
-          confirmLabel={RESUME_DRAFT_MESSAGES.OVERWRITE_CONFIRM_LABEL}
-          onConfirm={() => {
-            applyDraftPayload(pendingDraft);
+        <ResumeDraftInjectDialog
+          form={form}
+          payload={pendingDraft}
+          onAppend={(target) => {
+            appendDraftProjects(pendingDraft, target);
             setPendingDraft(null);
           }}
-          onCancel={() => setPendingDraft(null)}
+          onApplyCandidate={applyDraftCandidate}
+          onClose={() => setPendingDraft(null)}
         />
       )}
       {/* AI アシスタント（ADR-0010）。operations はフォーム state にのみ反映され、保存は既存の保存ボタンで行う */}

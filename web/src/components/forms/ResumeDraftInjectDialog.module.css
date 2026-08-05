@@ -1,0 +1,79 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 560px;
+  width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.heading {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.description {
+  margin: 0 0 1rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.sectionHeading {
+  margin: 1rem 0 0.5rem;
+  font-size: 0.95rem;
+}
+
+.projectList {
+  margin: 0;
+  padding-left: 1.25rem;
+  line-height: 1.8;
+}
+
+.targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1 1 200px;
+  font-size: 0.9rem;
+}
+
+.candidate {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.candidateBody {
+  margin: 0 0 0.5rem;
+  line-height: 1.6;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  max-height: 8rem;
+  overflow-y: auto;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}

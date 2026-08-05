@@ -189,6 +189,28 @@ test.describe("GitHub 連携 - コントリビューションヒートマップ"
         }),
       }),
     );
+    // 候補一覧（ADR-0026 決定 2）。1 件がデフォルト選択され、生成ボタンが押せるようになる
+    await page.route("**/api/agent/resume-draft/candidates", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          selection_limit: 5,
+          candidates: [
+            {
+              full_name: "e2e-test-user/app",
+              description: "アプリ",
+              duration_days: 400,
+              implementation_volume: 50000,
+              has_infra: false,
+              technology_stacks: [],
+              default_selected: true,
+              reasons: [],
+            },
+          ],
+        }),
+      }),
+    );
     // マウント時・ポーリングとも完了を返す（enqueue → 即完了 → PDF 取得の順で流れる）
     await page.route("**/api/agent/resume-draft/status", (route) =>
       route.fulfill({

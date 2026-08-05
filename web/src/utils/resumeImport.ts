@@ -12,10 +12,21 @@
  *
  * 破壊は呼び出し側（アップロード UI）が「入力途中なら確認ダイアログ」で防ぐ。本関数は純変換。
  */
-import type { ResumeImportResponse } from "../api/types";
-import { blankCareerExperience } from "../constants";
-import { mapCareerResumeToForm, type ResumeFormSource } from "../formMappers";
-import type { CareerExperienceForm, CareerFormState } from "../payloadBuilders";
+import type { ResumeDraftResultResponse, ResumeImportResponse } from "../api/types";
+import {
+  blankCareerClient,
+  blankCareerExperience,
+  blankCareerProject,
+  blankCareerProjectPeriod,
+  blankCareerTechnologyStack,
+} from "../constants";
+import { INTERNAL_MESSAGES } from "../constants/messages";
+import type {
+  CareerClientForm,
+  CareerExperienceForm,
+  CareerFormState,
+  CareerProjectForm,
+} from "../payloadBuilders";
 
 type ImportExperience = NonNullable<ResumeImportResponse["experiences"]>[number];
 
@@ -81,37 +92,114 @@ export function applyResumeImportToForm(
 }
 
 /**
- * 経歴書ドラフト/保存済み経歴書の payload をキャリアフォームへ注入する（#524 共通ルール / ADR-0025）。
- *
- * `mapCareerResumeToForm` で全体を写した上で、**全フィールドに一様に preserve-if-empty を適用する**
- * （PDF インポートの {@link applyResumeImportToForm} と同じ「欠落/空は既存値保持」不変条件）。
- * スカラーは値が非空なら上書き・空なら現フォーム保持、配列は中身の有無で置換/維持する。特定
- * フィールドを無条件に上書きしないため、生成が想定外に空を返してもユーザーの入力を消さない。
- * 実際のドラフトは full_name / career_summary / self_pr / experiences / github_url を常に提供する
- * ため上書きされ、email と資格は提供しない（空）ため現フォーム値が残る（ADR-0025）。
+ * ドラフト注入の追加先。ユーザーが明示的に選んだ職歴・取引先を指す（ADR-0026 決定 5）。
+ * `null` は「職歴が 1 件も無いので新しく作る」ケースにだけ使う。機械は追加先を推測しない。
  */
-export function applyResumeDraftToForm(
-  current: CareerFormState,
-  payload: ResumeFormSource,
-): CareerFormState {
-  const mapped = mapCareerResumeToForm(payload);
-  // 全フィールドに一様の preserve-if-empty を適用する（フィールド名で固定分岐しない）。
-  // スカラーは値が非空なら上書き・空なら現フォーム保持。配列は中身の有無で置換/維持。
-  const pick = (mappedValue: string, currentValue: string): string =>
-    mappedValue.trim() ? mappedValue : currentValue;
-  const mappedHasExperiences = mapped.experiences.some(
-    (e) => e.company.trim() || e.business_description.trim() || e.description.trim(),
-  );
-  const mappedHasQualifications = mapped.qualifications.some(
-    (q) => q.name.trim() || q.acquired_date.trim(),
-  );
+export type DraftInjectionTarget = {
+  experienceIndex: number;
+  clientIndex: number;
+};
+
+/** 名前も説明も空のプレースホルダ案件か（フォーム初期状態の空欄）。 */
+function isBlankProject(project: CareerProjectForm): boolean {
+  return !project.name.trim() && !project.description.trim();
+}
+
+/** ドラフトのプロジェクト 1 件をフォームの案件へ写す（欠落は blank 既定を継承）。 */
+function toProjectForm(
+  project: NonNullable<ResumeDraftResultResponse["projects"]>[number],
+): CareerProjectForm {
+  const base = structuredClone(blankCareerProject);
+  const periods = project.periods ?? [];
+  const stacks = project.technology_stacks ?? [];
   return {
-    full_name: pick(mapped.full_name, current.full_name),
-    email: pick(mapped.email, current.email),
-    github_url: pick(mapped.github_url, current.github_url),
-    career_summary: pick(mapped.career_summary, current.career_summary),
-    self_pr: pick(mapped.self_pr, current.self_pr),
-    experiences: mappedHasExperiences ? mapped.experiences : current.experiences,
-    qualifications: mappedHasQualifications ? mapped.qualifications : current.qualifications,
+    ...base,
+    name: project.name ?? "",
+    description: project.description ?? "",
+    // role / phases / team はドラフトが生成しない（人間が埋める / ADR-0026 決定 1）
+    role: project.role ?? "",
+    phases: project.phases ?? [],
+    team: { total: "", members: [] },
+    periods: periods.length > 0 ? periods.map((p) => ({ ...p })) : [{ ...blankCareerProjectPeriod }],
+    technology_stacks:
+      stacks.length > 0 ? stacks.map((s) => ({ ...s })) : [{ ...blankCareerTechnologyStack }],
   };
+}
+
+/**
+ * 採用したプロジェクトを、ユーザーが指定した職歴・取引先の案件リストへ**追加**する
+ * （ADR-0026 決定 5）。
+ *
+ * 不変条件:
+ * - **既存の experience / client を書き換えない**。置換は行わず追加だけを行う。
+ * - **冪等**。同一 client 内に同名の案件が既にあれば追加しない（判定キーは案件名 =
+ *   リポジトリ名）。同じドラフトを 2 回適用しても案件が増殖しない。
+ * - **職務要約・自己PR・氏名は上書きしない**。これらは候補として別経路でユーザーが適用する。
+ * - **部分適用しない**。追加先が不正なら例外を投げ、入力の state は一切変更しない
+ *   （`current` を破壊せず新しいオブジェクトを組み立てて返す）。
+ *
+ * 職歴が 1 件も無い場合のみ、空の experience と client を 1 件ずつ作ってそこへ追加する
+ * （会社名・事業内容は空のまま。プレースホルダを入れない / ADR-0026 決定 1 と整合）。
+ */
+export function appendResumeDraftProjects(
+  current: CareerFormState,
+  payload: ResumeDraftResultResponse,
+  target: DraftInjectionTarget | null,
+): CareerFormState {
+  const draftProjects = payload.projects ?? [];
+  if (draftProjects.length === 0) return current;
+
+  // 職歴が無ければ空の受け皿を 1 件ずつ作る。ある場合は追加先の明示指定を必須にする。
+  if (current.experiences.length === 0) {
+    const experience: CareerExperienceForm = {
+      ...structuredClone(blankCareerExperience),
+      clients: [{ ...structuredClone(blankCareerClient), projects: [] }],
+    };
+    return {
+      ...current,
+      experiences: [appendInto(experience, 0, draftProjects)],
+    };
+  }
+
+  if (!target) throw new Error(INTERNAL_MESSAGES.DRAFT_TARGET_REQUIRED);
+  const { experienceIndex, clientIndex } = target;
+  const experience = current.experiences[experienceIndex];
+  if (!experience || !experience.clients[clientIndex]) {
+    throw new Error(INTERNAL_MESSAGES.DRAFT_TARGET_OUT_OF_RANGE);
+  }
+
+  return {
+    ...current,
+    experiences: current.experiences.map((exp, index) =>
+      index === experienceIndex ? appendInto(exp, clientIndex, draftProjects) : exp,
+    ),
+  };
+}
+
+/** 指定 client の案件リストへ、同名を除いたドラフト案件を追加した experience を返す。 */
+function appendInto(
+  experience: CareerExperienceForm,
+  clientIndex: number,
+  draftProjects: NonNullable<ResumeDraftResultResponse["projects"]>,
+): CareerExperienceForm {
+  return {
+    ...experience,
+    clients: experience.clients.map((client, index) =>
+      index === clientIndex ? appendProjects(client, draftProjects) : client,
+    ),
+  };
+}
+
+/** client の案件リストにドラフト案件を冪等に追加する（同名はスキップ・空枠は詰める）。 */
+function appendProjects(
+  client: CareerClientForm,
+  draftProjects: NonNullable<ResumeDraftResultResponse["projects"]>,
+): CareerClientForm {
+  // フォーム初期状態の空欄が残らないよう、名前も説明も空の枠は追加時に取り除く
+  const existing = client.projects.filter((project) => !isBlankProject(project));
+  const existingNames = new Set(existing.map((project) => project.name));
+  const added = draftProjects
+    .filter((project) => !existingNames.has(project.name ?? ""))
+    .map(toProjectForm);
+  return { ...client, projects: [...existing, ...added] };
 }
