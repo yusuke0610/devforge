@@ -74,6 +74,7 @@ source_paths = ["app"]
 only_mutate = [
     "app/services/agent/rate_limit.py",                   # Agent 日次レート制限判定（#521）
     "app/services/agent/resume_import/text_extract.py",   # PDF テキスト抽出・スキャン判定（#527 / ADR-0024）
+    "app/services/agent/resume_draft/mapper.py",          # ドラフト選定・骨格マッピング（#562 / ADR-0026）
     "app/services/intelligence/skills/*",                 # スキル推論（aggregator/linguist/パーサ群）
     "app/services/intelligence/github/repo_analyzer.py",  # リポジトリ解析
     "app/services/intelligence/github/contributions.py",  # コントリビューション集計
