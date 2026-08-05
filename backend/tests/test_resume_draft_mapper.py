@@ -308,6 +308,20 @@ def test_default_selection_threshold_is_injectable() -> None:
     assert evaluate_default_selection(repo, min_duration_days=2).selected is True
 
 
+def test_default_selection_counts_duration_with_time_component() -> None:
+    """継続期間は日付だけでなく時刻まで見て数える（閾値直下の取りこぼし防止）。"""
+    # 日付だけ見ると 6/1 → 7/1 の 30 日だが、実際は 29 日 1 分しか継続していない
+    just_under = _repo("o/under", created="2026-06-01T23:59:00Z", pushed="2026-07-01T00:00:00Z")
+    assert evaluate_default_selection(just_under, min_duration_days=30).selected is False
+
+
+def test_default_selection_handles_mixed_timezone_notation() -> None:
+    """created_at と pushed_at でタイムゾーン表記が揺れても継続期間を数えられる。"""
+    # オフセット無しは UTC とみなす（両者を aware に揃えないと減算自体が TypeError になる）
+    repo = _repo("o/mixed", created="2026-06-01T00:00:00", pushed="2026-07-01T00:00:00Z")
+    assert evaluate_default_selection(repo, min_duration_days=30).selected is True
+
+
 @pytest.mark.parametrize(
     "topic",
     ["tutorial", "Tutorial", "TUTORIAL", "react-tutorial", "study_group", "hands-on", "Learning"],

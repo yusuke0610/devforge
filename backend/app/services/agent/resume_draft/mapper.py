@@ -16,7 +16,7 @@ DB・LLM・時刻に依存しない（``today`` は引数で受ける）。GitHu
 
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 
 from ....schemas.agent import RESUME_DRAFT_SELECTION_LIMIT
 from .context import DraftSource, RepoTechnology
@@ -117,9 +117,13 @@ def duration_days(repo) -> int:
     """リポジトリの継続期間（``pushed_at`` − ``created_at``）を日数で返す。
 
     日付が空・不正・逆転している場合は 0 日として扱う（捏造しない）。
+
+    日付部分だけを切り出すと「23:59 作成 → 翌月 1 日 00:00 push」の 29 日 1 分が
+    30 日と数えられ、閾値ちょうどで選択側に倒れてしまう。時刻まで含めて減算し、
+    満たした日数のみを数える（端数は切り捨て）。
     """
-    created = _parse_date(repo.created_at)
-    pushed = _parse_date(repo.pushed_at)
+    created = _parse_datetime(repo.created_at)
+    pushed = _parse_datetime(repo.pushed_at)
     if created is None or pushed is None:
         return 0
     return max((pushed - created).days, 0)
@@ -355,8 +359,27 @@ def _is_recently_pushed(pushed_at: str, reference_date: date) -> bool:
 
 
 def _parse_date(iso_datetime: str) -> date | None:
-    """ISO 8601 日時文字列の日付部分を取り出す（空・不正は None）。"""
+    """ISO 8601 日時文字列の日付部分を取り出す（空・不正は None）。
+
+    「参画中」判定は基準日（``date``）との比較なので日粒度でよい。継続期間の算出には
+    時刻成分が要るため ``_parse_datetime`` を使うこと。
+    """
     try:
         return date.fromisoformat(iso_datetime[:10])
     except ValueError:
         return None
+
+
+def _parse_datetime(iso_datetime: str) -> datetime | None:
+    """ISO 8601 日時文字列を UTC の aware datetime にする（空・不正は None）。
+
+    created_at と pushed_at でタイムゾーン表記が揺れても減算できるよう、必ず
+    aware に揃える。オフセット無し表記は GitHub API の慣習に合わせて UTC とみなす。
+    """
+    try:
+        parsed = datetime.fromisoformat(iso_datetime)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
