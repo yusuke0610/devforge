@@ -72,7 +72,6 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 | [google-cloud-tasks](https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-tasks) | 2.23.0 | Apache Software License |
 | [httpx](https://github.com/encode/httpx) | 0.28.1 | BSD License |
 | [markdown](https://Python-Markdown.github.io/) | 3.10.3 | BSD-3-Clause |
-| [mutmut](https://github.com/boxed/mutmut) | 3.7.0 | BSD-3-Clause |
 | [pyasn1](https://github.com/pyasn1/pyasn1) | 0.6.4 | BSD-2-Clause |
 | [pydantic](https://github.com/pydantic/pydantic) | 2.13.4 | MIT |
 | [pydyf](https://www.courtbouillon.org/pydyf) | 0.12.1 | BSD License |
@@ -97,6 +96,7 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 | [autopep8](https://github.com/hhatto/autopep8) | 2.3.2 | MIT License |
 | [black](https://github.com/psf/black) | 26.5.1 | MIT |
 | [isort](https://pycqa.github.io/isort/index.html) | 8.0.1 | MIT |
+| [mutmut](https://github.com/boxed/mutmut) | 3.7.0 | BSD-3-Clause |
 | [pytest](https://docs.pytest.org/en/latest/) | 9.1.1 | MIT |
 | [pytest-cov](https://pypi.org/project/pytest-cov/) | 7.1.0 | MIT |
 | [ruff](https://docs.astral.sh/ruff) | 0.16.1 | MIT |

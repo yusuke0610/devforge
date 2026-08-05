@@ -44,6 +44,9 @@ BACKEND_DEV_TOOLS = {
     "black",
     "isort",
     "autopep8",
+    # ミューテーションテスト専用（週次 CI: .github/workflows/mutation.yml / ADR-0017）。
+    # app/ から import されないためランタイムには載らない。
+    "mutmut",
 }
 
 
