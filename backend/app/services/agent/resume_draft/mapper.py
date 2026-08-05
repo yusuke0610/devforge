@@ -9,7 +9,8 @@ DB・LLM・時刻に依存しない（``today`` は引数で受ける）。捏�
 （担当工程・チーム規模の水増し等）はここでは生成しない。
 """
 
-from datetime import date
+from dataclasses import dataclass
+from datetime import date, datetime, timezone
 
 from .context import DraftSource, RepoTechnology
 
@@ -30,24 +31,104 @@ PLACEHOLDER_ROLE = "開発（個人開発）"
 _CATEGORY_ORDER: dict[str, int] = {"language": 0, "framework": 1, "iac": 2}
 
 
-def select_repos(source: DraftSource, limit: int = PROJECT_LIMIT) -> list:
-    """ドラフトに載せるリポジトリを決定論的に選定する。
+NOISE_REASON_SHORT_LIVED = "継続期間が短い"
+NOISE_REASON_LEARNING_TOPIC = "学習用途の topics"
 
-    第 1 キー: 最終 push 日時の降順（直近の活動を優先）
-    第 2 キー: 言語バイト合計の降順（実装量の多いリポを優先）
-    タイブレーク: full_name の辞書順（決定論の担保）
+# これ未満の継続期間はデフォルト非選択にする。チュートリアル・写経は数日〜数週で
+# 終わるため、1 ヶ月継続を「作り込んだ」の下限とする（ADR-0026 決定 3）
+_SHORT_LIVED_THRESHOLD_DAYS = 30
+
+# 学習用途を示す topics（正規化後の完全一致で判定する）
+_LEARNING_TOPICS = frozenset(
+    {
+        "tutorial", "practice", "sample", "study", "learning", "handson",
+        "example", "demo", "playground", "boilerplate",
+    }
+)
+
+
+@dataclass(frozen=True)
+class NoiseVerdict:
+    """デフォルト選択状態と、非選択にした理由（ADR-0026 決定 2）。
+
+    **機械は候補を落とさない**。本判定は UI のデフォルト選択状態と理由表示にのみ
+    影響させ、``select_repos`` の結果からは除外しない。価値判断は人間が行う。
     """
 
-    def language_bytes_total(full_name: str) -> int:
-        return sum(
-            tech.language_bytes for tech in source.repo_technologies.get(full_name, [])
-        )
+    selected_by_default: bool
+    # frozen の不変性を実際に担保するため tuple にする（list だと要素を書き換えられる）
+    reasons: tuple[str, ...]
 
+
+def _normalize_topic(topic: str) -> str:
+    """topics を比較用に正規化する（小文字化 + 区切り除去）。
+
+    ``hands-on`` / ``Hands_On`` / ``HANDSON`` を同一視する。部分一致は採らない
+    （``sample-api-server`` のような本命を誤判定するため）。
+    """
+    return topic.lower().replace("-", "").replace("_", "")
+
+
+def evaluate_noise(repo, *, threshold_days: int = _SHORT_LIVED_THRESHOLD_DAYS) -> NoiseVerdict:
+    """デフォルト非選択にすべきリポジトリかを判定する（ADR-0026 決定 2・3）。
+
+    ``threshold_days`` はテストからの注入用（``build_skeleton(today=...)`` と同じ流儀）。
+    理由は判定順に積むため、同じ入力からは常に同じ並びで返る。
+    """
+    reasons: list[str] = []
+    if _active_days(repo) < threshold_days:
+        reasons.append(NOISE_REASON_SHORT_LIVED)
+    if any(_normalize_topic(topic) in _LEARNING_TOPICS for topic in repo.topics):
+        reasons.append(NOISE_REASON_LEARNING_TOPIC)
+    return NoiseVerdict(selected_by_default=not reasons, reasons=tuple(reasons))
+
+
+def _to_utc_datetime(iso_datetime: str) -> datetime:
+    """ISO 8601 日時文字列を UTC の aware datetime にする（不正なら ValueError）。
+
+    created_at と pushed_at でタイムゾーン表記が揺れても減算できるよう、必ず
+    aware に揃える。オフセット無し表記は GitHub API の慣習に合わせて UTC とみなす。
+    """
+    parsed = datetime.fromisoformat(iso_datetime)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _active_days(repo) -> int:
+    """継続期間（created_at → pushed_at の日数）。不正・空の日付は 0 とする。
+
+    チュートリアル・写経は数日で終わり、実プロジェクトは数ヶ月〜数年継続するため、
+    単一シグナルとしての判別力が最も高い（ADR-0026 決定 3）。
+
+    日付部分だけを切り出すと「23:59 作成 → 翌月 1 日 00:00 push」の 29 日 1 分が
+    30 日と数えられ、閾値ちょうどで選択側に倒れてしまう。時刻まで含めて減算し、
+    満たした日数のみを数える（端数は切り捨て）。
+    """
+    try:
+        created = _to_utc_datetime(repo.created_at)
+        pushed = _to_utc_datetime(repo.pushed_at)
+    except ValueError:
+        return 0
+    return max((pushed - created).days, 0)
+
+
+def select_repos(source: DraftSource, limit: int = PROJECT_LIMIT) -> list:
+    """ドラフトに載せるリポジトリを決定論的に選定する（ADR-0026 決定 3）。
+
+    第 1 キー: 継続期間の降順（作り込んで続けたリポを優先）
+    第 2 キー: 言語バイト合計の降順（実装量の多いリポを優先）
+    第 3 キー: 最終 push 日時の降順（直近性はタイブレークへ降格）
+    最終タイブレーク: full_name の辞書順（決定論の担保）
+
+    継続期間と実装量は重み付けせず段階比較する。積や重み付き和は係数の恣意性が
+    入り、「継続 1000 日 × 1KB」と「10 日 × 100KB」が並んでしまう。
+    """
     # 安定ソートを重ねて「タイブレーク昇順 → 主キー群降順」を実現する
     repos = sorted(source.repos, key=lambda r: r.full_name)
     repos = sorted(
         repos,
-        key=lambda r: (r.pushed_at, language_bytes_total(r.full_name)),
+        key=lambda r: (_active_days(r), r.language_bytes_total, r.pushed_at),
         reverse=True,
     )
     return repos[:limit]

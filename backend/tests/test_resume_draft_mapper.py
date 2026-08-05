@@ -21,10 +21,13 @@ from app.services.agent.resume_draft.context import (
     build_draft_source,
 )
 from app.services.agent.resume_draft.mapper import (
+    NOISE_REASON_LEARNING_TOPIC,
+    NOISE_REASON_SHORT_LIVED,
     PLACEHOLDER_COMPANY,
     PROJECT_LIMIT,
     STACK_LIMIT_PER_PROJECT,
     build_skeleton,
+    evaluate_noise,
     select_repos,
 )
 
@@ -32,10 +35,12 @@ _TODAY = date(2026, 7, 1)
 
 
 def _repo(full_name: str, *, description: str = "", created: str = "2023-01-15T00:00:00Z",
-          pushed: str = "2026-06-01T00:00:00Z") -> AnalyzedRepoSummary:
+          pushed: str = "2026-06-01T00:00:00Z", topics: list[str] | None = None,
+          language_bytes: int = 0) -> AnalyzedRepoSummary:
     """テスト用のリポジトリサマリを生成する。"""
     return AnalyzedRepoSummary(
-        full_name=full_name, description=description, created_at=created, pushed_at=pushed
+        full_name=full_name, description=description, created_at=created, pushed_at=pushed,
+        topics=topics or [], language_bytes_total=language_bytes,
     )
 
 
@@ -54,41 +59,168 @@ def _source(repos: list, technologies: dict | None = None) -> DraftSource:
 # ---------------------------------------------------------------------------
 
 
-def test_select_repos_orders_by_pushed_at_desc() -> None:
-    """第 1 キーは最終 push 日時の降順。"""
+def test_select_repos_ranks_long_lived_over_recently_touched() -> None:
+    """第 1 キーは継続期間（ADR-0026 決定 3）。
+
+    「昨日 README を直しただけのチュートリアル」が「作り込んで完成させた本命」に
+    勝つのを防ぐ。直近性は主キーから外す。
+    """
     source = _source(
         [
-            _repo("o/old", pushed="2024-01-01T00:00:00Z"),
-            _repo("o/new", pushed="2026-06-01T00:00:00Z"),
-            _repo("o/mid", pushed="2025-06-01T00:00:00Z"),
+            # 3 日で終わったが昨日 push（チュートリアル型）
+            _repo("o/tutorial", created="2026-06-25T00:00:00Z", pushed="2026-06-30T00:00:00Z"),
+            # 2 年継続。最終 push は半年前（本命型）
+            _repo("o/flagship", created="2024-01-01T00:00:00Z", pushed="2026-01-01T00:00:00Z"),
         ]
     )
-    assert [r.full_name for r in select_repos(source)] == ["o/new", "o/mid", "o/old"]
+    assert [r.full_name for r in select_repos(source)] == ["o/flagship", "o/tutorial"]
 
 
-def test_select_repos_tiebreaks_by_language_bytes_then_name() -> None:
-    """push 日時が同じなら言語バイト合計の降順、それも同じなら名前の辞書順。"""
-    pushed = "2026-06-01T00:00:00Z"
+def test_select_repos_tiebreaks_by_language_bytes() -> None:
+    """継続期間が同じなら実装量（言語バイト合計）の降順。"""
     source = _source(
-        [_repo("o/small", pushed=pushed), _repo("o/big", pushed=pushed),
-         _repo("o/b-zero", pushed=pushed), _repo("o/a-zero", pushed=pushed)],
-        technologies={
-            "o/small": [RepoTechnology("language", "Python", 0.9, language_bytes=100)],
-            "o/big": [RepoTechnology("language", "Python", 0.9, language_bytes=9000)],
-        },
+        [
+            _repo("o/small", language_bytes=100),
+            _repo("o/big", language_bytes=9000),
+            _repo("o/mid", language_bytes=3000),
+        ]
     )
-    assert [r.full_name for r in select_repos(source)] == [
-        "o/big", "o/small", "o/a-zero", "o/b-zero",
+    assert [r.full_name for r in select_repos(source)] == ["o/big", "o/mid", "o/small"]
+
+
+def test_select_repos_tiebreaks_by_pushed_at_after_bytes() -> None:
+    """継続期間・実装量が同じなら最終 push が新しい方が上位（直近性は第 3 キー）。"""
+    source = _source(
+        [
+            # 継続 365 日・実装量 500 で揃え、push 日時だけ変える
+            _repo("o/stale", created="2025-01-01T00:00:00Z", pushed="2026-01-01T00:00:00Z",
+                  language_bytes=500),
+            _repo("o/fresh", created="2025-06-01T00:00:00Z", pushed="2026-06-01T00:00:00Z",
+                  language_bytes=500),
+        ]
+    )
+    assert [r.full_name for r in select_repos(source)] == ["o/fresh", "o/stale"]
+
+
+def test_select_repos_is_totally_ordered_by_name() -> None:
+    """全キー同値でも full_name の辞書順で並びが一意に決まる（完全順序）。"""
+    repos = [_repo("o/c"), _repo("o/a"), _repo("o/b")]
+    assert [r.full_name for r in select_repos(_source(repos))] == ["o/a", "o/b", "o/c"]
+    # 入力順を変えても同じ並びになること（同一入力 → 同一出力の不変条件）
+    assert [r.full_name for r in select_repos(_source(list(reversed(repos))))] == [
+        "o/a", "o/b", "o/c",
     ]
+
+
+def test_select_repos_treats_invalid_dates_as_zero_duration() -> None:
+    """日付が不正・空でも例外にならず、継続期間 0 として下位に落ちる。"""
+    source = _source(
+        [
+            _repo("o/broken", created="", pushed=""),
+            _repo("o/invalid", created="not-a-date", pushed="2026-06-01T00:00:00Z"),
+            _repo("o/valid", created="2025-01-01T00:00:00Z", pushed="2026-01-01T00:00:00Z"),
+        ]
+    )
+    assert [r.full_name for r in select_repos(source)][0] == "o/valid"
 
 
 def test_select_repos_caps_at_project_limit() -> None:
     """上限件数（PROJECT_LIMIT）で打ち切る。"""
-    repos = [_repo(f"o/repo-{i}", pushed=f"2026-01-{i + 1:02d}T00:00:00Z") for i in range(8)]
+    repos = [
+        _repo(f"o/repo-{i}", created="2024-01-01T00:00:00Z",
+              pushed=f"2024-0{i + 1}-01T00:00:00Z")
+        for i in range(8)
+    ]
     selected = select_repos(_source(repos))
     assert len(selected) == PROJECT_LIMIT
-    # 直近 push 順に上位が選ばれている
+    # 継続期間が最も長いもの（最後に push されたもの）が先頭
     assert selected[0].full_name == "o/repo-7"
+
+
+# ---------------------------------------------------------------------------
+# evaluate_noise: デフォルト非選択の判定（ADR-0026 決定 2・3）
+#
+# 機械は候補を落とさない。判定はデフォルト選択状態と理由表示にのみ影響させる。
+# ---------------------------------------------------------------------------
+
+
+def test_evaluate_noise_flags_short_lived_repo() -> None:
+    """継続期間が閾値未満なら非選択 + 理由を返す。"""
+    repo = _repo("o/tutorial", created="2026-06-25T00:00:00Z", pushed="2026-06-30T00:00:00Z")
+    verdict = evaluate_noise(repo)
+    assert verdict.selected_by_default is False
+    assert NOISE_REASON_SHORT_LIVED in verdict.reasons
+
+
+def test_evaluate_noise_flags_learning_topics() -> None:
+    """topics に学習用途語があれば非選択 + 理由を返す。"""
+    repo = _repo("o/app", topics=["python", "tutorial"])
+    verdict = evaluate_noise(repo)
+    assert verdict.selected_by_default is False
+    assert NOISE_REASON_LEARNING_TOPIC in verdict.reasons
+
+
+def test_evaluate_noise_normalizes_topic_notation() -> None:
+    """topics は小文字化 + 区切り除去して完全一致で判定する。"""
+    # hands-on / Hands_On / HANDSON はいずれも学習用途語として扱う
+    for topic in ("hands-on", "Hands_On", "HANDSON"):
+        assert evaluate_noise(_repo("o/app", topics=[topic])).selected_by_default is False
+    # 部分一致では落とさない（本命が学習用途と誤判定されるのを防ぐ）
+    assert evaluate_noise(_repo("o/app", topics=["sample-api-server"])).selected_by_default
+
+
+def test_evaluate_noise_returns_all_applicable_reasons() -> None:
+    """複数該当なら理由を全て返す（順序も決定論）。"""
+    repo = _repo(
+        "o/study", created="2026-06-25T00:00:00Z", pushed="2026-06-30T00:00:00Z",
+        topics=["study"],
+    )
+    verdict = evaluate_noise(repo)
+    assert verdict.reasons == (NOISE_REASON_SHORT_LIVED, NOISE_REASON_LEARNING_TOPIC)
+
+
+def test_evaluate_noise_selects_substantial_repo() -> None:
+    """閾値以上かつ学習用途語なしならデフォルト選択（理由は空）。"""
+    repo = _repo("o/flagship", created="2024-01-01T00:00:00Z", pushed="2026-01-01T00:00:00Z",
+                 topics=["fastapi"])
+    verdict = evaluate_noise(repo)
+    assert verdict.selected_by_default is True
+    assert verdict.reasons == ()
+
+
+def test_evaluate_noise_threshold_is_inclusive_lower_bound() -> None:
+    """継続期間がちょうど閾値ならデフォルト選択（閾値「未満」が非選択）。"""
+    # threshold_days=30 に対し、継続 30 日 = 選択 / 29 日 = 非選択
+    exactly = _repo("o/exact", created="2026-06-01T00:00:00Z", pushed="2026-07-01T00:00:00Z")
+    just_under = _repo("o/under", created="2026-06-02T00:00:00Z", pushed="2026-07-01T00:00:00Z")
+    assert evaluate_noise(exactly, threshold_days=30).selected_by_default is True
+    assert evaluate_noise(just_under, threshold_days=30).selected_by_default is False
+
+
+def test_evaluate_noise_counts_duration_with_time_component() -> None:
+    """継続期間は日付だけでなく時刻まで見て数える（閾値直下の取りこぼし防止）。"""
+    # 日付だけ見ると 6/1 → 7/1 の 30 日だが、実際は 29 日 1 分しか継続していない
+    just_under = _repo("o/under", created="2026-06-01T23:59:00Z", pushed="2026-07-01T00:00:00Z")
+    assert evaluate_noise(just_under, threshold_days=30).selected_by_default is False
+
+
+def test_evaluate_noise_handles_mixed_timezone_notation() -> None:
+    """created_at と pushed_at でタイムゾーン表記が揺れても継続期間を数えられる。"""
+    # オフセット無しは UTC とみなす（両者を aware に揃えないと減算自体が TypeError になる）
+    repo = _repo("o/mixed", created="2026-06-01T00:00:00", pushed="2026-07-01T00:00:00Z")
+    assert evaluate_noise(repo, threshold_days=30).selected_by_default is True
+
+
+def test_evaluate_noise_does_not_drop_candidates() -> None:
+    """ノイズ判定は select_repos の結果件数を変えない（機械は候補を落とさない）。"""
+    repos = [
+        _repo("o/tutorial", created="2026-06-25T00:00:00Z", pushed="2026-06-30T00:00:00Z",
+              topics=["tutorial"]),
+        _repo("o/flagship", created="2024-01-01T00:00:00Z", pushed="2026-01-01T00:00:00Z"),
+    ]
+    selected = select_repos(_source(repos))
+    assert len(selected) == 2
+    assert "o/tutorial" in [r.full_name for r in selected]
 
 
 # ---------------------------------------------------------------------------
