@@ -10,7 +10,7 @@ DB・LLM・時刻に依存しない（``today`` は引数で受ける）。捏�
 """
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 
 from .context import DraftSource, RepoTechnology
 
@@ -83,15 +83,31 @@ def evaluate_noise(repo, *, threshold_days: int = _SHORT_LIVED_THRESHOLD_DAYS) -
     return NoiseVerdict(selected_by_default=not reasons, reasons=tuple(reasons))
 
 
+def _to_utc_datetime(iso_datetime: str) -> datetime:
+    """ISO 8601 日時文字列を UTC の aware datetime にする（不正なら ValueError）。
+
+    created_at と pushed_at でタイムゾーン表記が揺れても減算できるよう、必ず
+    aware に揃える。オフセット無し表記は GitHub API の慣習に合わせて UTC とみなす。
+    """
+    parsed = datetime.fromisoformat(iso_datetime)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
 def _active_days(repo) -> int:
     """継続期間（created_at → pushed_at の日数）。不正・空の日付は 0 とする。
 
     チュートリアル・写経は数日で終わり、実プロジェクトは数ヶ月〜数年継続するため、
     単一シグナルとしての判別力が最も高い（ADR-0026 決定 3）。
+
+    日付部分だけを切り出すと「23:59 作成 → 翌月 1 日 00:00 push」の 29 日 1 分が
+    30 日と数えられ、閾値ちょうどで選択側に倒れてしまう。時刻まで含めて減算し、
+    満たした日数のみを数える（端数は切り捨て）。
     """
     try:
-        created = date.fromisoformat(repo.created_at[:10])
-        pushed = date.fromisoformat(repo.pushed_at[:10])
+        created = _to_utc_datetime(repo.created_at)
+        pushed = _to_utc_datetime(repo.pushed_at)
     except ValueError:
         return 0
     return max((pushed - created).days, 0)

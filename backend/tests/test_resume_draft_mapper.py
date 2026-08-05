@@ -197,6 +197,20 @@ def test_evaluate_noise_threshold_is_inclusive_lower_bound() -> None:
     assert evaluate_noise(just_under, threshold_days=30).selected_by_default is False
 
 
+def test_evaluate_noise_counts_duration_with_time_component() -> None:
+    """継続期間は日付だけでなく時刻まで見て数える（閾値直下の取りこぼし防止）。"""
+    # 日付だけ見ると 6/1 → 7/1 の 30 日だが、実際は 29 日 1 分しか継続していない
+    just_under = _repo("o/under", created="2026-06-01T23:59:00Z", pushed="2026-07-01T00:00:00Z")
+    assert evaluate_noise(just_under, threshold_days=30).selected_by_default is False
+
+
+def test_evaluate_noise_handles_mixed_timezone_notation() -> None:
+    """created_at と pushed_at でタイムゾーン表記が揺れても継続期間を数えられる。"""
+    # オフセット無しは UTC とみなす（両者を aware に揃えないと減算自体が TypeError になる）
+    repo = _repo("o/mixed", created="2026-06-01T00:00:00", pushed="2026-07-01T00:00:00Z")
+    assert evaluate_noise(repo, threshold_days=30).selected_by_default is True
+
+
 def test_evaluate_noise_does_not_drop_candidates() -> None:
     """ノイズ判定は select_repos の結果件数を変えない（機械は候補を落とさない）。"""
     repos = [
