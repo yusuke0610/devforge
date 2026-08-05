@@ -28,11 +28,14 @@ from app.services.agent.resume_draft.mapper import (
     REASON_LEARNING_TOPIC,
     REASON_SHORT_DURATION,
     STACK_LIMIT_PER_PROJECT,
+    UnknownRepositoryError,
+    build_candidates,
     build_pdf_payload,
     build_skeleton,
     evaluate_default_selection,
     rank_repos,
     select_repos,
+    select_requested_repos,
     selection_score,
 )
 
@@ -178,6 +181,85 @@ def test_select_repos_caps_at_project_limit() -> None:
     assert [r.full_name for r in selected] == [
         r.full_name for r in rank_repos(source)[:PROJECT_LIMIT]
     ]
+
+
+# ---------------------------------------------------------------------------
+# build_candidates / select_requested_repos: 候補提示と人間の採用（ADR-0026 決定 2）
+# ---------------------------------------------------------------------------
+
+
+def test_build_candidates_returns_every_repo_in_rank_order() -> None:
+    """入口フィルタを通った候補は全件返る。並びは rank_repos と一致する。"""
+    source = _source(
+        [
+            _repo("o/tutorial", created="2026-06-01T00:00:00Z", pushed="2026-06-02T00:00:00Z",
+                  topics=["tutorial"]),
+            _repo("o/real", created="2024-01-01T00:00:00Z", pushed="2025-01-01T00:00:00Z"),
+        ]
+    )
+    candidates = build_candidates(source)
+    assert [c.full_name for c in candidates] == [r.full_name for r in rank_repos(source)]
+    assert len(candidates) == 2
+
+
+def test_build_candidates_carries_signals_and_default_selection() -> None:
+    """候補はシグナル（継続期間・実装量・IaC・技術スタック）と選択状態・理由を持つ。"""
+    source = _source(
+        [
+            _repo(
+                "o/real", description="タスク管理アプリ",
+                created="2024-01-01T00:00:00Z", pushed="2025-01-01T00:00:00Z",
+                language_bytes_total=12_000, has_infra=True,
+            )
+        ],
+        technologies={"o/real": [RepoTechnology("language", "Python", 0.9, language_bytes=12_000)]},
+    )
+    (candidate,) = build_candidates(source)
+
+    assert candidate.full_name == "o/real"
+    assert candidate.description == "タスク管理アプリ"
+    assert candidate.duration_days == 366
+    assert candidate.implementation_volume == 12_000 + mapper.INFRA_VOLUME_WEIGHT
+    assert candidate.has_infra is True
+    assert candidate.technology_stacks == [{"category": "language", "name": "Python"}]
+    assert candidate.default_selected is True
+    assert candidate.reasons == ()
+
+
+def test_build_candidates_marks_noise_without_dropping_it() -> None:
+    """ノイズ判定は候補から落とさず、デフォルト非選択 + 理由で表現する。"""
+    source = _source(
+        [_repo("o/tutorial", created="2026-06-01T00:00:00Z", pushed="2026-06-02T00:00:00Z",
+               topics=["tutorial"])]
+    )
+    (candidate,) = build_candidates(source)
+    assert candidate.default_selected is False
+    assert candidate.reasons == (REASON_SHORT_DURATION, REASON_LEARNING_TOPIC)
+
+
+def test_select_requested_repos_returns_rank_order_regardless_of_request_order() -> None:
+    """採用リポジトリは要求順ではなく順位順に解決する（生成物の並びを決定論に保つ）。"""
+    source = _source(
+        [
+            _repo("o/small", language_bytes_total=1_000),
+            _repo("o/big", language_bytes_total=900_000),
+        ]
+    )
+    selected = select_requested_repos(source, ["o/small", "o/big"])
+    assert [r.full_name for r in selected] == ["o/big", "o/small"]
+
+
+def test_select_requested_repos_deduplicates() -> None:
+    """同じリポジトリを重複指定しても 1 件に畳む。"""
+    source = _source([_repo("o/app")])
+    assert len(select_requested_repos(source, ["o/app", "o/app"])) == 1
+
+
+def test_select_requested_repos_rejects_unknown_repository() -> None:
+    """連携データに無いリポジトリの指定は拒否する（捏造リポの混入を防ぐ）。"""
+    source = _source([_repo("o/app")])
+    with pytest.raises(UnknownRepositoryError):
+        select_requested_repos(source, ["o/app", "o/ghost"])
 
 
 # ---------------------------------------------------------------------------

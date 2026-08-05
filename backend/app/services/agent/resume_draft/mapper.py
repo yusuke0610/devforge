@@ -18,11 +18,12 @@ import re
 from dataclasses import dataclass
 from datetime import date
 
+from ....schemas.agent import RESUME_DRAFT_SELECTION_LIMIT
 from .context import DraftSource, RepoTechnology
 
-# ドラフトに載せるプロジェクト（リポジトリ）数の上限。LLM 出力の有界化と
-# 同期エンドポイントのレイテンシ上限（ADR-0018）のための定数
-PROJECT_LIMIT = 5
+# 1 回の生成で採用できるリポジトリ数の上限。ADR-0026 決定 2 で「LLM 出力の有界化」から
+# 「1 回に選べる上限」へ意味が変わり、正本は schemas/agent.py（リクエスト検証側）へ移した
+PROJECT_LIMIT = RESUME_DRAFT_SELECTION_LIMIT
 # 1 プロジェクトに載せる技術スタック数の上限（経歴書としての可読性）
 STACK_LIMIT_PER_PROJECT = 8
 # 最終 push がこの日数以内なら「参画中」とみなす
@@ -170,6 +171,75 @@ def rank_repos(source: DraftSource) -> list:
 def select_repos(source: DraftSource, limit: int = PROJECT_LIMIT) -> list:
     """ドラフトに載せるリポジトリを順位上位から上限件数まで選ぶ。"""
     return rank_repos(source)[:limit]
+
+
+class UnknownRepositoryError(ValueError):
+    """採用指定に連携データへ存在しないリポジトリが含まれる。
+
+    router で 422 にマッピングする（捏造リポの構造混入を入口で止める）。
+    """
+
+
+@dataclass(frozen=True)
+class RepoCandidate:
+    """候補一覧 1 件（シグナル + デフォルト選択状態 + 非選択理由）。
+
+    ユーザーが採否を判断するための材料をまとめたもの。``reasons`` が空でなければ
+    デフォルト非選択で、web は理由バッジを出す。ユーザーは常に判定を覆せる。
+    """
+
+    full_name: str
+    description: str
+    duration_days: int
+    implementation_volume: int
+    has_infra: bool
+    technology_stacks: list[dict]
+    default_selected: bool
+    reasons: tuple[str, ...]
+
+
+def build_candidates(source: DraftSource) -> list[RepoCandidate]:
+    """採否をユーザーに判断させるための候補一覧を組み立てる（ADR-0026 決定 2）。
+
+    入口フィルタ（``github_collector._passes_filter``）を通ったリポジトリを**全件**返す。
+    ノイズ判定は除外ではなくデフォルト非選択 + 理由で表現する。並びは ``rank_repos``。
+    """
+    candidates = []
+    for repo in rank_repos(source):
+        verdict = evaluate_default_selection(repo)
+        candidates.append(
+            RepoCandidate(
+                full_name=repo.full_name,
+                description=repo.description,
+                duration_days=duration_days(repo),
+                implementation_volume=implementation_volume(repo),
+                has_infra=repo.has_infra,
+                technology_stacks=[
+                    {"category": tech.category, "name": tech.name}
+                    for tech in _select_stacks(source.repo_technologies.get(repo.full_name, []))
+                ],
+                default_selected=verdict.selected,
+                reasons=verdict.reasons,
+            )
+        )
+    return candidates
+
+
+def select_requested_repos(source: DraftSource, requested: list[str]) -> list:
+    """ユーザーが採用した ``full_name`` を連携データのリポジトリへ解決する。
+
+    重複指定は 1 件に畳み、並びは要求順ではなく ``rank_repos`` の順位順に揃える
+    （同じ選択からは常に同じ並びの生成物が出る）。
+
+    Raises:
+        UnknownRepositoryError: 連携データに存在しない ``full_name`` が含まれる場合。
+    """
+    wanted = set(requested)
+    known = {repo.full_name for repo in source.repos}
+    unknown = sorted(wanted - known)
+    if unknown:
+        raise UnknownRepositoryError(f"連携データに存在しないリポジトリ: {', '.join(unknown)}")
+    return [repo for repo in rank_repos(source) if repo.full_name in wanted]
 
 
 def build_skeleton(

@@ -32,6 +32,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/resume-draft/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Resume Draft Candidates
+         * @description 経歴書ドラフトに載せる候補リポジトリの一覧を返す（ADR-0026 決定 2）。
+         *
+         *     連携で分析済みのリポジトリを**全件**返す。機械は候補を落とさず、ノイズ判定は
+         *     デフォルト選択状態（``default_selected``）と理由コード（``reasons``）で表現する。
+         *     採否の最終判断はユーザーが行い、デフォルト非選択のものも選び直せる。
+         *     未連携・旧形式キャッシュは 409（再連携導線）、分析対象 0 件は別導線を案内する。
+         */
+        get: operations["list_resume_draft_candidates_api_agent_resume_draft_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/resume-draft/pdf": {
         parameters: {
             query?: never;
@@ -90,13 +115,14 @@ export interface paths {
         put?: never;
         /**
          * Start Resume Draft
-         * @description GitHub 連携データからの経歴書ドラフト生成をバックグラウンドで開始する（202 / ADR-0018）。
+         * @description 採用リポジトリからの経歴書ドラフト生成をバックグラウンドで開始する（202 / ADR-0018・0026）。
          *
-         *     構造（プロジェクト・技術スタック・期間）は連携データからルールベースで写し、自然文
-         *     （職務要約・自己PR・プロジェクト説明）だけを LLM で生成する。生成物（payload）は
-         *     ``resume_draft_cache`` に保存され、``GET /resume-draft/pdf`` でダウンロードできる。
-         *     確定した職務経歴書（``resumes``）とは別物で、そちらには書き込まない。
-         *     abuse 防止は日次レート制限で行う（ADR-0023 で課金を撤去）。
+         *     採用するリポジトリは ``GET /resume-draft/candidates`` の候補からユーザーが選ぶ
+         *     （機械は確定させない / ADR-0026 決定 2）。構造（プロジェクト・技術スタック・期間）は
+         *     連携データからルールベースで写し、自然文（職務要約・自己PR・プロジェクト説明）だけを
+         *     採用分についてのみ LLM で生成する。生成物（payload）は ``resume_draft_cache`` に保存され、
+         *     ``GET /resume-draft/pdf`` でダウンロードできる。確定した職務経歴書（``resumes``）とは
+         *     別物で、そちらには書き込まない。abuse 防止は日次レート制限で行う（ADR-0023 で課金を撤去）。
          */
         post: operations["start_resume_draft_api_agent_resume_draft_run_post"];
         delete?: never;
@@ -1498,11 +1524,79 @@ export interface components {
             self_pr: string;
         };
         /**
-         * ResumeDraftRequest
-         * @description 経歴書ドラフト生成（ADR-0018）のリクエスト。
+         * ResumeDraftCandidateResponse
+         * @description ドラフト生成の候補リポジトリ 1 件（ADR-0026 決定 2）。
          *
-         *     生成対象（リポジトリ集合）はサーバー側が連携キャッシュから決めるため、
-         *     クライアントが指定するのは使用モデルのみ。
+         *     採否をユーザーが判断するためのシグナルと、機械のデフォルト選択状態・
+         *     非選択理由を持つ。**機械は候補を落とさない**ため、デフォルト非選択のものも
+         *     含めて全件返る。ユーザーは理由を見た上で常に判定を覆せる。
+         */
+        ResumeDraftCandidateResponse: {
+            /**
+             * Default Selected
+             * @description デフォルトで採用状態にするか
+             */
+            default_selected: boolean;
+            /**
+             * Description
+             * @description GitHub のリポジトリ説明
+             * @default
+             */
+            description: string;
+            /**
+             * Duration Days
+             * @description 継続期間（pushed_at − created_at）の日数
+             */
+            duration_days: number;
+            /**
+             * Full Name
+             * @description owner/name 形式のリポジトリ名
+             */
+            full_name: string;
+            /**
+             * Has Infra
+             * @description IaC（Terraform 等）の宣言があるか
+             */
+            has_infra: boolean;
+            /**
+             * Implementation Volume
+             * @description 実装量スコア（言語バイト合計 + 依存の厚み・IaC のバイト相当換算）
+             */
+            implementation_volume: number;
+            /**
+             * Reasons
+             * @description デフォルト非選択にした理由コード（short_duration / learning_topic）。選択状態のときは空
+             */
+            reasons?: string[];
+            /**
+             * Technology Stacks
+             * @description 主要な技術スタック（表示順・上限件数で絞り込み済み）
+             */
+            technology_stacks?: components["schemas"]["TechnologyStackItem"][];
+        };
+        /**
+         * ResumeDraftCandidatesResponse
+         * @description ドラフト生成の候補一覧（ADR-0026 決定 2）。
+         */
+        ResumeDraftCandidatesResponse: {
+            /**
+             * Candidates
+             * @description 候補リポジトリ（採用優先度の高い順）
+             */
+            candidates?: components["schemas"]["ResumeDraftCandidateResponse"][];
+            /**
+             * Selection Limit
+             * @description 1 回の生成で採用できるリポジトリ数の上限
+             * @default 5
+             */
+            selection_limit: number;
+        };
+        /**
+         * ResumeDraftRequest
+         * @description 経歴書ドラフト生成（ADR-0018 / ADR-0026 決定 2）のリクエスト。
+         *
+         *     採用するリポジトリはユーザーが選ぶ（機械が確定させない）。LLM の説明文生成は
+         *     採用分のみ実行するため、コストは選択数に比例する。
          */
         ResumeDraftRequest: {
             /**
@@ -1511,6 +1605,11 @@ export interface components {
              * @constant
              */
             model: "haiku";
+            /**
+             * Repo Full Names
+             * @description 採用するリポジトリの full_name（owner/name）
+             */
+            repo_full_names: string[];
         };
         /**
          * ResumeDraftResultResponse
@@ -2046,6 +2145,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_resume_draft_candidates_api_agent_resume_draft_candidates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeDraftCandidatesResponse"];
                 };
             };
         };

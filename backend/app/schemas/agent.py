@@ -15,9 +15,14 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..core.messages import get_error
-from .resume import Project
+from .resume import Project, TechnologyStackItem
 
 AgentScope = Literal["project", "career_summary", "self_pr", "experience"]
+
+# 1 回の生成で採用できるリポジトリ数の上限（ADR-0026 決定 2 で「LLM 出力の有界化」から
+# 「1 回に選べる上限」へ意味を変えた。値は据え置き）。ここが正本で、選定ロジック側
+# （services/agent/resume_draft/mapper.py）はこれを import する
+RESUME_DRAFT_SELECTION_LIMIT = 5
 
 # 使用する LLM モデルのエイリアス。ADR-0023 で Haiku 無料一本化へ縮退したため haiku のみ。
 # 実モデル ID は services/agent/model_catalog.py の MODEL_CATALOG が正本（キー集合を一致させる）。
@@ -131,15 +136,61 @@ class AgentChatRequest(BaseModel):
         return self
 
 
-class ResumeDraftRequest(BaseModel):
-    """経歴書ドラフト生成（ADR-0018）のリクエスト。
+class ResumeDraftCandidateResponse(BaseModel):
+    """ドラフト生成の候補リポジトリ 1 件（ADR-0026 決定 2）。
 
-    生成対象（リポジトリ集合）はサーバー側が連携キャッシュから決めるため、
-    クライアントが指定するのは使用モデルのみ。
+    採否をユーザーが判断するためのシグナルと、機械のデフォルト選択状態・
+    非選択理由を持つ。**機械は候補を落とさない**ため、デフォルト非選択のものも
+    含めて全件返る。ユーザーは理由を見た上で常に判定を覆せる。
+    """
+
+    full_name: str = Field(description="owner/name 形式のリポジトリ名")
+    description: str = Field(default="", description="GitHub のリポジトリ説明")
+    duration_days: int = Field(description="継続期間（pushed_at − created_at）の日数")
+    implementation_volume: int = Field(
+        description="実装量スコア（言語バイト合計 + 依存の厚み・IaC のバイト相当換算）"
+    )
+    has_infra: bool = Field(description="IaC（Terraform 等）の宣言があるか")
+    technology_stacks: list[TechnologyStackItem] = Field(
+        default_factory=list, description="主要な技術スタック（表示順・上限件数で絞り込み済み）"
+    )
+    default_selected: bool = Field(description="デフォルトで採用状態にするか")
+    reasons: list[str] = Field(
+        default_factory=list,
+        description=(
+            "デフォルト非選択にした理由コード（short_duration / learning_topic）。"
+            "選択状態のときは空"
+        ),
+    )
+
+
+class ResumeDraftCandidatesResponse(BaseModel):
+    """ドラフト生成の候補一覧（ADR-0026 決定 2）。"""
+
+    candidates: list[ResumeDraftCandidateResponse] = Field(
+        default_factory=list, description="候補リポジトリ（採用優先度の高い順）"
+    )
+    selection_limit: int = Field(
+        default=RESUME_DRAFT_SELECTION_LIMIT,
+        description="1 回の生成で採用できるリポジトリ数の上限",
+    )
+
+
+class ResumeDraftRequest(BaseModel):
+    """経歴書ドラフト生成（ADR-0018 / ADR-0026 決定 2）のリクエスト。
+
+    採用するリポジトリはユーザーが選ぶ（機械が確定させない）。LLM の説明文生成は
+    採用分のみ実行するため、コストは選択数に比例する。
     """
 
     # 使用モデル。既定は haiku（ADR-0023 で課金撤去済み・全モデル無料）
     model: AgentModelAlias = "haiku"
+    # 採用リポジトリ。0 件では生成する意味が無く、上限は 1 回に選べる件数
+    repo_full_names: list[str] = Field(
+        min_length=1,
+        max_length=RESUME_DRAFT_SELECTION_LIMIT,
+        description="採用するリポジトリの full_name（owner/name）",
+    )
 
 
 class AgentOperation(BaseModel):

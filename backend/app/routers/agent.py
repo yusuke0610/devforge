@@ -19,12 +19,16 @@ from ..db import get_db
 from ..models import User
 from ..repositories.resume_draft import ResumeDraftCacheRepository
 from ..schemas.agent import (
+    RESUME_DRAFT_SELECTION_LIMIT,
     AgentChatRequest,
     AgentChatResponse,
+    ResumeDraftCandidateResponse,
+    ResumeDraftCandidatesResponse,
     ResumeDraftRequest,
     ResumeDraftResultResponse,
     ResumeImportResponse,
 )
+from ..schemas.resume import TechnologyStackItem
 from ..schemas.shared import TaskAcceptedResponse, TaskStatusResponse
 from ..services.agent import chat_service
 from ..services.agent.chat_service import (
@@ -38,7 +42,12 @@ from ..services.agent.resume_draft.context import (
     ResumeDraftSourceUnavailableError,
     build_draft_source,
 )
-from ..services.agent.resume_draft.mapper import build_pdf_payload
+from ..services.agent.resume_draft.mapper import (
+    UnknownRepositoryError,
+    build_candidates,
+    build_pdf_payload,
+    select_requested_repos,
+)
 from ..services.agent.resume_import.import_service import run_resume_import
 from ..services.agent.resume_import.text_extract import (
     PdfExtractionError,
@@ -96,6 +105,58 @@ async def agent_chat(
     return result.response
 
 
+@router.get("/resume-draft/candidates", response_model=ResumeDraftCandidatesResponse)
+def list_resume_draft_candidates(
+    user: User = Depends(require_github_user),
+    db: Session = Depends(get_db),
+) -> ResumeDraftCandidatesResponse:
+    """経歴書ドラフトに載せる候補リポジトリの一覧を返す（ADR-0026 決定 2）。
+
+    連携で分析済みのリポジトリを**全件**返す。機械は候補を落とさず、ノイズ判定は
+    デフォルト選択状態（``default_selected``）と理由コード（``reasons``）で表現する。
+    採否の最終判断はユーザーが行い、デフォルト非選択のものも選び直せる。
+    未連携・旧形式キャッシュは 409（再連携導線）、分析対象 0 件は別導線を案内する。
+    """
+    try:
+        source = build_draft_source(db, user)
+    except ResumeDraftNoRepositoriesError as exc:
+        logger.info("経歴書ドラフト候補: 分析対象リポジトリなし: %s", exc)
+        raise_app_error(
+            status_code=409,
+            code=ErrorCode.VALIDATION_ERROR,
+            message=get_error("agent.draft_no_repositories"),
+            action="公開リポジトリを追加してから GitHub 連携を再実行してください",
+        )
+    except ResumeDraftSourceUnavailableError as exc:
+        logger.info("経歴書ドラフト候補の入力が未整備: %s", exc)
+        raise_app_error(
+            status_code=409,
+            code=ErrorCode.VALIDATION_ERROR,
+            message=get_error("agent.draft_link_required"),
+            action="サイドバーの「GitHub連携」から連携を実行してください",
+        )
+
+    return ResumeDraftCandidatesResponse(
+        candidates=[
+            ResumeDraftCandidateResponse(
+                full_name=candidate.full_name,
+                description=candidate.description,
+                duration_days=candidate.duration_days,
+                implementation_volume=candidate.implementation_volume,
+                has_infra=candidate.has_infra,
+                technology_stacks=[
+                    TechnologyStackItem.model_validate(stack)
+                    for stack in candidate.technology_stacks
+                ],
+                default_selected=candidate.default_selected,
+                reasons=list(candidate.reasons),
+            )
+            for candidate in build_candidates(source)
+        ],
+        selection_limit=RESUME_DRAFT_SELECTION_LIMIT,
+    )
+
+
 @router.post("/resume-draft/run", response_model=TaskAcceptedResponse, status_code=202)
 @limiter.limit("5/minute")
 async def start_resume_draft(
@@ -105,20 +166,21 @@ async def start_resume_draft(
     user: User = Depends(require_github_user),
     db: Session = Depends(get_db),
 ) -> TaskAcceptedResponse:
-    """GitHub 連携データからの経歴書ドラフト生成をバックグラウンドで開始する（202 / ADR-0018）。
+    """採用リポジトリからの経歴書ドラフト生成をバックグラウンドで開始する（202 / ADR-0018・0026）。
 
-    構造（プロジェクト・技術スタック・期間）は連携データからルールベースで写し、自然文
-    （職務要約・自己PR・プロジェクト説明）だけを LLM で生成する。生成物（payload）は
-    ``resume_draft_cache`` に保存され、``GET /resume-draft/pdf`` でダウンロードできる。
-    確定した職務経歴書（``resumes``）とは別物で、そちらには書き込まない。
-    abuse 防止は日次レート制限で行う（ADR-0023 で課金を撤去）。
+    採用するリポジトリは ``GET /resume-draft/candidates`` の候補からユーザーが選ぶ
+    （機械は確定させない / ADR-0026 決定 2）。構造（プロジェクト・技術スタック・期間）は
+    連携データからルールベースで写し、自然文（職務要約・自己PR・プロジェクト説明）だけを
+    採用分についてのみ LLM で生成する。生成物（payload）は ``resume_draft_cache`` に保存され、
+    ``GET /resume-draft/pdf`` でダウンロードできる。確定した職務経歴書（``resumes``）とは
+    別物で、そちらには書き込まない。abuse 防止は日次レート制限で行う（ADR-0023 で課金を撤去）。
     """
     # 日次利用上限（abuse 防止 / #521・ADR-0023）を生成開始前に確認する
     enforce_agent_daily_limit(db, user.id)
     # 連携キャッシュ + スキル証跡の読み取り（SELECT のみ）で事前検証し、409 を即時に返す。
     # 0 件（NoRepositories）は再連携で回復しないため別導線を案内する（サブクラスを先に catch）
     try:
-        build_draft_source(db, user)
+        source = build_draft_source(db, user)
     except ResumeDraftNoRepositoriesError as exc:
         logger.info("経歴書ドラフト生成: 分析対象リポジトリなし: %s", exc)
         raise_app_error(
@@ -136,8 +198,22 @@ async def start_resume_draft(
             action="サイドバーの「GitHub連携」から連携を実行してください",
         )
 
+    # 採用指定の解決（件数の上下限はスキーマ側で検証済み）。連携データに無いリポジトリを
+    # 指定された場合は、捏造リポの構造混入を入口で止めるため 422 にする
+    try:
+        select_requested_repos(source, body.repo_full_names)
+    except UnknownRepositoryError as exc:
+        logger.info("経歴書ドラフト生成: 未知のリポジトリ指定: %s", exc)
+        raise_app_error(
+            status_code=422,
+            code=ErrorCode.VALIDATION_ERROR,
+            message=get_error("agent.draft_unknown_repositories"),
+            action="候補一覧を再取得してから選び直してください",
+        )
+
     cache = ResumeDraftCacheRepository(db).get_or_create(user.id)
     service = AsyncTaskCacheService(db, cache)
+
     # DB 最新状態を取得しつつ pending へアトミック遷移。進行中なら現ステータスを返す。
     # dead_letter からの再実行も本メソッドが pending へ戻すため、生成ボタンが再試行を兼ねる。
     if not service.try_reset_to_pending(reset_retry_count=True):
@@ -147,7 +223,11 @@ async def start_resume_draft(
         await service.dispatch(
             background_tasks,
             TaskType.RESUME_DRAFT,
-            {"user_id": user.id, "model": body.model},
+            {
+                "user_id": user.id,
+                "model": body.model,
+                "repo_full_names": body.repo_full_names,
+            },
             failure_message="タスクの開始に失敗しました",
             logger=logger,
         )
