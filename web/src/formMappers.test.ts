@@ -36,11 +36,10 @@ describe("mapCareerResumeToForm", () => {
     expect(form.experiences).toHaveLength(1);
   });
 
-  it("timestamps を持たない payload（保存前の形）も注入できる（#524 汎用化）", () => {
-    // ResumeFormSource は created_at/updated_at を除いた形。保存済み経歴書のレスポンスを
-    // そのまま渡さないケース（フォーム間の受け渡し等）でも写せることの回帰テスト。
+  it("id・timestamps を持たない payload（保存前の形）も注入できる（#524 汎用化）", () => {
+    // ResumeFormSource は id/created_at/updated_at を除いた形。未採番の payload でも
+    // 型どおりに写せることの回帰テスト（キャスト無しで通ることに意味がある）。
     const source: ResumeFormSource = {
-      id: 1,
       full_name: "太郎",
       email: "",
       github_url: "https://github.com/taro",
@@ -53,11 +52,16 @@ describe("mapCareerResumeToForm", () => {
           start_date: "2020-04",
           end_date: "",
           is_current: true,
+          is_it_company: true,
+          description: "",
+          employee_count: "",
+          capital: "",
+          capital_unit: "万円",
           clients: [],
         },
-      ] as unknown as ResumeFormSource["experiences"],
+      ],
       qualifications: [],
-    } as unknown as ResumeFormSource;
+    };
     const form = mapCareerResumeToForm(source);
     expect(form.full_name).toBe("太郎");
     expect(form.email).toBe("");

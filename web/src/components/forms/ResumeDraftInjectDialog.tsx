@@ -33,6 +33,9 @@ export function ResumeDraftInjectDialog({
   const hasExperience = experiences.length > 0;
   const clients = hasExperience ? (experiences[experienceIndex]?.clients ?? []) : [];
   const projects = payload.projects ?? [];
+  // 職歴があるのに取引先が無い場合、追加先を確定できない（clientIndex 0 は範囲外になる）。
+  // 追加先はユーザーが明示指定する契約なので、機械が取引先を作らず操作を止める
+  const missingClientTarget = hasExperience && clients.length === 0;
 
   const handleExperienceChange = (index: number) => {
     setExperienceIndex(index);
@@ -87,6 +90,9 @@ export function ResumeDraftInjectDialog({
         ) : (
           <p className={styles.description}>{RESUME_DRAFT_MESSAGES.INJECT_NO_EXPERIENCE}</p>
         )}
+        {missingClientTarget && (
+          <p className={styles.description}>{RESUME_DRAFT_MESSAGES.INJECT_NO_CLIENT}</p>
+        )}
 
         {/* 職務要約・自己PR は上書きになるため、候補として個別に反映させる */}
         {payload.career_summary && (
@@ -110,7 +116,7 @@ export function ResumeDraftInjectDialog({
             onClick={() =>
               onAppend(hasExperience ? { experienceIndex, clientIndex } : null)
             }
-            disabled={projects.length === 0}
+            disabled={projects.length === 0 || missingClientTarget}
           >
             {RESUME_DRAFT_MESSAGES.INJECT_SUBMIT}
           </button>

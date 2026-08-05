@@ -15,16 +15,19 @@ import { buildDefaultSelection, toggleCandidate } from "../utils/resumeDraftCand
  * `utils/resumeDraftCandidates` の純関数に置き、ここは取得と state 管理に専念する。
  *
  * 未連携・旧形式キャッシュ（409）は error に載せる。候補が取れないときに生成へ進めない
- * のは意図した挙動で、呼び出し側は再連携の導線を出す。ただし**連携結果がまだ無い画面では
- * `enabled=false` を渡して取得自体を止める**（確実に 409 になる要求でエラートーストを
- * 出さないため）。
+ * のは意図した挙動で、呼び出し側は再連携の導線を出す。
+ *
+ * 引数は**連携結果の分析時刻**（`analyzed_at`）。連携結果がまだ無い間は `null` を渡すと
+ * 取得自体を止める（確実に 409 になる要求でエラートーストを出さないため）。再連携で
+ * 分析時刻が変わったら自動で取り直す — 連携結果の有無（真偽値）を鍵にすると、既に連携
+ * 済みのユーザーが再連携しても true→true で変化せず、古い候補が残ってしまう。
  */
-export function useResumeDraftCandidates(enabled = true) {
+export function useResumeDraftCandidates(analyzedAt: string | null) {
   const [candidates, setCandidates] = useState<ResumeDraftCandidateResponse[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [selectionLimit, setSelectionLimit] = useState(0);
-  // enabled なら初回 effect で即取得が走るため、最初から loading 表示にしてちらつきを防ぐ
-  const [loading, setLoading] = useState(enabled);
+  // 取得対象があれば初回 effect で即取得が走るため、最初から loading 表示にしてちらつきを防ぐ
+  const [loading, setLoading] = useState(analyzedAt !== null);
   const [error, setError] = useState<AppErrorState | null>(null);
 
   const reload = useCallback(async () => {
@@ -45,12 +48,12 @@ export function useResumeDraftCandidates(enabled = true) {
   }, []);
 
   useEffect(() => {
-    if (!enabled) {
+    if (analyzedAt === null) {
       setLoading(false);
       return;
     }
     void reload();
-  }, [enabled, reload]);
+  }, [analyzedAt, reload]);
 
   /** 候補の採否を切り替える（上限に達している場合、未選択の追加だけが抑止される）。 */
   const toggle = useCallback(

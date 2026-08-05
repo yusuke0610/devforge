@@ -15,7 +15,7 @@ from app.models import GitHubLinkCache, ResumeDraftCache, User
 from app.schemas.agent import RESUME_DRAFT_SELECTION_LIMIT
 from app.schemas.github_link import AnalyzedRepoSummary, GitHubLinkResponse
 from app.services.agent.resume_draft.context import DraftSource, RepoTechnology
-from app.services.agent.resume_draft.mapper import build_skeleton, select_repos
+from app.services.agent.resume_draft.mapper import PROJECT_LIMIT, build_skeleton, rank_repos
 from fastapi.testclient import TestClient
 
 from conftest import auth_header
@@ -79,7 +79,7 @@ def _draft_payload() -> dict:
             "octo/app": [RepoTechnology(category="language", name="Python", confidence=0.9, language_bytes=1000)]
         },
     )
-    selected = select_repos(source)
+    selected = rank_repos(source)[:PROJECT_LIMIT]
     payload = build_skeleton(source, selected, today=date(2026, 6, 15))
     payload["career_summary"] = "生成された職務要約。"
     payload["self_pr"] = "生成された自己PR。"

@@ -6,7 +6,7 @@ context（スキル証跡の反転・連携キャッシュの検証）は実 SQL
 """
 
 import json
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from app.models import GitHubLinkCache, User
@@ -34,7 +34,6 @@ from app.services.agent.resume_draft.mapper import (
     build_skeleton,
     evaluate_default_selection,
     rank_repos,
-    select_repos,
     select_requested_repos,
     selection_score,
 )
@@ -71,7 +70,7 @@ def _source(repos: list, technologies: dict | None = None) -> DraftSource:
 
 
 # ---------------------------------------------------------------------------
-# select_repos: リポジトリ選定の決定論
+# rank_repos: リポジトリ順位付けの決定論
 # ---------------------------------------------------------------------------
 
 
@@ -172,14 +171,15 @@ def test_rank_repos_handles_invalid_dates_without_crashing() -> None:
     assert [r.full_name for r in rank_repos(source)] == ["o/normal", "o/broken"]
 
 
-def test_select_repos_caps_at_project_limit() -> None:
-    """select_repos は順位付けの上位を上限件数（PROJECT_LIMIT）で打ち切る。"""
+def test_rank_repos_head_is_capped_by_project_limit() -> None:
+    """生成に渡す件数は順位上位から上限件数（PROJECT_LIMIT）まで。"""
     repos = [_repo(f"o/repo-{i}", language_bytes_total=(i + 1) * 1000) for i in range(8)]
     source = _source(repos)
-    selected = select_repos(source)
+    selected = rank_repos(source)[:PROJECT_LIMIT]
     assert len(selected) == PROJECT_LIMIT
+    # 実装量の多い順に上位が取られる
     assert [r.full_name for r in selected] == [
-        r.full_name for r in rank_repos(source)[:PROJECT_LIMIT]
+        "o/repo-7", "o/repo-6", "o/repo-5", "o/repo-4", "o/repo-3",
     ]
 
 
@@ -288,13 +288,15 @@ def test_default_selection_flags_short_duration() -> None:
 
 def test_default_selection_duration_threshold_boundary() -> None:
     """閾値ちょうどは選択、1 日足りなければ非選択（境界の固定）。"""
+    # 日付演算で組み立てる（MIN_DURATION_DAYS が 31 以上でも不正な日付にならないように）
+    created = date(2026, 1, 1)
     exactly = _repo(
-        "o/exact", created="2026-01-01T00:00:00Z",
-        pushed=f"2026-01-{1 + MIN_DURATION_DAYS:02d}T00:00:00Z",
+        "o/exact", created=f"{created.isoformat()}T00:00:00Z",
+        pushed=f"{(created + timedelta(days=MIN_DURATION_DAYS)).isoformat()}T00:00:00Z",
     )
     one_short = _repo(
-        "o/short", created="2026-01-01T00:00:00Z",
-        pushed=f"2026-01-{MIN_DURATION_DAYS:02d}T00:00:00Z",
+        "o/short", created=f"{created.isoformat()}T00:00:00Z",
+        pushed=f"{(created + timedelta(days=MIN_DURATION_DAYS - 1)).isoformat()}T00:00:00Z",
     )
     assert evaluate_default_selection(exactly).selected is True
     assert evaluate_default_selection(one_short).selected is False
@@ -368,7 +370,7 @@ def test_build_skeleton_returns_projects_without_experiences() -> None:
             _repo("o/second", created="2021-11-05T00:00:00Z"),
         ]
     )
-    selected = select_repos(source)
+    selected = rank_repos(source)[:PROJECT_LIMIT]
     payload = build_skeleton(source, selected, today=_TODAY)
 
     assert payload["full_name"] == "octocat"
@@ -385,7 +387,7 @@ def test_build_skeleton_returns_projects_without_experiences() -> None:
 def test_build_skeleton_generates_no_placeholder_values() -> None:
     """生成 payload にプレースホルダ文字列が一切含まれない（ADR-0026 決定 1 の完了条件）。"""
     source = _source([_repo("o/app", description="タスク管理アプリ")])
-    payload = build_skeleton(source, select_repos(source), today=_TODAY)
+    payload = build_skeleton(source, rank_repos(source)[:PROJECT_LIMIT], today=_TODAY)
 
     serialized = json.dumps(payload, ensure_ascii=False)
     for placeholder in ("個人開発", "GitHub 上での個人開発活動", "開発（個人開発）"):
@@ -398,7 +400,7 @@ def test_build_skeleton_generates_no_placeholder_values() -> None:
 def test_build_skeleton_leaves_human_only_fields_empty() -> None:
     """role / phases / team は生成しない（空 = 人間が埋める / ADR-0026 決定 1）。"""
     source = _source([_repo("o/app", description="タスク管理アプリ")])
-    (project,) = build_skeleton(source, select_repos(source), today=_TODAY)["projects"]
+    (project,) = build_skeleton(source, rank_repos(source)[:PROJECT_LIMIT], today=_TODAY)["projects"]
 
     assert project["role"] == ""
     assert project["phases"] == []
@@ -415,7 +417,7 @@ def test_build_skeleton_project_period_current_boundary() -> None:
             _repo("o/stale", created="2024-01-01T00:00:00Z", pushed="2026-03-01T00:00:00Z"),
         ]
     )
-    payload = build_skeleton(source, select_repos(source), today=_TODAY)
+    payload = build_skeleton(source, rank_repos(source)[:PROJECT_LIMIT], today=_TODAY)
     projects = {p["name"]: p for p in payload["projects"]}
 
     active_period = projects["active"]["periods"][0]
@@ -428,7 +430,7 @@ def test_build_skeleton_project_period_current_boundary() -> None:
 def test_build_skeleton_skips_period_without_created_at() -> None:
     """created_at が空のリポは期間を出さない（不正な期間を捏造しない）。"""
     source = _source([_repo("o/no-date", created="", pushed="")])
-    payload = build_skeleton(source, select_repos(source), today=_TODAY)
+    payload = build_skeleton(source, rank_repos(source)[:PROJECT_LIMIT], today=_TODAY)
     (project,) = payload["projects"]
     assert project["periods"] == []
 
@@ -436,7 +438,7 @@ def test_build_skeleton_skips_period_without_created_at() -> None:
 def test_build_skeleton_description_falls_back_to_repo_description() -> None:
     """プロジェクト description は LLM マージ前のフォールバックとして repo description を持つ。"""
     source = _source([_repo("o/app", description="タスク管理アプリ")])
-    payload = build_skeleton(source, select_repos(source), today=_TODAY)
+    payload = build_skeleton(source, rank_repos(source)[:PROJECT_LIMIT], today=_TODAY)
     (project,) = payload["projects"]
     assert project["description"] == "タスク管理アプリ"
 
@@ -444,7 +446,7 @@ def test_build_skeleton_description_falls_back_to_repo_description() -> None:
 def test_build_pdf_payload_wraps_projects_in_empty_experience() -> None:
     """PDF レンダリング用に空の experience / client で包む（値は捏造しない）。"""
     source = _source([_repo("o/app", description="タスク管理アプリ")])
-    draft = build_skeleton(source, select_repos(source), today=_TODAY)
+    draft = build_skeleton(source, rank_repos(source)[:PROJECT_LIMIT], today=_TODAY)
 
     payload = build_pdf_payload(draft)
     assert payload["career_summary"] == draft["career_summary"]
@@ -473,7 +475,7 @@ def test_build_skeleton_stacks_ordered_and_capped() -> None:
         RepoTechnology("language", "TypeScript", 0.9, language_bytes=9000),
     ] + [RepoTechnology("framework", f"lib-{i}", 0.5 - i * 0.01) for i in range(6)]
     source = _source([_repo("o/app")], technologies={"o/app": technologies})
-    payload = build_skeleton(source, select_repos(source), today=_TODAY)
+    payload = build_skeleton(source, rank_repos(source)[:PROJECT_LIMIT], today=_TODAY)
     (project,) = payload["projects"]
 
     stacks = project["technology_stacks"]

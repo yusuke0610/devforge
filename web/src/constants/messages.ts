@@ -214,6 +214,8 @@ export const RESUME_DRAFT_MESSAGES = {
   INJECT_CLIENT_LABEL: "追加先の取引先",
   /** 職歴が 1 件も無いときの案内。 */
   INJECT_NO_EXPERIENCE: "職歴がまだ無いため、新しい職歴と取引先を 1 件ずつ作って追加します。",
+  /** 選んだ職歴に取引先が 1 件も無いときの案内（追加先を確定できない）。 */
+  INJECT_NO_CLIENT: "選択した職歴には取引先がありません。先に職務経歴書で取引先を追加してください。",
   /** 追加される案件の一覧見出し。 */
   INJECT_PROJECTS_HEADING: "追加する案件",
   /** 追加実行ボタン。 */

@@ -1,6 +1,7 @@
 """非同期タスクのキャッシュレコード操作とディスパッチを共通化するサービス。
 
-現在の非同期タスクは GitHub 連携（``TaskType.GITHUB_LINK``）の 1 種類のみ。
+現在の非同期タスクは GitHub 連携（``TaskType.GITHUB_LINK``）と
+経歴書ドラフト生成（``TaskType.RESUME_DRAFT``）の 2 種類。
 ``status`` / ``error_message`` / ``retry_count`` / ``started_at`` / ``completed_at``
 を持つキャッシュレコードに紐づき、以下のフローを取る:
 

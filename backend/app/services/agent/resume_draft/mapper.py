@@ -168,11 +168,6 @@ def rank_repos(source: DraftSource) -> list:
     return sorted(repos, key=lambda r: (selection_score(r), r.pushed_at), reverse=True)
 
 
-def select_repos(source: DraftSource, limit: int = PROJECT_LIMIT) -> list:
-    """ドラフトに載せるリポジトリを順位上位から上限件数まで選ぶ。"""
-    return rank_repos(source)[:limit]
-
-
 class UnknownRepositoryError(ValueError):
     """採用指定に連携データへ存在しないリポジトリが含まれる。
 

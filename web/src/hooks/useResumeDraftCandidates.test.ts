@@ -44,7 +44,7 @@ describe("useResumeDraftCandidates", () => {
       selection_limit: 5,
     });
 
-    const { result } = renderHook(() => useResumeDraftCandidates());
+    const { result } = renderHook(() => useResumeDraftCandidates("2026-06-01T00:00:00Z"));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.candidates).toHaveLength(2);
@@ -62,7 +62,7 @@ describe("useResumeDraftCandidates", () => {
       selection_limit: 5,
     });
 
-    const { result } = renderHook(() => useResumeDraftCandidates());
+    const { result } = renderHook(() => useResumeDraftCandidates("2026-06-01T00:00:00Z"));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => result.current.toggle("o/tutorial"));
@@ -78,7 +78,7 @@ describe("useResumeDraftCandidates", () => {
       selection_limit: 2,
     });
 
-    const { result } = renderHook(() => useResumeDraftCandidates());
+    const { result } = renderHook(() => useResumeDraftCandidates("2026-06-01T00:00:00Z"));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     expect(result.current.selected).toEqual(["o/a", "o/b"]);
@@ -89,7 +89,7 @@ describe("useResumeDraftCandidates", () => {
   it("取得失敗（409 = 未連携）は error に載せ、候補は空のままにする", async () => {
     mockGet.mockRejectedValueOnce(new ApiError({ code: "VALIDATION_ERROR", message: "連携データがありません" }));
 
-    const { result } = renderHook(() => useResumeDraftCandidates());
+    const { result } = renderHook(() => useResumeDraftCandidates("2026-06-01T00:00:00Z"));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.candidates).toEqual([]);
@@ -97,12 +97,36 @@ describe("useResumeDraftCandidates", () => {
     expect(result.current.error?.message).toBe("連携データがありません");
   });
 
-  it("enabled=false の間は取得しない（連携結果が無い画面で 409 を出さない）", async () => {
-    const { result } = renderHook(() => useResumeDraftCandidates(false));
+  it("analyzedAt=null の間は取得しない（連携結果が無い画面で 409 を出さない）", async () => {
+    const { result } = renderHook(() => useResumeDraftCandidates(null));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(mockGet).not.toHaveBeenCalled();
     expect(result.current.candidates).toEqual([]);
     expect(result.current.error).toBeNull();
+  });
+
+  it("連携をやり直して分析時刻が変わったら候補を取り直す", async () => {
+    mockGet.mockResolvedValue({
+      candidates: [candidate("o/old")],
+      selection_limit: 5,
+    });
+
+    const { result, rerender } = renderHook(
+      ({ analyzedAt }) => useResumeDraftCandidates(analyzedAt),
+      { initialProps: { analyzedAt: "2026-06-01T00:00:00Z" as string | null } },
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(mockGet).toHaveBeenCalledTimes(1);
+
+    // 再連携で新しい分析結果が届いた（連携結果自体は非 null のまま変わる）
+    mockGet.mockResolvedValue({
+      candidates: [candidate("o/new")],
+      selection_limit: 5,
+    });
+    rerender({ analyzedAt: "2026-07-01T00:00:00Z" });
+
+    await waitFor(() => expect(result.current.candidates[0]?.full_name).toBe("o/new"));
+    expect(mockGet).toHaveBeenCalledTimes(2);
   });
 });

@@ -72,8 +72,9 @@ export function GitHubLinkDashboard() {
   useAppErrorToast(draft.error);
 
   // ドラフトに載せるリポジトリ候補（ADR-0026 決定 2）。採否はユーザーが決める。
-  // 連携結果がまだ無い間は取得しない（必ず 409 になる要求でエラーを出さない）
-  const candidates = useResumeDraftCandidates(Boolean(result));
+  // 連携結果がまだ無い間は取得しない（必ず 409 になる要求でエラーを出さない）。
+  // 分析時刻を鍵にして、再連携で結果が入れ替わったら候補も取り直す
+  const candidates = useResumeDraftCandidates(result?.analyzed_at ?? null);
   useAppErrorToast(candidates.error);
 
   // ドラフトを職務経歴書フォームへ流し込む（ADR-0025 / #525）。payload を取得して
