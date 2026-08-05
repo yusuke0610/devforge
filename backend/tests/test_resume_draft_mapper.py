@@ -5,13 +5,15 @@ context（スキル証跡の反転・連携キャッシュの検証）は実 SQL
 （DB モック禁止 / .claude/rules/backend/test.md）。
 """
 
+import json
 from datetime import date
 
 import pytest
 from app.models import GitHubLinkCache, User
 from app.models.skill import GitHubSkill, GitHubSkillEvidence
 from app.schemas.github_link import AnalyzedRepoSummary
-from app.schemas.resume import TechnologyStackItem
+from app.schemas.resume import Project, TechnologyStackItem
+from app.services.agent.resume_draft import mapper
 from app.services.agent.resume_draft.context import (
     _SELECTION_SIGNAL_KEYS,
     DraftSource,
@@ -22,11 +24,11 @@ from app.services.agent.resume_draft.context import (
 )
 from app.services.agent.resume_draft.mapper import (
     MIN_DURATION_DAYS,
-    PLACEHOLDER_COMPANY,
     PROJECT_LIMIT,
     REASON_LEARNING_TOPIC,
     REASON_SHORT_DURATION,
     STACK_LIMIT_PER_PROJECT,
+    build_pdf_payload,
     build_skeleton,
     evaluate_default_selection,
     rank_repos,
@@ -276,8 +278,8 @@ def test_default_selection_does_not_drop_candidates_from_ranking() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_build_skeleton_top_level_and_placeholder_experience() -> None:
-    """トップレベルとプレースホルダ職歴（個人開発）が契約どおり組み立てられる。"""
+def test_build_skeleton_returns_projects_without_experiences() -> None:
+    """出力単位は project 明細のリスト。experience は生成しない（ADR-0026 決定 1）。"""
     source = _source(
         [
             _repo("o/first", created="2022-03-10T00:00:00Z"),
@@ -290,19 +292,37 @@ def test_build_skeleton_top_level_and_placeholder_experience() -> None:
     assert payload["full_name"] == "octocat"
     assert payload["email"] == "octo@example.com"
     assert payload["github_url"] == "https://github.com/octocat"
+    # career_summary / self_pr は experiences から独立した候補として返る（LLM が埋める）
     assert payload["career_summary"] == ""
     assert payload["self_pr"] == ""
-    assert payload["qualifications"] == []
+    # 会社・事業内容・在籍期間・顧客は GitHub から得られないため生成しない
+    assert "experiences" not in payload
+    assert len(payload["projects"]) == 2
 
-    (experience,) = payload["experiences"]
-    assert experience["company"] == PLACEHOLDER_COMPANY
-    assert experience["is_it_company"] is True
-    assert experience["is_current"] is True
-    assert experience["end_date"] == ""
-    # 選定リポの最古 created_at（YYYY-MM）を職歴の開始にする
-    assert experience["start_date"] == "2021-11"
-    (client,) = experience["clients"]
-    assert len(client["projects"]) == 2
+
+def test_build_skeleton_generates_no_placeholder_values() -> None:
+    """生成 payload にプレースホルダ文字列が一切含まれない（ADR-0026 決定 1 の完了条件）。"""
+    source = _source([_repo("o/app", description="タスク管理アプリ")])
+    payload = build_skeleton(source, select_repos(source), today=_TODAY)
+
+    serialized = json.dumps(payload, ensure_ascii=False)
+    for placeholder in ("個人開発", "GitHub 上での個人開発活動", "開発（個人開発）"):
+        assert placeholder not in serialized
+    # 廃止した定数がモジュールに残っていないこと（再導入の抑止）
+    for removed in ("PLACEHOLDER_COMPANY", "PLACEHOLDER_BUSINESS_DESCRIPTION", "PLACEHOLDER_ROLE"):
+        assert not hasattr(mapper, removed)
+
+
+def test_build_skeleton_leaves_human_only_fields_empty() -> None:
+    """role / phases / team は生成しない（空 = 人間が埋める / ADR-0026 決定 1）。"""
+    source = _source([_repo("o/app", description="タスク管理アプリ")])
+    (project,) = build_skeleton(source, select_repos(source), today=_TODAY)["projects"]
+
+    assert project["role"] == ""
+    assert project["phases"] == []
+    assert project["team"] == {"total": "", "members": []}
+    # 保存契約（schemas/resume.py）に収まること
+    Project.model_validate(project)
 
 
 def test_build_skeleton_project_period_current_boundary() -> None:
@@ -314,7 +334,7 @@ def test_build_skeleton_project_period_current_boundary() -> None:
         ]
     )
     payload = build_skeleton(source, select_repos(source), today=_TODAY)
-    projects = {p["name"]: p for p in payload["experiences"][0]["clients"][0]["projects"]}
+    projects = {p["name"]: p for p in payload["projects"]}
 
     active_period = projects["active"]["periods"][0]
     assert active_period == {"start_date": "2024-01", "end_date": "", "is_current": True}
@@ -327,20 +347,39 @@ def test_build_skeleton_skips_period_without_created_at() -> None:
     """created_at が空のリポは期間を出さない（不正な期間を捏造しない）。"""
     source = _source([_repo("o/no-date", created="", pushed="")])
     payload = build_skeleton(source, select_repos(source), today=_TODAY)
-    (project,) = payload["experiences"][0]["clients"][0]["projects"]
+    (project,) = payload["projects"]
     assert project["periods"] == []
-    # 職歴の開始も空になる
-    assert payload["experiences"][0]["start_date"] == ""
 
 
 def test_build_skeleton_description_falls_back_to_repo_description() -> None:
     """プロジェクト description は LLM マージ前のフォールバックとして repo description を持つ。"""
     source = _source([_repo("o/app", description="タスク管理アプリ")])
     payload = build_skeleton(source, select_repos(source), today=_TODAY)
-    (project,) = payload["experiences"][0]["clients"][0]["projects"]
+    (project,) = payload["projects"]
     assert project["description"] == "タスク管理アプリ"
-    assert project["team"] == {"total": "1", "members": [{"role": "開発", "count": 1}]}
-    assert project["phases"] == []
+
+
+def test_build_pdf_payload_wraps_projects_in_empty_experience() -> None:
+    """PDF レンダリング用に空の experience / client で包む（値は捏造しない）。"""
+    source = _source([_repo("o/app", description="タスク管理アプリ")])
+    draft = build_skeleton(source, select_repos(source), today=_TODAY)
+
+    payload = build_pdf_payload(draft)
+    assert payload["career_summary"] == draft["career_summary"]
+    (experience,) = payload["experiences"]
+    assert experience["company"] == ""
+    assert experience["business_description"] == ""
+    (client,) = experience["clients"]
+    assert client["name"] == ""
+    assert [p["name"] for p in client["projects"]] == ["app"]
+    # 元のドラフトを破壊しない（同じ payload を PDF と JSON 双方で使うため）
+    assert "experiences" not in draft
+
+
+def test_build_pdf_payload_without_projects_has_no_experience() -> None:
+    """プロジェクトが 0 件なら空の職歴も作らない（空箱だけの PDF を出さない）。"""
+    payload = build_pdf_payload(build_skeleton(_source([]), [], today=_TODAY))
+    assert payload["experiences"] == []
 
 
 def test_build_skeleton_stacks_ordered_and_capped() -> None:
@@ -353,7 +392,7 @@ def test_build_skeleton_stacks_ordered_and_capped() -> None:
     ] + [RepoTechnology("framework", f"lib-{i}", 0.5 - i * 0.01) for i in range(6)]
     source = _source([_repo("o/app")], technologies={"o/app": technologies})
     payload = build_skeleton(source, select_repos(source), today=_TODAY)
-    (project,) = payload["experiences"][0]["clients"][0]["projects"]
+    (project,) = payload["projects"]
 
     stacks = project["technology_stacks"]
     assert len(stacks) == STACK_LIMIT_PER_PROJECT

@@ -29,6 +29,7 @@ from ..chat_service import AgentResponseParseError
 from ..llm.base import LLMError
 from .context import ResumeDraftSourceUnavailableError, build_draft_source
 from .draft_service import run_resume_draft
+from .mapper import build_pdf_payload
 
 logger = get_logger(__name__)
 
@@ -97,8 +98,10 @@ async def run_resume_draft_task(session_factory: SessionFactory, payload: dict) 
 
     # PDF レンダリングを検証する。失敗した場合は課金せず dead_letter にする
     # （稀な実装/環境エラーでユーザーに課金しない不変条件 / 同期版 router と同一）。
+    # 保存する result.payload はプロジェクト明細のリスト（ADR-0026 決定 1）なので、
+    # レンダリング時だけ Resume 互換の形へ包む。
     try:
-        build_resume_pdf(result.payload)
+        build_resume_pdf(build_pdf_payload(result.payload))
     except Exception as exc:
         logger.error("経歴書ドラフト PDF のレンダリングに失敗", exc_info=True)
         raise NonRetryableError(get_error("agent.draft_pdf_failed")) from exc

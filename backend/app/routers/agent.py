@@ -38,6 +38,7 @@ from ..services.agent.resume_draft.context import (
     ResumeDraftSourceUnavailableError,
     build_draft_source,
 )
+from ..services.agent.resume_draft.mapper import build_pdf_payload
 from ..services.agent.resume_import.import_service import run_resume_import
 from ..services.agent.resume_import.text_extract import (
     PdfExtractionError,
@@ -195,7 +196,9 @@ def download_resume_draft_pdf(
             message=get_error("agent.draft_not_ready"),
             action="経歴書ドラフトの生成が完了してから再度お試しください",
         )
-    pdf_bytes = build_resume_pdf(cache.result)
+    # 保存 payload はプロジェクト明細のリスト（ADR-0026 決定 1）なので、
+    # レンダリング時だけ Resume 互換の形へ包む
+    pdf_bytes = build_resume_pdf(build_pdf_payload(cache.result))
     return stream_pdf(pdf_bytes, "career-resume-draft.pdf")
 
 

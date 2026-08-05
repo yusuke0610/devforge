@@ -1514,12 +1514,16 @@ export interface components {
         };
         /**
          * ResumeDraftResultResponse
-         * @description 経歴書ドラフトの生成 payload をフォーム注入用に返す（ADR-0025 / #525）。
+         * @description 経歴書ドラフトの生成 payload をフォーム注入用に返す（ADR-0025 / ADR-0026 決定 1）。
          *
-         *     ``resume_draft_cache.result``（Resume 互換の生成 payload）をそのまま返す。保存契約
-         *     （``schemas/resume.py`` の ResumeBase の strict 検証。email 必須等）とは分離し、生成に
-         *     含まれないフィールド（email が空など）を許容する緩い schema。experiences / qualifications
-         *     は保存契約と同じ入れ子モデルを再利用し、web は既存の form マッパーで注入する。
+         *     ADR-0026 で出力単位を experience から **project 明細のリスト**へ縮小した。会社・
+         *     事業内容・在籍期間・顧客は GitHub に存在しないため生成せず、``projects`` だけを返す。
+         *     web は追加先の experience / client をユーザーに選ばせ、その ``clients[].projects`` へ
+         *     追加する（置換しない / ADR-0026 決定 5）。
+         *
+         *     ``career_summary`` / ``self_pr`` は projects から独立した**候補**。上書きはせず、
+         *     ユーザーが適用を選ぶ。保存契約（``schemas/resume.py`` の ResumeBase の strict 検証）
+         *     とは分離した緩い schema で、生成に含まれないフィールド（email が空など）を許容する。
          *     DB は更新せず、フロントがフォーム state へ注入 → ユーザー確認 → 既存の保存 API を呼ぶ。
          */
         ResumeDraftResultResponse: {
@@ -1533,8 +1537,6 @@ export interface components {
              * @default
              */
             email: string;
-            /** Experiences */
-            experiences?: components["schemas"]["Experience"][];
             /**
              * Full Name
              * @default
@@ -1545,8 +1547,8 @@ export interface components {
              * @default
              */
             github_url: string;
-            /** Qualifications */
-            qualifications?: components["schemas"]["ResumeQualificationItem"][];
+            /** Projects */
+            projects?: components["schemas"]["Project"][];
             /**
              * Self Pr
              * @default

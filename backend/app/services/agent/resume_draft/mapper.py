@@ -1,12 +1,17 @@
-"""ドラフト骨格のルールベースマッピング（決定論・純関数 / ADR-0018）。
+"""ドラフト骨格のルールベースマッピング（決定論・純関数 / ADR-0018・0026）。
 
-GitHub 連携データ（DraftSource）から、``build_resume_pdf(dict)`` が受け取れる
-経歴書 payload の骨格を組み立てる。自然文（career_summary / self_pr /
-プロジェクト description）は空または repo description のままにし、
-draft_service が LLM 出力をマージする。
+GitHub 連携データ（DraftSource）から、**プロジェクト明細のリスト**を組み立てる
+（ADR-0026 決定 1 で出力単位を experience から project へ縮小した）。自然文
+（career_summary / self_pr / プロジェクト description）は空または repo description の
+ままにし、draft_service が LLM 出力をマージする。PDF レンダリングに渡すときだけ
+``build_pdf_payload`` で Resume 互換の形へ包む。
 
-DB・LLM・時刻に依存しない（``today`` は引数で受ける）。捏造につながる値
-（担当工程・チーム規模の水増し等）はここでは生成しない。
+リポジトリの順位付け（``rank_repos``）とデフォルト選択判定
+（``evaluate_default_selection``）もここに置く。どちらも決定論的な純関数で、
+判定は候補を落とさずデフォルト選択状態と理由表示にのみ影響させる（ADR-0026 決定 2・3）。
+
+DB・LLM・時刻に依存しない（``today`` は引数で受ける）。GitHub から得られない値
+（会社・役割・担当工程・チーム規模）はここでは生成しない。
 """
 
 import re
@@ -22,11 +27,6 @@ PROJECT_LIMIT = 5
 STACK_LIMIT_PER_PROJECT = 8
 # 最終 push がこの日数以内なら「参画中」とみなす
 _CURRENT_THRESHOLD_DAYS = 90
-
-# 個人開発プレースホルダ（GitHub からは職歴が得られないため / ADR-0018）
-PLACEHOLDER_COMPANY = "個人開発"
-PLACEHOLDER_BUSINESS_DESCRIPTION = "GitHub 上での個人開発活動"
-PLACEHOLDER_ROLE = "開発（個人開発）"
 
 # 技術スタックの表示順（言語 → フレームワーク → IaC）
 _CATEGORY_ORDER: dict[str, int] = {"language": 0, "framework": 1, "iac": 2}
@@ -175,29 +175,16 @@ def select_repos(source: DraftSource, limit: int = PROJECT_LIMIT) -> list:
 def build_skeleton(
     source: DraftSource, selected: list, *, today: date | None = None
 ) -> dict:
-    """選定リポジトリから経歴書 payload の骨格を組み立てる。
+    """採用リポジトリからドラフト payload の骨格を組み立てる（ADR-0026 決定 1）。
+
+    出力単位は**プロジェクト明細のリスト**。会社・事業内容・在籍期間・顧客
+    （experience の情報）は GitHub に存在しないため生成しない。
+    ``career_summary`` / ``self_pr`` は projects から独立した候補として持ち、
+    draft_service が LLM 出力をマージする。
 
     ``today`` は「参画中」判定の基準日。テストからの注入用で、省略時は当日。
     """
     reference_date = today or date.today()
-
-    projects = [
-        _build_project(repo, source.repo_technologies.get(repo.full_name, []), reference_date)
-        for repo in selected
-    ]
-
-    start_months = [
-        _year_month(repo.created_at) for repo in selected if _year_month(repo.created_at)
-    ]
-    experience = {
-        "company": PLACEHOLDER_COMPANY,
-        "business_description": PLACEHOLDER_BUSINESS_DESCRIPTION,
-        "is_it_company": True,
-        "start_date": min(start_months) if start_months else "",
-        "end_date": "",
-        "is_current": True,
-        "clients": [{"name": "", "is_vacation": False, "projects": projects}],
-    }
 
     return {
         "full_name": source.username,
@@ -205,9 +192,43 @@ def build_skeleton(
         "github_url": f"https://github.com/{source.username}",
         "career_summary": "",
         "self_pr": "",
-        "experiences": [experience],
-        "qualifications": [],
+        "projects": [
+            _build_project(repo, source.repo_technologies.get(repo.full_name, []), reference_date)
+            for repo in selected
+        ],
     }
+
+
+def build_pdf_payload(draft: dict) -> dict:
+    """ドラフトを ``build_resume_pdf`` が受け取れる Resume 互換 payload へ包む。
+
+    PDF は「プロジェクト明細のプレビュー」なので、projects を**空の**
+    experience / client 1 件で包むだけにする。会社名・事業内容・顧客名は
+    プレースホルダを入れず空のままにする（ADR-0026 決定 1 の徹底）。
+    projects が 0 件なら空箱すら作らない。
+
+    元の ``draft`` は書き換えない（同じ payload を PDF と JSON 注入の双方が使うため）。
+    """
+    projects = draft.get("projects") or []
+    experiences = (
+        [
+            {
+                "company": "",
+                "business_description": "",
+                "is_it_company": True,
+                "start_date": "",
+                "end_date": "",
+                "is_current": False,
+                "clients": [{"name": "", "is_vacation": False, "projects": projects}],
+            }
+        ]
+        if projects
+        else []
+    )
+    payload = {key: value for key, value in draft.items() if key != "projects"}
+    payload["experiences"] = experiences
+    payload["qualifications"] = []
+    return payload
 
 
 def _build_project(repo, technologies: list[RepoTechnology], reference_date: date) -> dict:
@@ -230,10 +251,11 @@ def _build_project(repo, technologies: list[RepoTechnology], reference_date: dat
         )
     return {
         "name": repo.full_name.split("/", 1)[-1],
-        "role": PLACEHOLDER_ROLE,
+        # role / phases / team は GitHub から得られないため生成しない（人間が埋める）
+        "role": "",
         "description": repo.description,
         "periods": periods,
-        "team": {"total": "1", "members": [{"role": "開発", "count": 1}]},
+        "team": {"total": "", "members": []},
         "phases": [],
         "technology_stacks": [
             {"category": tech.category, "name": tech.name}

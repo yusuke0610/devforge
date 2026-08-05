@@ -15,7 +15,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..core.messages import get_error
-from .resume import Experience, ResumeQualificationItem
+from .resume import Project
 
 AgentScope = Literal["project", "career_summary", "self_pr", "experience"]
 
@@ -201,12 +201,16 @@ class ResumeImportResponse(BaseModel):
 
 
 class ResumeDraftResultResponse(BaseModel):
-    """経歴書ドラフトの生成 payload をフォーム注入用に返す（ADR-0025 / #525）。
+    """経歴書ドラフトの生成 payload をフォーム注入用に返す（ADR-0025 / ADR-0026 決定 1）。
 
-    ``resume_draft_cache.result``（Resume 互換の生成 payload）をそのまま返す。保存契約
-    （``schemas/resume.py`` の ResumeBase の strict 検証。email 必須等）とは分離し、生成に
-    含まれないフィールド（email が空など）を許容する緩い schema。experiences / qualifications
-    は保存契約と同じ入れ子モデルを再利用し、web は既存の form マッパーで注入する。
+    ADR-0026 で出力単位を experience から **project 明細のリスト**へ縮小した。会社・
+    事業内容・在籍期間・顧客は GitHub に存在しないため生成せず、``projects`` だけを返す。
+    web は追加先の experience / client をユーザーに選ばせ、その ``clients[].projects`` へ
+    追加する（置換しない / ADR-0026 決定 5）。
+
+    ``career_summary`` / ``self_pr`` は projects から独立した**候補**。上書きはせず、
+    ユーザーが適用を選ぶ。保存契約（``schemas/resume.py`` の ResumeBase の strict 検証）
+    とは分離した緩い schema で、生成に含まれないフィールド（email が空など）を許容する。
     DB は更新せず、フロントがフォーム state へ注入 → ユーザー確認 → 既存の保存 API を呼ぶ。
     """
 
@@ -215,5 +219,4 @@ class ResumeDraftResultResponse(BaseModel):
     github_url: str = ""
     career_summary: str = ""
     self_pr: str = ""
-    experiences: list[Experience] = Field(default_factory=list)
-    qualifications: list[ResumeQualificationItem] = Field(default_factory=list)
+    projects: list[Project] = Field(default_factory=list)

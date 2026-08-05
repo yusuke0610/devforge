@@ -104,8 +104,8 @@ def test_draft_success_merges_llm_output(monkeypatch) -> None:
 
     assert result.payload["career_summary"] == "生成された職務要約。"
     assert result.payload["self_pr"] == "生成された自己PR。"
-    projects = result.payload["experiences"][0]["clients"][0]["projects"]
-    # 選定順（pushed_at 降順）: newer → older
+    projects = result.payload["projects"]
+    # 選定順（継続期間 × 実装量。ADR-0026 決定 3）: newer → older
     assert [p["name"] for p in projects] == ["newer", "older"]
     assert projects[0]["description"] == "新しい方の説明。"
     assert projects[1]["description"] == "古い方の説明。"
@@ -122,7 +122,7 @@ def test_draft_missing_description_falls_back_to_repo_description(monkeypatch) -
     """説明が返らなかったプロジェクトは repo description のまま残す（degrade）。"""
     _mock_llm(monkeypatch, [_draft_json({"octocat/newer": "新しい方の説明。"})])
     result = _run(run_resume_draft("haiku", _source()))
-    projects = result.payload["experiences"][0]["clients"][0]["projects"]
+    projects = result.payload["projects"]
     assert projects[0]["description"] == "新しい方の説明。"
     assert projects[1]["description"] == "古い方"
 
@@ -137,7 +137,7 @@ def test_draft_drops_unknown_repo_and_over_limit_description(monkeypatch) -> Non
     )
     _mock_llm(monkeypatch, [response])
     result = _run(run_resume_draft("haiku", _source()))
-    projects = result.payload["experiences"][0]["clients"][0]["projects"]
+    projects = result.payload["projects"]
     assert projects[0]["description"] == "新しい方"
     assert projects[1]["description"] == "古い方"
 

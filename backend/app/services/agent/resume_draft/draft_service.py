@@ -135,7 +135,7 @@ def _merge_output(skeleton: dict, selected: list, output: _DraftOutput) -> dict:
     skeleton["self_pr"] = output.self_pr
 
     by_name = {item.repo_full_name: item.description for item in output.project_descriptions}
-    projects = skeleton["experiences"][0]["clients"][0]["projects"]
+    projects = skeleton["projects"]
     for repo, project in zip(selected, projects):
         description = by_name.get(repo.full_name)
         if description is None:

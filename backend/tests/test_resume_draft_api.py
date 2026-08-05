@@ -244,9 +244,13 @@ def test_resume_draft_result_success(client: TestClient) -> None:
     assert body["full_name"] == "testuser"
     assert body["career_summary"] == "生成された職務要約。"
     assert body["self_pr"] == "生成された自己PR。"
-    # experiences が深い構造（clients → projects）を保って返る
-    assert len(body["experiences"]) == 1
-    assert body["experiences"][0]["clients"][0]["projects"][0]["name"] == "app"
+    # 出力単位は project 明細のリスト（ADR-0026 決定 1）。experience は返さない
+    assert "experiences" not in body
+    assert [p["name"] for p in body["projects"]] == ["app"]
+    # GitHub から得られない値は空のまま（プレースホルダを生成しない）
+    assert body["projects"][0]["role"] == ""
+    assert body["projects"][0]["phases"] == []
+    assert body["projects"][0]["team"] == {"total": "", "members": []}
 
 
 def test_resume_draft_result_not_ready(client: TestClient) -> None:
