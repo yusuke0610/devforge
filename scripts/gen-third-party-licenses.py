@@ -10,6 +10,12 @@ DevForge が直接依存する OSS（自分で選んで入れたライブラリ�
 
 依存を追加したら `make licenses` で再生成すること。
 nix devshell 経由（uv2nix build の python / ADR-0021 Phase 1）で実行する前提。
+
+**不完全な環境での生成を拒否する**: 依存が 1 件でも解決できなかった場合は
+ファイルを書かずに exit 1 する。かつては見つからない依存を
+「要確認 (未インストール)」と書いて正常終了していたため、node_modules 未インストールの
+環境で生成した結果（@stryker-mutator/* の 2 行）が気付かれず main に載っていた。
+attribution 用のファイルなので、欠けたまま出力するより落とす方が安全。
 """
 
 from __future__ import annotations
@@ -17,8 +23,14 @@ from __future__ import annotations
 import importlib.metadata as imd
 import json
 import re
+import sys
 import tomllib
 from pathlib import Path
+
+# 依存を解決できなかった行に入るマーカー。これが 1 件でもあれば生成を中止する。
+# ライセンス種別だけ判定できない場合の「要確認」「要確認 (プロジェクト参照)」とは区別する
+# （そちらはメタデータ側の事情で、実行環境の不備ではないため許容する）。
+NOT_INSTALLED = "要確認 (未インストール)"
 
 ROOT = Path(__file__).resolve().parent.parent
 WEB = ROOT / "web"
@@ -32,6 +44,9 @@ BACKEND_DEV_TOOLS = {
     "black",
     "isort",
     "autopep8",
+    # ミューテーションテスト専用（週次 CI: .github/workflows/mutation.yml / ADR-0017）。
+    # app/ から import されないためランタイムには載らない。
+    "mutmut",
 }
 
 
@@ -85,7 +100,7 @@ def collect_npm(dep_names: list[str]) -> list[tuple[str, str, str, str]]:
     for name in sorted(dep_names, key=str.lower):
         pkg_json = WEB / "node_modules" / name / "package.json"
         if not pkg_json.exists():
-            rows.append((name, "—", "要確認 (未インストール)", f"https://www.npmjs.com/package/{name}"))
+            rows.append((name, "—", NOT_INSTALLED, f"https://www.npmjs.com/package/{name}"))
             continue
         pkg = json.loads(pkg_json.read_text(encoding="utf-8"))
         version = pkg.get("version", "—")
@@ -100,7 +115,7 @@ def _py_license(dist_name: str) -> tuple[str, str, str]:
     try:
         meta = imd.metadata(dist_name)
     except imd.PackageNotFoundError:
-        return ("—", "要確認 (未インストール)", f"https://pypi.org/project/{dist_name}/")
+        return ("—", NOT_INSTALLED, f"https://pypi.org/project/{dist_name}/")
 
     version = meta.get("Version", "—")
 
@@ -159,6 +174,34 @@ def md_table(rows: list[tuple[str, str, str, str]]) -> str:
     return "\n".join(out)
 
 
+def _abort_if_incomplete(groups: dict[str, list[tuple[str, str, str, str]]]) -> None:
+    """解決できなかった依存があれば、ファイルを書かずに中止する。
+
+    欠けたまま出力すると attribution として誤った内容が配布物に載るうえ、
+    CI に drift 検知が無いためレビューまで気付けない。既存ファイルは正しい状態のまま
+    残したいので、書き込み前に落とす。
+    """
+    missing = {
+        group: [name for name, _version, lic, _url in rows if lic == NOT_INSTALLED]
+        for group, rows in groups.items()
+    }
+    missing = {group: names for group, names in missing.items() if names}
+    if not missing:
+        return
+
+    print("エラー: 依存を解決できなかったため生成を中止しました。", file=sys.stderr)
+    for group, names in missing.items():
+        print(f"  [{group}] {', '.join(names)}", file=sys.stderr)
+    print(
+        "\n実行環境が不完全です。次を確認してください:\n"
+        "  - Frontend: web/node_modules が未インストール（devDependencies 含め `npm ci` が要る）\n"
+        "  - Backend: backend の依存が import できない（nix devshell 経由 = `make licenses` で実行する）\n"
+        "既存の THIRD_PARTY_LICENSES.md は変更していません。",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+
 def main() -> None:
     web_pkg = json.loads((WEB / "package.json").read_text(encoding="utf-8"))
     fe_runtime = collect_npm(list(web_pkg.get("dependencies", {})))
@@ -171,6 +214,10 @@ def main() -> None:
         version, lic, url = _py_license(name)
         row = (name, version, lic, url)
         (be_dev if name in BACKEND_DEV_TOOLS else be_runtime).append(row)
+
+    _abort_if_incomplete(
+        {"Frontend (npm)": fe_runtime + fe_dev, "Backend (python)": be_runtime + be_dev}
+    )
 
     doc = f"""# サードパーティライセンス / 使用 OSS
 
