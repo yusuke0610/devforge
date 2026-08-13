@@ -17,7 +17,7 @@ dependencies = [
     "uvicorn[standard]==0.52.1",
     "sqlalchemy==2.0.51",
     "sqlalchemy-libsql==0.2.0",
-    "alembic==1.18.5",
+    "alembic==1.19.1",
     "pydantic[email]==2.13.4",
     "python-dotenv==1.2.2",
     "reportlab==5.0.0",
