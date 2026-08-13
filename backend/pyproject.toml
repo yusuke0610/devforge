@@ -21,7 +21,7 @@ dependencies = [
     "pydantic[email]==2.13.4",
     "python-dotenv==1.2.2",
     "reportlab==5.0.0",
-    "google-cloud-storage==3.13.0",
+    "google-cloud-storage==3.13.1",
     "pytest==9.1.1",
     "PyJWT[crypto]==2.13.0",
     # cryptography は PyJWT[crypto] / google-auth の推移的依存だが、CVE-2026-69247 対策で
