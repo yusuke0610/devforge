@@ -43,6 +43,7 @@ PR 後の CodeRabbit 指摘対応・手動レビュー・`/code-review` の結�
 - codegen 生成物の再生成漏れ: `app/schemas/` / `app/routers/`（**docstring の変更を含む**）を触ったのに `web/src/api/generated.ts` に差分が無い
 - `backend/pyproject.toml` の依存を変えたのに `backend/uv.lock` が未更新
 - 依存のバージョンを更新したのに `THIRD_PARTY_LICENSES.md` が `make licenses` で再生成されていない（CI に drift 検知が無いため落ちず、マージ済み依存 PR 数件分が陳腐化していた実例。Renovate PR 統合時に発覚）
+- 脆弱性・警告を恒久解消したら、それを抑制していた allowlist / 無視設定のエントリも同じ差分で削除する（`audit-check.mjs` の ALLOWLIST・`eslint-disable`・`type: ignore` 等。未マッチのエントリは検知されず fail-open のまま残る。js-yaml を override で更新した際に GHSA-52cp のエントリが死に設定として残った実例）
 - 新規環境変数の 4 箇所同期（`backend/app/core/env_keys.py` のコメント手順）
 - ADR の新規作成・ステータス変更に対する `docs/adr/README.md` 索引の更新漏れ
 - **手順・フローを変えたら、それを記述している他の docs / rules も同じ差分で更新する**（RV 導入時に `rules/common/tdd.md` の「`make ci` → stage」と CLAUDE.md のモデル切り替えタイミングが drift した実例）
