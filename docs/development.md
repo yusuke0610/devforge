@@ -55,11 +55,19 @@ DB 接続先は compose 内で `TURSO_DATABASE_URL=http://libsql:8080` に固定
 
 #### Agent 機能（LLM）をローカルで試す場合
 
-Ollama は compose に含めず**ホスト側で起動する**設計（ADR-0010）。macOS の Docker は GPU（Metal）を使えず、コンテナ内推論は大幅に遅くなるため。API コンテナは `OLLAMA_BASE_URL`（既定: `http://host.docker.internal:11434`）でホストの Ollama に接続する。
+Ollama は compose に含めず**ホスト側で起動する**設計（ADR-0010）。macOS の Docker は GPU（Metal）を使えず、コンテナ内推論は大幅に遅くなるため。`ollama/ollama` コンテナは使わず、ホストにインストールした Ollama（`ollama serve` / Ollama.app）を使うこと。API コンテナは `OLLAMA_BASE_URL`（compose 既定: `http://host.docker.internal:11434`）でホストの Ollama に接続する（`extra_hosts` で Linux でも `host.docker.internal` が解決される）。なお Linux では Ollama が `127.0.0.1` のみで待ち受けると名前解決できてもコンテナから届かないため、`OLLAMA_HOST=0.0.0.0 ollama serve` で起動する。
 
 ```bash
-ollama serve          # アプリ起動済みなら不要
+ollama serve          # アプリ（Ollama.app）起動済みなら不要
 ollama pull llama3.2  # OLLAMA_MODEL の既定値
+ollama list           # pull 済みモデルを確認。既定以外を使うなら .env に OLLAMA_MODEL を設定する
+```
+
+疎通確認（コンテナ側から見えているか）:
+
+```bash
+curl -s http://localhost:11434/api/tags                     # ホストから
+docker compose exec api curl -s http://host.docker.internal:11434/api/tags  # api コンテナから
 ```
 
 ローカルの compose では `LLM_LOCAL_OLLAMA` が既定 `1`（無料パス）で、選択モデルに関わらず全リクエストがホストの Ollama に流れる。実プロバイダの API（Anthropic / OpenAI / Gemini）で試す場合は、`.env` に `LLM_LOCAL_OLLAMA=0` と対応する API キー（例: `ANTHROPIC_API_KEY`）を設定して再起動し、UI のモデル選択で該当プロバイダのモデル（Claude / GPT / Gemini）を選ぶ。プロバイダはモデルエイリアスに紐づいて切り替わるため、グローバルな `LLM_PROVIDER` は無い（ADR-0013）。

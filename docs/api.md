@@ -131,7 +131,7 @@ GitHub 連携データからプロジェクト明細のドラフトを作る導�
 |---|---|
 | `LLM_LOCAL_OLLAMA` | ローカル Ollama 上書き（`1`/`true`/`yes` で有効）。全リクエストを Ollama に通す無料パス。本番は未設定＝無効（ADR-0023） |
 | `VERTEX_ANTHROPIC_LOCATION` | Claude を叩く Vertex AI のロケーション（ADR-0015。既定: `asia-southeast1`。Tokyo 未提供のため Singapore）。regional endpoint は global 比 +10% 課金 |
-| `OLLAMA_BASE_URL` | ローカル Ollama のベース URL（既定: `http://localhost:11434`） |
+| `OLLAMA_BASE_URL` | ホスト側で動かす Ollama のベース URL（backend 既定: `http://localhost:11434`。compose 経由では `docker-compose.yml` が `http://host.docker.internal:11434` を既定として注入する） |
 | `OLLAMA_MODEL` | ローカル Ollama のモデル名（既定: `llama3.2`） |
 | `OLLAMA_TIMEOUT_SECONDS` | ローカル Ollama 呼び出しの HTTP タイムアウト秒数（既定: `300`） |
 | `AGENT_DAILY_LIMIT` | Agent エンドポイント（`/agent/chat`・`/agent/resume-draft/run`）のユーザ単位日次リクエスト上限（#521・ADR-0023。未設定時の既定: `50`）。本番は未設定＝既定値で運用 |
