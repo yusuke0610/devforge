@@ -73,5 +73,5 @@ Dependabot / Renovate のいずれも未導入だったため、依存更新を�
 ---
 
 > **追記（2026-07-16）**: ADR-0021 の Accepted 昇格に伴い、対象 manager の pip(requirements) → pep621 置き換えを反映した（設定の正本は `.github/renovate.json5`）。
-
+>
 > **追記（2026-08-22）**: pep621 の `rangeStrategy: "pin"` が `requires-python` にも及び、`==3.13.15` への pin PR が Nix build を壊したため、`requires-python` を `enabled: false` で除外した（設定の正本は `.github/renovate.json5`）。
