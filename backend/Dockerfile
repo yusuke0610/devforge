@@ -13,7 +13,7 @@
 # ============================================================================
 # Build stage: uv2nix で Python 依存 + WeasyPrint ライブラリの closure を構成する
 # ============================================================================
-FROM nixos/nix:2.35.1@sha256:377d4887aca98f0dfa12971c1ea6d6a625a435d8b610d4c95a436843da6fbfd1 AS builder
+FROM nixos/nix:2.35.2@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c AS builder
 
 WORKDIR /build
 
