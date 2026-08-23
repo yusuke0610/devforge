@@ -55,6 +55,18 @@
       rangeStrategy: "pin",
     },
     {
+      // pyproject.toml の requires-python は "==3.13.*" のまま維持する（pin しない）。
+      // 上の rangeStrategy: "pin" が requires-python にも効くと "==3.13.15" のような
+      // patch 固定になるが、uv2nix は uv.lock の requires-python と nixpkgs が提供する
+      // Python の実バージョン（現状 3.13.12）の一致を assert するため、
+      // 一致しない patch を指定した瞬間に backend の Nix build 自体が失敗する（PR #595）。
+      // Python 本体の版上げは nixpkgs（flake.lock）の更新に従うのが正で、
+      // requires-python 側から動かす経路は塞いでおく。
+      matchManagers: ["pep621"],
+      matchDepTypes: ["requires-python"],
+      enabled: false,
+    },
+    {
       // OpenTofu/Terraform: versions.tf の ~> 制約と各 env の .terraform.lock.hcl を更新
       matchManagers: ["terraform"],
       groupName: "terraform providers",
