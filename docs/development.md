@@ -78,7 +78,24 @@ sudo systemctl daemon-reload
 sudo systemctl restart ollama
 ```
 
-> **注意（公開範囲）**: Ollama の HTTP API に認証は無い。`0.0.0.0` で待ち受けると、そのポートに到達できるネットワーク上の誰でもモデルの実行・追加・削除ができる。信頼できるネットワーク（開発マシン単体 / 自宅 LAN）に限って使い、ファイアウォールで `11434/TCP` への接続を localhost と Docker bridge（既定 `172.17.0.0/16`）だけに絞ること。全体公開を避けたい場合は、`0.0.0.0` ではなく bridge のゲートウェイアドレス（例: `OLLAMA_HOST=172.17.0.1:11434`）にバインドする。
+> **注意（公開範囲）**: Ollama の HTTP API に認証は無い。`0.0.0.0` で待ち受けると、そのポートに到達できるネットワーク上の誰でもモデルの実行・追加・削除ができる。信頼できるネットワーク（開発マシン単体 / 自宅 LAN）に限って使い、ファイアウォールで `11434/TCP` への接続を localhost と compose のネットワークだけに絞ること。
+
+`docker-compose.yml` は `networks` / `ipam` を宣言していないため、**サブネットとゲートウェイの IP は Docker が動的に割り当てる**（`172.17.0.0/16` などの決め打ちは当てにしない）。実行中のネットワークから実際の値を取る。
+
+```bash
+api_container=$(docker compose ps -q api)
+network=$(docker inspect "$api_container" \
+  --format '{{range $name, $net := .NetworkSettings.Networks}}{{println $name}}{{end}}' | head -n1)
+
+# ファイアウォールで許可するサブネット
+docker network inspect "$network" \
+  --format '{{range .IPAM.Config}}{{println "subnet=" .Subnet "gateway=" .Gateway}}{{end}}'
+
+# コンテナから見えるホストの IP（OLLAMA_HOST の bind 先候補）
+docker compose exec -T api getent ahostsv4 host.docker.internal
+```
+
+全インターフェースへの公開を避けたい場合は、`0.0.0.0` ではなく上で得たホスト側 IP を使って `OLLAMA_HOST=<その IP>:11434` にバインドし、ファイアウォールの許可範囲は上で得た `subnet` に合わせる。
 
 モデル名（`OLLAMA_MODEL`）は compose が変数補間に使う**プロジェクトルートの `.env`**、または shell の環境変数から読む。`make dev` は `docker compose up` を実行するだけなので、**`backend/.env` は compose の補間には読まれない**（読ませるなら `docker compose --env-file backend/.env up` のように明示する）。既定以外のモデルを使う場合は、ルートの `.env` に `OLLAMA_MODEL=<モデル名>` を設定し、同じモデルを `ollama pull <モデル名>` しておく。
 
