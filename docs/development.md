@@ -55,11 +55,55 @@ DB 接続先は compose 内で `TURSO_DATABASE_URL=http://libsql:8080` に固定
 
 #### Agent 機能（LLM）をローカルで試す場合
 
-Ollama は compose に含めず**ホスト側で起動する**設計（ADR-0010）。macOS の Docker は GPU（Metal）を使えず、コンテナ内推論は大幅に遅くなるため。API コンテナは `OLLAMA_BASE_URL`（既定: `http://host.docker.internal:11434`）でホストの Ollama に接続する。
+Ollama は compose に含めず**ホスト側で起動する**設計（ADR-0010）。macOS の Docker は GPU（Metal）を使えず、コンテナ内推論は大幅に遅くなるため。`ollama/ollama` コンテナは使わず、ホストにインストールした Ollama（`ollama serve` / Ollama.app）を使うこと。API コンテナは `OLLAMA_BASE_URL`（compose 既定: `http://host.docker.internal:11434`）でホストの Ollama に接続する（`extra_hosts` で Linux でも `host.docker.internal` が解決される）。
 
 ```bash
-ollama serve          # アプリ起動済みなら不要
+ollama serve          # アプリ（Ollama.app）起動済みなら不要。前景で動くので以降は別ターミナルで実行する
 ollama pull llama3.2  # OLLAMA_MODEL の既定値
+ollama list           # pull 済みモデルを確認
+```
+
+**Linux の注意**: Ollama が既定どおり `127.0.0.1` だけで待ち受けると、`host.docker.internal` が解決できてもコンテナからは届かない。コンテナから到達できるアドレスで待ち受けさせる。
+
+```bash
+# 手動起動（前景。ollama pull などは別ターミナルで）
+OLLAMA_HOST=0.0.0.0:11434 ollama serve
+```
+
+systemd サービス（公式インストールスクリプト経由）で常駐させている場合は、サービス設定に環境変数を足して再起動する。
+
+```bash
+sudo systemctl edit ollama.service   # [Service] に Environment="OLLAMA_HOST=0.0.0.0:11434" を追記
+sudo systemctl daemon-reload
+sudo systemctl restart ollama
+```
+
+> **注意（公開範囲）**: Ollama の HTTP API に認証は無い。`0.0.0.0` で待ち受けると、そのポートに到達できるネットワーク上の誰でもモデルの実行・追加・削除ができる。信頼できるネットワーク（開発マシン単体 / 自宅 LAN）に限って使い、ファイアウォールで `11434/TCP` への接続を localhost と compose のネットワークだけに絞ること。
+
+`docker-compose.yml` は `networks` / `ipam` を宣言していないため、**サブネットとゲートウェイの IP は Docker が動的に割り当てる**（`172.17.0.0/16` などの決め打ちは当てにしない）。実行中のネットワークから実際の値を取る。
+
+```bash
+api_container=$(docker compose ps -q api)
+network=$(docker inspect "$api_container" \
+  --format '{{range $name, $net := .NetworkSettings.Networks}}{{println $name}}{{end}}' | head -n1)
+
+# ファイアウォールで許可するサブネット
+docker network inspect "$network" \
+  --format '{{range .IPAM.Config}}{{println "subnet=" .Subnet "gateway=" .Gateway}}{{end}}'
+
+# コンテナから見えるホストの IP（OLLAMA_HOST の bind 先候補）
+docker compose exec -T api getent ahostsv4 host.docker.internal
+```
+
+全インターフェースへの公開を避けたい場合は、`0.0.0.0` ではなく上で得たホスト側 IP を使って `OLLAMA_HOST=<その IP>:11434` にバインドし、ファイアウォールの許可範囲は上で得た `subnet` に合わせる。
+
+モデル名（`OLLAMA_MODEL`）は compose が変数補間に使う**プロジェクトルートの `.env`**、または shell の環境変数から読む。`make dev` は `docker compose up` を実行するだけなので、**`backend/.env` は compose の補間には読まれない**（読ませるなら `docker compose --env-file backend/.env up` のように明示する）。既定以外のモデルを使う場合は、ルートの `.env` に `OLLAMA_MODEL=<モデル名>` を設定し、同じモデルを `ollama pull <モデル名>` しておく。
+
+疎通確認（コンテナ側から見えているか）:
+
+```bash
+curl -fsS http://localhost:11434/api/tags                     # ホストから
+docker compose exec api curl -fsS http://host.docker.internal:11434/api/tags  # api コンテナから
 ```
 
 ローカルの compose では `LLM_LOCAL_OLLAMA` が既定 `1`（無料パス）で、選択モデルに関わらず全リクエストがホストの Ollama に流れる。実プロバイダの API（Anthropic / OpenAI / Gemini）で試す場合は、`.env` に `LLM_LOCAL_OLLAMA=0` と対応する API キー（例: `ANTHROPIC_API_KEY`）を設定して再起動し、UI のモデル選択で該当プロバイダのモデル（Claude / GPT / Gemini）を選ぶ。プロバイダはモデルエイリアスに紐づいて切り替わるため、グローバルな `LLM_PROVIDER` は無い（ADR-0013）。
