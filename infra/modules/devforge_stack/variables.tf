@@ -9,7 +9,7 @@ variable "environment" {
 
   validation {
     condition     = contains(["dev", "stg", "prod"], var.environment)
-    error_message = "environment は dev / stg / prod のいずれかでなければならない。"
+    error_message = "environment は dev / stg / prod のいずれかを指定してください。"
   }
 }
 
@@ -35,7 +35,7 @@ variable "template_version" {
 }
 
 variable "deployer_service_account_email" {
-  description = "デプロイ用サービスアカウントのメールアドレス。設定されている場合のみ runtime SA への actAs と Cloud Run developer ロールを付与する。"
+  description = "デプロイ用サービスアカウントのメールアドレス。設定されている場合のみ runtime SA への actAs と Artifact Registry writer / Cloud Run developer ロールを付与する。"
   type        = string
   default     = ""
 }

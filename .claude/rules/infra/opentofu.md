@@ -16,11 +16,17 @@ CLI: OpenTofu (`tofu`) を使用する。Nix で管理されており `nix devel
 
 DB は Turso (libSQL) を使用。**DB 本体は OpenTofu の `infra/modules/turso/` で管理**（jpedroh/turso provider）。`module.turso.database_url` を cloud_run module の `turso_database_url` に渡す構成。auth token のみ state に乗せたくないため `turso CLI` で発行 → Secret Manager `<stack_name>-turso-auth-token` に手動投入する運用。詳細は `docs/data-model.md` の「Turso セットアップ」参照。
 
+## 記述規約
+
+- `variable` / `output` には必ず `description` を付け、**日本語**で書く（CLAUDE.md のコメント規約に準拠）。値の意味だけでなく「どこに伝播するか」「未設定時にどうなるか」まで書く
+- 秘匿値には `sensitive = true` を付ける（`.claude/rules/security.md`）
+
 ## 重複・DRY
 
 - 重複検知 / DRY ポリシーは `.claude/rules/common/duplication.md` を参照
 - `environments/{dev,stg,prod}` で同じ resource block をコピペしている場合は `modules/` 化を検討する（環境差分は `variable` で吸収）
 - `environments/{dev,stg,prod}/{variables,moved,outputs}.tf` は `../shared/<file>.tf` への symlink で物理統合済み。新規ファイルを 3 環境で揃える場合も同じパターンで shared 化し、`.jscpd.json` の ignore に追記する
+- `environments/shared/variables.tf` と `modules/devforge_stack/variables.tf` は同じ variable を二重宣言する（HCL の module 境界上、避けられない構造的重複）。**宣言順・セクションコメント・description の文言を両者で揃え、片方を変えたらもう片方も同じ差分で更新する**。過去に description が英語/日本語で分裂し、同じ変数の説明が食い違っていた
 
 ## monitoring の責務分割
 

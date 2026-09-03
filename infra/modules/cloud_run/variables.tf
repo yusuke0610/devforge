@@ -1,25 +1,25 @@
 variable "project_id" {
-  description = "GCP project ID."
+  description = "GCP project ID。"
   type        = string
 }
 
 variable "region" {
-  description = "GCP region."
+  description = "GCP リージョン。Cloud Run サービスのロケーション。"
   type        = string
 }
 
 variable "stack_name" {
-  description = "Stack name ({app_name}-{environment})."
+  description = "Stack 名（{app_name}-{environment}）。サービス名・Secret 名の prefix に使用する。"
   type        = string
 }
 
 variable "service_account_email" {
-  description = "Cloud Run runtime service account email."
+  description = "Cloud Run runtime サービスアカウントのメールアドレス。"
   type        = string
 }
 
 variable "enable_github_oauth" {
-  description = "Whether to inject GitHub OAuth secrets into Cloud Run."
+  description = "GitHub OAuth Secret を Cloud Run に注入するかどうか。"
   type        = bool
   default     = false
 }
@@ -30,7 +30,7 @@ variable "turso_database_url" {
 }
 
 variable "cors_origins" {
-  description = "Allowed CORS origins for the API."
+  description = "API が許可する CORS origin（カンマ区切り）。"
   type        = string
 }
 
