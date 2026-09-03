@@ -60,6 +60,13 @@ jobs:
       - name: Lint SSoT (TDD test accompaniment)
         run: bash scripts/lint-tdd.sh
 
+      # infra（OpenTofu）の記述規約と層間 drift の検知。bash/awk/grep/sed のみで
+      # tofu もネットワークも不要なため、opentofu-ci.yml（infra/** でゲート）ではなく
+      # ゲート無しのこのジョブに置く。.jscpd.json の ignore 整合も見るので、
+      # infra/** を触らない PR でも回す必要がある。
+      - name: Lint SSoT (infra conventions)
+        run: bash scripts/lint-infra.sh
+
   detect-duplication:
     runs-on: ubuntu-latest
     timeout-minutes: 5
