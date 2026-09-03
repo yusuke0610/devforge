@@ -20,7 +20,7 @@ dependencies = [
     "alembic==1.19.1",
     "pydantic[email]==2.13.4",
     "python-dotenv==1.2.3",
-    "reportlab==5.0.0",
+    "reportlab==5.0.1",
     "google-cloud-storage==3.13.1",
     "pytest==9.1.1",
     "PyJWT[crypto]==2.13.0",
