@@ -79,7 +79,7 @@ services:
   # libSQL (Turso) サーバー。ローカル開発で sqld を別途インストールせずに利用するため。
   # 永続化は libsql_data ボリュームに保存。本番は Turso Cloud を直接参照する想定
   libsql:
-    image: ghcr.io/tursodatabase/libsql-server:latest@sha256:bc100873a74865392a49191b4733025fe8222a409799efa424dc196feaf05035
+    image: ghcr.io/tursodatabase/libsql-server:latest@sha256:6dd3eb276d9d3604e4a48ac4a999a2e267814732d57d7e94c04ba71482333a67
     container_name: devforge-libsql
     restart: unless-stopped
     environment:
