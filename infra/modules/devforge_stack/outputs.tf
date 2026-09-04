@@ -19,7 +19,7 @@ output "cloudflare_pages_project_name" {
 }
 
 output "service_url" {
-  description = "Cloud Run service URL。"
+  description = "Cloud Run サービスの URL。"
   value       = module.cloud_run.service_url
 }
 

@@ -27,8 +27,8 @@ DB は Turso (libSQL) を使用。**DB 本体は OpenTofu の `infra/modules/tur
 
 - 重複検知 / DRY ポリシーは `.claude/rules/common/duplication.md` を参照
 - `environments/{dev,stg,prod}` で同じ resource block をコピペしている場合は `modules/` 化を検討する（環境差分は `variable` で吸収）
-- `environments/{dev,stg,prod}/{main,variables,moved,outputs,versions}.tf` は `../shared/<file>.tf` への symlink で物理統合済み（環境固有は `backend.tf` と `terraform.tfvars` のみ）。新規ファイルを 3 環境で揃える場合も同じパターンで shared 化し、`.jscpd.json` の ignore に追記する（`make lint-infra` が symlink の有無・向き・ignore 登録を検証する）
-- `environments/shared/variables.tf` と `modules/devforge_stack/variables.tf` は同じ variable を二重宣言する（HCL の module 境界上、避けられない構造的重複）。**宣言順・セクションコメント・description の文言を両者で揃え、片方を変えたらもう片方も同じ差分で更新する**。過去に description が英語/日本語で分裂し、同じ変数の説明が食い違っていた（`make lint-infra` が variable 集合・属性・宣言順の一致を検証する。片側専用の variable はスクリプト内の `LAYER_ONLY_ENV` / `LAYER_ONLY_STACK` に追記して除外する）
+- `environments/{dev,stg,prod}/{main,variables,moved,outputs,versions}.tf` は `../shared/<file>.tf` への symlink で物理統合済み（環境固有は `backend.tf` と `terraform.tfvars` のみ）。新規ファイルを 3 環境で揃える場合も同じパターンで shared 化し、`.jscpd.json` の ignore に追記する（`make lint-infra` が symlink の有無・向き・ignore 登録を双方向で検証する。環境固有の実ファイルとして許容するのは `backend.tf` と `terraform.tfvars` のみ）
+- `environments/shared/variables.tf` と `modules/devforge_stack/variables.tf` は同じ variable を二重宣言する（HCL の module 境界上、避けられない構造的重複）。**宣言順・セクションコメント・description の文言を両者で揃え、片方を変えたらもう片方も同じ差分で更新する**。過去に description が英語/日本語で分裂し、同じ変数の説明が食い違っていた（`make lint-infra` が variable 集合・description・属性・validation の中身・宣言順の一致を検証する。片側専用の variable はスクリプト内の `LAYER_ONLY_ENV` / `LAYER_ONLY_STACK` に追記して除外する）
 
 ## monitoring の責務分割
 

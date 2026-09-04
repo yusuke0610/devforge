@@ -13,26 +13,32 @@
 #
 # 検証内容:
 #   (1) description 必須: すべての variable / output に description があるか。
-#   (2) description 日本語: description に日本語文字が含まれるか（ASCII のみ = 英語とみなす）。
+#   (2) description 日本語: 全角句読点・括弧を除いたうえで日本語文字が残るか
+#       （ASCII のみ = 英語とみなす）。末尾の 。 だけを足した英文を素通りさせない。
 #       固有名詞だけで構成される正当なケースは DESC_ASCII_ALLOWLIST で除外する。
 #   (3) sensitive: 名前が秘匿値パターン（token / secret / password / api_key /
 #       private_key）に一致する variable に sensitive = true が付いているか
 #       （tofu の plan / output に平文で出る事故の防止。.claude/rules/security.md）。
 #   (4) 2 層同期: environments/shared/variables.tf と modules/devforge_stack/variables.tf は
 #       同じ variable を二重宣言する（HCL の module 境界上、避けられない構造的重複）。
-#       共通 variable の type / default / sensitive / validation の一致と、
-#       宣言順の相対順序の一致を検証する。片側専用の variable は LAYER_ONLY_* で除外。
+#       共通 variable の description / type / default / sensitive と、validation の
+#       中身（condition / error_message）の一致、および宣言順の相対順序の一致を
+#       検証する。片側専用の variable は LAYER_ONLY_* で除外。
+#       validation は「ブロックの有無」だけでなく中身まで見る（両層にブロックがあるが
+#       条件が違う、を見逃さないため）。
 #   (5) tfvars: environments/<env>/terraform.tfvars のキーがすべて宣言済み variable か
 #       （rename 時に tfvars 側へ旧名が残留する drift と typo を検知）。
 #   (6) module 呼び出し: module ブロックに渡している引数が呼び出し先の variables.tf に
 #       存在するか（正方向）、および default を持たない variable の渡し漏れが無いか（逆方向）。
 #       validate と重複する検証だが、validate は provider DL が要るためローカルで回らない
 #       ことがある。ネットワーク不要で同じ事故を先に止める。
-#   (7) symlink 整合: environments/shared/*.tf が dev / stg / prod の 3 環境すべてから
-#       ../shared/<同名>.tf の symlink で参照されているか、環境側の symlink が
-#       実ファイルに戻されていないか、そして各 symlink が .jscpd.json の ignore に
-#       登録されているか（実体 1 ファイルを 3 回スキャンして 100% 重複と誤検知するため）。
-#       shared 化の片手落ちと ignore 追記漏れを止める。.claude/rules/infra/opentofu.md
+#   (7) symlink 整合（双方向）: 正方向は environments/shared/*.tf が dev / stg / prod の
+#       3 環境すべてから ../shared/<同名>.tf の symlink で参照されているか、実ファイルに
+#       戻されていないか、各 symlink が .jscpd.json の ignore に登録されているか
+#       （実体 1 ファイルを 3 回スキャンして 100% 重複と誤検知するため）。
+#       逆方向は環境側に shared 対応の無い .tf が増えていないか（環境固有として
+#       許容するのは ENV_LOCAL_TF のみ）。shared 化の片手落ちと ignore 追記漏れ、
+#       環境ごとの野良ファイルを止める。.claude/rules/infra/opentofu.md
 #
 # 対象外（意図的）:
 #   - resource ブロックの引数: provider スキーマが必要で、validate の担当。
@@ -73,24 +79,49 @@ err() {
 
 # ── HCL のトップレベルブロックを TSV へ展開する awk プログラム ──────────────
 # 出力: <kind>\t<name>\t<attr>\t<value>
-#   attr は属性名そのもの、宣言順は @order、ネストブロックの有無は @block:<名前>。
-# 文字列リテラルは brace の誤カウントを避けるため潰してから深さを数える。
+#   attr は属性名そのもの、宣言順は @order、ネストブロックの有無は @block:<名前>、
+#   ネストブロック内の属性は @<ブロック名>:<属性名>（例: @validation:condition）。
+# 文字列リテラルは「同じ長さ」のマスクに置換してから解析する。長さを保つことで
+# マスク列上で見つけた行末コメントの位置を、元の行にそのまま適用できる。
 read -r -d '' AWK_BLOCKS <<'AWK' || true
+# 文字列リテラルを同じ長さの X に潰す。これで brace の誤カウントと、
+# description 内の # / // をコメントと誤認する事故の両方を防ぐ。
+function mask(line,   out, i, c, inq, esc) {
+  out = ""; inq = 0; esc = 0
+  for (i = 1; i <= length(line); i++) {
+    c = substr(line, i, 1)
+    if (inq) {
+      if (esc)          { esc = 0; out = out "X"; continue }
+      if (c == "\\")    { esc = 1; out = out "X"; continue }
+      if (c == "\"")     { inq = 0; out = out "\""; continue }
+      out = out "X"
+    } else {
+      out = out c
+      if (c == "\"") inq = 1
+    }
+  }
+  return out
+}
 {
   raw = $0
-  s = raw
-  sub(/^[[:space:]]*#.*/, "", s)
-  gsub(/"([^"\\]|\\.)*"/, "STR", s)
+  m = mask(raw)
+
+  # 行末コメント（# / //）を除去する。OpenTofu は行末コメントを許すため、
+  # 除去しないと `sensitive = true # 説明` の値が "true # 説明" になり、
+  # コメント内の brace が深さ計算を壊す。
+  if (match(m, /#|\/\//) > 0) {
+    raw = substr(raw, 1, RSTART - 1)
+    m   = substr(m, 1, RSTART - 1)
+  }
+  sub(/[[:space:]]+$/, "", raw)
 
   before = depth
-
-  n = gsub(/[{[]/, "&", s) - gsub(/[}\]]/, "&", s)
-  depth += n
+  depth += gsub(/[{[]/, "&", m) - gsub(/[}\]]/, "&", m)
 
   if (before == 0 && raw ~ /^(variable|output|module)[[:space:]]+"/) {
-    kind = $1
-    name = $2
-    gsub(/"/, "", name)
+    kind = raw; sub(/[[:space:]].*/, "", kind)
+    name = raw; sub(/^[a-z]+[[:space:]]+"/, "", name); sub(/".*/, "", name)
+    blk = ""
     order++
     print kind "\t" name "\t@order\t" order
     next
@@ -110,13 +141,25 @@ read -r -d '' AWK_BLOCKS <<'AWK' || true
       sub(/[[:space:]]*=.*/, "", key)
       val = raw
       sub(/^[^=]*=[[:space:]]*/, "", val)
-      sub(/[[:space:]]+$/, "", val)
       print kind "\t" name "\t" key "\t" val
       next
     }
   }
 
-  if (depth == 0) kind = ""
+  # ネストブロック内（validation 等）の属性も拾う。中身を比較しないと
+  # 「両層に validation はあるが condition が違う」を見逃す。
+  if (before == 2 && kind != "" && blk != "" && raw ~ /^[[:space:]]+[a-z_][a-z0-9_]*[[:space:]]*=/) {
+    key = raw
+    sub(/^[[:space:]]+/, "", key)
+    sub(/[[:space:]]*=.*/, "", key)
+    val = raw
+    sub(/^[^=]*=[[:space:]]*/, "", val)
+    print kind "\t" name "\t@" blk ":" key "\t" val
+    next
+  }
+
+  if (before >= 2 && depth <= 1) blk = ""
+  if (depth == 0) { kind = ""; blk = "" }
 }
 AWK
 
@@ -158,9 +201,12 @@ for f in $tf_files; do
       continue
     fi
     in_list "$name" "$DESC_ASCII_ALLOWLIST" && continue
-    # 非 ASCII バイトが 1 つも無ければ英語とみなす（grep -P は macOS の BSD grep に
-    # 無いため使わない。LC_ALL=C でバイト単位に評価する）。
-    if ! printf '%s' "$desc" | LC_ALL=C grep -q '[^ -~]'; then
+    # 全角句読点・括弧を除いたうえで非 ASCII が 1 つも無ければ英語とみなす。
+    # 句読点を先に落とさないと "GCP project ID。" のように末尾の 。だけで
+    # 素通りしてしまう（PR #615 で CodeRabbit が検出）。
+    # grep -P は macOS の BSD grep に無いため使わず、LC_ALL=C でバイト評価する。
+    body=$(printf '%s' "$desc" | sed 's/[。、（）「」・：〜]//g')
+    if ! printf '%s' "$body" | LC_ALL=C grep -q '[^ -~]'; then
       err "$f: $kind \"$name\" の description が日本語ではありません: $desc"
     fi
   done < <(awk -F'\t' '$3=="@order"' "$tsv")
@@ -199,7 +245,7 @@ done
 
 for n in $env_names; do
   in_list "$n" "$stack_names" || continue
-  for a in type default sensitive "@block:validation"; do
+  for a in description type default sensitive "@block:validation" "@validation:condition" "@validation:error_message"; do
     ev=$(attr_of "$env_tsv" variable "$n" "$a")
     sv=$(attr_of "$stack_tsv" variable "$n" "$a")
     if [ "$ev" != "$sv" ]; then
@@ -267,6 +313,8 @@ done
 # ── (7) shared 化した .tf の symlink 整合と .jscpd.json ignore ──────────────
 JSCPD=".jscpd.json"
 ENVS="dev stg prod"
+# 環境固有で symlink にしない .tf（state backend は環境ごとに prefix が違う）
+ENV_LOCAL_TF="backend.tf"
 
 for shared in "$INFRA_DIR"/environments/shared/*.tf; do
   [ -f "$shared" ] || continue
@@ -288,6 +336,26 @@ for shared in "$INFRA_DIR"/environments/shared/*.tf; do
     fi
     if [ -f "$JSCPD" ] && ! grep -q "infra/environments/$env/$name\"" "$JSCPD"; then
       err "$path が $JSCPD の ignore にありません（symlink 経由の重複誤検知を防ぐため追記が必要）。"
+    fi
+  done
+done
+
+# 逆方向: 環境側に shared 対応の無い .tf が置かれていないか。
+# 上の shared 起点のループは「shared にあるファイル」しか見ないため、
+# 環境側だけに増えた実ファイルを検知できない（PR #615 で CodeRabbit が検出）。
+for env in $ENVS; do
+  for path in "$INFRA_DIR/environments/$env"/*.tf; do
+    # -e は symlink を辿るため、リンク切れを拾えるよう -L も見る
+    # （glob 未マッチのリテラルはどちらにも当たらず skip される）
+    { [ -e "$path" ] || [ -L "$path" ]; } || continue
+    name=$(basename "$path")
+    in_list "$name" "$ENV_LOCAL_TF" && continue
+    if [ ! -L "$path" ]; then
+      err "$path が symlink ではありません（環境固有として許容するのは $ENV_LOCAL_TF のみ。shared 化して ../shared/$name への symlink にするか、ENV_LOCAL_TF に追記する）。"
+      continue
+    fi
+    if [ ! -f "$INFRA_DIR/environments/shared/$name" ]; then
+      err "$path の symlink 先 $INFRA_DIR/environments/shared/$name が存在しません。"
     fi
   done
 done

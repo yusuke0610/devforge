@@ -19,7 +19,7 @@ variable "environment" {
 }
 
 variable "project_id" {
-  description = "GCP project ID。"
+  description = "GCP プロジェクト ID。"
   type        = string
 }
 
@@ -66,15 +66,18 @@ variable "alert_email" {
 }
 
 # --- 外部サービス: Upstash Redis ---
+#
+# 値は TF_VAR_upstash_redis_url / TF_VAR_upstash_redis_token で注入する
+# （tfvars には書かない）。
 
 variable "upstash_redis_url" {
-  description = "Upstash Redis 接続 URL（rediss://host:port 形式）。未設定の場合は進捗機能を無効化。TF_VAR_upstash_redis_url で注入する。"
+  description = "Upstash Redis 接続 URL（rediss://host:port 形式）。未設定の場合は進捗機能を無効化。"
   type        = string
   default     = ""
 }
 
 variable "upstash_redis_token" {
-  description = "Upstash Redis 認証トークン。TF_VAR_upstash_redis_token で注入する。"
+  description = "Upstash Redis 認証トークン。"
   type        = string
   sensitive   = true
   default     = ""
@@ -134,7 +137,7 @@ variable "cloudflare_pages_project_name" {
 }
 
 variable "cloudflare_subdomain" {
-  description = "Cloudflare DNS レコード名（例: app-dev / app-stg / app）。{subdomain}.devforge.app となる。use_custom_domain = false なら未使用。"
+  description = "Cloudflare DNS レコード名（例: app-dev / app-stg / app）。{subdomain}.devforge.app となる。cloudflare_use_custom_domain = false なら未使用。"
   type        = string
   default     = ""
 }
