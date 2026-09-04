@@ -13,8 +13,9 @@
 #
 # 検証内容:
 #   (1) description 必須: すべての variable / output に description があるか。
-#   (2) description 日本語: 全角句読点・括弧を除いたうえで日本語文字が残るか
-#       （ASCII のみ = 英語とみなす）。末尾の 。 だけを足した英文を素通りさせない。
+#   (2) description 日本語: 全角句読点・括弧を除いたうえで日本語文字
+#       （U+3000-U+9FFF）が残るか。末尾の 。 だけを足した英文も、Café や
+#       キリル文字のような「非 ASCII だが日本語ではない」文字列も弾く。
 #       固有名詞だけで構成される正当なケースは DESC_ASCII_ALLOWLIST で除外する。
 #   (3) sensitive: 名前が秘匿値パターン（token / secret / password / api_key /
 #       private_key）に一致する variable に sensitive = true が付いているか
@@ -60,6 +61,15 @@ STACK_VARS="infra/modules/devforge_stack/variables.tf"
 # (2) description が ASCII のみでも許容する variable / output 名。
 #     固有名詞・型名だけで説明が成立するケースを想定。現状は空。
 DESC_ASCII_ALLOWLIST=""
+
+# (2) 「日本語文字」とみなすバイト範囲。UTF-8 では U+3000-U+9FFF（CJK 記号・
+#     ひらがな・カタカナ・漢字）の先頭バイトが 0xE3-0xE9 に対応する。
+#     grep -P は macOS の BSD grep に無いため使わず、LC_ALL=C でバイト評価する。
+JP_CHAR_CLASS=$(printf '[\343-\351]')
+
+# (2) 日本語判定の前に落とす全角句読点・括弧（これ自体は「日本語文字」と
+#     みなさない）。bracket 表現はマルチバイトを壊すため 1 文字ずつ置換する。
+DESC_PUNCT_STRIP='s/。//g; s/、//g; s/（//g; s/）//g; s/「//g; s/」//g; s/・//g; s/：//g; s/〜//g'
 
 # (3) 秘匿値とみなす variable 名のパターン（拡張正規表現）。
 SECRET_NAME_PATTERN='(^|_)(token|secret|password|api_key|private_key)(_|$)'
@@ -168,6 +178,10 @@ blocks() { awk "$AWK_BLOCKS" "$1"; }
 # 指定ブロックの属性値を取り出す（無ければ空文字）。
 attr_of() { awk -F'\t' -v k="$2" -v n="$3" -v a="$4" '$1==k && $2==n && $3==a {print $4; exit}' "$1"; }
 
+# 指定ブロックに属性が「存在するか」。値で判定すると default = "" を未指定と
+# 取り違えるため、レコードの有無で見る（PR #615 で CodeRabbit が指摘）。
+has_attr() { awk -F'\t' -v k="$2" -v n="$3" -v a="$4" '$1==k && $2==n && $3==a {found=1} END {exit !found}' "$1"; }
+
 in_list() {
   local needle="$1"
   shift
@@ -201,12 +215,15 @@ for f in $tf_files; do
       continue
     fi
     in_list "$name" "$DESC_ASCII_ALLOWLIST" && continue
-    # 全角句読点・括弧を除いたうえで非 ASCII が 1 つも無ければ英語とみなす。
-    # 句読点を先に落とさないと "GCP project ID。" のように末尾の 。だけで
-    # 素通りしてしまう（PR #615 で CodeRabbit が検出）。
-    # grep -P は macOS の BSD grep に無いため使わず、LC_ALL=C でバイト評価する。
-    body=$(printf '%s' "$desc" | sed 's/[。、（）「」・：〜]//g')
-    if ! printf '%s' "$body" | LC_ALL=C grep -q '[^ -~]'; then
+    # 全角句読点・括弧を落としたうえで「日本語文字」が残るかを見る。
+    # - 句読点を先に落とさないと "GCP project ID。" が末尾の 。 だけで素通りする
+    # - 「非 ASCII」で判定すると Café / キリル文字 / 絵文字だけの description も
+    #   通ってしまうため、日本語の範囲を明示的に見る
+    # （どちらも PR #615 で CodeRabbit が検出）
+    # ロケール未設定（C）の sed は bracket 表現をバイト単位で扱い、マルチバイト
+    # 文字を壊す（[。、] が 0xE3 バイトごと消してしまう）。1 文字ずつ置換する。
+    body=$(printf '%s' "$desc" | sed "$DESC_PUNCT_STRIP")
+    if ! printf '%s' "$body" | LC_ALL=C grep -q "$JP_CHAR_CLASS"; then
       err "$f: $kind \"$name\" の description が日本語ではありません: $desc"
     fi
   done < <(awk -F'\t' '$3=="@order"' "$tsv")
@@ -303,7 +320,7 @@ for f in $tf_files; do
 
     for d in $declared; do
       in_list "$d" "$passed" && continue
-      if [ -z "$(attr_of "$target_tsv" variable "$d" default)" ]; then
+      if ! has_attr "$target_tsv" variable "$d" default; then
         err "$f: module \"$mod\" が必須 variable \"$d\" を受け取っていません（$target に default なし）。"
       fi
     done
