@@ -65,7 +65,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   redis:
-    image: redis:8-alpine@sha256:978f0e01593e65eed801f2402944efcd936d43b5027e4908a7897baf88ed6241
+    image: redis:8-alpine@sha256:becdda6c7f4b3fb42e42fd7f120bbf5c54c4caaaf16f26da24e4563d2c1f0576
     container_name: devforge-redis
     restart: unless-stopped
     ports:
@@ -79,7 +79,7 @@ services:
   # libSQL (Turso) サーバー。ローカル開発で sqld を別途インストールせずに利用するため。
   # 永続化は libsql_data ボリュームに保存。本番は Turso Cloud を直接参照する想定
   libsql:
-    image: ghcr.io/tursodatabase/libsql-server:latest@sha256:bc100873a74865392a49191b4733025fe8222a409799efa424dc196feaf05035
+    image: ghcr.io/tursodatabase/libsql-server:latest@sha256:6dd3eb276d9d3604e4a48ac4a999a2e267814732d57d7e94c04ba71482333a67
     container_name: devforge-libsql
     restart: unless-stopped
     environment:

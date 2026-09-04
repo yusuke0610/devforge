@@ -39,7 +39,7 @@ RUN mkdir -p /out/nix/store \
 # ============================================================================
 # Final stage: ランタイム closure とアプリコードのみを含む軽量イメージ
 # ============================================================================
-FROM debian:13-slim@sha256:3a39a0592364683e6bab97937b72cad5a8fa6dcbbee90edb3bb48c7f8e94f258
+FROM debian:13-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132
 
 ARG APP_VERSION=dev
 ENV APP_VERSION=$APP_VERSION
