@@ -30,6 +30,9 @@ PR 後の CodeRabbit 指摘対応・手動レビュー・`/code-review` の結�
 - 非同期の競合: await 漏れ、順序依存、並行更新
 - 変更した条件分岐の反転・取りこぼし
 - 日時文字列を日付へ切り詰めて期間・閾値判定に使っていないか（時刻成分が落ちて閾値直下が通る。PR #581 で CodeRabbit が検出）
+- 自作の lint / パーサが対象言語の行末コメント（`#` / `//`）と文字列リテラルを考慮しているか（`sensitive = true # 説明` を値ごと読んで誤検知する、コメント内の brace で深さ計算が壊れる。PR #615 で CodeRabbit が検出）
+- 「正本 A と複製 B の一致」を検証する lint が、比較対象から実際に drift する属性を落としていないか（`description` を比較していなければ文言の分裂は検知できない。PR #615 で CodeRabbit が検出）
+- 集合 A→B を検証する lint に逆方向 B→A があるか（shared 起点の symlink 検査は環境側だけに増えた野良ファイルを拾えない。PR #615 で CodeRabbit が検出）
 - docs の疎通確認コマンドが失敗を検知できる形か（`curl -s` は HTTP 4xx/5xx でも成功終了する。`curl -fsS` を使う。PR #604 で CodeRabbit が検出）
 - docs の手順に実行時決定の値（IP / サブネット / 動的ポート）を決め打ちで書いていないか（compose が `networks` / `ipam` を宣言しなければ Docker がサブネットを動的割り当てするため `172.17.0.0/16` 前提は成立しない。実値を取得する手順を書く。PR #604 で CodeRabbit が検出）
 
@@ -50,6 +53,7 @@ PR 後の CodeRabbit 指摘対応・手動レビュー・`/code-review` の結�
 - ADR の新規作成・ステータス変更に対する `docs/adr/README.md` 索引の更新漏れ
 - **手順・フローを変えたら、それを記述している他の docs / rules も同じ差分で更新する**（RV 導入時に `rules/common/tdd.md` の「`make ci` → stage」と CLAUDE.md のモデル切り替えタイミングが drift した実例）
 - docs / rules に書いてある事実と差分の実装が矛盾していないか
+- 同じ variable / 定数を層をまたいで二重宣言している箇所で、description の言語・文言・宣言順が食い違っていないか（infra の `environments/shared` ↔ `devforge_stack` で英語/日本語に分裂していた実例。`make lint-infra` が検知する）
 - **設定値を直したら、同じ値に言及している同一ファイル内の他の行も突合する**（手順書は表・チェックリスト・本文で同じ値を繰り返しがち。ENV_CHECKLIST の表だけ直して手順の行が古いままだった実例。PR #571 で CodeRabbit が検出）
 - **docs に書いた手順が特定 OS / 実行形態でのみ成立する前提を持つなら、その前提を明記する**（compose のコンテナ→ホスト Ollama 疎通は macOS では動くが Linux では bind アドレス次第で届かない、を書き分けなかった実例）
 - **docs で「`.env` に設定する」と書くときは、どの `.env` がどの経路で読まれるか特定して書く**（`docker compose` の変数補間はプロジェクトルートの `.env` のみで `backend/.env` は読まれない、を曖昧に書いた実例。PR #604 で CodeRabbit が検出）

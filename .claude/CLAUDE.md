@@ -25,6 +25,7 @@ Makefile は `nix develop --command bash -c "..."` でラップ済み。AI は�
 | Frontend test | `make test-web` |
 | Lint 自動修正 | `make lint-fix` |
 | マイグレーション | `make migrate` / `make migrate-create MSG="..."` |
+| インフラ lint | `make lint-infra` （記述規約・層間 drift。tofu 不要。`make lint` に含まれる） |
 | インフラ validate | `make infra-validate` |
 | コード重複検知 | `make dupe-check` （結果: `report/dupe/jscpd-report.json`） |
 | ミューテーションテスト | `make mutation-backend` / `make mutation-web` （**長時間**。通常 CI には含まれない週次実行。詳細: 下記「ミューテーションテスト・Slack 通知」） |

@@ -9,12 +9,12 @@ variable "environment" {
 
   validation {
     condition     = contains(["dev", "stg", "prod"], var.environment)
-    error_message = "environment は dev / stg / prod のいずれかでなければならない。"
+    error_message = "environment は dev / stg / prod のいずれかを指定してください。"
   }
 }
 
 variable "project_id" {
-  description = "GCP project ID。"
+  description = "GCP プロジェクト ID。"
   type        = string
 }
 
@@ -35,7 +35,7 @@ variable "template_version" {
 }
 
 variable "deployer_service_account_email" {
-  description = "デプロイ用サービスアカウントのメールアドレス。設定されている場合のみ runtime SA への actAs と Cloud Run developer ロールを付与する。"
+  description = "デプロイ用サービスアカウントのメールアドレス。設定されている場合のみ runtime SA への actAs と Artifact Registry writer / Cloud Run developer ロールを付与する。"
   type        = string
   default     = ""
 }
@@ -123,7 +123,7 @@ variable "cloudflare_pages_project_name" {
 }
 
 variable "cloudflare_subdomain" {
-  description = "Cloudflare DNS レコード名（例: app-dev / app-stg / app）。{subdomain}.devforge.app となる。use_custom_domain = false なら未使用。"
+  description = "Cloudflare DNS レコード名（例: app-dev / app-stg / app）。{subdomain}.devforge.app となる。cloudflare_use_custom_domain = false なら未使用。"
   type        = string
   default     = ""
 }
