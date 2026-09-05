@@ -88,9 +88,10 @@ err() {
 }
 
 # ── HCL のトップレベルブロックを TSV へ展開する awk プログラム ──────────────
-# 出力: <kind>\t<name>\t<attr>\t<value>
+# 出力: <kind>\t<name>\t<attr>\t<value>[\t<ネストブロックの出現番号>]
 #   attr は属性名そのもの、宣言順は @order、ネストブロックの有無は @block:<名前>、
 #   ネストブロック内の属性は @<ブロック名>:<属性名>（例: @validation:condition）。
+#   同名のネストブロックは出現番号を持ち、属性を出現順に対応付ける。
 # 文字列リテラルは「同じ長さ」のマスクに置換してから解析する。長さを保つことで
 # マスク列上で見つけた行末コメントの位置を、元の行にそのまま適用できる。
 read -r -d '' AWK_BLOCKS <<'AWK' || true
@@ -112,6 +113,26 @@ function mask(line,   out, i, c, inq, esc) {
   }
   return out
 }
+# 括弧の増減を数える。文字列は mask 済みの入力を渡すため、文字列内の括弧は
+# 式の継続判定に影響しない。
+function delimiter_delta(line,   delta, i, c) {
+  delta = 0
+  for (i = 1; i <= length(line); i++) {
+    c = substr(line, i, 1)
+    if (c == "(" || c == "{" || c == "[") delta++
+    if (c == ")" || c == "}" || c == "]") delta--
+  }
+  return delta
+}
+function reset_block_occurrences(   b) {
+  for (b in block_occurrence) delete block_occurrence[b]
+}
+function print_attr(attr, value, occurrence) {
+  if (occurrence != "")
+    print kind "\t" name "\t" attr "\t" value "\t" occurrence
+  else
+    print kind "\t" name "\t" attr "\t" value
+}
 {
   raw = $0
   m = mask(raw)
@@ -128,10 +149,28 @@ function mask(line,   out, i, c, inq, esc) {
   before = depth
   depth += gsub(/[{[]/, "&", m) - gsub(/[}\]]/, "&", m)
 
+  # type / default / validation.condition が複数行の場合は、括弧が閉じるまで
+  # 1 レコードへ直列化する。これにより object のメンバーなど内側の差分も拾う。
+  if (continued_attr != "") {
+    continuation = raw
+    sub(/^[[:space:]]+/, "", continuation)
+    continued_value = continued_value " " continuation
+    continued_balance += delimiter_delta(m)
+    if (continued_balance <= 0) {
+      print_attr(continued_attr, continued_value, continued_occurrence)
+      continued_attr = ""
+      continued_value = ""
+      continued_occurrence = ""
+    }
+    next
+  }
+
   if (before == 0 && raw ~ /^(variable|output|module)[[:space:]]+"/) {
     kind = raw; sub(/[[:space:]].*/, "", kind)
     name = raw; sub(/^[a-z]+[[:space:]]+"/, "", name); sub(/".*/, "", name)
     blk = ""
+    blk_occurrence = ""
+    reset_block_occurrences()
     order++
     print kind "\t" name "\t@order\t" order
     next
@@ -142,7 +181,9 @@ function mask(line,   out, i, c, inq, esc) {
       blk = raw
       sub(/^[[:space:]]+/, "", blk)
       sub(/[[:space:]]*\{.*/, "", blk)
-      print kind "\t" name "\t@block:" blk "\t1"
+      block_occurrence[blk]++
+      blk_occurrence = block_occurrence[blk]
+      print_attr("@block:" blk, "1", blk_occurrence)
       next
     }
     if (raw ~ /^[[:space:]]+[a-z_][a-z0-9_]*[[:space:]]*=/) {
@@ -151,7 +192,17 @@ function mask(line,   out, i, c, inq, esc) {
       sub(/[[:space:]]*=.*/, "", key)
       val = raw
       sub(/^[^=]*=[[:space:]]*/, "", val)
-      print kind "\t" name "\t" key "\t" val
+      masked_val = m
+      sub(/^[^=]*=[[:space:]]*/, "", masked_val)
+      balance = delimiter_delta(masked_val)
+      if ((key == "type" || key == "default") && balance > 0) {
+        continued_attr = key
+        continued_value = val
+        continued_balance = balance
+        continued_occurrence = ""
+        next
+      }
+      print_attr(key, val, "")
       next
     }
   }
@@ -164,19 +215,30 @@ function mask(line,   out, i, c, inq, esc) {
     sub(/[[:space:]]*=.*/, "", key)
     val = raw
     sub(/^[^=]*=[[:space:]]*/, "", val)
-    print kind "\t" name "\t@" blk ":" key "\t" val
+    masked_val = m
+    sub(/^[^=]*=[[:space:]]*/, "", masked_val)
+    balance = delimiter_delta(masked_val)
+    if (blk == "validation" && key == "condition" && balance > 0) {
+      continued_attr = "@" blk ":" key
+      continued_value = val
+      continued_balance = balance
+      continued_occurrence = blk_occurrence
+      next
+    }
+    print_attr("@" blk ":" key, val, blk_occurrence)
     next
   }
 
-  if (before >= 2 && depth <= 1) blk = ""
-  if (depth == 0) { kind = ""; blk = "" }
+  if (before >= 2 && depth <= 1) { blk = ""; blk_occurrence = "" }
+  if (depth == 0) { kind = ""; blk = ""; blk_occurrence = "" }
 }
 AWK
 
 blocks() { awk "$AWK_BLOCKS" "$1"; }
 
-# 指定ブロックの属性値を取り出す（無ければ空文字）。
-attr_of() { awk -F'\t' -v k="$2" -v n="$3" -v a="$4" '$1==k && $2==n && $3==a {print $4; exit}' "$1"; }
+# 指定ブロックの属性値を取り出す（無ければ空文字）。ネストブロックは出現番号も
+# 直列化し、同名ブロックが複数ある場合の順序と属性の欠落を区別する。
+attr_of() { awk -F'\t' -v k="$2" -v n="$3" -v a="$4" '$1==k && $2==n && $3==a {if ($5 != "") print $5 ":" $4; else print $4}' "$1"; }
 
 # 指定ブロックに属性が「存在するか」。値で判定すると default = "" を未指定と
 # 取り違えるため、レコードの有無で見る（PR #615 で CodeRabbit が指摘）。
