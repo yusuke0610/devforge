@@ -18,10 +18,10 @@ DB は Turso (libSQL) を使用。**DB 本体は OpenTofu の `infra/modules/tur
 
 ## 記述規約
 
-- `variable` / `output` には必ず `description` を付け、**日本語**で書く（CLAUDE.md のコメント規約に準拠）。値の意味だけでなく「どこに伝播するか」「未設定時にどうなるか」まで書く
+- `variable` / `output` には必ず `description` を付け、**日本語**で書く（CLAUDE.md のコメント規約に準拠）。値の意味だけでなく「どこに伝播するか」「未設定時にどうなるか」まで書く。`make lint-infra` が機械検証するのは description の存在と日本語文字の有無であり、説明内容の十分性はレビューで確認する
 - 名前が `token` / `secret` / `password` / `api_key` / `private_key` を含む variable には `sensitive = true` を付ける（`.claude/rules/security.md`）
 
-上記は `make lint-infra`（`scripts/lint-infra.sh`。`make lint` / `make ci` に含まれる）が機械検証する。`tofu fmt` は整形しか見ず、`tofu validate` は provider の DL が必要でオフラインでは回らないため、その隙間を埋める位置づけ。検証内容と対象外の判断はスクリプト冒頭のコメントが正本。
+description の存在・日本語文字の有無と `sensitive` は `make lint-infra`（`scripts/lint-infra.sh`。`make lint` / `make ci` に含まれる）が機械検証する。`tofu fmt` は整形しか見ず、`tofu validate` は provider の DL が必要でオフラインでは回らないため、その隙間を埋める位置づけ。検証内容と対象外の判断はスクリプト冒頭のコメントが正本。
 
 ## 重複・DRY
 

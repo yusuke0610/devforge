@@ -92,25 +92,42 @@ err() {
 #   attr は属性名そのもの、宣言順は @order、ネストブロックの有無は @block:<名前>、
 #   ネストブロック内の属性は @<ブロック名>:<属性名>（例: @validation:condition）。
 #   同名のネストブロックは出現番号を持ち、属性を出現順に対応付ける。
-# 文字列リテラルは「同じ長さ」のマスクに置換してから解析する。長さを保つことで
-# マスク列上で見つけた行末コメントの位置を、元の行にそのまま適用できる。
+# 文字列リテラルとブロックコメントは「同じ長さ」のマスクに置換してから解析する。
+# heredoc は終端まで別状態で保持し、本文をコメント除去や深さ計算の対象にしない。
 read -r -d '' AWK_BLOCKS <<'AWK' || true
-# 文字列リテラルを同じ長さの X に潰す。これで brace の誤カウントと、
-# description 内の # / // をコメントと誤認する事故の両方を防ぐ。
-function mask(line,   out, i, c, inq, esc) {
-  out = ""; inq = 0; esc = 0
+# 文字列リテラルを X、ブロックコメントを空白に置換し、行末コメントを除去する。
+# cleaned にはコメントだけを除いた元の行を返し、属性値の抽出に使用する。
+function sanitize(line,   out, original, i, c, nextc, inq, esc) {
+  out = ""; original = ""; inq = 0; esc = 0
   for (i = 1; i <= length(line); i++) {
     c = substr(line, i, 1)
+    nextc = substr(line, i + 1, 1)
+    if (in_block_comment) {
+      out = out " "; original = original " "
+      if (c == "*" && nextc == "/") {
+        out = out " "; original = original " "; i++
+        in_block_comment = 0
+      }
+      continue
+    }
     if (inq) {
-      if (esc)          { esc = 0; out = out "X"; continue }
-      if (c == "\\")    { esc = 1; out = out "X"; continue }
-      if (c == "\"")     { inq = 0; out = out "\""; continue }
+      original = original c
+      if (esc)       { esc = 0; out = out "X"; continue }
+      if (c == "\\") { esc = 1; out = out "X"; continue }
+      if (c == "\"")  { inq = 0; out = out "\""; continue }
       out = out "X"
     } else {
-      out = out c
+      if (c == "/" && nextc == "*") {
+        out = out "  "; original = original "  "; i++
+        in_block_comment = 1
+        continue
+      }
+      if (c == "#" || (c == "/" && nextc == "/")) break
+      out = out c; original = original c
       if (c == "\"") inq = 1
     }
   }
+  cleaned = original
   return out
 }
 # 括弧の増減を数える。文字列は mask 済みの入力を渡すため、文字列内の括弧は
@@ -127,23 +144,52 @@ function delimiter_delta(line,   delta, i, c) {
 function reset_block_occurrences(   b) {
   for (b in block_occurrence) delete block_occurrence[b]
 }
-function print_attr(attr, value, occurrence) {
+function print_attr(attr, value, occurrence,   escaped) {
+  escaped = value
+  gsub(/\t/, "\\\\t", escaped)
   if (occurrence != "")
-    print kind "\t" name "\t" attr "\t" value "\t" occurrence
+    print kind "\t" name "\t" attr "\t" escaped "\t" occurrence
   else
-    print kind "\t" name "\t" attr "\t" value
+    print kind "\t" name "\t" attr "\t" escaped
+}
+function start_heredoc(attr, value, occurrence,   marker) {
+  if (value !~ /^<<-?[^[:space:]]+[[:space:]]*$/) return 0
+  heredoc_indented = (value ~ /^<<-/)
+  marker = value
+  sub(/^<<-?/, "", marker)
+  sub(/[[:space:]]+$/, "", marker)
+  heredoc_marker = marker
+  heredoc_attr = attr
+  heredoc_value = value
+  heredoc_occurrence = occurrence
+  return 1
 }
 {
   raw = $0
-  m = mask(raw)
 
-  # 行末コメント（# / //）を除去する。OpenTofu は行末コメントを許すため、
-  # 除去しないと `sensitive = true # 説明` の値が "true # 説明" になり、
-  # コメント内の brace が深さ計算を壊す。
-  if (match(m, /#|\/\//) > 0) {
-    raw = substr(raw, 1, RSTART - 1)
-    m   = substr(m, 1, RSTART - 1)
+  # heredoc 本文の # / // / /* */ や brace はすべて文字列として扱う。
+  # <<- の終端だけはインデントを許容する。
+  if (heredoc_marker != "") {
+    terminator = raw
+    if (heredoc_indented) sub(/^[[:space:]]+/, "", terminator)
+    sub(/[[:space:]]+$/, "", terminator)
+    if (terminator == heredoc_marker) {
+      print_attr(heredoc_attr, heredoc_value, heredoc_occurrence)
+      heredoc_marker = ""
+      heredoc_attr = ""
+      heredoc_value = ""
+      heredoc_occurrence = ""
+      heredoc_indented = 0
+    } else {
+      heredoc_value = heredoc_value "\\n" raw
+    }
+    next
   }
+
+  # block comment の状態を前行から引き継いでから、行末コメントを除去する。
+  # コメント内の brace が深さ計算に影響しないよう、sanitize 後の行だけを解析する。
+  m = sanitize(raw)
+  raw = cleaned
   sub(/[[:space:]]+$/, "", raw)
 
   before = depth
@@ -194,6 +240,7 @@ function print_attr(attr, value, occurrence) {
       sub(/^[^=]*=[[:space:]]*/, "", val)
       masked_val = m
       sub(/^[^=]*=[[:space:]]*/, "", masked_val)
+      if (start_heredoc(key, val, "")) next
       balance = delimiter_delta(masked_val)
       if ((key == "type" || key == "default") && balance > 0) {
         continued_attr = key
@@ -217,6 +264,7 @@ function print_attr(attr, value, occurrence) {
     sub(/^[^=]*=[[:space:]]*/, "", val)
     masked_val = m
     sub(/^[^=]*=[[:space:]]*/, "", masked_val)
+    if (start_heredoc("@" blk ":" key, val, blk_occurrence)) next
     balance = delimiter_delta(masked_val)
     if (blk == "validation" && key == "condition" && balance > 0) {
       continued_attr = "@" blk ":" key
