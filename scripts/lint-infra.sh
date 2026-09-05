@@ -141,10 +141,33 @@ function delimiter_delta(line,   delta, i, c) {
   }
   return delta
 }
+function normalize_comparison_value(value,   normalized, i, c, inq, esc) {
+  normalized = ""; inq = 0; esc = 0
+  for (i = 1; i <= length(value); i++) {
+    c = substr(value, i, 1)
+    if (inq) {
+      normalized = normalized c
+      if (esc)       { esc = 0; continue }
+      if (c == "\\") { esc = 1; continue }
+      if (c == "\"") inq = 0
+    } else if (c == "\"") {
+      normalized = normalized c
+      inq = 1
+    } else if (c !~ /[[:space:]]/) {
+      normalized = normalized c
+    }
+  }
+  return normalized
+}
 function reset_block_occurrences(   b) {
   for (b in block_occurrence) delete block_occurrence[b]
 }
 function print_attr(attr, value, occurrence,   escaped) {
+  # 2 層同期で比較する式は改行・インデントの違いを無視する。文字列リテラルと
+  # heredoc はその内容を保持し、description / error_message は正規化しない。
+  if ((attr == "type" || attr == "default" || attr == "@validation:condition") && value !~ /^<<-?/) {
+    value = normalize_comparison_value(value)
+  }
   escaped = value
   gsub(/\t/, "\\\\t", escaped)
   if (occurrence != "")
