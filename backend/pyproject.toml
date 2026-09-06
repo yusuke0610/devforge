@@ -18,7 +18,7 @@ dependencies = [
     "sqlalchemy==2.0.52",
     "sqlalchemy-libsql==0.2.0",
     "alembic==1.19.1",
-    "pydantic[email]==2.13.4",
+    "pydantic[email]==2.13.5",
     "python-dotenv==1.2.3",
     "reportlab==5.0.1",
     "google-cloud-storage==3.13.1",
