@@ -36,7 +36,7 @@ dependencies = [
     "markdown==3.10.3",
     "weasyprint==69.0",
     # PDF 経歴書のテキスト抽出（ADR-0024 / #527）。純 Python・native 依存なし。
-    "pypdf==6.16.2",
+    "pypdf==6.17.0",
     "pydyf==0.12.1",
     "redis==8.1.0",
     "isort==8.0.1",
