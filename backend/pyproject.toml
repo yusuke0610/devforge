@@ -26,7 +26,7 @@ dependencies = [
     "PyJWT[crypto]==2.13.0",
     # cryptography は PyJWT[crypto] / google-auth の推移的依存だが、CVE-2026-69247 対策で
     # 明示固定する（49.0.0 が脆弱。修正版は 50.0.0）
-    "cryptography==50.0.0",
+    "cryptography==50.0.1",
     "httpx==0.28.1",
     "anthropic[vertex]==0.125.0",
     "PyGithub==2.9.1",
