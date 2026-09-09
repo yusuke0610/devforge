@@ -234,9 +234,11 @@ function start_heredoc(attr, value, occurrence,   marker) {
     next
   }
 
-  if (before == 0 && raw ~ /^(variable|output|module)[[:space:]]+"/) {
-    kind = raw; sub(/[[:space:]].*/, "", kind)
-    name = raw; sub(/^[a-z]+[[:space:]]+"/, "", name); sub(/".*/, "", name)
+  declaration = raw
+  sub(/^[[:space:]]+/, "", declaration)
+  if (before == 0 && declaration ~ /^(variable|output|module)[[:space:]]+"/) {
+    kind = declaration; sub(/[[:space:]].*/, "", kind)
+    name = declaration; sub(/^[a-z]+[[:space:]]+"/, "", name); sub(/".*/, "", name)
     blk = ""
     blk_occurrence = ""
     reset_block_occurrences()
