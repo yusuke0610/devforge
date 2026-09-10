@@ -87,14 +87,10 @@ err() {
   fail=1
 }
 
-# ── HCL のトップレベルブロックを TSV へ展開する awk プログラム ──────────────
-# 出力: <kind>\t<name>\t<attr>\t<value>[\t<ネストブロックの出現番号>]
-#   attr は属性名そのもの、宣言順は @order、ネストブロックの有無は @block:<名前>、
-#   ネストブロック内の属性は @<ブロック名>:<属性名>（例: @validation:condition）。
-#   同名のネストブロックは出現番号を持ち、属性を出現順に対応付ける。
-# 文字列リテラルとブロックコメントは「同じ長さ」のマスクに置換してから解析する。
-# heredoc は終端まで別状態で保持し、本文をコメント除去や深さ計算の対象にしない。
-read -r -d '' AWK_BLOCKS <<'AWK' || true
+# ── HCL 行の字句処理を担う共有 awk 関数 ────────────────────────────────────
+# AWK_BLOCKS（.tf のブロック展開）と AWK_TFVARS_KEYS（tfvars のキー抽出）が
+# 同じ字句解釈を使うため、両者の前に連結して awk へ渡す。
+read -r -d '' AWK_HCL_LIB <<'AWK' || true
 # 文字列リテラルを X、ブロックコメントを空白に置換し、行末コメントを除去する。
 # cleaned にはコメントだけを除いた元の行を返し、属性値の抽出に使用する。
 function sanitize(line,   out, original, i, c, nextc, inq, esc) {
@@ -141,6 +137,16 @@ function delimiter_delta(line,   delta, i, c) {
   }
   return delta
 }
+AWK
+
+# ── HCL のトップレベルブロックを TSV へ展開する awk プログラム ──────────────
+# 出力: <kind>\t<name>\t<attr>\t<value>[\t<ネストブロックの出現番号>]
+#   attr は属性名そのもの、宣言順は @order、ネストブロックの有無は @block:<名前>、
+#   ネストブロック内の属性は @<ブロック名>:<属性名>（例: @validation:condition）。
+#   同名のネストブロックは出現番号を持ち、属性を出現順に対応付ける。
+# 文字列リテラルとブロックコメントは「同じ長さ」のマスクに置換してから解析する。
+# heredoc は終端まで別状態で保持し、本文をコメント除去や深さ計算の対象にしない。
+read -r -d '' AWK_BLOCKS <<'AWK' || true
 function normalize_comparison_value(value,   normalized, i, c, inq, esc) {
   normalized = ""; inq = 0; esc = 0
   for (i = 1; i <= length(value); i++) {
@@ -307,7 +313,38 @@ function start_heredoc(attr, value, occurrence,   marker) {
 }
 AWK
 
-blocks() { awk "$AWK_BLOCKS" "$1"; }
+blocks() { awk "$AWK_HCL_LIB$AWK_BLOCKS" "$1"; }
+
+# ── terraform.tfvars のトップレベル代入キーを取り出す awk プログラム ────────
+# map / object の複数行値の内側キーまで拾うと、宣言済み variable が無い名前として
+# 誤検知する（`labels = {` の次行 `team = "platform"` を variable 扱いする）。
+# 括弧の深さ 0 の行だけを対象にし、heredoc 本文も除外する（PR #615 で CodeRabbit が指摘）。
+read -r -d '' AWK_TFVARS_KEYS <<'AWK' || true
+{
+  if (heredoc_marker != "") {
+    body = $0
+    sub(/^[[:space:]]*/, "", body)
+    sub(/[[:space:]]*$/, "", body)
+    if (body == heredoc_marker) heredoc_marker = ""
+    next
+  }
+  masked = sanitize($0)
+  if (depth == 0 && match(masked, /^[[:space:]]*[a-z_][a-z0-9_]*[[:space:]]*=/)) {
+    key = substr(masked, RSTART, RLENGTH)
+    sub(/^[[:space:]]*/, "", key)
+    sub(/[[:space:]]*=$/, "", key)
+    print key
+  }
+  if (match(masked, /<<-?[A-Za-z_][A-Za-z0-9_]*/)) {
+    heredoc_marker = substr(masked, RSTART, RLENGTH)
+    sub(/^<<-?/, "", heredoc_marker)
+  }
+  depth += delimiter_delta(masked)
+  if (depth < 0) depth = 0
+}
+AWK
+
+tfvars_keys() { awk "$AWK_HCL_LIB$AWK_TFVARS_KEYS" "$1"; }
 
 # 指定ブロックの属性値を取り出す（無ければ空文字）。ネストブロックは出現番号も
 # 直列化し、同名ブロックが複数ある場合の順序と属性の欠落を区別する。
@@ -422,7 +459,7 @@ for tfvars in "$INFRA_DIR"/environments/*/terraform.tfvars; do
     [ -n "$key" ] || continue
     in_list "$key" "$env_names" && continue
     err "$tfvars: キー \"$key\" に対応する variable が $ENV_VARS にありません。"
-  done < <(sed -nE 's/^[[:space:]]*([a-z_][a-z0-9_]*)[[:space:]]*=.*/\1/p' "$tfvars")
+  done < <(tfvars_keys "$tfvars")
 done
 
 # ── (6) module 呼び出し ↔ 呼び出し先 variables.tf ───────────────────────────
