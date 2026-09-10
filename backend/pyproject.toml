@@ -34,7 +34,8 @@ dependencies = [
     "ruff==0.16.6",
     "autopep8==2.3.2",
     "markdown==3.10.3",
-    "weasyprint==69.0",
+    # CVE-2026-55073 対策で 70.0 へ更新（69.0 が脆弱）
+    "weasyprint==70.0",
     # PDF 経歴書のテキスト抽出（ADR-0024 / #527）。純 Python・native 依存なし。
     "pypdf==6.17.0",
     "pydyf==0.12.1",
