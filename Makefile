@@ -10,7 +10,7 @@
 	gen-redirects codegen-types licenses \
 	metrics-ai-friendliness \
 	migrate migrate-create \
-	infra-fmt infra-fmt-check infra-validate-dev infra-validate-stg infra-validate-prod infra-validate \
+	infra-fmt infra-fmt-check lint-infra infra-validate-dev infra-validate-stg infra-validate-prod infra-validate \
 	clean
 
 # ------------------------------------------------------------------ #
@@ -86,6 +86,7 @@ help:
 	@echo "インフラ (OpenTofu)"
 	@echo "  infra-fmt           tofu fmt -recursive infra"
 	@echo "  infra-fmt-check     tofu fmt -check -recursive infra"
+	@echo "  lint-infra          記述規約・2 層同期・symlink 整合を検知 (tofu 不要)"
 	@echo "  infra-validate-dev  dev 環境を validate"
 	@echo "  infra-validate-stg  stg 環境を validate"
 	@echo "  infra-validate-prod prod 環境を validate"
@@ -167,7 +168,7 @@ mutation-backend:
 mutation-web:
 	$(NIX_BASH) "cd web && npm run test:mutation"
 
-lint: lint-backend typecheck-backend lint-web lint-web-messages lint-env-keys lint-adr-index lint-tdd
+lint: lint-backend typecheck-backend lint-web lint-web-messages lint-env-keys lint-adr-index lint-tdd lint-infra
 
 lint-backend:
 	$(NIX_BASH) "cd backend && ruff check app tests alembic_migrations"
@@ -298,6 +299,14 @@ infra-fmt:
 
 infra-fmt-check:
 	$(NIX) tofu fmt -check -recursive infra
+
+# infra の記述規約と層間 drift を検知。fmt は整形しか見ず、validate は provider の DL
+# （ネットワーク）が要るため、その手前で止められるものをオフラインで検証する。
+# description の必須・日本語、秘匿 variable の sensitive、environments/shared ↔
+# devforge_stack の 2 層同期、tfvars/module 引数の突合、shared 化 symlink と
+# .jscpd.json ignore の整合。bash/awk/grep/sed のみに依存するため nix wrap 不要。
+lint-infra:
+	bash scripts/lint-infra.sh
 
 infra-validate-dev:
 	$(NIX_BASH) "tofu -chdir=infra/environments/dev init -backend=false -input=false && tofu -chdir=infra/environments/dev validate"

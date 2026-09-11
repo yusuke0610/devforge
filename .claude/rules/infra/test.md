@@ -19,6 +19,7 @@ Infra 層には実テストフレームワークは存在しない。代わり�
 ## 実行コマンド
 
 ```bash
+make lint-infra            # 記述規約・層間 drift（tofu 不要・ネットワーク不要）
 make infra-fmt-check       # フォーマットチェック
 make infra-validate        # dev / stg / prod を順に validate
 make infra-validate-dev    # 個別: dev 環境
@@ -40,11 +41,12 @@ nix develop --command bash -c "tofu -chdir=infra/environments/dev plan"
 
 以下をすべて満たして初めて「Infra 検証 OK」と判定する:
 
-1. **`make infra-fmt-check` が pass**: 整形済み
-2. **`make infra-validate` が pass**: 影響範囲の環境すべてで validate が通る（modules を触ったら 3 環境全て）
-3. **plan で意図しないリソース差分が出ない**: 削除・置換（`-/+`）が発生する変更は、本当に意図したものかコミット前に必ず確認する
-4. **変数追加時**: 該当環境の `terraform.tfvars` または `*.auto.tfvars` に値を追記したか確認
-5. **state を破壊するような変更を避けている**: `lifecycle { prevent_destroy = true }` のリソースに対する破壊的変更が無いこと
+1. **`make lint-infra` が pass**: 記述規約（description 必須・日本語 / 秘匿 variable の `sensitive`）と層間 drift（2 層 variable 同期 / tfvars・module 引数 / shared symlink と `.jscpd.json` ignore）に違反していない。`make lint` / `make ci` にも含まれる
+2. **`make infra-fmt-check` が pass**: 整形済み
+3. **`make infra-validate` が pass**: 影響範囲の環境すべてで validate が通る（modules を触ったら 3 環境全て）
+4. **plan で意図しないリソース差分が出ない**: 削除・置換（`-/+`）が発生する変更は、本当に意図したものかコミット前に必ず確認する
+5. **変数追加時**: 該当環境の `terraform.tfvars` または `*.auto.tfvars` に値を追記したか確認
+6. **state を破壊するような変更を避けている**: `lifecycle { prevent_destroy = true }` のリソースに対する破壊的変更が無いこと
 
 ## DB（Turso）の扱い
 

@@ -4,11 +4,10 @@
 //
 // 背景:
 //   素の `npm audit --audit-level=high` は「lockfile に脆弱バージョンが存在するか」だけを
-//   見ており、実際に攻撃面へ到達可能かは区別しない。下記 2 件はいずれも esbuild の
-//   dev 専用 advisory で、本番バンドルにも CI(Linux) ランタイムにも到達しない。
-//   かつ修正版 (esbuild 0.28.1) は vite 6 のビルドを壊し、回避には vite 8 (Rolldown 移行)
-//   が必要 / wrangler には修正版が存在しない、という事情がある。
-//   そのため allowlist で時限的に許容し、恒久対応 (vite 8 移行) は別 PR で追う。
+//   見ており、実際に攻撃面へ到達可能かは区別しない。到達不能と判断できる advisory を
+//   個別に時限許容するために allowlist を持つ。
+//   **原則は「脆弱パッケージを更新して解消する」**。allowlist は前進修正版が存在しない等で
+//   更新できない場合の一時退避であり、修正版が出たら更新してエントリを削除する。
 //
 // 注意:
 //   ここに無い High / Critical advisory が新たに出た場合は従来どおり CI を落とす。
@@ -25,30 +24,13 @@ import { dirname, resolve } from "node:path";
 const frontendDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 // 許容する advisory。GHSA ID をキーに、理由と見直し期限を残す。
-// 恒久対応 (vite 8 / Rolldown 移行) 完了時にエントリを削除すること。
-const ALLOWLIST = {
-  "GHSA-gv7w-rqvm-qjhr": {
-    reason:
-      "esbuild の Deno モジュール install-time RCE (NPM_CONFIG_REGISTRY 経由)。" +
-      "DevForge は npm(Linux) で導入し Deno 不使用のため到達不能。dev 依存。",
-    reviewBy: "2026-09-30 (vite 8 / Rolldown 移行で esbuild 0.28.1 化を目指す)",
-  },
-  "GHSA-g7r4-m6w7-qqqr": {
-    reason:
-      "esbuild 自身の dev サーバーを Windows で起動した際の任意ファイル読み取り。" +
-      "dev サーバーは Vite(Linux)、esbuild serve は未使用のため到達不能。dev 依存。",
-    reviewBy: "2026-09-30 (vite 8 / Rolldown 移行で esbuild 0.28.1 化を目指す)",
-  },
-  "GHSA-qwww-vcr4-c8h2": {
-    reason:
-      "React Router の RSC(framework)モードでの CSRF バイパス。DevForge は SPA 構成で " +
-      "main.tsx の BrowserRouter のみを使い、RSC / framework モード（@react-router/* の " +
-      "server 実行・action）を一切使わないため攻撃面に到達しない。react-router-dom 7.x に " +
-      "前進修正版が無く（最新 7.18.1 も脆弱範囲）、修正は v8 メジャー or 7.11.0 への " +
-      "ダウングレードのみで、いずれも本 CSRF に無関係な破壊的変更のため時限的に許容。",
-    reviewBy: "2026-10-31 (react-router v8 移行 or 7.x パッチ提供を評価する)",
-  },
-};
+// 脆弱パッケージを更新して解消したら、対応するエントリも同じ差分で削除すること
+// （未マッチのエントリは検知されず、fail-open の死に設定として残る）。
+//
+// 現在は空。過去に許容していた esbuild (GHSA-gv7w-rqvm-qjhr / GHSA-g7r4-m6w7-qqqr) は
+// vite 8 移行で esbuild 0.28.1 に、react-router (GHSA-qwww-vcr4-c8h2) は 7.18.3 で
+// いずれも修正版に到達したため、エントリを削除した。
+const ALLOWLIST = {};
 
 const BLOCKING_SEVERITIES = new Set(["high", "critical"]);
 

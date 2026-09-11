@@ -211,9 +211,17 @@ E2E テストは `web/e2e/` に配置。新しいページ・ルート・認証/
 ### インフラ（OpenTofu）
 
 ```bash
+make lint-infra             # 記述規約・層間 drift の検知（tofu 不要・ネットワーク不要）
 make infra-fmt-check        # tofu fmt -check
 make infra-validate         # dev / stg / prod を順に validate
 ```
+
+`make lint-infra`（`make lint` / `make ci` に含まれる）は fmt と validate の隙間を埋める:
+variable / output の description 必須・日本語、秘匿値 variable の `sensitive = true`、
+`environments/shared` ↔ `modules/devforge_stack` の 2 層同期（属性・宣言順）、
+`terraform.tfvars` と module 引数の突合、shared 化 symlink と `.jscpd.json` ignore の整合。
+`tofu validate` は provider の DL が必要でオフラインでは回らないため、同種の事故を
+ネットワーク無しで先に止める役割も持つ。検証内容の詳細は `scripts/lint-infra.sh` の冒頭コメント。
 
 詳細は [deployment.md](./deployment.md) の「インフラ構成（OpenTofu）」を参照。
 

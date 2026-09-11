@@ -16,13 +16,13 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 | ライブラリ | バージョン | ライセンス |
 |---|---|---|
 | [@reduxjs/toolkit](https://redux-toolkit.js.org) | 2.12.0 | MIT |
-| [dompurify](https://github.com/cure53/DOMPurify) | 3.4.12 | (MPL-2.0 OR Apache-2.0) |
-| [marked](https://marked.js.org) | 18.0.7 | MIT |
+| [dompurify](https://github.com/cure53/DOMPurify) | 3.4.14 | (MPL-2.0 OR Apache-2.0) |
+| [marked](https://marked.js.org) | 18.0.11 | MIT |
 | [react](https://react.dev/) | 19.2.8 | MIT |
 | [react-dom](https://react.dev/) | 19.2.8 | MIT |
-| [react-pdf](https://github.com/wojtekmaj/react-pdf) | 10.4.1 | MIT |
+| [react-pdf](https://github.com/wojtekmaj/react-pdf) | 10.5.0 | MIT |
 | [react-redux](https://github.com/reduxjs/react-redux) | 9.3.0 | MIT |
-| [react-router-dom](https://github.com/remix-run/react-router) | 7.18.2 | MIT |
+| [react-router-dom](https://github.com/remix-run/react-router) | 7.18.3 | MIT |
 | [recharts](https://github.com/recharts/recharts) | 3.10.1 | MIT |
 | [redux-persist](https://github.com/rt2zz/redux-persist#readme) | 6.0.0 | MIT |
 
@@ -64,30 +64,30 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 
 | ライブラリ | バージョン | ライセンス |
 |---|---|---|
-| [alembic](https://alembic.sqlalchemy.org) | 1.19.1 | MIT |
+| [alembic](https://alembic.sqlalchemy.org) | 1.19.2 | MIT |
 | [anthropic](https://github.com/anthropics/anthropic-sdk-python) | 0.125.0 | MIT License |
-| [cryptography](https://github.com/pyca/cryptography) | 50.0.0 | Apache-2.0 OR BSD-3-Clause |
+| [cryptography](https://github.com/pyca/cryptography) | 50.0.1 | Apache-2.0 OR BSD-3-Clause |
 | [fastapi](https://github.com/fastapi/fastapi) | 0.141.1 | MIT |
 | [google-cloud-storage](https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-storage) | 3.13.1 | Apache Software License |
 | [google-cloud-tasks](https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-tasks) | 2.24.0 | Apache Software License |
 | [httpx](https://github.com/encode/httpx) | 0.28.1 | BSD License |
 | [markdown](https://Python-Markdown.github.io/) | 3.10.3 | BSD-3-Clause |
 | [pyasn1](https://github.com/pyasn1/pyasn1) | 0.6.4 | BSD-2-Clause |
-| [pydantic](https://github.com/pydantic/pydantic) | 2.13.4 | MIT |
+| [pydantic](https://github.com/pydantic/pydantic) | 2.13.5 | MIT |
 | [pydyf](https://www.courtbouillon.org/pydyf) | 0.12.1 | BSD License |
-| [PyGithub](https://github.com/pygithub/pygithub) | 2.9.1 | GNU Library or Lesser General Public License (LGPL) |
+| [PyGithub](https://github.com/pygithub/pygithub) | 2.10.0 | GNU Library or Lesser General Public License (LGPL) |
 | [PyJWT](https://github.com/jpadilla/pyjwt) | 2.13.0 | MIT |
-| [pypdf](https://github.com/py-pdf/pypdf) | 6.15.0 | BSD-3-Clause |
+| [pypdf](https://github.com/py-pdf/pypdf) | 6.17.0 | BSD-3-Clause |
 | [python-dotenv](https://github.com/theskumar/python-dotenv) | 1.2.3 | BSD-3-Clause |
 | [python-multipart](https://github.com/Kludex/python-multipart) | 0.0.32 | Apache-2.0 |
 | [redis](https://github.com/redis/redis-py) | 8.1.0 | MIT |
-| [reportlab](https://www.reportlab.com/) | 5.0.0 | BSD License |
+| [reportlab](https://www.reportlab.com/) | 5.0.1 | BSD License |
 | [slowapi](https://github.com/laurents/slowapi) | 0.1.10 | MIT License |
 | [sqlalchemy](https://www.sqlalchemy.org) | 2.0.52 | MIT |
 | [sqlalchemy-libsql](https://github.com/tursodatabase/libsql-sqlalchemy) | 0.2.0 | MIT License |
-| [starlette](https://github.com/Kludex/starlette) | 1.3.1 | BSD-3-Clause |
+| [starlette](https://github.com/Kludex/starlette) | 1.6.0 | BSD-3-Clause |
 | [uvicorn](https://uvicorn.dev/) | 0.52.4 | BSD-3-Clause |
-| [weasyprint](https://weasyprint.org/) | 69.0 | BSD License |
+| [weasyprint](https://weasyprint.org/) | 70.0 | BSD License |
 
 ## Backend（開発ツール）
 
@@ -99,4 +99,4 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 | [mutmut](https://github.com/boxed/mutmut) | 3.7.0 | BSD-3-Clause |
 | [pytest](https://docs.pytest.org/en/latest/) | 9.1.1 | MIT |
 | [pytest-cov](https://pypi.org/project/pytest-cov/) | 7.1.0 | MIT |
-| [ruff](https://docs.astral.sh/ruff) | 0.16.3 | MIT |
+| [ruff](https://docs.astral.sh/ruff) | 0.16.6 | MIT |

@@ -80,13 +80,19 @@ test.describe("PDF 経歴書インポート", () => {
   });
 
   test("非対応 PDF（スキャン）はエラーメッセージを表示する", async ({ page }) => {
+    // パネルのヒント文（RESUME_IMPORT_MESSAGES.HINT）にも「テキストを含む PDF のみ対応」が
+    // 含まれるため、ページ全体を対象にした部分一致だとヒント文にも当たる。
+    // エラートースト（role="alert"）へ絞り、モックが返す文言そのもので検証する。
+    const SCAN_PDF_ERROR =
+      "テキストを含む PDF のみ対応しています。スキャン画像の PDF は読み取れないため、お手数ですが手入力をお願いします。";
+
     await page.route("**/api/agent/resume-import/pdf", async (route) => {
       await route.fulfill({
         status: 422,
         contentType: "application/json",
         body: JSON.stringify({
           code: "VALIDATION_ERROR",
-          message: "テキストを含む PDF のみ対応しています。スキャン画像の PDF は読み取れないため、お手数ですが手入力をお願いします。",
+          message: SCAN_PDF_ERROR,
         }),
       });
     });
@@ -102,6 +108,6 @@ test.describe("PDF 経歴書インポート", () => {
         buffer: Buffer.from("%PDF-1.7\n...scan..."),
       });
 
-    await expect(page.getByText(/テキストを含む PDF のみ対応/)).toBeVisible();
+    await expect(page.getByRole("alert")).toContainText(SCAN_PDF_ERROR);
   });
 });
