@@ -30,7 +30,8 @@ PR 後の CodeRabbit 指摘対応・手動レビュー・`/code-review` の結�
 - 非同期の競合: await 漏れ、順序依存、並行更新
 - 変更した条件分岐の反転・取りこぼし
 - 日時文字列を日付へ切り詰めて期間・閾値判定に使っていないか（時刻成分が落ちて閾値直下が通る。PR #581 で CodeRabbit が検出）
-- 自作の lint / パーサが対象言語の行末コメント（`#` / `//`）と文字列リテラルを考慮しているか（`sensitive = true # 説明` を値ごと読んで誤検知する、コメント内の brace で深さ計算が壊れる。PR #615 で CodeRabbit が検出）
+- 自作の lint / パーサが対象言語の**全コメント形式**（行末 `#` / `//`、ブロック `/* */`）と文字列リテラル・複数行文字列（heredoc `<<` / `<<-`）を考慮しているか（`sensitive = true # 説明` を値ごと読んで誤検知する、コメント内の brace で深さ計算が壊れる、heredoc 本文の `key = value` を宣言として拾う。PR #615 で CodeRabbit が検出）
+- パス・識別子を grep で突合する自作 lint が固定文字列検索（`grep -F`）になっているか（`variables.tf` の `.` が任意一文字に一致し、`variablesXtf` のような誤エントリでも通過する。PR #615 で CodeRabbit が検出）
 - 「正本 A と複製 B の一致」を検証する lint が、比較対象から実際に drift する属性を落としていないか（`description` を比較していなければ文言の分裂は検知できない。PR #615 で CodeRabbit が検出）
 - 集合 A→B を検証する lint に逆方向 B→A があるか（shared 起点の symlink 検査は環境側だけに増えた野良ファイルを拾えない。PR #615 で CodeRabbit が検出）
 - docs の疎通確認コマンドが失敗を検知できる形か（`curl -s` は HTTP 4xx/5xx でも成功終了する。`curl -fsS` を使う。PR #604 で CodeRabbit が検出）

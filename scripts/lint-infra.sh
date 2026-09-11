@@ -147,6 +147,8 @@ AWK
 # 文字列リテラルとブロックコメントは「同じ長さ」のマスクに置換してから解析する。
 # heredoc は終端まで別状態で保持し、本文をコメント除去や深さ計算の対象にしない。
 read -r -d '' AWK_BLOCKS <<'AWK' || true
+# 比較用に式の空白を落とす。文字列リテラルの内側は原文のまま保持するため、
+# `condition = (a && b)` と複数行版が同じ値になり、整形差だけの drift を報告しない。
 function normalize_comparison_value(value,   normalized, i, c, inq, esc) {
   normalized = ""; inq = 0; esc = 0
   for (i = 1; i <= length(value); i++) {
@@ -165,9 +167,13 @@ function normalize_comparison_value(value,   normalized, i, c, inq, esc) {
   }
   return normalized
 }
+# ネストブロックの出現番号をリセットする。トップレベルブロックの切り替わりで呼び、
+# 前のブロックの validation 出現番号が次のブロックへ漏れないようにする。
 function reset_block_occurrences(   b) {
   for (b in block_occurrence) delete block_occurrence[b]
 }
+# 属性 1 件を TSV 行として出力する。値のタブはエスケープし、ネストブロック由来の
+# 属性は出現番号を 5 列目に付ける（同名ブロックの順序を呼び出し側で突合するため）。
 function print_attr(attr, value, occurrence,   escaped) {
   # 2 層同期で比較する式は改行・インデントの違いを無視する。文字列リテラルと
   # heredoc はその内容を保持し、description / error_message は正規化しない。
@@ -181,6 +187,8 @@ function print_attr(attr, value, occurrence,   escaped) {
   else
     print kind "\t" name "\t" attr "\t" escaped
 }
+# heredoc の開始行を判定し、終端マーカーと対象属性を状態として保持する。
+# 開始できたら 1、`<<EOF` 以外の値（通常の式）なら 0 を返す。
 function start_heredoc(attr, value, occurrence,   marker) {
   if (value !~ /^<<-?[^[:space:]]+[[:space:]]*$/) return 0
   heredoc_indented = (value ~ /^<<-/)
@@ -523,7 +531,10 @@ for shared in "$INFRA_DIR"/environments/shared/*.tf; do
       err "$path の symlink 先が \"$link\" です（../shared/$name が正）。"
       continue
     fi
-    if [ -f "$JSCPD" ] && ! grep -q "infra/environments/$env/$name\"" "$JSCPD"; then
+    # -F は必須。パスの `.` を正規表現のワイルドカードとして扱うと、
+    # `variablesXtf` のような誤ったエントリでも一致して素通りする（PR #615 で CodeRabbit が検出）。
+    # 先頭は引用符で閉じない: 実エントリは `**/` 始まりの glob のため。
+    if [ -f "$JSCPD" ] && ! grep -Fq "infra/environments/$env/$name\"" "$JSCPD"; then
       err "$path が $JSCPD の ignore にありません（symlink 経由の重複誤検知を防ぐため追記が必要）。"
     fi
   done
