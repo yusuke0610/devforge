@@ -31,7 +31,7 @@ dependencies = [
     "anthropic[vertex]==0.125.0",
     "PyGithub==2.10.0",
     "slowapi==0.1.10",
-    "ruff==0.16.6",
+    "ruff==0.16.7",
     "autopep8==2.3.2",
     "markdown==3.10.3",
     # CVE-2026-55073 対策で 70.0 へ更新（69.0 が脆弱）
