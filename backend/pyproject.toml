@@ -37,7 +37,7 @@ dependencies = [
     # CVE-2026-55073 対策で 70.0 へ更新（69.0 が脆弱）
     "weasyprint==70.0",
     # PDF 経歴書のテキスト抽出（ADR-0024 / #527）。純 Python・native 依存なし。
-    "pypdf==6.17.0",
+    "pypdf==6.18.1",
     "pydyf==0.12.1",
     "redis==8.1.0",
     "isort==8.0.1",
