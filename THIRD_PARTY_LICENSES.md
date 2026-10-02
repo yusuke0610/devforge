@@ -16,10 +16,10 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 | ライブラリ | バージョン | ライセンス |
 |---|---|---|
 | [@reduxjs/toolkit](https://redux-toolkit.js.org) | 2.12.0 | MIT |
-| [dompurify](https://github.com/cure53/DOMPurify) | 3.4.14 | (MPL-2.0 OR Apache-2.0) |
+| [dompurify](https://github.com/cure53/DOMPurify) | 3.4.15 | (MPL-2.0 OR Apache-2.0) |
 | [marked](https://marked.js.org) | 18.0.11 | MIT |
-| [react](https://react.dev/) | 19.2.8 | MIT |
-| [react-dom](https://react.dev/) | 19.2.8 | MIT |
+| [react](https://react.dev/) | 19.3.0 | MIT |
+| [react-dom](https://react.dev/) | 19.3.0 | MIT |
 | [react-pdf](https://github.com/wojtekmaj/react-pdf) | 10.5.0 | MIT |
 | [react-redux](https://github.com/reduxjs/react-redux) | 9.3.0 | MIT |
 | [react-router-dom](https://github.com/remix-run/react-router) | 7.18.3 | MIT |
@@ -64,11 +64,11 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 
 | ライブラリ | バージョン | ライセンス |
 |---|---|---|
-| [alembic](https://alembic.sqlalchemy.org) | 1.19.2 | MIT |
+| [alembic](https://alembic.sqlalchemy.org) | 1.20.0 | MIT |
 | [anthropic](https://github.com/anthropics/anthropic-sdk-python) | 0.125.0 | MIT License |
 | [cryptography](https://github.com/pyca/cryptography) | 50.0.1 | Apache-2.0 OR BSD-3-Clause |
 | [fastapi](https://github.com/fastapi/fastapi) | 0.141.1 | MIT |
-| [google-cloud-storage](https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-storage) | 3.13.1 | Apache Software License |
+| [google-cloud-storage](https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-storage) | 3.14.1 | Apache Software License |
 | [google-cloud-tasks](https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-tasks) | 2.24.0 | Apache Software License |
 | [httpx](https://github.com/encode/httpx) | 0.28.1 | BSD License |
 | [markdown](https://Python-Markdown.github.io/) | 3.10.3 | BSD-3-Clause |
@@ -76,8 +76,8 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 | [pydantic](https://github.com/pydantic/pydantic) | 2.13.5 | MIT |
 | [pydyf](https://www.courtbouillon.org/pydyf) | 0.12.1 | BSD License |
 | [PyGithub](https://github.com/pygithub/pygithub) | 2.10.0 | GNU Library or Lesser General Public License (LGPL) |
-| [PyJWT](https://github.com/jpadilla/pyjwt) | 2.13.0 | MIT |
-| [pypdf](https://github.com/py-pdf/pypdf) | 6.17.0 | BSD-3-Clause |
+| [PyJWT](https://github.com/jpadilla/pyjwt) | 2.15.0 | MIT |
+| [pypdf](https://github.com/py-pdf/pypdf) | 6.18.1 | BSD-3-Clause |
 | [python-dotenv](https://github.com/theskumar/python-dotenv) | 1.2.3 | BSD-3-Clause |
 | [python-multipart](https://github.com/Kludex/python-multipart) | 0.0.32 | Apache-2.0 |
 | [redis](https://github.com/redis/redis-py) | 8.1.0 | MIT |
@@ -86,6 +86,7 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 | [sqlalchemy](https://www.sqlalchemy.org) | 2.0.52 | MIT |
 | [sqlalchemy-libsql](https://github.com/tursodatabase/libsql-sqlalchemy) | 0.2.0 | MIT License |
 | [starlette](https://github.com/Kludex/starlette) | 1.6.0 | BSD-3-Clause |
+| [urllib3](https://pypi.org/project/urllib3/) | 2.8.0 | MIT |
 | [uvicorn](https://uvicorn.dev/) | 0.52.4 | BSD-3-Clause |
 | [weasyprint](https://weasyprint.org/) | 70.0 | BSD License |
 
@@ -96,7 +97,7 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 | [autopep8](https://github.com/hhatto/autopep8) | 2.3.2 | MIT License |
 | [black](https://github.com/psf/black) | 26.5.1 | MIT |
 | [isort](https://pycqa.github.io/isort/index.html) | 8.0.1 | MIT |
-| [mutmut](https://github.com/boxed/mutmut) | 3.7.0 | BSD-3-Clause |
+| [mutmut](https://github.com/boxed/mutmut) | 3.8.0 | BSD-3-Clause |
 | [pytest](https://docs.pytest.org/en/latest/) | 9.1.1 | MIT |
 | [pytest-cov](https://pypi.org/project/pytest-cov/) | 7.1.0 | MIT |
-| [ruff](https://docs.astral.sh/ruff) | 0.16.6 | MIT |
+| [ruff](https://docs.astral.sh/ruff) | 0.16.7 | MIT |
