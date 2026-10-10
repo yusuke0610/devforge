@@ -16,13 +16,13 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 | ライブラリ | バージョン | ライセンス |
 |---|---|---|
 | [@reduxjs/toolkit](https://redux-toolkit.js.org) | 2.12.0 | MIT |
-| [dompurify](https://github.com/cure53/DOMPurify) | 3.4.15 | (MPL-2.0 OR Apache-2.0) |
-| [marked](https://marked.js.org) | 18.0.11 | MIT |
+| [dompurify](https://github.com/cure53/DOMPurify) | 3.4.16 | (MPL-2.0 OR Apache-2.0) |
+| [marked](https://marked.js.org) | 18.0.14 | MIT |
 | [react](https://react.dev/) | 19.3.0 | MIT |
 | [react-dom](https://react.dev/) | 19.3.0 | MIT |
 | [react-pdf](https://github.com/wojtekmaj/react-pdf) | 10.5.0 | MIT |
 | [react-redux](https://github.com/reduxjs/react-redux) | 9.3.0 | MIT |
-| [react-router-dom](https://github.com/remix-run/react-router) | 7.18.3 | MIT |
+| [react-router-dom](https://github.com/remix-run/react-router) | 7.18.4 | MIT |
 | [recharts](https://github.com/recharts/recharts) | 3.10.1 | MIT |
 | [redux-persist](https://github.com/rt2zz/redux-persist#readme) | 6.0.0 | MIT |
 
@@ -66,7 +66,7 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 |---|---|---|
 | [alembic](https://alembic.sqlalchemy.org) | 1.20.0 | MIT |
 | [anthropic](https://github.com/anthropics/anthropic-sdk-python) | 0.125.0 | MIT License |
-| [cryptography](https://github.com/pyca/cryptography) | 50.0.1 | Apache-2.0 OR BSD-3-Clause |
+| [cryptography](https://github.com/pyca/cryptography) | 50.0.2 | Apache-2.0 OR BSD-3-Clause |
 | [fastapi](https://github.com/fastapi/fastapi) | 0.141.1 | MIT |
 | [google-cloud-storage](https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-storage) | 3.14.1 | Apache Software License |
 | [google-cloud-tasks](https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-tasks) | 2.24.0 | Apache Software License |
@@ -76,14 +76,14 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 | [pydantic](https://github.com/pydantic/pydantic) | 2.13.5 | MIT |
 | [pydyf](https://www.courtbouillon.org/pydyf) | 0.12.1 | BSD License |
 | [PyGithub](https://github.com/pygithub/pygithub) | 2.10.0 | GNU Library or Lesser General Public License (LGPL) |
-| [PyJWT](https://github.com/jpadilla/pyjwt) | 2.15.0 | MIT |
+| [PyJWT](https://github.com/jpadilla/pyjwt) | 2.15.1 | MIT |
 | [pypdf](https://github.com/py-pdf/pypdf) | 6.19.0 | BSD-3-Clause |
-| [python-dotenv](https://github.com/theskumar/python-dotenv) | 1.2.3 | BSD-3-Clause |
+| [python-dotenv](https://github.com/theskumar/python-dotenv) | 1.2.4 | BSD-3-Clause |
 | [python-multipart](https://github.com/Kludex/python-multipart) | 0.0.32 | Apache-2.0 |
 | [redis](https://github.com/redis/redis-py) | 8.1.0 | MIT |
 | [reportlab](https://www.reportlab.com/) | 5.0.1 | BSD License |
 | [slowapi](https://github.com/laurents/slowapi) | 0.1.10 | MIT License |
-| [sqlalchemy](https://www.sqlalchemy.org) | 2.0.52 | MIT |
+| [sqlalchemy](https://www.sqlalchemy.org) | 2.1.2 | MIT |
 | [sqlalchemy-libsql](https://github.com/tursodatabase/libsql-sqlalchemy) | 0.2.0 | MIT License |
 | [starlette](https://github.com/Kludex/starlette) | 1.6.0 | BSD-3-Clause |
 | [urllib3](https://pypi.org/project/urllib3/) | 2.8.0 | MIT |
@@ -100,4 +100,4 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 | [mutmut](https://github.com/boxed/mutmut) | 3.8.0 | BSD-3-Clause |
 | [pytest](https://docs.pytest.org/en/latest/) | 9.1.1 | MIT |
 | [pytest-cov](https://pypi.org/project/pytest-cov/) | 7.1.0 | MIT |
-| [ruff](https://docs.astral.sh/ruff) | 0.16.7 | MIT |
+| [ruff](https://docs.astral.sh/ruff) | 0.16.10 | MIT |
