@@ -27,10 +27,18 @@ const frontendDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // 脆弱パッケージを更新して解消したら、対応するエントリも同じ差分で削除すること
 // （未マッチのエントリは検知されず、fail-open の死に設定として残る）。
 //
-// 現在は空。過去に許容していた esbuild (GHSA-gv7w-rqvm-qjhr / GHSA-g7r4-m6w7-qqqr) は
+// 過去に許容していた esbuild (GHSA-gv7w-rqvm-qjhr / GHSA-g7r4-m6w7-qqqr) は
 // vite 8 移行で esbuild 0.28.1 に、react-router (GHSA-qwww-vcr4-c8h2) は 7.18.3 で
 // いずれも修正版に到達したため、エントリを削除した。
-const ALLOWLIST = {};
+const ALLOWLIST = {
+  "GHSA-vfj7-8cjw-p6xm": {
+    reason:
+      "braces の深くネストしたパターンによるスタック枯渇 DoS。braces は最新 3.0.3 を含む" +
+      "全バージョンが脆弱で前進修正版が無い。http-proxy-middleware (devDependency) → " +
+      "micromatch 経由の推移的依存で、本番バンドル非到達・攻撃者制御のグロブを渡す経路も無い。",
+    reviewBy: "2026-11-09 (braces / micromatch の修正版提供を待つ)",
+  },
+};
 
 const BLOCKING_SEVERITIES = new Set(["high", "critical"]);
 
