@@ -381,7 +381,7 @@ requires-dist = [
     { name = "reportlab", specifier = "==5.0.1" },
     { name = "ruff", specifier = "==0.16.10" },
     { name = "slowapi", specifier = "==0.1.10" },
-    { name = "sqlalchemy", specifier = "==2.1.2" },
+    { name = "sqlalchemy", specifier = "==2.1.5" },
     { name = "sqlalchemy-libsql", specifier = "==0.2.0" },
     { name = "starlette", specifier = "==1.6.0" },
     { name = "urllib3", specifier = "==2.8.0" },
@@ -1423,24 +1423,24 @@ wheels = [
 
 [[package]]
 name = "sqlalchemy"
-version = "2.1.2"
+version = "2.1.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/53/c4/6a57fe8bc24ebb438519d20ea4dcab48e4e388b1da8a53783326e762c8b9/sqlalchemy-2.1.2.tar.gz", hash = "sha256:077ac635f7d92644888df8cf6dd92abde06c083dbf996fa58c22792d68b151db", size = 10523935, upload-time = "2026-10-02T04:15:55.84Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/08/bb/28e3106ee586e5b2f5ecf211eec1348055f0f926314b13fe23b9cffa9039/sqlalchemy-2.1.5.tar.gz", hash = "sha256:0df76cf1ca680ad745bd378a6299a058611a8a784eeaeb4ed78ad4a0b7ce2003", size = 10569593, upload-time = "2026-10-16T20:52:20.57Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4a/16/f4b61ee668f3f994a6f90335e62d9cb85304dabda54d30d0c54f7f117603/sqlalchemy-2.1.2-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:372e81af39cf83fd8b238682e2db13946049b70c1eeb4d93a6c17da7a7e7b081", size = 2457271, upload-time = "2026-10-02T05:08:40.218Z" },
-    { url = "https://files.pythonhosted.org/packages/65/69/24bb6f2b91c5f3e714551722d5404031ebe73eda473d4029d837d42980f1/sqlalchemy-2.1.2-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:6909193deb052b68ba1958258f560b0cfcf1c8190ae7b283dd1635a59fa25d83", size = 4581984, upload-time = "2026-10-02T05:19:56.373Z" },
-    { url = "https://files.pythonhosted.org/packages/e6/87/ba15d80f9316c5b78c792b750cc7156c67193eb34a5469dd7a73d1305c89/sqlalchemy-2.1.2-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:d31d7fcbc3b4e79c414550648b204ba6aef7d1cc67b377367488b280e9c6428c", size = 4632707, upload-time = "2026-10-02T05:25:47.182Z" },
-    { url = "https://files.pythonhosted.org/packages/6b/52/270fe6bdc4e012cb7c763f9865e065a8ac54ca8c96714cdb4ef0c5f10b96/sqlalchemy-2.1.2-cp313-cp313-manylinux_2_31_riscv64.manylinux_2_39_riscv64.whl", hash = "sha256:5b1ec3efd0e1fc377425206c5f0f0d0796f74eeaeeb54f3a7bc5aab60430d068", size = 4300010, upload-time = "2026-10-02T06:01:00.025Z" },
-    { url = "https://files.pythonhosted.org/packages/b4/82/2371b34ad2fc6468d5b868673bf4f3339f945506420c39fe9ab1e139abc9/sqlalchemy-2.1.2-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:35aaa0dc4a53b0757e75470805a3c623d81558505e4dd3408ba0dfb7fdebe2aa", size = 4506957, upload-time = "2026-10-02T05:19:58.618Z" },
-    { url = "https://files.pythonhosted.org/packages/12/06/81cc78ea3e796ec8426be6b35134f78af70822124567e883596ea426307a/sqlalchemy-2.1.2-cp313-cp313-musllinux_1_2_riscv64.whl", hash = "sha256:937c19124890f2a68ebc24c2fbe3715d2a51a2aa753e70208768afb0cd0cb7ea", size = 4301226, upload-time = "2026-10-02T06:01:03.805Z" },
-    { url = "https://files.pythonhosted.org/packages/da/2f/7ba0398659d95b03184a33122dda1b0315be6c4220a9b71ff8d1a5d39245/sqlalchemy-2.1.2-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:30e5d3ff941775f4d18299ad4e143414791a82ab135211b6263e60de229df7a3", size = 4594226, upload-time = "2026-10-02T05:25:49.123Z" },
-    { url = "https://files.pythonhosted.org/packages/0e/25/d0f358cb2f428eb826e2f284d1330799a56bf1cc071fb56bacb0169ec077/sqlalchemy-2.1.2-cp313-cp313-win32.whl", hash = "sha256:7e67a39f42eea9cea248d1a183d5e44be3cfa68c728f623385da74bacbe92b6b", size = 2371319, upload-time = "2026-10-02T05:11:06.968Z" },
-    { url = "https://files.pythonhosted.org/packages/fa/eb/a7ce75c40882b1dc00fb6762ca889eca299e8250c3392714b1c43547b549/sqlalchemy-2.1.2-cp313-cp313-win_amd64.whl", hash = "sha256:cef16d70efb10d7066ee05be61d2ad37a00cc7f58ee335bd956664cc922160cd", size = 2421342, upload-time = "2026-10-02T05:11:08.801Z" },
-    { url = "https://files.pythonhosted.org/packages/71/ea/d8a7f875b6708997c2e63af254f4bd644ad8ab1d5c92a1f49acb6f97c563/sqlalchemy-2.1.2-cp313-cp313-win_arm64.whl", hash = "sha256:23dac1a4d0f9891a433c94a85053d75606a0fea5d7bf11769142006f11dfa7ea", size = 2382281, upload-time = "2026-10-02T05:20:17.005Z" },
-    { url = "https://files.pythonhosted.org/packages/80/df/e54318f5d645b8bf0c76b02fdd4430610afee31eada2d7ac59bee30b4715/sqlalchemy-2.1.2-py3-none-any.whl", hash = "sha256:d82dbb7e9fad337c1cfb1ecf042dc9507c0b9d287c3c6a0e0b7fdd621e2d7c27", size = 2052389, upload-time = "2026-10-02T05:14:19.853Z" },
+    { url = "https://files.pythonhosted.org/packages/f6/aa/f10fc142d2db255249107ee8b21bfbabc10b90f7fadf13c3cf898acc6179/sqlalchemy-2.1.5-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:dc1c86db97372e6bba18a7bcf0f6150dbdd808237f0f52802ef0bec676a94642", size = 2465792, upload-time = "2026-10-16T22:42:39.038Z" },
+    { url = "https://files.pythonhosted.org/packages/eb/0d/d395e310e36b5bd39a121cd455504aa1e9111f419efaa88be6b814b4e54d/sqlalchemy-2.1.5-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:6c229afac414d691d2f69a6f4e294ac5b5fd334c49da1f4fb86ab7f2a466271d", size = 4599703, upload-time = "2026-10-16T22:55:25.351Z" },
+    { url = "https://files.pythonhosted.org/packages/f3/6d/04f4ffc5038571e712c4f88f20d7022091bafab082e85ea5b37a7e8270f1/sqlalchemy-2.1.5-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1cf433bcb77696cc915552d7f1e8d9117a5dae5aff9fceb06a69d74b3b3c2bd1", size = 4652645, upload-time = "2026-10-16T22:59:23.273Z" },
+    { url = "https://files.pythonhosted.org/packages/11/85/08bc336576755daf087e0888e44657f4f72b6676a99522e7a612f0c2481e/sqlalchemy-2.1.5-cp313-cp313-manylinux_2_31_riscv64.manylinux_2_39_riscv64.whl", hash = "sha256:399d3e212cb557d5bd1ca6f79981e8c3f45c0f6be60b63a9ded790396a81af08", size = 4316833, upload-time = "2026-10-16T23:15:10.011Z" },
+    { url = "https://files.pythonhosted.org/packages/a7/5c/476441255cc7afa25e8c75e5a61d3c5c3af7cf61c951ebed2ee9873ec4b1/sqlalchemy-2.1.5-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:6a51c56afdb880e9f83736a2e81c02dd002fe1c5ad68346a35d97a2e135b1568", size = 4523134, upload-time = "2026-10-16T22:55:27.374Z" },
+    { url = "https://files.pythonhosted.org/packages/63/ca/064e5e3ca7c8f256c8f9b5206eafd410a39226c2ab6fe7e8c1e70725e432/sqlalchemy-2.1.5-cp313-cp313-musllinux_1_2_riscv64.whl", hash = "sha256:17f8c68bd35bb76b2d9ef1097941fb783ef9ef6604c1d2a72c2e276430aeffca", size = 4318058, upload-time = "2026-10-16T23:15:12.139Z" },
+    { url = "https://files.pythonhosted.org/packages/90/8c/e38956834896e21038a67193f91b189b9a61555b92fac42368027d5a2524/sqlalchemy-2.1.5-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:59dbd7412531da0124df8667a244b5155773632e9bd79a5c2ead393b11b59de5", size = 4613916, upload-time = "2026-10-16T22:59:25.19Z" },
+    { url = "https://files.pythonhosted.org/packages/14/b3/5531eb9d10d4bd38bd7e6c505776ac73be259dc117c9f07a8c46db4e9a2b/sqlalchemy-2.1.5-cp313-cp313-win32.whl", hash = "sha256:3f566787cb3a6a25ad8c5170e90167d4e8ea103d412aa4ea95021a6df0b95964", size = 2379136, upload-time = "2026-10-16T22:48:37.111Z" },
+    { url = "https://files.pythonhosted.org/packages/a9/f6/c48924aafae616d59a2eb0375feeaf4bc4356327a442bda3b9205861b543/sqlalchemy-2.1.5-cp313-cp313-win_amd64.whl", hash = "sha256:fb8dcd5e1cc12fdd4d490819ec7a56e8c02e86ca9087a472e28b422ff932bae0", size = 2429688, upload-time = "2026-10-16T22:48:39.038Z" },
+    { url = "https://files.pythonhosted.org/packages/51/84/0855a7d42b700b091af6f817c171c2ff97478b0d5143fe61963adbff9201/sqlalchemy-2.1.5-cp313-cp313-win_arm64.whl", hash = "sha256:65eece9d9494e46de1eb3d49eb438acfcecf059e7a92a2f3daf72ec26d371757", size = 2390320, upload-time = "2026-10-16T22:31:43.871Z" },
+    { url = "https://files.pythonhosted.org/packages/de/e9/61176e4753f74ab5f6e72a56314ee654d25c31e6fc98c99060442998cccb/sqlalchemy-2.1.5-py3-none-any.whl", hash = "sha256:2f77b77b716f005b2dc3cc059d56df6a919bfb5b439e4149890a9df6c36be9e3", size = 2060214, upload-time = "2026-10-16T22:43:30.801Z" },
 ]
 
 [[package]]
