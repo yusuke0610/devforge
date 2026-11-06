@@ -43,7 +43,7 @@ jobs:
       # dev と CI のビルド経路を Nix devshell（uv2nix build）へ一致させる（ADR-0021 Phase 2）。
       # WeasyPrint のネイティブライブラリ・Python 3.13・依存パッケージはすべて devshell が提供する。
       - name: Install Nix
-        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
         with:
           # flake inputs（nixpkgs / uv2nix 等）の GitHub 取得でレート制限に当たらないようにする
           github_access_token: ${{ github.token }}
@@ -107,7 +107,7 @@ jobs:
 
       - name: レポートを artifact 化
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: mutmut-report
           path: |
@@ -134,7 +134,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: "20"
           cache: npm
@@ -183,7 +183,7 @@ jobs:
 
       - name: レポートを artifact 化
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: stryker-report
           path: web/reports/mutation/
