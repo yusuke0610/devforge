@@ -19,6 +19,9 @@ dependencies = [
     "sqlalchemy-libsql==0.2.0",
     "alembic==1.20.0",
     "pydantic[email]==2.13.5",
+    # dnspython は pydantic[email]（email-validator）の推移的依存だが、CVE-2026-114605 /
+    # CVE-2026-128089 対策で明示固定する（2.8.0 が脆弱。修正版は 2.9.2）
+    "dnspython==2.9.2",
     "python-dotenv==1.2.4",
     "reportlab==5.0.1",
     "google-cloud-storage==3.14.1",
@@ -28,6 +31,9 @@ dependencies = [
     # 明示固定する（49.0.0 が脆弱。修正版は 50.0.0）
     "cryptography==50.0.2",
     "httpx==0.28.1",
+    # certifi は httpx / requests の推移的依存だが、PYSEC-2026-4320 対策で明示固定する
+    # （2026.7.22 が脆弱。修正版は 2026.10.18）
+    "certifi==2026.11.20",
     "anthropic[vertex]==0.125.0",
     "PyGithub==2.10.0",
     # CVE-2026-97687 / CVE-2026-97688 / CVE-2026-97689 対策で 2.8.0 へ固定（2.7.0 が脆弱）
@@ -38,15 +44,21 @@ dependencies = [
     "markdown==3.10.3",
     # CVE-2026-55073 対策で 70.0 へ更新（69.0 が脆弱）
     "weasyprint==70.0",
+    # pillow は weasyprint / reportlab の推移的依存だが、PYSEC-2026-4326 ほか計 42 件の
+    # advisory 対策で明示固定する（12.3.0 が脆弱。修正版は 13.0.0）
+    "pillow==13.0.0",
+    # brotli は weasyprint（fonttools[woff]）の推移的依存だが、PYSEC-2026-4322 対策で
+    # 明示固定する（1.2.0 が脆弱。修正版は 1.2.1）
+    "brotli==1.2.1",
     # PDF 経歴書のテキスト抽出（ADR-0024 / #527）。純 Python・native 依存なし。
-    "pypdf==6.19.0",
+    "pypdf==6.21.4",
     "pydyf==0.12.1",
     "redis==8.1.0",
     "isort==8.0.1",
-    "black==26.5.1",
+    "black==26.10.1",
     "pytest-cov==7.1.0",
     "google-cloud-tasks==2.24.0",
-    "pyasn1==0.6.4",
+    "pyasn1==0.6.5",
     # CVE-2026-53538 / CVE-2026-53539 / CVE-2026-53540 対策で 0.0.31 以上へ更新済み
     "python-multipart==0.0.32",
     # ミューテーションテスト（週次 CI: .github/workflows/mutation.yml / ADR-0017）
