@@ -57,19 +57,21 @@
     "prettier": "^3.8.1",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.61.1",
-    "vite": "^8.0.16",
+    "vite": "^8.1.7",
     "vitest": "^4.1.2",
     "wrangler": "^4.90.0"
   },
   "overrides": {
     "shell-quote": "^1.12.0",
     "ws": "^8.21.0",
-    "undici": "^7.29.1",
+    "undici": "^7.30.1",
     "fast-uri": "^4.1.4",
     "sharp": "^0.35.5",
     "brace-expansion": "^5.0.11",
     "js-yaml": "^4.3.2",
     "proxy-addr": "^2.0.8",
-    "source-map-js": "^1.2.2"
+    "source-map-js": "^1.2.2",
+    "body-parser": "^2.4.0",
+    "zod": "^4.6.6"
   }
 }

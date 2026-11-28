@@ -16,13 +16,13 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 | ライブラリ | バージョン | ライセンス |
 |---|---|---|
 | [@reduxjs/toolkit](https://redux-toolkit.js.org) | 2.12.0 | MIT |
-| [dompurify](https://github.com/cure53/DOMPurify) | 3.4.15 | (MPL-2.0 OR Apache-2.0) |
-| [marked](https://marked.js.org) | 18.0.11 | MIT |
+| [dompurify](https://github.com/cure53/DOMPurify) | 3.4.16 | (MPL-2.0 OR Apache-2.0) |
+| [marked](https://marked.js.org) | 18.0.14 | MIT |
 | [react](https://react.dev/) | 19.3.0 | MIT |
 | [react-dom](https://react.dev/) | 19.3.0 | MIT |
 | [react-pdf](https://github.com/wojtekmaj/react-pdf) | 10.5.0 | MIT |
 | [react-redux](https://github.com/reduxjs/react-redux) | 9.3.0 | MIT |
-| [react-router-dom](https://github.com/remix-run/react-router) | 7.18.3 | MIT |
+| [react-router-dom](https://github.com/remix-run/react-router) | 7.18.4 | MIT |
 | [recharts](https://github.com/recharts/recharts) | 3.10.1 | MIT |
 | [redux-persist](https://github.com/rt2zz/redux-persist#readme) | 6.0.0 | MIT |
 
@@ -56,7 +56,7 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 | [prettier](https://prettier.io) | 3.9.6 | MIT |
 | [typescript](https://www.typescriptlang.org/) | 5.9.3 | Apache-2.0 |
 | [typescript-eslint](https://typescript-eslint.io/packages/typescript-eslint) | 8.65.0 | MIT |
-| [vite](https://vite.dev) | 8.1.5 | MIT |
+| [vite](https://vite.dev) | 8.1.7 | MIT |
 | [vitest](https://vitest.dev) | 4.1.10 | MIT |
 | [wrangler](https://github.com/cloudflare/workers-sdk#readme) | 4.114.0 | MIT OR Apache-2.0 |
 
@@ -66,24 +66,28 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 |---|---|---|
 | [alembic](https://alembic.sqlalchemy.org) | 1.20.0 | MIT |
 | [anthropic](https://github.com/anthropics/anthropic-sdk-python) | 0.125.0 | MIT License |
-| [cryptography](https://github.com/pyca/cryptography) | 50.0.1 | Apache-2.0 OR BSD-3-Clause |
+| [brotli](https://github.com/google/brotli) | 1.2.1 | MIT |
+| [certifi](https://github.com/certifi/python-certifi) | 2026.11.20 | Mozilla Public License 2.0 (MPL 2.0) |
+| [cryptography](https://github.com/pyca/cryptography) | 50.0.2 | Apache-2.0 OR BSD-3-Clause |
+| [dnspython](https://www.dnspython.org) | 2.9.2 | ISC |
 | [fastapi](https://github.com/fastapi/fastapi) | 0.141.1 | MIT |
 | [google-cloud-storage](https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-storage) | 3.14.1 | Apache Software License |
 | [google-cloud-tasks](https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-tasks) | 2.24.0 | Apache Software License |
 | [httpx](https://github.com/encode/httpx) | 0.28.1 | BSD License |
 | [markdown](https://Python-Markdown.github.io/) | 3.10.3 | BSD-3-Clause |
-| [pyasn1](https://github.com/pyasn1/pyasn1) | 0.6.4 | BSD-2-Clause |
+| [pillow](https://python-pillow.org) | 13.0.0 | MIT-CMU |
+| [pyasn1](https://github.com/pyasn1/pyasn1) | 0.6.5 | BSD-2-Clause |
 | [pydantic](https://github.com/pydantic/pydantic) | 2.13.5 | MIT |
 | [pydyf](https://www.courtbouillon.org/pydyf) | 0.12.1 | BSD License |
 | [PyGithub](https://github.com/pygithub/pygithub) | 2.10.0 | GNU Library or Lesser General Public License (LGPL) |
-| [PyJWT](https://github.com/jpadilla/pyjwt) | 2.15.0 | MIT |
-| [pypdf](https://github.com/py-pdf/pypdf) | 6.19.0 | BSD-3-Clause |
-| [python-dotenv](https://github.com/theskumar/python-dotenv) | 1.2.3 | BSD-3-Clause |
+| [PyJWT](https://github.com/jpadilla/pyjwt) | 2.15.1 | MIT |
+| [pypdf](https://github.com/py-pdf/pypdf) | 6.21.4 | BSD-3-Clause |
+| [python-dotenv](https://github.com/theskumar/python-dotenv) | 1.2.4 | BSD-3-Clause |
 | [python-multipart](https://github.com/Kludex/python-multipart) | 0.0.32 | Apache-2.0 |
 | [redis](https://github.com/redis/redis-py) | 8.1.0 | MIT |
 | [reportlab](https://www.reportlab.com/) | 5.0.1 | BSD License |
 | [slowapi](https://github.com/laurents/slowapi) | 0.1.10 | MIT License |
-| [sqlalchemy](https://www.sqlalchemy.org) | 2.0.52 | MIT |
+| [sqlalchemy](https://www.sqlalchemy.org) | 2.1.2 | MIT |
 | [sqlalchemy-libsql](https://github.com/tursodatabase/libsql-sqlalchemy) | 0.2.0 | MIT License |
 | [starlette](https://github.com/Kludex/starlette) | 1.6.0 | BSD-3-Clause |
 | [urllib3](https://pypi.org/project/urllib3/) | 2.8.0 | MIT |
@@ -95,9 +99,9 @@ DevForge は多くのオープンソースソフトウェア（OSS）に支え�
 | ライブラリ | バージョン | ライセンス |
 |---|---|---|
 | [autopep8](https://github.com/hhatto/autopep8) | 2.3.2 | MIT License |
-| [black](https://github.com/psf/black) | 26.5.1 | MIT |
+| [black](https://github.com/psf/black) | 26.10.1 | MIT |
 | [isort](https://pycqa.github.io/isort/index.html) | 8.0.1 | MIT |
 | [mutmut](https://github.com/boxed/mutmut) | 3.8.0 | BSD-3-Clause |
 | [pytest](https://docs.pytest.org/en/latest/) | 9.1.1 | MIT |
 | [pytest-cov](https://pypi.org/project/pytest-cov/) | 7.1.0 | MIT |
-| [ruff](https://docs.astral.sh/ruff) | 0.16.7 | MIT |
+| [ruff](https://docs.astral.sh/ruff) | 0.16.10 | MIT |
