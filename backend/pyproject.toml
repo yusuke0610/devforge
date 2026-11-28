@@ -18,7 +18,7 @@ dependencies = [
     "sqlalchemy==2.1.2",
     "sqlalchemy-libsql==0.2.0",
     "alembic==1.20.0",
-    "pydantic[email]==2.13.5",
+    "pydantic[email]==2.14.4",
     # dnspython は pydantic[email]（email-validator）の推移的依存だが、CVE-2026-114605 /
     # CVE-2026-128089 対策で明示固定する（2.8.0 が脆弱。修正版は 2.9.2）
     "dnspython==2.9.2",
